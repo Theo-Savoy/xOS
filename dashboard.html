@@ -21,6 +21,7 @@
   --green: #22c55e;
   --amber: #f59e0b;
   --orange: #f97316;
+  --orange-dim: #ea580c;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -39,7 +40,7 @@ body {
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -248,30 +249,35 @@ tr:hover td { background: var(--panel-hover); }
 
 <div class="header">
   <h1>🗑️ XOS — Dashboard Opportunités Déchet</h1>
-  <div class="subtitle">Opportunités ouvertes avec CloseDate dépassée — audit hygiène CRM</div>
+  <div class="subtitle">Opportunités déchet (CloseDate dépassée) + montants incohérents (≤100€) — audit hygiène CRM</div>
   <div class="generated">Généré le 2026-07-09 19:31:05</div>
 </div>
 
 <div class="kpi-row">
   <div class="kpi-card">
     <div class="kpi-label">Opps Déchet</div>
-    <div class="kpi-value red">251</div>
-    <div class="kpi-sub">sur 476 ouvertes (52.7%)</div>
+    <div class="kpi-value red" id="kpi-dechet">—</div>
+    <div class="kpi-sub" id="kpi-dechet-sub">—</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">CA à Risque</div>
-    <div class="kpi-value amber">4 613 571€</div>
+    <div class="kpi-value amber" id="kpi-ca">—</div>
     <div class="kpi-sub">montant cumulé des opps déchet</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Sans Activité</div>
-    <div class="kpi-value red">133</div>
+    <div class="kpi-value red" id="kpi-noactivity">—</div>
     <div class="kpi-sub">aucune activité jamais enregistrée</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Owners Inactifs</div>
-    <div class="kpi-value amber">21</div>
+    <div class="kpi-value amber" id="kpi-inactive">—</div>
     <div class="kpi-sub">opps sur anciens commerciaux</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Montants Incohérents</div>
+    <div class="kpi-value orange" id="kpi-incoherent">—</div>
+    <div class="kpi-sub">opp avec montant ≤100€ et CloseDate <6 mois</div>
   </div>
 </div>
 
@@ -351,6 +357,12 @@ tr:hover td { background: var(--panel-hover); }
     <button class="filter-btn" onclick="setOwnerFilter('Christophe Hirtz')">Christophe Hirtz</button><button class="filter-btn" onclick="setOwnerFilter('Paul RATHOUIN')">Paul RATHOUIN</button><button class="filter-btn" onclick="setOwnerFilter('Romain Waeselynck')">Romain Waeselynck</button><button class="filter-btn" onclick="setOwnerFilter('Jérôme Bosio')">Jérôme Bosio</button><button class="filter-btn" onclick="setOwnerFilter('Théo SAVOY')">Théo SAVOY</button><button class="filter-btn" onclick="setOwnerFilter('Julien Bak')">Julien Bak</button>
   </div>
   <div class="filter-group">
+    <span class="filter-label">Catégorie:</span>
+    <button class="filter-btn active" onclick="setCatFilter('all')">Toutes</button>
+    <button class="filter-btn" onclick="setCatFilter('dechet')">Déchet</button>
+    <button class="filter-btn" onclick="setCatFilter('incoherent')">Incohérent</button>
+  </div>
+  <div class="filter-group">
     <span class="filter-label">Recherche:</span>
     <input class="search-box" type="text" placeholder="Nom, compte, étape..." oninput="setSearch(this.value)">
   </div>
@@ -361,11 +373,12 @@ tr:hover td { background: var(--panel-hover); }
 </div>
 
 <div class="section">
-  <div class="section-header">📋 Liste des opportunités déchet — tri par score de pertinence</div>
+  <div class="section-header">📋 Liste des opportunités — tri par score de pertinence</div>
   <div class="section-body">
     <table id="main-table">
       <thead>
         <tr>
+          <th onclick="sortBy('category')" id="th-cat">Catégorie</th>
           <th onclick="sortBy('score')" id="th-score">Score</th>
           <th onclick="sortBy('name')" id="th-name">Opportunité</th>
           <th onclick="sortBy('account')" id="th-account">Compte</th>
@@ -398,6 +411,7 @@ const PER_PAGE = 25;
 let sortKey = 'score';
 let sortDir = 'desc';
 let ownerFilter = 'all';
+let catFilter = 'all';
 let searchText = '';
 
 function escapeHtml(s) {
@@ -433,6 +447,11 @@ function activeBadge(active) {
   return active ? '' : ' <span class="badge badge-red">Inactif</span>';
 }
 
+function categoryBadge(cat) {
+  if (cat === 'incoherent') return '<span class="badge badge-orange">Incohérent</span>';
+  return '<span class="badge badge-red">Déchet</span>';
+}
+
 function renderTable() {
   const tbody = document.getElementById('table-body');
   const start = (currentPage - 1) * PER_PAGE;
@@ -444,6 +463,7 @@ function renderTable() {
       return '<span class="reason-tag">' + escapeHtml(r.split('(')[0].trim()) + '</span>';
     }).join('');
     return '<tr>' +
+      '<td>' + categoryBadge(o.category || 'dechet') + '</td>' +
       '<td class="score-cell ' + scoreClass(o.score) + '">' + o.score + '</td>' +
       '<td>' + escapeHtml(o.name) + '</td>' +
       '<td>' + escapeHtml(o.account) + '</td>' +
@@ -477,8 +497,18 @@ function sortBy(key) {
 
 function setOwnerFilter(name) {
   ownerFilter = name;
-  document.querySelectorAll('.filter-btn').forEach(function(btn) {
+  var ownerBtns = document.querySelectorAll('[onclick^="setOwnerFilter"]');
+  ownerBtns.forEach(function(btn) {
     btn.classList.toggle('active', (name === 'all' && btn.textContent === 'Tous') || btn.textContent === name);
+  });
+  applyFilters();
+}
+
+function setCatFilter(cat) {
+  catFilter = cat;
+  var catBtns = document.querySelectorAll('[onclick^="setCatFilter"]');
+  catBtns.forEach(function(btn) {
+    btn.classList.toggle('active', (cat === 'all' && btn.textContent === 'Toutes') || (cat !== 'all' && btn.textContent.toLowerCase().indexOf(cat) !== -1));
   });
   applyFilters();
 }
@@ -488,6 +518,7 @@ function setSearch(text) { searchText = text.toLowerCase(); applyFilters(); }
 function applyFilters() {
   filtered = ALL_OPPS.filter(function(o) {
     if (ownerFilter !== 'all' && o.owner !== ownerFilter) return false;
+    if (catFilter !== 'all' && (o.category || 'dechet') !== catFilter) return false;
     if (searchText) {
       var haystack = (o.name + ' ' + o.account + ' ' + o.owner + ' ' + o.stage + ' ' + (o.type_vente || '')).toLowerCase();
       if (haystack.indexOf(searchText) === -1) return false;
@@ -508,16 +539,26 @@ function prevPage() { if (currentPage > 1) { currentPage--; renderTable(); } }
 function nextPage() { var tp = Math.ceil(filtered.length / PER_PAGE); if (currentPage < tp) { currentPage++; renderTable(); } }
 
 // Load data and render
+function updateKPIs(d) {
+  document.getElementById('kpi-dechet').textContent = d.total_dechet;
+  document.getElementById('kpi-dechet-sub').textContent = 'sur ' + d.total_open + ' ouvertes (' + d.pct_dechet + '%)';
+  document.getElementById('kpi-ca').textContent = d.ca_at_risk ? d.ca_at_risk.toLocaleString('fr-FR') + '€' : '—';
+  document.getElementById('kpi-noactivity').textContent = (d.opps || []).filter(function(o) { return o.days_since_activity === 9999; }).length;
+  document.getElementById('kpi-inactive').textContent = (d.opps || []).filter(function(o) { return !o.owner_active; }).length;
+  document.getElementById('kpi-incoherent').textContent = d.total_incoherent || 0;
+}
+
 function loadData(cacheBust) {
   var url = cacheBust ? 'dashboard_data.json?v=' + Date.now() : 'dashboard_data.json';
   return fetch(url).then(function(r) { return r.json(); }).then(function(d) {
     ALL_OPPS = d.opps;
+    updateKPIs(d);
     applyFilters();
     var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
     document.getElementById('last-updated').textContent = 'Dernière MAJ: ' + ts;
   }).catch(function(e) {
     console.error('Failed to load dashboard_data.json:', e);
-    document.getElementById('table-body').innerHTML = '<tr><td colspan="12">Erreur: impossible de charger les données.</td></tr>';
+    document.getElementById('table-body').innerHTML = '<tr><td colspan="13">Erreur: impossible de charger les données.</td></tr>';
   });
 }
 
@@ -544,6 +585,7 @@ function refreshData() {
     return r.json();
   }).then(function(d) {
     ALL_OPPS = d.opps;
+    updateKPIs(d);
     applyFilters();
     var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
     document.getElementById('last-updated').textContent = 'Dernière MAJ: ' + ts;

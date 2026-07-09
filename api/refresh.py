@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler
 
 def do_refresh():
     """Core logic — returns (status_code, body_dict)."""
-    min_refresh_minutes = 30
+    min_refresh_minutes = 5
 
     # ── Rate limit: check current data age ──
     current_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard_data.json")
@@ -83,7 +83,7 @@ def do_refresh():
             url = nxt  # full URL from Salesforce
         return records
 
-    # ── 3. Fetch déchet opps ──
+    # ── 3. Fetch déchet opps (CloseDate < today) ──
     soql_dechet = (
         "SELECT Id, Name, AccountId, Account.Name, Account.Industry, "
         "OwnerId, Owner.Name, StageName, CloseDate, Amount, Probability, "
@@ -95,13 +95,29 @@ def do_refresh():
     )
     dechet_records = soql_query_all(soql_dechet)
 
+    # ── 3b. Fetch montant incoherent opps (Amount 1-100€, CloseDate < 6 months) ──
+    soql_incoherent = (
+        "SELECT Id, Name, AccountId, Account.Name, Account.Industry, "
+        "OwnerId, Owner.Name, StageName, CloseDate, Amount, Probability, "
+        "Type_de_vente__c, CreatedDate, IsWon, IsClosed, LeadSource, "
+        "CampaignId, Campaign.Name, LastActivityDate, LastModifiedDate, "
+        "ExpectedRevenue, HasOpenActivity, LastStageChangeDate "
+        "FROM Opportunity WHERE IsClosed = false "
+        "AND Amount > 0 AND Amount <= 100 "
+        "AND CloseDate > TODAY AND CloseDate < NEXT_N_MONTHS:6 "
+        "ORDER BY Amount ASC"
+    )
+    incoherent_records = soql_query_all(soql_incoherent)
+
     soql_all = (
         "SELECT Id FROM Opportunity WHERE IsClosed = false"
     )
     all_open_count = len(soql_query_all(soql_all))
 
-    # ── 4. Resolve owners ──
-    owner_ids = list(set(r.get("OwnerId") for r in dechet_records if r.get("OwnerId")))
+    # ── 4. Resolve owners (déchet + incoherent) ──
+    owner_ids = list(set(
+        r.get("OwnerId") for r in dechet_records + incoherent_records if r.get("OwnerId")
+    ))
     users_map = {}
     if owner_ids:
         ids_csv = ",".join("'" + oid + "'" for oid in owner_ids)
@@ -112,8 +128,27 @@ def do_refresh():
     today = date.today()
     FORMER = {"Julien Bak", "Romain Waeselynck", "Roxane Serie", "Antoine Fardet", "ibrahima sissoko", "Ibrahima Sissoko"}
 
-    scored = []
-    for r in dechet_records:
+    reason_display = {
+        "CloseDate depassee >1 an": "CloseDate depass\u00e9e >1 an",
+        "CloseDate depassee 6-12 mois": "CloseDate depass\u00e9e 6-12 mois",
+        "CloseDate depassee 3-6 mois": "CloseDate depass\u00e9e 3-6 mois",
+        "CloseDate depassee <3 mois": "CloseDate depass\u00e9e <3 mois",
+        "Aucune activite jamais enregistree": "Aucune activit\u00e9 jamais enregistr\u00e9e",
+        "Pas d activite depuis >1 an": "Pas d activit\u00e9 depuis >1 an",
+        "Pas d activite depuis >3 mois": "Pas d activit\u00e9 depuis >3 mois",
+        "Pas d activite depuis >30j": "Pas d activit\u00e9 depuis >30j",
+        "Pas de montant": "Pas de montant",
+        "Probabilite = 0%": "Probabilit\u00e9 = 0%",
+        "Owner inactif": "Owner inactif",
+        "Ancien commercial": "Ancien commercial",
+        "Creee il y a >2 ans": "Cr\u00e9\u00e9e il y a >2 ans",
+        "Creee il y a >1 an": "Cr\u00e9\u00e9e il y a >1 an",
+        "Stage: Suspect enlise": "Stage: Suspect enlis\u00e9",
+        "Montant incoherent": "Montant incoh\u00e9rent (\u2264100\u20ac)",
+    }
+
+    def score_opp(r, category):
+        """Score an opp. category = 'dechet' or 'incoherent'."""
         opp_id = r.get("Id", "")
         owner_id = r.get("OwnerId", "")
         oi = users_map.get(owner_id, {"name": (r.get("Owner") or {}).get("Name", "?"), "active": True})
@@ -140,12 +175,16 @@ def do_refresh():
         score = 0
         reasons = []
 
-        if d_ov > 0:
+        if category == "dechet" and d_ov > 0:
             score += min(d_ov / 30, 12)
             if d_ov > 365: reasons.append("CloseDate depassee >1 an")
             elif d_ov > 180: reasons.append("CloseDate depassee 6-12 mois")
             elif d_ov > 90: reasons.append("CloseDate depassee 3-6 mois")
             else: reasons.append("CloseDate depassee <3 mois")
+
+        if category == "incoherent":
+            score += 10
+            reasons.append("Montant incoherent")
 
         if not la:
             score += 8; reasons.append("Aucune activite jamais enregistree")
@@ -156,7 +195,7 @@ def do_refresh():
         elif d_ac > 30:
             score += 2; reasons.append("Pas d activite depuis >30j")
 
-        if not amt or amt == 0:
+        if category == "dechet" and (not amt or amt == 0):
             score += 6; reasons.append("Pas de montant")
 
         if prob == 0:
@@ -176,30 +215,12 @@ def do_refresh():
         if stage == "Suspect enlise":
             score += 3; reasons.append("Stage: Suspect enlise")
 
-        if amt and amt > 0:
+        if amt and amt > 0 and category == "dechet":
             score += min(amt / 10000, 5)
 
-        # Use original accented strings for display
-        reason_display = {
-            "CloseDate depassee >1 an": "CloseDate depass\u00e9e >1 an",
-            "CloseDate depassee 6-12 mois": "CloseDate depass\u00e9e 6-12 mois",
-            "CloseDate depassee 3-6 mois": "CloseDate depass\u00e9e 3-6 mois",
-            "CloseDate depassee <3 mois": "CloseDate depass\u00e9e <3 mois",
-            "Aucune activite jamais enregistree": "Aucune activit\u00e9 jamais enregistr\u00e9e",
-            "Pas d activite depuis >1 an": "Pas d activit\u00e9 depuis >1 an",
-            "Pas d activite depuis >3 mois": "Pas d activit\u00e9 depuis >3 mois",
-            "Pas d activite depuis >30j": "Pas d activit\u00e9 depuis >30j",
-            "Pas de montant": "Pas de montant",
-            "Probabilite = 0%": "Probabilit\u00e9 = 0%",
-            "Owner inactif": "Owner inactif",
-            "Ancien commercial": "Ancien commercial",
-            "Creee il y a >2 ans": "Cr\u00e9\u00e9e il y a >2 ans",
-            "Creee il y a >1 an": "Cr\u00e9\u00e9e il y a >1 an",
-            "Stage: Suspect enlise": "Stage: Suspect enlis\u00e9",
-        }
         display_reasons = [reason_display.get(x, x) for x in reasons]
 
-        scored.append({
+        return {
             "id": opp_id,
             "name": r.get("Name", ""),
             "account": (r.get("Account") or {}).get("Name", "\u2014") if isinstance(r.get("Account"), dict) else "\u2014",
@@ -220,17 +241,26 @@ def do_refresh():
             "expected_revenue": r.get("ExpectedRevenue"),
             "last_stage_change": (r.get("LastStageChangeDate") or "")[:10],
             "score": round(score, 1),
+            "category": category,
             "reasons": display_reasons,
             "sf_link": "https://db0000000d7rdeay.my.salesforce.com/lightning/r/Opportunity/" + opp_id + "/view",
-        })
+        }
 
+    # Score déchet opps
+    dechet_scored = [score_opp(r, "dechet") for r in dechet_records]
+    # Score incoherent opps
+    incoherent_scored = [score_opp(r, "incoherent") for r in incoherent_records]
+
+    # Merge and sort by score
+    scored = dechet_scored + incoherent_scored
     scored.sort(key=lambda x: x["score"], reverse=True)
 
     # ── 6. Stats ──
-    total_dechet = len(scored)
+    total_dechet = len(dechet_scored)
+    total_incoherent = len(incoherent_scored)
     total_open = all_open_count
-    pct_dechet = round(total_dechet / total_open * 100, 1) if total_open else 0
-    ca_at_risk = sum(o["amount"] or 0 for o in scored)
+    pct_dechet = round((total_dechet + total_incoherent) / total_open * 100, 1) if total_open else 0
+    ca_at_risk = sum(o["amount"] or 0 for o in dechet_scored)
 
     owner_stats = {}
     for o in scored:
@@ -262,6 +292,7 @@ def do_refresh():
     dashboard_data = {
         "generated_at": datetime.now().isoformat(),
         "total_dechet": total_dechet,
+        "total_incoherent": total_incoherent,
         "total_open": total_open,
         "pct_dechet": pct_dechet,
         "ca_at_risk": ca_at_risk,
