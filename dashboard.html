@@ -1009,16 +1009,21 @@ function renderDashboardStats(d) {
   // 2. Répartition par étape
   var stageTbody = document.getElementById('stage-tbody');
   if (stageTbody && d.stage_stats) {
+    var totalStageCount = 0;
+    Object.keys(d.stage_stats).forEach(function(k) {
+      totalStageCount += d.stage_stats[k] || 0;
+    });
+
     var stageNames = Object.keys(d.stage_stats).sort(function(a, b) {
-      return d.stage_stats[b].count - d.stage_stats[a].count;
+      return d.stage_stats[b] - d.stage_stats[a];
     });
 
     stageTbody.innerHTML = stageNames.map(function(name) {
-      var stat = d.stage_stats[name];
-      var pct = stat.pct || 0;
+      var count = d.stage_stats[name] || 0;
+      var pct = totalStageCount > 0 ? (count / totalStageCount * 100) : 0;
       return '<tr>' +
         '<td>' + escapeHtml(name) + '</td>' +
-        '<td style="font-weight:600;">' + stat.count + '</td>' +
+        '<td style="font-weight:600;">' + count + '</td>' +
         '<td>' + pct.toFixed(1) + '%</td>' +
         '<td style="width:100%; min-width:80px;"><div class="bar-container"><div class="bar-fill" style="width:' + pct + '%"></div></div></td>' +
         '</tr>';
