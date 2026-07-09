@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     fields.Type_de_vente__c = changes.type_vente;
     journalChanges.type_vente = changes.type_vente;
   }
-  if (!('OwnerId' in fields) && !('CloseDate' in fields) && !('StageName' in fields) && !('Type_de_vente__c' in fields)) {
+  if (!journalChanges.owner_id && !journalChanges.close_date && !journalChanges.stage && !journalChanges.type_vente) {
     return res.status(400).json({ error: 'invalid_payload', message: 'changes doit contenir au moins une clé parmi owner_id, close_date, stage, type_vente.' });
   }
 
