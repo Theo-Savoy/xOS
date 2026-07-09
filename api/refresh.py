@@ -95,7 +95,9 @@ def do_refresh():
     )
     dechet_records = soql_query_all(soql_dechet)
 
-    # ── 3b. Fetch montant incoherent opps (Amount 1-100€, CloseDate < 6 months) ──
+    # ── 3b. Fetch montant incoherent opps (Amount 1-100€, any open opp) ──
+    # These have an absurdly low amount that doesn't match CRM usage.
+    # Exclude opps already in déchet (CloseDate < today) to avoid duplicates.
     soql_incoherent = (
         "SELECT Id, Name, AccountId, Account.Name, Account.Industry, "
         "OwnerId, Owner.Name, StageName, CloseDate, Amount, Probability, "
@@ -104,7 +106,7 @@ def do_refresh():
         "ExpectedRevenue, HasOpenActivity, LastStageChangeDate "
         "FROM Opportunity WHERE IsClosed = false "
         "AND Amount > 0 AND Amount <= 100 "
-        "AND CloseDate > TODAY AND CloseDate < NEXT_N_MONTHS:6 "
+        "AND CloseDate >= TODAY "
         "ORDER BY Amount ASC"
     )
     incoherent_records = soql_query_all(soql_incoherent)
