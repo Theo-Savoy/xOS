@@ -400,6 +400,12 @@ th.th-check { cursor: default; }
     <button class="filter-btn" onclick="setCatFilter('incoherent')">Incohérent</button>
   </div>
   <div class="filter-group">
+    <span class="filter-label">Type:</span>
+    <select class="search-box" id="filter-type-vente" onchange="setTypeVenteFilter(this.value)" style="width:160px;padding:4px 8px;font-size:12px;">
+      <option value="all">Tous les types</option>
+    </select>
+  </div>
+  <div class="filter-group">
     <button class="filter-btn" id="btn-history" onclick="toggleHistory()">🗂️ Traitées</button>
   </div>
   <div class="filter-group">
@@ -418,6 +424,8 @@ th.th-check { cursor: default; }
   <input type="date" id="bulk-date" onchange="updateApplyState()">
   <select id="bulk-stage" onchange="updateApplyState()"><option value="">— Étape —</option></select>
   <button class="filter-btn" id="bulk-apply" onclick="applyBulk()" disabled style="border-color:var(--accent);color:var(--accent);">Appliquer</button>
+  <span style="border-left: 1px solid var(--border); margin: 0 10px; height: 20px;"></span>
+  <select id="bulk-loss-reason" style="border-color:var(--red);color:var(--red);"><option value="">— Raison de perte —</option></select>
   <button class="filter-btn" id="bulk-lose" onclick="closeLost()" style="border-color:var(--red);color:var(--red);">☠ Clore en perdue</button>
   <button class="filter-btn" id="bulk-clear" onclick="clearSelection()">Désélectionner</button>
 </div>
@@ -468,6 +476,7 @@ let sortKey = 'score';
 let sortDir = 'desc';
 let ownerFilter = 'all';
 let catFilter = 'all';
+let typeVenteFilter = 'all';
 let searchText = '';
 let selectedIds = new Set();
 let META = { stages: [], users: [] };
@@ -607,10 +616,49 @@ function setCatFilter(cat) {
 
 function setSearch(text) { searchText = text.toLowerCase(); applyFilters(); }
 
+function setTypeVenteFilter(val) {
+  typeVenteFilter = val;
+  applyFilters();
+}
+
+function populateTypeVenteFilter() {
+  var filterSel = document.getElementById('filter-type-vente');
+  if (!filterSel) return;
+  
+  var types = {};
+  (ALL_OPPS || []).forEach(function(o) {
+    var tv = o.type_vente;
+    if (tv && tv !== '—' && tv !== 'null') {
+      types[tv] = true;
+    } else {
+      types['Non renseigné'] = true;
+    }
+  });
+  
+  var sortedTypes = Object.keys(types).sort();
+  var idx = sortedTypes.indexOf('Non renseigné');
+  if (idx !== -1) {
+    sortedTypes.splice(idx, 1);
+    sortedTypes.push('Non renseigné');
+  }
+
+  filterSel.innerHTML = '<option value="all">Tous les types de vente</option>' + sortedTypes.map(function(t) {
+    return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+  }).join('');
+}
+
 function applyFilters() {
   filtered = ALL_OPPS.filter(function(o) {
     if (ownerFilter !== 'all' && o.owner !== ownerFilter) return false;
     if (catFilter !== 'all' && (o.category || 'dechet') !== catFilter) return false;
+    if (typeVenteFilter !== 'all') {
+      var tv = o.type_vente;
+      if (typeVenteFilter === 'Non renseigné') {
+        if (tv && tv !== '—' && tv !== 'null') return false;
+      } else {
+        if (tv !== typeVenteFilter) return false;
+      }
+    }
     if (searchText) {
       var haystack = (o.name + ' ' + o.account + ' ' + o.owner + ' ' + o.stage + ' ' + (o.type_vente || '')).toLowerCase();
       if (haystack.indexOf(searchText) === -1) return false;
@@ -645,6 +693,7 @@ function renderData(d) {
   ALL_OPPS = d.opps;
   META = d.meta || { stages: [], users: [] };
   populateBulkSelects();
+  populateTypeVenteFilter();
   updateKPIs(d);
   applyFilters();
   var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
@@ -660,6 +709,14 @@ function populateBulkSelects() {
   stageSel.innerHTML = '<option value="">— Étape —</option>' + (META.stages || []).map(function(s) {
     return '<option value="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</option>';
   }).join('');
+
+  var lossSel = document.getElementById('bulk-loss-reason');
+  if (lossSel) {
+    lossSel.innerHTML = '<option value="">— Raison de perte —</option>' + (META.loss_reasons || []).map(function(r) {
+      var selected = r === 'Nettoyage' ? ' selected' : '';
+      return '<option value="' + escapeHtml(r) + '"' + selected + '>' + escapeHtml(r) + '</option>';
+    }).join('');
+  }
 }
 
 function updateApplyState() {
@@ -704,38 +761,58 @@ function closeLost() {
   var opps = selectedOppsPayload();
   if (opps.length === 0) return;
 
-  var changes = { stage: lostStage.name, loss_reason: 'Nettoyage' };
+  var lossReasonSel = document.getElementById('bulk-loss-reason');
+  var lossReason = lossReasonSel ? lossReasonSel.value : 'Nettoyage';
+  if (!lossReason) { alert('Veuillez sélectionner une raison de perte.'); return; }
+
+  var changes = { stage: lostStage.name, loss_reason: lossReason };
 
   // Raison_de_perte_V2__c est une picklist dépendante de Type_de_vente__c :
-  // filtrer les opps dont le type_vente n'autorise pas Nettoyage.
+  // filtrer les opps dont le type_vente n'autorise pas la raison sélectionnée.
   // null = pas de restriction (tous les types valides), [] = aucun type valide
-  var validTypes = (META.loss_valid_for || {})['Nettoyage'];
+  var validTypes = (META.loss_valid_for || {})[lossReason];
   var validOpps = opps;
   var excludedCount = 0;
-  if (Array.isArray(validTypes) && validTypes.length > 0) {
+  var validTypesArray = Array.isArray(validTypes) ? validTypes : [];
+  var fallbackType = validTypesArray[0] || 'Catalogue';
+
+  if (validTypesArray.length > 0) {
     var validIds = new Set(ALL_OPPS.filter(function(o) {
       var tv = o.type_vente;
       // Si type_vente est manquant (null, undefined, vide ou tiret/indéfini), on le considère comme compatible en front.
       // Le backend se chargera de lui attribuer un type par défaut valide lors de la mise à jour dans Salesforce.
       var hasNoType = !tv || tv === '—' || tv === 'null';
-      return selectedIds.has(o.id) && (hasNoType || validTypes.indexOf(tv) !== -1);
+      return selectedIds.has(o.id) && (hasNoType || validTypesArray.indexOf(tv) !== -1);
     }).map(function(o) { return o.id; }));
     excludedCount = opps.length - validIds.size;
     validOpps = opps.filter(function(o) { return validIds.has(o.id); });
   }
 
   if (validOpps.length === 0) {
-    alert('Aucune opportunité sélectionnée n\'a un Type de vente compatible avec la raison « Nettoyage ».');
+    alert('Aucune opportunité sélectionnée n\'a un Type de vente compatible avec la raison « ' + lossReason + ' ».');
     return;
   }
 
-  var summary = validOpps.length + ' opportunité' + (validOpps.length > 1 ? 's' : '') + ' → Clore en perdue (' + lostStage.name + ', raison: Nettoyage)';
+  var summary = validOpps.length + ' opportunité' + (validOpps.length > 1 ? 's' : '') + ' → Clore en perdue (' + lostStage.name + ', raison: ' + lossReason + ')';
   if (excludedCount > 0) {
-    summary += '\n\n⚠️ ' + excludedCount + ' opp(s) exclue(s) : Type de vente incompatible avec « Nettoyage ».';
+    summary += '\n\n⚠️ ' + excludedCount + ' opp(s) exclue(s) : Type de vente incompatible avec « ' + lossReason + ' ».';
   }
   if (!confirm(summary)) return;
 
-  sendBulkUpdate(validOpps, changes);
+  // Assigner le fallback compatible si le type de vente d'origine est vide/null
+  var payloadOpps = validOpps.map(function(o) {
+    var tv = o.type_vente;
+    var hasNoType = !tv || tv === '—' || tv === 'null';
+    return {
+      id: o.id,
+      name: o.name,
+      account: o.account,
+      owner: o.owner,
+      type_vente: hasNoType ? fallbackType : tv
+    };
+  });
+
+  sendBulkUpdate(payloadOpps, changes);
 }
 
 function optimisticBulkUpdate(opps, changes) {

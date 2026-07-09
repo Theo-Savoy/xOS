@@ -119,8 +119,8 @@ export default async function handler(req, res) {
         records: opps.map(o => {
           const rec = { attributes: { type: 'Opportunity' }, id: o.id, ...fields };
           const tv = o.type_vente;
-          if (fields.Raison_de_perte_V2__c && (!tv || tv === '—' || tv === 'null')) {
-            rec.Type_de_vente__c = 'Catalogue';
+          if (fields.Raison_de_perte_V2__c && tv && tv !== '—' && tv !== 'null') {
+            rec.Type_de_vente__c = tv;
           }
           return rec;
         }),
