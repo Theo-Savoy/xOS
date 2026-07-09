@@ -523,14 +523,37 @@ function loadData(cacheBust) {
 
 function refreshData() {
   var btn = document.getElementById('btn-refresh');
-  btn.textContent = '⏳ Chargement...';
+  btn.textContent = '⏳ Actualisation...';
   btn.disabled = true;
-  loadData(true).then(function() {
+
+  fetch('/api/refresh').then(function(r) {
+    if (r.status === 429) {
+      return r.json().then(function(d) {
+        btn.textContent = '🔄 Actualiser';
+        btn.disabled = false;
+        alert(d.message || 'Trop tôt pour actualiser. Patientez.');
+      });
+    }
+    if (!r.ok) {
+      return r.json().then(function(d) {
+        throw new Error(d.message || 'Erreur ' + r.status);
+      }).catch(function() {
+        throw new Error('Erreur ' + r.status);
+      });
+    }
+    return r.json();
+  }).then(function(d) {
+    ALL_OPPS = d.opps;
+    applyFilters();
+    var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
+    document.getElementById('last-updated').textContent = 'Dernière MAJ: ' + ts;
+    btn.textContent = '✅ Actualisé';
+    setTimeout(function() { btn.textContent = '🔄 Actualiser'; }, 2000);
+  }).catch(function(e) {
+    console.error('Refresh failed:', e);
     btn.textContent = '🔄 Actualiser';
     btn.disabled = false;
-  }).catch(function() {
-    btn.textContent = '🔄 Actualiser';
-    btn.disabled = false;
+    alert('Échec de l\'actualisation: ' + e.message);
   });
 }
 
