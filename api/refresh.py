@@ -1,6 +1,9 @@
 """
-Vercel Serverless Function — Refresh XOS déchet dashboard data.
-Called by the "Actualiser" button on the dashboard.
+Vercel Serverless Function — Source unique des données du dashboard XOS déchet.
+- Chargement initial de la page : réponse mise en cache par le CDN Vercel 24h
+  (s-maxage) => refresh automatique quotidien, sans cron ni stockage.
+- Bouton "Actualiser" : appel avec un query param cache-buster => bypass CDN,
+  données Salesforce fraîches.
 """
 
 import json
@@ -10,33 +13,11 @@ import urllib.parse
 import urllib.error
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler
+from zoneinfo import ZoneInfo
 
 
 def do_refresh():
     """Core logic — returns (status_code, body_dict)."""
-    min_refresh_minutes = 5
-
-    # ── Rate limit: check current data age ──
-    current_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard_data.json")
-    if os.path.exists(current_data_path):
-        try:
-            with open(current_data_path) as f:
-                current = json.load(f)
-            gen_at = current.get("generated_at", "")
-            if gen_at:
-                # Handle both naive and tz-aware datetimes
-                gen_str = gen_at.replace("Z", "+00:00")
-                gen_dt = datetime.fromisoformat(gen_str)
-                now_dt = datetime.now(gen_dt.tzinfo) if gen_dt.tzinfo else datetime.now()
-                age = (now_dt - gen_dt).total_seconds() / 60
-                if 0 <= age < min_refresh_minutes:
-                    return 429, {
-                        "error": "rate_limited",
-                        "message": "Derniere actualisation il y a %d min. Minimum %d min entre deux refresh." % (int(age), min_refresh_minutes),
-                    }
-        except Exception:
-            pass
-
     # ── 1. Refresh Salesforce access token ──
     client_id = os.environ.get("SF_CLIENT_ID", "")
     client_secret = os.environ.get("SF_CLIENT_SECRET", "")
@@ -292,7 +273,7 @@ def do_refresh():
             reason_stats[key] = reason_stats.get(key, 0) + 1
 
     dashboard_data = {
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(ZoneInfo("Europe/Paris")).isoformat(),
         "total_dechet": total_dechet,
         "total_incoherent": total_incoherent,
         "total_open": total_open,
@@ -322,7 +303,12 @@ class handler(BaseHTTPRequestHandler):
 
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        if status == 200:
+            # CDN Vercel : cache partagé 24h => refresh auto quotidien.
+            # max-age=0 : le navigateur revalide toujours auprès du CDN.
+            self.send_header("Cache-Control", "public, max-age=0, s-maxage=86400, stale-while-revalidate=86400")
+        else:
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(json.dumps(body, ensure_ascii=False).encode("utf-8"))
 
