@@ -472,6 +472,7 @@ let searchText = '';
 let selectedIds = new Set();
 let META = { stages: [], users: [] };
 let historyOpen = false;
+let LAST_DATA = null;
 
 function escapeHtml(s) {
   if (!s) return '';
@@ -640,6 +641,7 @@ function updateKPIs(d) {
 }
 
 function renderData(d) {
+  LAST_DATA = d;
   ALL_OPPS = d.opps;
   META = d.meta || { stages: [], users: [] };
   populateBulkSelects();
@@ -721,6 +723,40 @@ function closeLost() {
   sendBulkUpdate(opps, changes);
 }
 
+function optimisticBulkUpdate(opps, changes) {
+  if (!LAST_DATA) return;
+  var ids = new Set(opps.map(function(o) { return o.id; }));
+  var isCloseLost = !!changes.loss_reason;
+
+  if (isCloseLost) {
+    ALL_OPPS = ALL_OPPS.filter(function(o) { return !ids.has(o.id); });
+    if (LAST_DATA.total_open) LAST_DATA.total_open -= ids.size;
+  } else {
+    ALL_OPPS.forEach(function(o) {
+      if (!ids.has(o.id)) return;
+      if (changes.owner_id) {
+        var newOwner = (META.users || []).filter(function(u) { return u.id === changes.owner_id; })[0];
+        if (newOwner) { o.owner = newOwner.name; o.owner_active = true; }
+      }
+      if (changes.stage) o.stage = changes.stage;
+      if (changes.close_date) {
+        o.close_date = changes.close_date;
+        var today = new Date(); today.setHours(0,0,0,0);
+        var parts = changes.close_date.split('-');
+        var cd = new Date(+parts[0], +parts[1]-1, +parts[2]);
+        o.days_overdue = Math.max(0, Math.floor((today - cd) / 86400000));
+      }
+    });
+  }
+
+  LAST_DATA.opps = ALL_OPPS;
+  LAST_DATA.total_dechet = ALL_OPPS.filter(function(o) { return (o.category || 'dechet') === 'dechet'; }).length;
+  LAST_DATA.total_incoherent = ALL_OPPS.filter(function(o) { return o.category === 'incoherent'; }).length;
+  LAST_DATA.ca_at_risk = ALL_OPPS.filter(function(o) { return (o.category || 'dechet') === 'dechet'; }).reduce(function(s, o) { return s + (o.amount || 0); }, 0);
+  LAST_DATA.pct_dechet = LAST_DATA.total_open ? Math.round((LAST_DATA.total_dechet + LAST_DATA.total_incoherent) / LAST_DATA.total_open * 1000) / 10 : 0;
+  renderData(LAST_DATA);
+}
+
 function sendBulkUpdate(opps, changes) {
   var applyBtn = document.getElementById('bulk-apply');
   var loseBtn = document.getElementById('bulk-lose');
@@ -752,6 +788,7 @@ function sendBulkUpdate(opps, changes) {
     }
     alert(msg);
     clearSelection();
+    optimisticBulkUpdate(opps, changes);
     refreshData();
   }).catch(function(e) {
     console.error('Bulk update failed:', e);
