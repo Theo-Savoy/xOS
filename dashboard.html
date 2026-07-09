@@ -433,7 +433,7 @@ th.th-check { cursor: default; }
         <tr>
           <th class="th-check"><input type="checkbox" id="chk-all" onchange="toggleSelectAll(this.checked)"></th>
           <th onclick="sortBy('category')" id="th-cat">Catégorie</th>
-          <th onclick="sortBy('score')" id="th-score">Score</th>
+          <th onclick="sortBy('score')" id="th-score" style="position:relative; white-space:nowrap;">Score <span class="help-trigger" onclick="toggleHelpModal(event)" style="font-size:10px; opacity:0.6; cursor:pointer; padding:2px 5px; border-radius:50%; background:rgba(255,255,255,0.1); margin-left:2px; display:inline-block;" title="Comment est calculé le score ?">ⓘ</span></th>
           <th onclick="sortBy('name')" id="th-name">Opportunité</th>
           <th onclick="sortBy('account')" id="th-account">Compte</th>
           <th onclick="sortBy('owner')" id="th-owner">Propriétaire</th>
@@ -460,6 +460,50 @@ th.th-check { cursor: default; }
 <div class="section" id="history-section" style="display:none;">
   <div class="section-header">🗂️ Opportunités traitées</div>
   <div class="section-body" id="history-body"></div>
+</div>
+
+<!-- Modal d'explication du Score -->
+<div id="score-help-modal" style="display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+  <div style="background:var(--panel); border:1px solid var(--border); border-radius:8px; width:90%; max-width:500px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.5); position:relative;">
+    <span onclick="closeHelpModal()" style="position:absolute; right:16px; top:12px; font-size:18px; cursor:pointer; opacity:0.6; font-weight:700;">&times;</span>
+    <h3 style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">📊 Calcul du Score d'Hygiène</h3>
+    
+    <div style="max-height:400px; overflow-y:auto; font-size:12px; line-height:1.6; color:var(--text);">
+      <p style="margin-bottom:12px; color:var(--text-muted);">Le score permet de prioriser le nettoyage du CRM. Plus le score est élevé, plus le besoin de traitement est urgent.</p>
+      
+      <h4 style="margin-top:14px; margin-bottom:6px; color:var(--accent);">1. Retard de CloseDate (jusqu'à +12 pts)</h4>
+      <p style="margin-left:8px;">+1 pt par mois de retard (30 jours), plafonné à 12 pts (1 an et plus).</p>
+      
+      <h4 style="margin-top:14px; margin-bottom:6px; color:var(--accent);">2. Inactivité de l'opportunité</h4>
+      <ul style="margin-left:20px;">
+        <li>Aucune activité enregistrée : <strong>+8 pts</strong></li>
+        <li>Inactivité &gt; 1 an : <strong>+5 pts</strong></li>
+        <li>Inactivité &gt; 3 mois : <strong>+5 pts</strong></li>
+        <li>Inactivité &gt; 30 jours : <strong>+2 pts</strong></li>
+      </ul>
+      
+      <h4 style="margin-top:14px; margin-bottom:6px; color:var(--accent);">3. Informations manquantes ou incohérentes</h4>
+      <ul style="margin-left:20px;">
+        <li>Montant incohérent (&le; 100€) : <strong>+10 pts</strong></li>
+        <li>Aucun montant renseigné (0€) : <strong>+6 pts</strong></li>
+        <li>Probabilité à 0% : <strong>+3 pts</strong></li>
+        <li>Étape « Suspect enlisé » : <strong>+3 pts</strong></li>
+      </ul>
+      
+      <h4 style="margin-top:14px; margin-bottom:6px; color:var(--accent);">4. Propriétaire (Owner)</h4>
+      <ul style="margin-left:20px;">
+        <li>Propriétaire inactif dans Salesforce : <strong>+10 pts</strong></li>
+        <li>Ancien commercial (départ de l'entreprise) : <strong>+8 pts</strong></li>
+      </ul>
+
+      <h4 style="margin-top:14px; margin-bottom:6px; color:var(--accent);">5. Importance du montant (Pondération)</h4>
+      <p style="margin-left:8px;">+1 pt supplémentaire par tranche de 10k€ de budget à risque, plafonné à <strong>+5 pts</strong> (pour traiter d'abord les plus gros montants).</p>
+    </div>
+    
+    <div style="text-align:right; margin-top:20px;">
+      <button onclick="closeHelpModal()" style="background:var(--accent); border:none; color:white; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:600;">Fermer</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -827,7 +871,23 @@ function populateReasonsFilter() {
   updateReasonsLabel();
 }
 
+function toggleHelpModal(event) {
+  if (event) event.stopPropagation();
+  var modal = document.getElementById('score-help-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeHelpModal() {
+  var modal = document.getElementById('score-help-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 window.addEventListener('click', function(e) {
+  var modal = document.getElementById('score-help-modal');
+  if (modal && e.target === modal) {
+    modal.style.display = 'none';
+  }
+
   var container = document.getElementById('reasons-dropdown-container');
   var menu = document.getElementById('reasons-dropdown-menu');
   if (container && menu && !container.contains(e.target)) {
