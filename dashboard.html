@@ -164,8 +164,11 @@ tr:hover td { background: var(--panel-hover); }
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  height: 160px;
-  padding: 16px 0 0;
+  height: 180px;
+  padding: 16px 12px 12px 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 .bucket {
   display: flex;
@@ -173,24 +176,32 @@ tr:hover td { background: var(--panel-hover); }
   align-items: center;
   gap: 6px;
   flex: 1;
-  max-width: 140px;
+  height: 100%;
+  justify-content: flex-end;
 }
-.bucket-label { font-size: 10px; color: var(--text-muted); text-align: center; white-space: nowrap; }
+.bucket-label { font-size: 11px; color: var(--text-muted); text-align: center; white-space: nowrap; margin-top: 4px; }
 .bucket-bar {
   width: 100%;
+  max-width: 50px;
   flex: 1;
   background: var(--bg);
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: flex-end;
   overflow: hidden;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.bucket-bar:hover {
+  border-color: var(--accent);
 }
 .bucket-fill {
   width: 100%;
-  background: linear-gradient(180deg, var(--red), var(--red-dim));
+  background: linear-gradient(180deg, var(--accent), var(--accent-dim));
   border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease-out;
 }
-.bucket-count { font-size: 14px; font-weight: 600; }
+.bucket-count { font-size: 12px; font-weight: 700; color: var(--text); }
 
 .score-cell { font-weight: 600; font-size: 13px; }
 .score-high { color: var(--red); }
@@ -325,14 +336,7 @@ th.th-check { cursor: default; }
     <div class="section-body">
       <table>
         <thead><tr><th>Propriétaire</th><th>Statut</th><th>Opps</th><th>CA à risque</th></tr></thead>
-        <tbody><tr><td>Christophe Hirtz</td><td>✅</td><td>148</td><td>2 576 754€</td></tr>
-<tr><td>Paul RATHOUIN</td><td>✅</td><td>65</td><td>1 531 030€</td></tr>
-<tr><td>Romain Waeselynck</td><td>❌ Inactif</td><td>15</td><td>273 500€</td></tr>
-<tr><td>Jérôme Bosio</td><td>✅</td><td>10</td><td>111 250€</td></tr>
-<tr><td>Théo SAVOY</td><td>✅</td><td>7</td><td>85 671€</td></tr>
-<tr><td>Julien Bak</td><td>❌ Inactif</td><td>5</td><td>35 367€</td></tr>
-<tr><td>ibrahima sissoko</td><td>❌ Inactif</td><td>1</td><td>—</td></tr>
-</tbody>
+        <tbody id="owner-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -341,15 +345,7 @@ th.th-check { cursor: default; }
     <div class="section-body">
       <table>
         <thead><tr><th>Étape</th><th>Opps</th><th>%</th><th></th></tr></thead>
-        <tbody><tr><td>Suspect enlisé</td><td>197</td><td>78.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:78.48605577689243%"></div></div></td></tr>
-<tr><td>Projet identifié</td><td>24</td><td>9.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:9.56175298804781%"></div></div></td></tr>
-<tr><td>Négo financière engagée</td><td>15</td><td>6.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:5.9760956175298805%"></div></div></td></tr>
-<tr><td>XOS recommandé</td><td>7</td><td>2.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.788844621513944%"></div></div></td></tr>
-<tr><td>Projet qualifié / AO reçu</td><td>3</td><td>1.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.1952191235059761%"></div></div></td></tr>
-<tr><td>Proposition envoyée</td><td>2</td><td>0.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.796812749003984%"></div></div></td></tr>
-<tr><td>XOS short-listé</td><td>2</td><td>0.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.796812749003984%"></div></div></td></tr>
-<tr><td>Nego technique engagée</td><td>1</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.398406374501992%"></div></div></td></tr>
-</tbody>
+        <tbody id="stage-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -359,7 +355,7 @@ th.th-check { cursor: default; }
   <div class="section">
     <div class="section-header">⏰ Distribution par ancienneté de retard</div>
     <div class="section-body">
-      <div class="buckets"><div class="bucket"><div class="bucket-label">Moins de 30j</div><div class="bucket-bar"><div class="bucket-fill" style="height:3.888888888888889%"></div></div><div class="bucket-count">7</div></div><div class="bucket"><div class="bucket-label">31-90j</div><div class="bucket-bar"><div class="bucket-fill" style="height:3.3333333333333335%"></div></div><div class="bucket-count">6</div></div><div class="bucket"><div class="bucket-label">91-180j</div><div class="bucket-bar"><div class="bucket-fill" style="height:20.555555555555554%"></div></div><div class="bucket-count">37</div></div><div class="bucket"><div class="bucket-label">181-365j</div><div class="bucket-bar"><div class="bucket-fill" style="height:11.666666666666666%"></div></div><div class="bucket-count">21</div></div><div class="bucket"><div class="bucket-label">Plus d'un an</div><div class="bucket-bar"><div class="bucket-fill" style="height:100.0%"></div></div><div class="bucket-count">180</div></div></div>
+      <div class="buckets" id="overdue-buckets-container"></div>
     </div>
   </div>
   <div class="section">
@@ -367,22 +363,7 @@ th.th-check { cursor: default; }
     <div class="section-body">
       <table>
         <thead><tr><th>Raison</th><th>Opps</th><th>%</th></tr></thead>
-        <tbody><tr><td>Probabilité = 0%</td><td>197</td><td>78.5%</td></tr>
-<tr><td>Stage: Suspect enlisé</td><td>197</td><td>78.5%</td></tr>
-<tr><td>CloseDate dépassée &gt;1 an</td><td>180</td><td>71.7%</td></tr>
-<tr><td>Créée il y a &gt;2 ans</td><td>170</td><td>67.7%</td></tr>
-<tr><td>Aucune activité jamais enregistrée</td><td>133</td><td>53.0%</td></tr>
-<tr><td>Pas d&#x27;activité depuis &gt;1 an</td><td>94</td><td>37.5%</td></tr>
-<tr><td>Créée il y a &gt;1 an</td><td>70</td><td>27.9%</td></tr>
-<tr><td>Pas de montant</td><td>59</td><td>23.5%</td></tr>
-<tr><td>CloseDate dépassée 3-6 mois</td><td>37</td><td>14.7%</td></tr>
-<tr><td>Owner inactif</td><td>21</td><td>8.4%</td></tr>
-<tr><td>Ancien commercial</td><td>21</td><td>8.4%</td></tr>
-<tr><td>CloseDate dépassée 6-12 mois</td><td>21</td><td>8.4%</td></tr>
-<tr><td>Pas d&#x27;activité depuis &gt;3 mois</td><td>19</td><td>7.6%</td></tr>
-<tr><td>CloseDate dépassée &lt;3 mois</td><td>13</td><td>5.2%</td></tr>
-<tr><td>Pas d&#x27;activité depuis &gt;30j</td><td>2</td><td>0.8%</td></tr>
-</tbody>
+        <tbody id="reason-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -930,9 +911,92 @@ function renderData(d) {
   populateTypeVenteFilter();
   populateReasonsFilter();
   updateKPIs(d);
+  renderDashboardStats(d);
   applyFilters();
   var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
   document.getElementById('last-updated').textContent = 'Dernière MAJ: ' + ts;
+}
+
+function renderDashboardStats(d) {
+  // 1. Répartition par propriétaire
+  var ownerTbody = document.getElementById('owner-tbody');
+  if (ownerTbody && d.owner_stats) {
+    var ownerNames = Object.keys(d.owner_stats).sort(function(a, b) {
+      return d.owner_stats[b].count - d.owner_stats[a].count;
+    });
+    
+    ownerTbody.innerHTML = ownerNames.map(function(name) {
+      var stat = d.owner_stats[name];
+      var status = stat.active ? '✅' : '❌ Inactif';
+      var amtStr = stat.amount ? stat.amount.toLocaleString('fr-FR') + '€' : '—';
+      return '<tr>' +
+        '<td>' + escapeHtml(name) + '</td>' +
+        '<td>' + status + '</td>' +
+        '<td style="font-weight:600;">' + stat.count + '</td>' +
+        '<td>' + amtStr + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // 2. Répartition par étape
+  var stageTbody = document.getElementById('stage-tbody');
+  if (stageTbody && d.stage_stats) {
+    var stageNames = Object.keys(d.stage_stats).sort(function(a, b) {
+      return d.stage_stats[b].count - d.stage_stats[a].count;
+    });
+
+    stageTbody.innerHTML = stageNames.map(function(name) {
+      var stat = d.stage_stats[name];
+      var pct = stat.pct || 0;
+      return '<tr>' +
+        '<td>' + escapeHtml(name) + '</td>' +
+        '<td style="font-weight:600;">' + stat.count + '</td>' +
+        '<td>' + pct.toFixed(1) + '%</td>' +
+        '<td style="width:100%; min-width:80px;"><div class="bar-container"><div class="bar-fill" style="width:' + pct + '%"></div></div></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // 3. Distribution par ancienneté de retard
+  var bucketsContainer = document.getElementById('overdue-buckets-container');
+  if (bucketsContainer && d.overdue_buckets) {
+    var bucketKeys = ['Moins de 30j', '31-90j', '91-180j', '181-365j', "Plus d'un an"];
+    var maxVal = 0;
+    bucketKeys.forEach(function(k) {
+      var val = d.overdue_buckets[k] || 0;
+      if (val > maxVal) maxVal = val;
+    });
+
+    bucketsContainer.innerHTML = bucketKeys.map(function(k) {
+      var val = d.overdue_buckets[k] || 0;
+      var h = maxVal > 0 ? (val / maxVal * 100) : 0;
+      return '<div class="bucket">' +
+        '<div class="bucket-count">' + val + '</div>' +
+        '<div class="bucket-bar"><div class="bucket-fill" style="height:' + h + '%"></div></div>' +
+        '<div class="bucket-label">' + escapeHtml(k) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // 4. Raisons de classification déchet
+  var reasonTbody = document.getElementById('reason-tbody');
+  if (reasonTbody && d.reason_stats) {
+    var reasonNames = Object.keys(d.reason_stats).sort(function(a, b) {
+      return d.reason_stats[b] - d.reason_stats[a];
+    });
+
+    var totalOpps = d.total_dechet || (d.opps || []).length || 1;
+
+    reasonTbody.innerHTML = reasonNames.map(function(name) {
+      var count = d.reason_stats[name];
+      var pct = totalOpps > 0 ? (count / totalOpps * 100) : 0;
+      return '<tr>' +
+        '<td>' + escapeHtml(name) + '</td>' +
+        '<td style="font-weight:600;">' + count + '</td>' +
+        '<td>' + pct.toFixed(1) + '%</td>' +
+        '</tr>';
+    }).join('');
+  }
 }
 
 function populateBulkSelects() {
