@@ -10,3 +10,4 @@ __MACOSX/
 fonts/New Aeonik Trials/
 node_modules/
 dist/
+supabase/.temp/
