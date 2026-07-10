@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Button, GlassCard, Tag } from "../../components/ui";
-import type { CallOutcome, SessionContact, SessionDetail } from "./types";
-import { OUTCOME_OPTIONS } from "./types";
+import type { ResultatCall } from "../../crm";
+import { EventPanel } from "./EventPanel";
 import { ProgressBar } from "./ProgressBar";
+import type { SessionContact, SessionDetail } from "./types";
+import { RESULTAT_OPTIONS } from "./types";
 
 type RunnerViewProps = {
   session: SessionDetail;
@@ -10,8 +12,10 @@ type RunnerViewProps = {
   currentContact: SessionContact | null;
   loading: boolean;
   error: string | null;
+  awaitingEvent: boolean;
   onBack: () => void;
-  onLogAndNext: (outcome: CallOutcome, comments: string) => void;
+  onLogAndNext: (resultat: ResultatCall, comments: string, durationSec: number | null) => void;
+  onLogEvent: (start: string, durationMin: number, invitees: string[]) => void;
   onSkip: () => void;
 };
 
@@ -21,16 +25,20 @@ export function RunnerView({
   currentContact,
   loading,
   error,
+  awaitingEvent,
   onBack,
   onLogAndNext,
+  onLogEvent,
   onSkip,
 }: RunnerViewProps) {
-  const [outcome, setOutcome] = useState<CallOutcome>("answered");
+  const [resultat, setResultat] = useState<ResultatCall>(RESULTAT_OPTIONS[0].value);
   const [comments, setComments] = useState("");
+  const [duration, setDuration] = useState("");
 
   useEffect(() => {
-    setOutcome("answered");
+    setResultat(RESULTAT_OPTIONS[0].value);
     setComments("");
+    setDuration("");
   }, [currentContact?.id]);
 
   const called = contacts.filter((c) => c.status === "called").length;
@@ -80,44 +88,67 @@ export function RunnerView({
             )}
           </GlassCard>
 
-          <GlassCard className="calls-log-form">
-            <h3>Journaliser l&apos;appel</h3>
-            <label className="calls-field">
-              <span>Résultat</span>
-              <select
-                className="calls-select"
-                value={outcome}
-                onChange={(e) => setOutcome(e.target.value as CallOutcome)}
-              >
-                {OUTCOME_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="calls-field">
-              <span>Commentaires</span>
-              <textarea
-                className="calls-textarea"
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                rows={3}
-                placeholder="Notes sur l'appel…"
-              />
-            </label>
-            <div className="calls-runner-actions">
-              <Button
-                onClick={() => onLogAndNext(outcome, comments)}
-                disabled={loading}
-              >
-                {loading ? "Enregistrement…" : "Logguer & suivant"}
-              </Button>
-              <Button variant="secondary" onClick={onSkip} disabled={loading}>
-                Passer
-              </Button>
-            </div>
-          </GlassCard>
+          {awaitingEvent ? (
+            <EventPanel
+              contactName={currentContact.contact_name}
+              loading={loading}
+              onSubmit={onLogEvent}
+            />
+          ) : (
+            <GlassCard className="calls-log-form">
+              <h3>Journaliser l&apos;appel</h3>
+              <label className="calls-field">
+                <span>Résultat</span>
+                <select
+                  className="calls-select"
+                  value={resultat}
+                  onChange={(e) => setResultat(e.target.value as ResultatCall)}
+                >
+                  {RESULTAT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="calls-fb-row">
+                <label className="calls-field">
+                  <span>Durée (secondes)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="calls-input"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="120"
+                  />
+                </label>
+              </div>
+              <label className="calls-field">
+                <span>Commentaires</span>
+                <textarea
+                  className="calls-textarea"
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  rows={3}
+                  placeholder="Notes sur l'appel…"
+                />
+              </label>
+              <div className="calls-runner-actions">
+                <Button
+                  onClick={() =>
+                    onLogAndNext(resultat, comments, duration ? Number(duration) : null)
+                  }
+                  disabled={loading}
+                >
+                  {loading ? "Enregistrement…" : "Logguer & suivant"}
+                </Button>
+                <Button variant="secondary" onClick={onSkip} disabled={loading}>
+                  Passer
+                </Button>
+              </div>
+            </GlassCard>
+          )}
         </>
       ) : (
         <GlassCard className="calls-empty">

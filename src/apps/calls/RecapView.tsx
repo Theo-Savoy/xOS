@@ -1,21 +1,24 @@
 import { Button, GlassCard, Tag } from "../../components/ui";
 import type { SessionContact, SessionDetail } from "./types";
-import { OUTCOME_OPTIONS } from "./types";
 
 type RecapViewProps = {
   session: SessionDetail;
   contacts: SessionContact[];
+  followUpLoading: boolean;
   onBack: () => void;
+  onCreateFollowUp: () => void;
 };
 
-function outcomeLabel(outcome: string | null): string {
-  if (!outcome) return "—";
-  return OUTCOME_OPTIONS.find((o) => o.value === outcome)?.label ?? outcome;
-}
-
-export function RecapView({ session, contacts, onBack }: RecapViewProps) {
+export function RecapView({
+  session,
+  contacts,
+  followUpLoading,
+  onBack,
+  onCreateFollowUp,
+}: RecapViewProps) {
   const called = contacts.filter((c) => c.status === "called");
   const skipped = contacts.filter((c) => c.status === "skipped");
+  const rdv = called.filter((c) => c.resultat === "RDV planifié");
 
   return (
     <div className="calls-view">
@@ -24,13 +27,22 @@ export function RecapView({ session, contacts, onBack }: RecapViewProps) {
           <Tag variant="alert">Terminée</Tag>
           <h2>{session.name}</h2>
         </div>
-        <Button onClick={onBack}>Retour aux séances</Button>
+        <div className="calls-view__actions">
+          <Button variant="secondary" onClick={onCreateFollowUp} disabled={followUpLoading}>
+            {followUpLoading ? "Création…" : "Créer une séance de relance"}
+          </Button>
+          <Button onClick={onBack}>Retour aux séances</Button>
+        </div>
       </header>
 
       <div className="calls-recap-stats">
         <GlassCard className="calls-stat">
           <span>Appels loggés</span>
           <strong className="xos-numeric">{called.length}</strong>
+        </GlassCard>
+        <GlassCard className="calls-stat">
+          <span>RDV planifiés</span>
+          <strong className="xos-numeric">{rdv.length}</strong>
         </GlassCard>
         <GlassCard className="calls-stat">
           <span>Passés</span>
@@ -49,7 +61,9 @@ export function RecapView({ session, contacts, onBack }: RecapViewProps) {
             {called.map((contact) => (
               <li key={contact.id}>
                 <strong>{contact.contact_name}</strong>
-                <Tag variant="accent">{outcomeLabel(contact.outcome)}</Tag>
+                <Tag variant={contact.resultat === "RDV planifié" ? "alert" : "accent"}>
+                  {contact.resultat ?? "—"}
+                </Tag>
                 {contact.comments && <span>{contact.comments}</span>}
               </li>
             ))}

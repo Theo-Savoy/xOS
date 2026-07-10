@@ -1,9 +1,4 @@
-export type CallOutcome =
-  | "answered"
-  | "no_answer"
-  | "callback"
-  | "not_interested"
-  | "wrong_number";
+import { RESULTAT_CALL_VALUES, type FilterTree, type ResultatCall } from "../../crm";
 
 export type ContactStatus = "pending" | "called" | "skipped";
 
@@ -29,9 +24,11 @@ export type SessionContact = {
   account_name: string | null;
   phone: string | null;
   status: ContactStatus;
-  outcome: CallOutcome | null;
+  resultat: ResultatCall | null;
   comments: string | null;
+  duration_sec: number | null;
   sf_task_id: string | null;
+  sf_event_id: string | null;
   called_at: string | null;
 };
 
@@ -48,6 +45,8 @@ export type ContactPreview = {
   contact_name: string;
   account_name: string | null;
   phone: string | null;
+  last_call_at?: string | null;
+  call_count?: number;
 };
 
 export type CallStats = {
@@ -57,17 +56,8 @@ export type CallStats = {
   sessions_completed: number;
 };
 
-export type CallsListFilters = {
-  ownerOnly?: boolean;
-  accountId?: string;
-  hasPhone?: boolean;
-  limit?: number;
-};
+export type { FilterTree };
 
-export const OUTCOME_OPTIONS: { value: CallOutcome; label: string }[] = [
-  { value: "answered", label: "Répondu" },
-  { value: "no_answer", label: "Pas de réponse" },
-  { value: "callback", label: "Rappeler" },
-  { value: "not_interested", label: "Pas intéressé" },
-  { value: "wrong_number", label: "Mauvais numéro" },
-];
+export const RESULTAT_OPTIONS: { value: ResultatCall; label: string }[] = RESULTAT_CALL_VALUES.map(
+  (value) => ({ value, label: value }),
+);
