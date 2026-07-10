@@ -1,13 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../../auth/useSession";
+import { emptyFilterTree, type CallTargetPreset, type DedupEntry, type FilterTree } from "../../crm";
 import {
   completeSession,
+  createFollowUpSession,
+  createPreset,
   createSession,
+  deletePreset,
   fetchContactList,
+  fetchPresets,
   fetchSession,
   fetchSessions,
   fetchStats,
   logCall,
+  logEvent,
   skipContact,
   CallsApiError,
 } from "./api";
@@ -16,13 +22,13 @@ import { RecapView } from "./RecapView";
 import { RunnerView } from "./RunnerView";
 import { SessionsView } from "./SessionsView";
 import type {
-  CallOutcome,
   CallStats,
   ContactPreview,
   SessionContact,
   SessionDetail,
   SessionSummary,
 } from "./types";
+import type { ResultatCall } from "../../crm";
 import "./calls.css";
 
 type View = "sessions" | "new" | "runner" | "recap";
@@ -35,6 +41,7 @@ function errorMessage(err: unknown): string {
   if (err instanceof CallsApiError) {
     if (err.status === 401) return "Session expirée — reconnectez-vous.";
     if (err.status === 404) return "Séance introuvable.";
+    if (err.code === "no_follow_up_contacts") return "Aucun contact ne nécessite de relance.";
     return `Erreur API (${err.code})`;
   }
   return "Une erreur est survenue.";
@@ -54,15 +61,24 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
+  const [filters, setFilters] = useState<FilterTree>(emptyFilterTree());
   const [preview, setPreview] = useState<ContactPreview[]>([]);
+  const [dedup, setDedup] = useState<DedupEntry[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const previewRequest = useRef(0);
   const [newError, setNewError] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
+
+  const [presets, setPresets] = useState<CallTargetPreset[]>([]);
+  const [presetsLoading, setPresetsLoading] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
 
   const [activeSession, setActiveSession] = useState<SessionDetail | null>(null);
   const [contacts, setContacts] = useState<SessionContact[]>([]);
   const [runnerLoading, setRunnerLoading] = useState(false);
   const [runnerError, setRunnerError] = useState<string | null>(null);
+  const [awaitingEvent, setAwaitingEvent] = useState<SessionContact | null>(null);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   const loadSessions = useCallback(async () => {
     if (!token) return;
@@ -82,20 +98,29 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     }
   }, [token]);
 
+  const loadPresets = useCallback(async () => {
+    if (!token) return;
+    setPresetsLoading(true);
+    try {
+      setPresets(await fetchPresets(token));
+    } catch {
+      setPresets([]);
+    } finally {
+      setPresetsLoading(false);
+    }
+  }, [token]);
+
   const openSession = useCallback(
     async (sessionId: number) => {
       if (!token) return;
       setRunnerError(null);
+      setAwaitingEvent(null);
       setRunnerLoading(true);
       try {
         const data = await fetchSession(token, sessionId);
         setActiveSession(data.session);
         setContacts(data.contacts);
-        if (data.session.status === "completed") {
-          setView("recap");
-        } else {
-          setView("runner");
-        }
+        setView(data.session.status === "completed" ? "recap" : "runner");
       } catch (err) {
         setSessionsError(errorMessage(err));
       } finally {
@@ -121,30 +146,67 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     }
   }, [params?.session_id, token, openSession]);
 
-  const handlePreview = async (filters: {
-    ownerOnly: boolean;
-    hasPhone: boolean;
-    accountId: string;
-  }) => {
+  const invalidatePreview = () => {
+    previewRequest.current += 1;
+    setPreview([]);
+    setDedup([]);
+    setPreviewLoading(false);
+  };
+
+  const handleFiltersChange = (next: FilterTree) => {
+    setFilters(next);
+    invalidatePreview();
+  };
+
+  const handleLoadPreset = (preset: CallTargetPreset) => {
+    setFilters(preset.filters);
+    invalidatePreview();
+  };
+
+  const handlePreview = async () => {
     if (!token) return;
+    const requestId = previewRequest.current + 1;
+    previewRequest.current = requestId;
     setPreviewLoading(true);
     setNewError(null);
     try {
-      const list = await fetchContactList(token, {
-        ownerOnly: filters.ownerOnly,
-        hasPhone: filters.hasPhone,
-        accountId: filters.accountId || undefined,
-        limit: 50,
-      });
-      setPreview(list);
-      if (list.length === 0) {
+      const data = await fetchContactList(token, filters);
+      if (previewRequest.current !== requestId) return;
+      setPreview(data.contacts);
+      setDedup(data.dedup);
+      if (data.contacts.length === 0) {
         setNewError("Aucun contact ne correspond aux filtres.");
       }
     } catch (err) {
+      if (previewRequest.current !== requestId) return;
       setNewError(errorMessage(err));
       setPreview([]);
+      setDedup([]);
     } finally {
-      setPreviewLoading(false);
+      if (previewRequest.current === requestId) setPreviewLoading(false);
+    }
+  };
+
+  const handleSavePreset = async (name: string, shared: boolean) => {
+    if (!token) return;
+    setSavingPreset(true);
+    try {
+      await createPreset(token, name, filters, shared);
+      await loadPresets();
+    } catch (err) {
+      setNewError(errorMessage(err));
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  const handleDeletePreset = async (id: number) => {
+    if (!token) return;
+    try {
+      await deletePreset(token, id);
+      await loadPresets();
+    } catch (err) {
+      setNewError(errorMessage(err));
     }
   };
 
@@ -156,6 +218,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
       const data = await createSession(token, name, contactList);
       setActiveSession(data.session);
       setContacts(data.contacts);
+      setAwaitingEvent(null);
       setView("runner");
     } catch (err) {
       setNewError(errorMessage(err));
@@ -171,7 +234,22 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     return data;
   };
 
-  const handleLogAndNext = async (outcome: CallOutcome, comments: string) => {
+  const advanceOrComplete = async (sessionId: number) => {
+    const data = await refreshRunner(sessionId);
+    if (!findNextPending(data.contacts)) {
+      await completeSession(token, sessionId);
+      const finalData = await refreshRunner(sessionId);
+      setActiveSession(finalData.session);
+      setContacts(finalData.contacts);
+      setView("recap");
+    }
+  };
+
+  const handleLogAndNext = async (
+    resultat: ResultatCall,
+    comments: string,
+    durationSec: number | null,
+  ) => {
     if (!token || !activeSession) return;
     const current = findNextPending(contacts);
     if (!current) return;
@@ -179,16 +257,30 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setRunnerLoading(true);
     setRunnerError(null);
     try {
-      await logCall(token, activeSession.id, current.id, outcome, comments);
-      const data = await refreshRunner(activeSession.id);
-      const next = findNextPending(data.contacts);
-      if (!next) {
-        await completeSession(token, activeSession.id);
-        const finalData = await refreshRunner(activeSession.id);
-        setActiveSession(finalData.session);
-        setContacts(finalData.contacts);
-        setView("recap");
+      const result = await logCall(token, activeSession.id, current.id, resultat, comments, durationSec);
+      if (result.needs_event) {
+        const refreshed = await fetchSession(token, activeSession.id);
+        const updatedCurrent = refreshed.contacts.find((c) => c.id === current.id) ?? current;
+        setContacts(refreshed.contacts);
+        setAwaitingEvent(updatedCurrent);
+      } else {
+        await advanceOrComplete(activeSession.id);
       }
+    } catch (err) {
+      setRunnerError(errorMessage(err));
+    } finally {
+      setRunnerLoading(false);
+    }
+  };
+
+  const handleLogEvent = async (start: string, durationMin: number, invitees: string[]) => {
+    if (!token || !activeSession || !awaitingEvent) return;
+    setRunnerLoading(true);
+    setRunnerError(null);
+    try {
+      await logEvent(token, activeSession.id, awaitingEvent.id, start, durationMin, invitees);
+      setAwaitingEvent(null);
+      await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
     } finally {
@@ -205,19 +297,27 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setRunnerError(null);
     try {
       await skipContact(token, activeSession.id, current.id);
-      const data = await refreshRunner(activeSession.id);
-      const next = findNextPending(data.contacts);
-      if (!next) {
-        await completeSession(token, activeSession.id);
-        const finalData = await refreshRunner(activeSession.id);
-        setActiveSession(finalData.session);
-        setContacts(finalData.contacts);
-        setView("recap");
-      }
+      await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
     } finally {
       setRunnerLoading(false);
+    }
+  };
+
+  const handleCreateFollowUp = async () => {
+    if (!token || !activeSession) return;
+    setFollowUpLoading(true);
+    try {
+      const data = await createFollowUpSession(token, activeSession.id);
+      setActiveSession(data.session);
+      setContacts(data.contacts);
+      setAwaitingEvent(null);
+      setView("runner");
+    } catch (err) {
+      setRunnerError(errorMessage(err));
+    } finally {
+      setFollowUpLoading(false);
     }
   };
 
@@ -226,7 +326,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setActiveSession(null);
     setContacts([]);
     setPreview([]);
+    setDedup([]);
     setNewError(null);
+    setAwaitingEvent(null);
     void loadSessions();
   };
 
@@ -249,8 +351,11 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           onRefresh={() => void loadSessions()}
           onNewSession={() => {
             setView("new");
+            setFilters(emptyFilterTree());
             setPreview([]);
+            setDedup([]);
             setNewError(null);
+            void loadPresets();
           }}
           onOpenSession={(id) => void openSession(id)}
         />
@@ -258,12 +363,22 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
       {view === "new" && (
         <NewSessionView
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
           loading={createLoading}
           previewLoading={previewLoading}
           error={newError}
           preview={preview}
+          dedup={dedup}
+          presets={presets}
+          presetsLoading={presetsLoading}
+          savingPreset={savingPreset}
+          currentUserId={session.user.id}
           onBack={goToSessions}
-          onPreview={(filters) => void handlePreview(filters)}
+          onPreview={() => void handlePreview()}
+          onLoadPreset={handleLoadPreset}
+          onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
+          onDeletePreset={(id) => void handleDeletePreset(id)}
           onCreate={(name, list) => void handleCreate(name, list)}
         />
       )}
@@ -275,14 +390,27 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           currentContact={findNextPending(contacts)}
           loading={runnerLoading}
           error={runnerError}
+          awaitingEvent={awaitingEvent}
           onBack={goToSessions}
-          onLogAndNext={(outcome, comments) => void handleLogAndNext(outcome, comments)}
+          onLogAndNext={(resultat, comments, durationSec) =>
+            void handleLogAndNext(resultat, comments, durationSec)
+          }
+          onLogEvent={(start, durationMin, invitees) =>
+            void handleLogEvent(start, durationMin, invitees)
+          }
           onSkip={() => void handleSkip()}
         />
       )}
 
       {view === "recap" && activeSession && (
-        <RecapView session={activeSession} contacts={contacts} onBack={goToSessions} />
+        <RecapView
+          session={activeSession}
+          contacts={contacts}
+          followUpLoading={followUpLoading}
+          error={runnerError}
+          onBack={goToSessions}
+          onCreateFollowUp={() => void handleCreateFollowUp()}
+        />
       )}
     </div>
   );
