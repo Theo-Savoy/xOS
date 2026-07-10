@@ -1,0 +1,86 @@
+/* X OS — composants UI partagés (glassmorphism) */
+
+.xos-glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--xos-border);
+  border-radius: 1rem;
+  backdrop-filter: var(--xos-blur);
+  -webkit-backdrop-filter: var(--xos-blur);
+  padding: 1.25rem;
+  color: var(--xos-text);
+}
+
+.xos-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--xos-font-display);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  border-radius: 0.625rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.xos-btn:active {
+  transform: scale(0.98);
+}
+
+.xos-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.xos-btn--primary {
+  background: var(--xos-accent);
+  color: #ffffff;
+}
+
+.xos-btn--primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--xos-accent) 85%, white);
+}
+
+.xos-btn--secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--xos-border);
+  color: var(--xos-text);
+  backdrop-filter: var(--xos-blur);
+  -webkit-backdrop-filter: var(--xos-blur);
+}
+
+.xos-btn--secondary:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.xos-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--xos-font-display);
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--xos-border);
+  color: var(--xos-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.xos-tag--accent {
+  color: var(--xos-accent);
+  border-color: color-mix(in srgb, var(--xos-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--xos-accent) 15%, transparent);
+}
+
+.xos-tag--alert {
+  color: #4a4300;
+  border-color: color-mix(in srgb, var(--xos-alert) 60%, transparent);
+  background: var(--xos-alert);
+}

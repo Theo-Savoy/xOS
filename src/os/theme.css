@@ -1,0 +1,159 @@
+/* X OS — Design system (charte XOS Learning) */
+
+@font-face {
+  font-family: "Brockmann";
+  src: url("/fonts/brockmann-regular-webfont.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Brockmann";
+  src: url("/fonts/brockmann-medium-webfont.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Brockmann";
+  src: url("/fonts/brockmann-semibold-webfont.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Brockmann";
+  src: url("/fonts/brockmann-bold-webfont.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Montreal";
+  src: url("/fonts/NeueMontreal-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Montreal";
+  src: url("/fonts/NeueMontreal-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Montreal";
+  src: url("/fonts/NeueMontreal-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Couleurs de la charte XOS */
+  --xos-bg: #0d173f;
+  --xos-accent: #8b5bfa;
+  --xos-alert: #fff96f;
+  --xos-border: rgba(255, 255, 255, 0.08);
+  --xos-blur: blur(12px);
+
+  --xos-text: #f4f5fb;
+  --xos-text-muted: rgba(244, 245, 251, 0.64);
+
+  /* Typographie */
+  --xos-font-display: "Brockmann", system-ui, sans-serif;
+  --xos-font-numeric: "Neue Montreal", system-ui, sans-serif;
+}
+
+.xos-numeric {
+  font-family: var(--xos-font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Fond d'écran : dégradé fluide et animé entre les couleurs de la charte */
+.xos-wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--xos-bg);
+  background-image:
+    radial-gradient(
+      circle at 15% 20%,
+      color-mix(in srgb, var(--xos-accent) 55%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      color-mix(in srgb, var(--xos-alert) 20%, transparent),
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 90%,
+      color-mix(in srgb, var(--xos-accent) 35%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(135deg, var(--xos-bg), #060b22 60%, var(--xos-bg));
+  background-size:
+    180% 180%,
+    180% 180%,
+    180% 180%,
+    200% 200%;
+  animation: xos-wallpaper-drift 30s ease-in-out infinite;
+}
+
+@keyframes xos-wallpaper-drift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%,
+      0% 0%;
+  }
+  50% {
+    background-position:
+      30% 40%,
+      70% 30%,
+      40% 60%,
+      100% 100%;
+  }
+  100% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%,
+      0% 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xos-wallpaper {
+    animation: none;
+  }
+}
+
+.xos-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--xos-font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--xos-text);
+  letter-spacing: 0.02em;
+}
+
+.xos-logo::before {
+  content: "";
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, var(--xos-accent), var(--xos-alert));
+}
