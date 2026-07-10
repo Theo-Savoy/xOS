@@ -12,12 +12,15 @@ L'objectif est double :
 
 Le portail adoptera une esthétique **Dark Mode Premium & Glassmorphism** inspirée des codes visuels de [XOS Learning](https://www.xos-learning.fr/) et de l'interface bureau virtuelle partagée par Thibault Marty (Ottho) :
 
-*   **Palette de couleurs** :
-    *   `Fond principal` : Bleu Nuit profond (`#0D173F`) pour l'élégance et le confort visuel.
-    *   `Accents & Sélections` : Violet néon (`#8B5BFA`) pour les éléments actifs, boutons primaires et focus.
-    *   `Points d'attention / Alertes` : Jaune Lumineux (`#FFF96F`) pour attirer l'œil sur les anomalies.
-    *   `Bordures & Séparateurs` : Translucide (`rgba(255,255,255,0.08)`) avec un léger flou de fond (`backdrop-filter: blur(12px)`).
-*   **Typography** : Police sans-serif géométrique moderne (`Outfit` ou `Inter` via Google Fonts).
+*   **Palette de couleurs (CSS Variables de la charte XOS)** :
+    *   `--greyscale--grey-100` / Fond principal : Bleu Nuit profond (`#0D173F`) pour l'élégance et le confort visuel.
+    *   `--primary--primary-200` / Accents & Sélections : Violet néon (`#8B5BFA`) pour les éléments actifs, boutons primaires et focus.
+    *   `--secondary--secondary-500` / Points d'attention & Alertes : Jaune Lumineux (`#FFF96F`) pour attirer l'œil sur les anomalies.
+    *   `Bordures & Séparateurs` : Translucide (`rgba(255, 255, 255, 0.08)`) avec un léger flou de fond (`backdrop-filter: blur(12px)`).
+*   **Typography** : Polices de la charte XOS chargées via `@font-face` :
+    *   `Brockmann` (police principale pour le texte et les en-têtes).
+    *   `Aeonik` ou `Neue Montreal` (polices secondaires pour les chiffres et les interfaces de tableau de bord).
+    *   `Logo officiel` : [logo XOS.webp](https://cdn.prod.website-files.com/6544f8a01bb184e8bf74376c/6548fadbd2f17da27dbdc484_logo%20XOS.webp)
 *   **Mise en page "Bureau Virtuel"** :
     *   **Fond d'écran** : Dégradé fluide et animé entre les couleurs de la charte.
     *   **Le Dock X OS** : Barre d'applications flottante en bas de l'écran avec effet de reflet et zoom au survol.
