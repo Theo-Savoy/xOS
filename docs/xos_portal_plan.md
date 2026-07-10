@@ -197,3 +197,39 @@ Le détail des lots, l'assignation aux agents (via Orca) et les critères de vé
 3. **Polices** : Brockmann (webfont) + Neue Montreal (OTF→woff2) livrées ; ⚠️ Aeonik en version TRIAL seulement → exclue de la prod.
 4. **Quotas API Salesforce** : les nouveaux endpoints sont cachés (15 min) et le Hub affiche la consommation.
 5. **Slack + Hermes** : workspace unique ; rate limits Slack ; **Hermes = app Slack** (skills et mémoire gérés côté Hermes, pas dans le repo X OS) ; X OS ne parle qu'à Slack.
+
+---
+
+## 🧬 Trajectoire produit & IP (actée le 2026-07-11)
+
+Le portail est développé comme un **socle générique réutilisable** (propriété du Prestataire, conçu indépendamment de la mission XOS) dont **XOS n'est que la première configuration**. Cette section fige la frontière et la trajectoire — rien ici n'est à implémenter maintenant.
+
+### Frontière socle / config (état réel au 2026-07-11)
+
+| Spécifique XOS (config, remplaçable) | Où ça vit aujourd'hui |
+|---|---|
+| Noms de champs, picklists, valeurs org Salesforce (secteurs, effectifs, résultats d'appel, presets fonction…) | `api/_crm/mapping.js` (serveur) + miroir `src/crm/` (front) — **aucun nom de champ SF en dur ailleurs**, contrôlé en revue à chaque lot |
+| Implémentation CRM (SOQL, OAuth, écritures Task/Event) | Adapter `api/_crm/salesforce.js` — Salesforce = une implémentation derrière l'interface |
+| Charte graphique (couleurs, fenêtres, typo) | `src/os/theme.css` (tokens `--xos-*`, ~120 usages dans le code) |
+| Assets de marque (polices Brockmann / Neue Montreal, logo, wallpaper) | `public/fonts/`, `src/assets/` — **polices sous licence XOS, ne suivent pas le socle** |
+| Credentials (SF OAuth, Supabase) | Variables d'env Vercel (globales, pas par tenant) |
+| Résidus connus à extraire le jour venu | URL d'instance SF en fallback dans `salesforce.js` ; palette hors-charte de `auth/login.css` ; ~16 valeurs de charte en dur dans `boot.css`/`desktop.css` |
+
+Tout le reste — bureau virtuel, window manager, moteur de ciblage, runner de séances, presets, dédup, journal — est **cœur de produit, agnostique**.
+
+### Vision cible : produit indépendant
+
+1. **Multi-tenant** : le module `mapping.js` devient une table `crm_mapping` (config par tenant), l'adapter est choisi par config (`salesforce`, `hubspot`, …). Le seam actuel est déjà exactement celui-là.
+2. **Onboarding client** : connexion du CRM (OAuth par tenant), assistant de mapping (objets/champs/picklists), choix des presets métier, branding.
+3. **Theming par tenant** : `theme.css` devient un jeu de tokens par tenant (couleurs, logo, wallpaper, polices du client). Prérequis : résorber les résidus listés ci-dessus (petit lot de consolidation, non urgent).
+4. **Credentials par tenant** : sortir les creds des env globales vers un stockage chiffré par tenant.
+
+### Cadrage IP
+
+- **Antériorité** : la conception agnostique est documentée et datée (`docs/specs/call-manager-v2.md` § Principe directeur, 2026-07-10 ; présente section, 2026-07-11) et traçable dans l'historique git (adapter + mapping livrés au lot v2.A).
+- **Ce qui appartient au socle** : tout le code hors tableau ci-dessus, y compris la structure de l'adapter et le format de mapping (le *format* est du socle ; les *valeurs* XOS sont de la config mission).
+- **Ce qui reste à la mission XOS** : les valeurs de mapping, la charte, les assets de marque, les licences de polices, les données Supabase et les creds.
+- **Checklist de sortie** (créer le produit indépendant) : forker le socle sans `mapping.js` rempli, sans `public/fonts/` ni assets XOS, sans env ; re-brander via tokens ; vérifier qu'aucune donnée/valeur XOS ne subsiste (grep picklists + secrets scan).
+- ⚠️ **À valider côté contrat de mission** : clause de propriété du socle vs livrables spécifiques. Point juridique humain, hors périmètre du repo.
+
+**Hors périmètre maintenant** (YAGNI, inchangé) : multi-CRM réel, multi-tenant, onboarding, theming dynamique. Le code doit seulement *rester prêt* : nouveau spécifique XOS ⇒ dans le mapping ou les tokens, jamais dans le cœur.
