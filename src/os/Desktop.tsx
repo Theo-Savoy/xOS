@@ -30,11 +30,12 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
     window.localStorage.setItem(STORAGE_KEY, serializeWindowState(state));
   }, [state]);
 
-  const openApp = (app: AppManifest) => {
+  const openApp = (app: AppManifest, params?: Record<string, string>) => {
     dispatch({
       type: "open",
       appId: app.id,
       defaultSize: app.defaultSize,
+      params,
     });
   };
 

@@ -1,7 +1,12 @@
-export default function CleanerApp() {
+type CleanerAppProps = {
+  params?: Record<string, string>;
+};
+
+export default function CleanerApp({ params }: CleanerAppProps) {
+  const query = params?.q ? `?q=${encodeURIComponent(params.q)}` : "";
   return (
     <iframe
-      src="/dashboard.html"
+      src={`/dashboard.html${query}`}
       title="CRM Cleaner"
       style={{
         width: "100%",

@@ -10,6 +10,7 @@ export type AppWindow = WindowBounds & {
   zIndex: number;
   minimized: boolean;
   maximized: boolean;
+  params?: Record<string, string>;
 };
 
 export type WindowManagerState = {
@@ -18,7 +19,7 @@ export type WindowManagerState = {
 };
 
 export type WindowAction =
-  | { type: "open"; appId: string; defaultSize: { w: number; h: number } }
+  | { type: "open"; appId: string; defaultSize: { w: number; h: number }; params?: Record<string, string> }
   | { type: "close"; appId: string }
   | { type: "minimize"; appId: string }
   | { type: "focus"; appId: string }
@@ -63,6 +64,7 @@ export function windowReducer(
         const restored = updateWindow(state, action.appId, (window) => ({
           ...window,
           minimized: false,
+          params: action.params,
         }));
         return focusWindow(restored, action.appId);
       }
@@ -79,6 +81,7 @@ export function windowReducer(
             zIndex: state.nextZ,
             minimized: false,
             maximized: false,
+            params: action.params,
           },
         ],
         nextZ: state.nextZ + 1,

@@ -12,24 +12,21 @@ export function WindowManager({ windows, dispatch }: WindowManagerProps) {
   return (
     <div className="xos-window-layer">
       {windows.map((window) => {
-        if (window.minimized) return null;
         const app = getAppManifest(window.appId);
         if (!app) return null;
 
         const AppComponent = app.component;
-        const position = window.maximized ? { x: 12, y: 12 } : window;
-        const size = window.maximized
-          ? { width: "calc(100% - 24px)", height: "calc(100% - 24px)" }
-          : { width: window.w, height: window.h };
+        const position = { x: window.x, y: window.y };
+        const size = { width: window.w, height: window.h };
 
         return (
           <Rnd
             bounds="parent"
             cancel=".xos-window__controls"
-            className="xos-rnd-window"
-            disableDragging={window.maximized}
+            className={`xos-rnd-window ${window.maximized ? "xos-rnd-window--maximized" : ""} ${window.minimized ? "xos-rnd-window--minimized" : ""}`}
+            disableDragging={window.maximized || window.minimized}
             dragHandleClassName="xos-window__titlebar"
-            enableResizing={!window.maximized}
+            enableResizing={!window.maximized && !window.minimized}
             key={window.appId}
             minHeight={320}
             minWidth={420}
@@ -91,7 +88,7 @@ export function WindowManager({ windows, dispatch }: WindowManagerProps) {
               </header>
               <div className="xos-window__content">
                 <Suspense fallback={<div className="xos-window__loading">Ouverture…</div>}>
-                  <AppComponent />
+                  <AppComponent params={window.params} />
                 </Suspense>
               </div>
             </section>

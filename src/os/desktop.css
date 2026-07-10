@@ -97,9 +97,28 @@ textarea {
 .xos-rnd-window {
   overflow: visible;
   transition:
-    width 180ms ease,
-    height 180ms ease,
-    transform 180ms ease;
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+}
+
+.xos-rnd-window--maximized {
+  transform: translate(12px, 12px) !important;
+  width: calc(100% - 24px) !important;
+  height: calc(100% - 24px) !important;
+}
+
+.xos-rnd-window--minimized {
+  transform: translate(calc(50vw - 50%), 80vh) scale(0.1) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Disable transitions while dragging or resizing to prevent input/drag lag */
+.xos-rnd-window.react-draggable-dragging,
+.xos-rnd-window.resizing {
+  transition: none !important;
 }
 
 .xos-rnd-window:focus-within .xos-window {

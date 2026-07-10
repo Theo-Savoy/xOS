@@ -980,6 +980,23 @@ function renderData(d) {
   populateReasonsFilter();
   updateKPIs(d);
   renderDashboardStats(d);
+
+  // Read search filter from URL query param 'q' (for /clean <search_term>) on initial load
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var qParam = params.get('q');
+    if (qParam && !window.__qParamLoaded) {
+      searchText = qParam.trim().toLowerCase();
+      var searchInput = document.querySelector('input.search-box[placeholder="Nom, compte, étape..."]');
+      if (searchInput) {
+        searchInput.value = qParam;
+      }
+      window.__qParamLoaded = true;
+    }
+  } catch (err) {
+    console.error('Failed to parse search query param:', err);
+  }
+
   applyFilters();
   var ts = d.generated_at ? d.generated_at.substring(0, 19).replace('T', ' ') : 'unknown';
   document.getElementById('last-updated').textContent = 'Dernière MAJ: ' + ts;

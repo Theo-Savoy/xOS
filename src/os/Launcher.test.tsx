@@ -11,6 +11,9 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 };
 
+// Polyfill scrollIntoView (required by cmdk when list elements mount)
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 // Mock supabase — the Launcher no longer imports it, but cmdk's dependency
 // chain may touch it. Provide a safe fallback.
 vi.mock("../lib/supabase", () => ({
@@ -314,5 +317,160 @@ describe("Launcher", () => {
 
     await user.keyboard("{Meta>}k{/Meta}");
     expect(screen.getByText(/⌘K/)).toBeTruthy();
+  });
+
+  // ── Commands and Inline Forms ──
+
+  describe("Commands and Inline Forms", () => {
+    it("suggests /log, /create, and /clean commands when input starts with /", async () => {
+      const user = userEvent.setup();
+      render(<Launcher accessToken="tok" onOpenApp={noop} />);
+
+      await user.keyboard("{Meta>}k{/Meta}");
+      const input = screen.getByRole("combobox");
+      await user.type(input, "/");
+
+      expect(screen.getByText("/log")).toBeTruthy();
+      expect(screen.getByText("/create")).toBeTruthy();
+      expect(screen.getByText("/clean")).toBeTruthy();
+    });
+
+    it("opens CRM Cleaner when /clean command is selected", async () => {
+      const user = userEvent.setup();
+      const openAppMock = vi.fn();
+      render(<Launcher accessToken="tok" onOpenApp={openAppMock} />);
+
+      await user.keyboard("{Meta>}k{/Meta}");
+      const input = screen.getByRole("combobox");
+      await user.type(input, "/clean Acme");
+
+      const cleanItem = screen.getByText(/Ouvrir le CRM Cleaner/).closest("[cmdk-item]") ||
+        screen.getByText(/Ouvrir le CRM Cleaner/).closest("[role='option']");
+      if (cleanItem) await user.click(cleanItem);
+
+      expect(openAppMock).toHaveBeenCalledTimes(1);
+      expect(openAppMock.mock.calls[0][0].id).toBe("cleaner");
+      expect(openAppMock.mock.calls[0][1]).toEqual({ q: "Acme" });
+    });
+
+    it("transitions to /log form and submits call notes successfully", async () => {
+      const user = userEvent.setup();
+      const localFetchSpy = vi.spyOn(globalThis, "fetch");
+      
+      // Mock API call to /api/search for autocomplete inside form
+      localFetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          error: null,
+          results: [{ type: "Account", id: "001XYZ", name: "Test Corp", detail: "", recordUrl: "" }]
+        }), { status: 200, headers: { "Content-Type": "application/json" } })
+      );
+      
+      // Mock API call to /api/log for submission
+      localFetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: null, success: true, taskId: "00T123" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      render(<Launcher accessToken="tok" onOpenApp={noop} />);
+
+      await user.keyboard("{Meta>}k{/Meta}");
+      
+      // Select /log command
+      const logCmd = screen.getByText("/log").closest("[cmdk-item]") ||
+        screen.getByText("/log").closest("[role='option']");
+      if (logCmd) await user.click(logCmd);
+
+      // Verify form header
+      expect(screen.getByText("Consigner une note d'appel")).toBeTruthy();
+
+      // Search and select record
+      const recordSearchInput = screen.getByPlaceholderText("Rechercher un enregistrement...");
+      await user.type(recordSearchInput, "Test Corp");
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Corp")).toBeTruthy();
+      });
+
+      const matchedRecord = screen.getByText("Test Corp");
+      await user.click(matchedRecord);
+
+      // Verify record is selected
+      expect(screen.getByText(/Test Corp/)).toBeTruthy();
+
+      // Fill comments
+      const commentsTextarea = screen.getByPlaceholderText("Renseigner les notes d'appel...");
+      await user.type(commentsTextarea, "Great feedback from customer.");
+
+      // Submit
+      const submitBtn = screen.getByRole("button", { name: "Enregistrer la note" });
+      await user.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("Note d'appel enregistrée avec succès !")).toBeTruthy();
+      });
+
+      // Verify fetch payload
+      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/log");
+      expect(logCall).toBeTruthy();
+      const payload = JSON.parse(logCall![1]!.body as string);
+      expect(payload.action).toBe("log_call");
+      expect(payload.recordId).toBe("001XYZ");
+      expect(payload.recordType).toBe("Account");
+      expect(payload.comments).toBe("Great feedback from customer.");
+    });
+
+    it("transitions to /create form and submits contact successfully", async () => {
+      const user = userEvent.setup();
+      const localFetchSpy = vi.spyOn(globalThis, "fetch");
+
+      // Mock API call to /api/log for submission
+      localFetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: null, success: true, contactId: "003XYZ" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      render(<Launcher accessToken="tok" onOpenApp={noop} />);
+
+      await user.keyboard("{Meta>}k{/Meta}");
+
+      // Select /create command
+      const createCmd = screen.getByText("/create").closest("[cmdk-item]") ||
+        screen.getByText("/create").closest("[role='option']");
+      if (createCmd) await user.click(createCmd);
+
+      // Verify form header
+      expect(screen.getByText("Créer un contact express")).toBeTruthy();
+
+      // Fill last name (Nom) and other fields
+      const lastNameInput = screen.getByLabelText("Nom*");
+      await user.type(lastNameInput, "Dupont");
+
+      const firstNameInput = screen.getByLabelText("Prénom");
+      await user.type(firstNameInput, "Jean");
+
+      const emailInput = screen.getByLabelText("Email");
+      await user.type(emailInput, "jean.dupont@company.com");
+
+      // Submit
+      const submitBtn = screen.getByRole("button", { name: "Créer le contact" });
+      await user.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("Contact créé avec succès !")).toBeTruthy();
+      });
+
+      // Verify fetch payload
+      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/log");
+      expect(logCall).toBeTruthy();
+      const payload = JSON.parse(logCall![1]!.body as string);
+      expect(payload.action).toBe("create_contact");
+      expect(payload.lastName).toBe("Dupont");
+      expect(payload.firstName).toBe("Jean");
+      expect(payload.email).toBe("jean.dupont@company.com");
+    });
   });
 });

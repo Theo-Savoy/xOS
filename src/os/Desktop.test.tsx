@@ -55,10 +55,10 @@ describe("Desktop", () => {
     const dockButton = screen.getByRole("button", { name: "Ouvrir Notes d’équipe" });
     await user.click(dockButton);
     await user.click(await screen.findByRole("button", { name: "Réduire Notes d’équipe" }));
-    expect(screen.queryByRole("dialog", { name: "Notes d’équipe" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Notes d’équipe" }).closest(".xos-rnd-window")?.className).toContain("xos-rnd-window--minimized");
 
     await user.click(screen.getByRole("button", { name: "Restaurer Notes d’équipe" }));
-    expect(await screen.findByRole("dialog", { name: "Notes d’équipe" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Notes d’équipe" }).closest(".xos-rnd-window")?.className).not.toContain("xos-rnd-window--minimized");
   });
 
   it("toggles maximize and closes a window with its traffic-light controls", async () => {

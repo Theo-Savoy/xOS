@@ -6,7 +6,7 @@ export interface AppManifest {
   id: string;
   title: string;
   icon: ReactNode;
-  component: LazyExoticComponent<FC>;
+  component: LazyExoticComponent<FC<{ params?: Record<string, string> }>>;
   defaultSize: { w: number; h: number };
   roles?: AppRole[];
 }

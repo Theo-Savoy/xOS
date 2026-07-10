@@ -154,6 +154,6 @@
   content: "";
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg, var(--xos-accent), var(--xos-alert));
+  background: url("/logo-xos.webp") no-repeat center;
+  background-size: contain;
 }
