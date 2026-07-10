@@ -1,242 +1,134 @@
-/**
- * api/calls-list.js — SOQL contact sourcing for Call Manager sessions.
- *
- * POST /api/calls-list { filters } → Salesforce Contact query.
- * Response shape matches create_session contacts[] (lot 4.A contract).
- */
-
+/** Live Call Manager target list, backed by the CRM adapter. */
 import { createClient } from "@supabase/supabase-js";
-import { verifyJWT } from "./_auth.js";
+import { respond, verifyJWT } from "./_auth.js";
+import mapping from "./_crm/mapping.js";
+import {
+  buildTargetQuery,
+  fetchSFToken,
+  filterTargetContacts,
+  searchContacts,
+} from "./_crm/salesforce.js";
 
-const SF_ID = /^[a-zA-Z0-9]{15,18}$/;
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
-/**
- * Escape a string for use inside SOQL single-quoted literals.
- */
-export function escapeSOQL(value) {
-  return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+function json(status, body) {
+  const response = respond(status, body);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
-/**
- * Build a SOQL query for Contact sourcing.
- * @param {{ ownerOnly: boolean, hasPhone: boolean, accountId?: string, limit: number }} filters
- * @param {string | null | undefined} sfUserId
- */
-export function buildSoqlQuery(filters, sfUserId) {
-  const conditions = [];
-
-  if (filters.hasPhone) {
-    conditions.push("Phone != null");
-  }
-  if (filters.ownerOnly && sfUserId) {
-    conditions.push(`OwnerId = '${escapeSOQL(sfUserId)}'`);
-  }
-  if (filters.accountId) {
-    conditions.push(`AccountId = '${escapeSOQL(filters.accountId)}'`);
-  }
-
-  const where = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
-  return `SELECT Id, Name, Phone, Account.Id, Account.Name FROM Contact${where} LIMIT ${filters.limit}`;
+function getServiceClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key) : null;
 }
 
-/**
- * Map raw Salesforce Contact records to create_session contact shape.
- */
-export function normalizeContacts(records) {
-  if (!Array.isArray(records)) return [];
-
-  return records
-    .filter((r) => typeof r?.Id === "string" && r.Id.length > 0)
-    .map((r) => ({
-      sf_contact_id: r.Id,
-      sf_account_id: r.Account?.Id ?? null,
-      contact_name: r.Name || "",
-      account_name: r.Account?.Name ?? null,
-      phone: r.Phone ?? null,
-    }));
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/**
- * Parse and validate filters from the request body.
- * @returns {{ ok: true, filters: object, sfUserId?: string } | { ok: false, error: string }}
- */
-export function parseFilters(body) {
-  if (body.filters === undefined || body.filters === null) {
-    return { ok: false, error: "invalid_body" };
-  }
-  if (typeof body.filters !== "object" || Array.isArray(body.filters)) {
-    return { ok: false, error: "invalid_filters" };
-  }
-
-  const raw = body.filters;
-
-  const ownerOnly = raw.ownerOnly !== undefined ? raw.ownerOnly : true;
-  const hasPhone = raw.hasPhone !== undefined ? raw.hasPhone : true;
-  const limit = raw.limit !== undefined ? raw.limit : DEFAULT_LIMIT;
-
-  if (typeof ownerOnly !== "boolean") {
-    return { ok: false, error: "invalid_filters" };
-  }
-  if (typeof hasPhone !== "boolean") {
-    return { ok: false, error: "invalid_filters" };
-  }
-  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-    return { ok: false, error: "invalid_filters" };
-  }
-
-  let accountId;
-  // An empty/whitespace accountId means "no account filter" (the UI sends "").
-  const rawAccountId =
-    typeof raw.accountId === "string" ? raw.accountId.trim() : raw.accountId;
-  if (rawAccountId !== undefined && rawAccountId !== null && rawAccountId !== "") {
-    if (typeof rawAccountId !== "string" || !SF_ID.test(rawAccountId)) {
-      return { ok: false, error: "invalid_filters" };
+function parseBody(body) {
+  if (!isObject(body)) return { error: "invalid_body" };
+  if (!isObject(body.filters)) return { error: "invalid_filters" };
+  for (const family of ["entreprise", "contact", "relance"]) {
+    if (body.filters[family] !== undefined && !isObject(body.filters[family])) {
+      return { error: "invalid_filters" };
     }
-    accountId = rawAccountId;
   }
-
-  return {
-    ok: true,
-    filters: { ownerOnly, hasPhone, accountId, limit },
-  };
+  if (body.limit !== undefined && (!Number.isInteger(body.limit) || body.limit < 1)) {
+    return { error: "invalid_limit" };
+  }
+  if (body.preset_id !== undefined && (!Number.isInteger(body.preset_id) || body.preset_id < 1)) {
+    return { error: "invalid_preset_id" };
+  }
+  return { filters: { ...body.filters, limit: body.limit ?? body.filters.limit } };
 }
 
-/**
- * Fetch a Salesforce OAuth access token using the refresh token flow.
- */
-export async function fetchSFToken() {
-  const clientId = process.env.SF_CLIENT_ID || "";
-  const clientSecret = process.env.SF_CLIENT_SECRET || "";
-  const refreshToken = process.env.SF_REFRESH_TOKEN || "";
-  const loginUrl = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    return { error: "sf_missing_credentials" };
-  }
-
-  const tokenResp = await fetch(loginUrl + "/services/oauth2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!tokenResp.ok) {
-    return { error: "sf_auth_error" };
-  }
-
-  return { accessToken: (await tokenResp.json()).access_token };
-}
-
-/**
- * Execute a SOQL query against Salesforce.
- */
-export async function queryContacts(accessToken, soql) {
-  const instanceUrl =
-    process.env.SF_INSTANCE_URL || "https://db0000000d7rdeay.my.salesforce.com";
-
-  const queryUrl =
-    instanceUrl + "/services/data/v67.0/query?" + new URLSearchParams({ q: soql });
-
-  const queryResp = await fetch(queryUrl, {
-    headers: { Authorization: "Bearer " + accessToken },
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!queryResp.ok) {
-    return { error: "sf_query_error" };
-  }
-
-  return { records: (await queryResp.json()).records };
-}
-
-/**
- * Read sf_user_id from profiles for the authenticated user (service role).
- */
-export async function fetchSfUserId(userId) {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    return { error: "missing_supabase_config" };
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data, error } = await supabase
+async function fetchProfile(client, userId) {
+  const { data, error } = await client
     .from("profiles")
     .select("sf_user_id")
     .eq("id", userId)
     .maybeSingle();
-
-  if (error) {
-    return { error: "profile_lookup_failed" };
-  }
-
-  return { sfUserId: data?.sf_user_id ?? null };
+  if (error) return { error: "profile_lookup_failed" };
+  return { sfUserId: data?.sf_user_id || null };
 }
 
-/**
- * POST /api/calls-list — source contacts to call from Salesforce.
- */
-export async function POST(request) {
-  const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+function normalizeContacts(records) {
+  const contact = mapping.objects.contact.fields;
+  const account = mapping.objects.account.fields;
+  const task = mapping.objects.task;
+  return records
+    .filter((record) => typeof record?.[contact.id] === "string")
+    .map((record) => {
+      const tasks = record[task.childRelationship];
+      const lastCall = Array.isArray(tasks?.records) ? tasks.records[0] : null;
+      return {
+        sf_contact_id: record[contact.id],
+        sf_account_id: record.Account?.[account.id] ?? record[contact.accountId] ?? null,
+        contact_name: record[contact.name] || "",
+        account_name: record.Account?.[account.name] ?? null,
+        phone: record[contact.phone] ?? null,
+        ...(lastCall?.[task.fields.activityDate] ? { last_call_at: lastCall[task.fields.activityDate] } : {}),
+        ...(typeof tasks?.totalSize === "number" ? { call_count: tasks.totalSize } : {}),
+      };
+    });
+}
 
-  const user = await verifyJWT(request);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers });
+async function findDedup(client, contactIds) {
+  if (!contactIds.length) return [];
+  const { data: sessions, error: sessionsError } = await client
+    .from("call_sessions")
+    .select("id, owner")
+    .eq("status", "active");
+  if (sessionsError || !sessions?.length) return [];
+  const sessionIds = sessions.map((session) => session.id);
+  const { data: sessionContacts, error: contactsError } = await client
+    .from("call_session_contacts")
+    .select("sf_contact_id, session_id")
+    .in("session_id", sessionIds)
+    .in("sf_contact_id", contactIds);
+  if (contactsError || !sessionContacts?.length) return [];
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  const owners = [...new Set(sessions.map((session) => session.owner))];
+  const { data: profiles } = await client.from("profiles").select("id, full_name, email").in("id", owners);
+  const ownerLabels = new Map((profiles || []).map((profile) => [profile.id, profile.full_name || profile.email || profile.id]));
+  const dedup = new Map();
+  for (const row of sessionContacts) {
+    if (!dedup.has(row.sf_contact_id)) {
+      const session = sessionById.get(row.session_id);
+      dedup.set(row.sf_contact_id, ownerLabels.get(session.owner) || session.owner);
+    }
   }
+  return [...dedup].map(([sf_contact_id, in_session_of]) => ({ sf_contact_id, in_session_of }));
+}
+
+export async function POST(request) {
+  const user = await verifyJWT(request);
+  if (!user) return json(401, { error: "unauthorized" });
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "invalid_json" }), { status: 400, headers });
+    return json(400, { error: "invalid_json" });
   }
+  const parsed = parseBody(body);
+  if (parsed.error) return json(400, { error: parsed.error });
 
-  if (body === null || typeof body !== "object" || Array.isArray(body)) {
-    return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400, headers });
-  }
-
-  const parsed = parseFilters(body);
-  if (!parsed.ok) {
-    return new Response(JSON.stringify({ error: parsed.error }), { status: 400, headers });
-  }
-
-  const { filters } = parsed;
-  let sfUserId = null;
-
-  if (filters.ownerOnly) {
-    const profileResult = await fetchSfUserId(user.id);
-    if (profileResult.error) {
-      return new Response(JSON.stringify({ error: "invalid_filters" }), { status: 400, headers });
-    }
-    if (!profileResult.sfUserId || !SF_ID.test(profileResult.sfUserId)) {
-      return new Response(JSON.stringify({ error: "no_sf_user_mapping" }), { status: 400, headers });
-    }
-    sfUserId = profileResult.sfUserId;
-  }
+  const client = getServiceClient();
+  if (!client) return json(500, { error: "server_error" });
+  const profile = await fetchProfile(client, user.id);
+  if (profile.error) return json(500, { error: profile.error });
 
   const tokenResult = await fetchSFToken();
-  if (tokenResult.error) {
-    return new Response(JSON.stringify({ error: tokenResult.error }), { status: 502, headers });
-  }
+  if (tokenResult.error) return json(502, { error: tokenResult.error });
+  const soql = buildTargetQuery(parsed.filters, mapping, profile.sfUserId);
+  const search = await searchContacts(tokenResult.accessToken, soql);
+  if (search.error) return json(502, { error: search.error });
 
-  const soql = buildSoqlQuery(filters, sfUserId);
-  const queryResult = await queryContacts(tokenResult.accessToken, soql);
-  if (queryResult.error) {
-    return new Response(JSON.stringify({ error: queryResult.error }), { status: 502, headers });
-  }
-
-  const contacts = normalizeContacts(queryResult.records);
-
-  return new Response(JSON.stringify({ contacts }), { status: 200, headers });
+  const filtered = filterTargetContacts(search.records, parsed.filters, mapping);
+  const contacts = normalizeContacts(filtered);
+  const dedup = await findDedup(client, contacts.map((contact) => contact.sf_contact_id));
+  return json(200, { contacts, dedup });
 }
 
 export async function OPTIONS() {
