@@ -4,6 +4,7 @@ import { appRegistry, getAppManifest } from "./registry";
 describe("appRegistry", () => {
   it("registers the two fixture apps and the shared UI demo", () => {
     expect(appRegistry.map((app) => app.id)).toEqual([
+      "cleaner",
       "overview-demo",
       "notes-demo",
       "ui-demo",

@@ -13,6 +13,13 @@ export interface AppManifest {
 
 export const appRegistry: AppManifest[] = [
   {
+    id: "cleaner",
+    title: "CRM Cleaner",
+    icon: "◈",
+    component: lazy(() => import("../apps/cleaner/CleanerApp")),
+    defaultSize: { w: 1100, h: 540 },
+  },
+  {
     id: "overview-demo",
     title: "Aperçu commercial",
     icon: "◒",
