@@ -57,13 +57,13 @@ const mapping = {
         activityDate: "ActivityDate",
       },
       subtypeValue: "Call",
-      statusValue: "Achevee",
+      statusValue: "Achevée",
       results: [
-        "Appel non decroche",
-        "Message repondeur",
-        "Appel decroche",
-        "Appel argumente",
-        "RDV planifie",
+        "Appel non décroché",
+        "Message répondeur",
+        "Appel décroché",
+        "Appel argumenté",
+        "RDV planifié",
       ],
     },
     opportunity: {
@@ -74,7 +74,7 @@ const mapping = {
         isWon: "IsWon",
         stageName: "StageName",
       },
-      closedLostStage: "Fermee / Perdue",
+      closedLostStage: "Fermée / Perdue",
     },
     event: {
       name: "Event",

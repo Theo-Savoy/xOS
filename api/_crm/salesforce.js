@@ -106,9 +106,10 @@ export function filterTargetContacts(records, filters = {}, mapping, now = new D
   const excluded = followUp.exclure_si_plus_de || {};
   const maxCalls = positiveInteger(excluded.appels);
   const recentDays = positiveInteger(excluded.sur_jours);
-  const wantedResults = Array.isArray(followUp.dernier_resultat)
-    ? stringList(followUp.dernier_resultat)
-    : mapping.objects.task.results.slice(0, 2);
+  // ponytail: only filter on last-call result when the caller asks for it;
+  // no implicit follow-up default here (that belongs to the UI preset), else a
+  // plain enterprise filter and jamais_appele would wrongly drop every contact.
+  const wantedResults = stringList(followUp.dernier_resultat);
   const minDuration = Number.isFinite(followUp.duree_min_sec) ? followUp.duree_min_sec : null;
   const maxDuration = Number.isFinite(followUp.duree_max_sec) ? followUp.duree_max_sec : null;
 
