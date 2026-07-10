@@ -5,12 +5,19 @@ import { createEvent, fetchSFToken, logCall } from "./_crm/salesforce.js";
 
 const SF_ID = /^[a-zA-Z0-9]{15,18}$/;
 const VALID_RESULTS = mapping.objects.task.results;
-const RDV_RESULT = "RDV planifié";
+const TASK_SEMANTIC = mapping.objects.task.resultSemantic;
+const ISO_START_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
+export function isValidEventStart(start) {
+  if (!start || typeof start !== "string" || start.trim() === "") return false;
+  const trimmed = start.trim();
+  if (!ISO_START_RE.test(trimmed)) return false;
+  return !Number.isNaN(new Date(trimmed).getTime());
+}
 
 export function getFollowUpOutcomes(taskMapping = mapping) {
-  return taskMapping.objects.task.results.filter(
-    (result) => result === "Appel non décroché" || result === "Message répondeur",
-  );
+  const semantic = taskMapping.objects.task.resultSemantic;
+  return [semantic.followUpNoAnswer, semantic.followUpVoicemail];
 }
 
 export function filterContactsForFollowUp(contacts, followUpOutcomes = getFollowUpOutcomes()) {
@@ -66,33 +73,35 @@ function actorName(user, profile) {
 }
 
 async function assertSessionOwner(client, sessionId, userId) {
-  const { data: session } = await client
+  const { data: session, error } = await client
     .from("call_sessions")
     .select("id, owner, name, status")
     .eq("id", sessionId)
     .single();
+  if (error) return { error: "session_lookup_failed", status: 500 };
   if (!session || session.owner !== userId) return { error: "not_found", status: 404 };
   return { session };
 }
 
 async function assertSessionContact(client, sessionId, contactId) {
-  const { data: contact } = await client
+  const { data: contact, error } = await client
     .from("call_session_contacts")
     .select("*")
     .eq("id", contactId)
     .single();
+  if (error) return { error: "contact_lookup_failed", status: 500 };
   if (!contact || contact.session_id !== sessionId) return { error: "not_found", status: 404 };
   return { contact };
 }
 
 async function insertSessionWithContacts(client, userId, name, contacts) {
-  const { data: session } = await client
+  const { data: session, error: sessionError } = await client
     .from("call_sessions")
     .insert({ owner: userId, name: name.trim(), status: "active" })
     .select("id, name, status, created_at")
     .single();
 
-  if (!session) return { error: "session_creation_failed", status: 500 };
+  if (sessionError || !session) return { error: "session_creation_failed", status: 500 };
 
   const contactRows = contacts.map((contact, index) => ({
     session_id: session.id,
@@ -105,13 +114,18 @@ async function insertSessionWithContacts(client, userId, name, contacts) {
     status: "pending",
   }));
 
-  const { data: insertedContacts } = await client
+  const { data: insertedContacts, error: contactsError } = await client
     .from("call_session_contacts")
     .insert(contactRows)
     .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, status, outcome, comments, sf_task_id, sf_event_id, called_at")
     .order("position", { ascending: true });
 
-  return { session, contacts: insertedContacts || [] };
+  if (contactsError || !insertedContacts?.length) {
+    await client.from("call_sessions").delete().eq("id", session.id);
+    return { error: "contacts_creation_failed", status: 500 };
+  }
+
+  return { session, contacts: insertedContacts };
 }
 
 function getParisDateRange() {
@@ -406,7 +420,7 @@ export async function POST(request) {
 
     const taskId = sfResult.record?.id;
 
-    await client
+    const { error: updateError } = await client
       .from("call_session_contacts")
       .update({
         status: "called",
@@ -417,6 +431,13 @@ export async function POST(request) {
       })
       .eq("id", contact_id);
 
+    if (updateError) {
+      return new Response(
+        JSON.stringify({ error: "contact_update_failed", sf_task_id: taskId }),
+        { status: 500, headers },
+      );
+    }
+
     await journalAction({
       actorId: user.id,
       actionType: "call_session_log",
@@ -426,7 +447,7 @@ export async function POST(request) {
     });
 
     const response = { ok: true, contact_id, sf_task_id: taskId };
-    if (resultat === RDV_RESULT) {
+    if (resultat === TASK_SEMANTIC.rdv) {
       response.needs_event = true;
     }
 
@@ -442,7 +463,7 @@ export async function POST(request) {
     if (typeof contact_id !== "number" || !Number.isInteger(contact_id) || contact_id < 1) {
       return new Response(JSON.stringify({ error: "invalid_contact_id" }), { status: 400, headers });
     }
-    if (!start || typeof start !== "string") {
+    if (!isValidEventStart(start)) {
       return new Response(JSON.stringify({ error: "invalid_start" }), { status: 400, headers });
     }
     if (!Number.isInteger(duration_min) || duration_min < 1) {
@@ -487,7 +508,7 @@ export async function POST(request) {
       mapping,
     );
 
-    if (sfResult.error) {
+    if (sfResult.error && !sfResult.record?.id) {
       return new Response(
         JSON.stringify({ error: sfResult.error, message: sfResult.message, inviteeError: sfResult.inviteeError }),
         { status: 502, headers },
@@ -496,19 +517,39 @@ export async function POST(request) {
 
     const eventId = sfResult.record?.id;
     if (eventId) {
-      await client
+      const { error: updateError } = await client
         .from("call_session_contacts")
         .update({ sf_event_id: eventId })
         .eq("id", contact_id);
+
+      if (updateError) {
+        return new Response(
+          JSON.stringify({ error: "contact_update_failed", sf_event_id: eventId }),
+          { status: 500, headers },
+        );
+      }
     }
 
+    const partialInviteeFailure = Boolean(sfResult.inviteeError);
     await journalAction({
       actorId: user.id,
       actionType: "call_session_event",
       changes: { start, duration_min, invitees: invitees || [] },
       targets: [{ id: contact.sf_contact_id, type: "Contact", session_contact_id: contact_id, session_id }],
-      result: { success: true, eventId },
+      result: {
+        success: !partialInviteeFailure,
+        partial: partialInviteeFailure,
+        eventId,
+        inviteeError: sfResult.inviteeError,
+      },
     });
+
+    if (partialInviteeFailure) {
+      return new Response(
+        JSON.stringify({ error: "event_invitee_failed", sf_event_id: eventId, inviteeError: sfResult.inviteeError }),
+        { status: 502, headers },
+      );
+    }
 
     return new Response(JSON.stringify({ ok: true, sf_event_id: eventId }), { status: 200, headers });
   }
@@ -525,11 +566,15 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
 
-    const { data: sessionContacts } = await client
+    const { data: sessionContacts, error: contactsLookupError } = await client
       .from("call_session_contacts")
       .select("sf_contact_id, sf_account_id, contact_name, account_name, phone, outcome")
       .eq("session_id", session_id)
       .order("position", { ascending: true });
+
+    if (contactsLookupError) {
+      return new Response(JSON.stringify({ error: "session_contacts_lookup_failed" }), { status: 500, headers });
+    }
 
     const followUpContacts = filterContactsForFollowUp(sessionContacts || []);
     if (followUpContacts.length === 0) {

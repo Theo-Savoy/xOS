@@ -4,7 +4,10 @@ import { filterContactsForFollowUp, getFollowUpOutcomes } from "../api/calls.js"
 import { validatePresetInput } from "../api/presets.js";
 
 const followUpOutcomes = getFollowUpOutcomes(mapping);
-assert.deepEqual(followUpOutcomes, ["Appel non décroché", "Message répondeur"]);
+assert.deepEqual(followUpOutcomes, [
+  mapping.objects.task.resultSemantic.followUpNoAnswer,
+  mapping.objects.task.resultSemantic.followUpVoicemail,
+]);
 
 const contacts = [
   { contact_name: "Alice", outcome: "Appel non décroché" },
@@ -43,4 +46,4 @@ assert.equal(valid.name, "Relance Q3");
 assert.equal(valid.shared, true);
 assert.deepEqual(valid.filters.relance.dernier_resultat, followUpOutcomes);
 
-console.log("calls-v2-logic.test.js: OK");
+console.log("calls-v2-logic.check.js: OK");

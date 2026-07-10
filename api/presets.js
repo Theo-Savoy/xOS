@@ -35,10 +35,15 @@ export function validatePresetInput(body) {
   };
 }
 
-function parsePresetId(value) {
-  const id = typeof value === "string" ? parseInt(value, 10) : value;
-  if (!Number.isInteger(id) || id < 1) return null;
-  return id;
+export function parsePresetId(value) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value >= 1 ? value : null;
+  }
+  if (typeof value === "string") {
+    if (!/^[1-9]\d*$/.test(value)) return null;
+    return Number(value);
+  }
+  return null;
 }
 
 export async function GET(request) {
@@ -139,11 +144,15 @@ export async function DELETE(request) {
     return new Response(JSON.stringify({ error: "server_error" }), { status: 500, headers });
   }
 
-  const { data: existing } = await client
+  const { data: existing, error: lookupError } = await client
     .from("call_target_presets")
     .select("id, owner")
     .eq("id", presetId)
     .maybeSingle();
+
+  if (lookupError) {
+    return new Response(JSON.stringify({ error: "preset_lookup_failed" }), { status: 500, headers });
+  }
 
   if (!existing) {
     return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers });
