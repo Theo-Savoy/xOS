@@ -4,8 +4,10 @@ import { respond, verifyJWT } from "./_auth.js";
 import mapping from "./_crm/mapping.js";
 import {
   buildTargetQuery,
+  boundedLimit,
   fetchSFToken,
   filterTargetContacts,
+  hasRelanceQueryFilters,
   searchContacts,
 } from "./_crm/salesforce.js";
 
@@ -67,6 +69,10 @@ function normalizeContacts(records) {
         contact_name: record[contact.name] || "",
         account_name: record.Account?.[account.name] ?? null,
         phone: record[contact.phone] ?? null,
+        title: record[contact.title] ?? null,
+        linkedin_url: record[contact.linkedin] ?? null,
+        email: record[contact.email] ?? null,
+        mobile_phone: record[contact.mobilePhone] ?? null,
         ...(lastCall?.[task.fields.activityDate] ? { last_call_at: lastCall[task.fields.activityDate] } : {}),
         ...(typeof tasks?.totalSize === "number" ? { call_count: tasks.totalSize } : {}),
       };
@@ -126,7 +132,10 @@ export async function POST(request) {
   if (search.error) return json(502, { error: search.error });
 
   const filtered = filterTargetContacts(search.records, parsed.filters, mapping);
-  const contacts = normalizeContacts(filtered);
+  const requestedLimit = boundedLimit(parsed.filters.limit);
+  const contacts = normalizeContacts(
+    hasRelanceQueryFilters(parsed.filters) ? filtered.slice(0, requestedLimit) : filtered,
+  );
   const dedup = await findDedup(client, contacts.map((contact) => contact.sf_contact_id));
   return json(200, { contacts, dedup });
 }

@@ -6,6 +6,7 @@ import {
   getFollowUpOutcomes,
   isNotFoundError,
   isValidEventStart,
+  isValidScheduledFor,
 } from "./calls.js";
 import mapping from "./_crm/mapping.js";
 
@@ -120,6 +121,12 @@ describe("helpers", () => {
       { outcome: SEMANTIC.rdv },
     ];
     expect(filterContactsForFollowUp(contacts)).toHaveLength(2);
+  });
+
+  it("isValidScheduledFor accepts strict YYYY-MM-DD dates", () => {
+    expect(isValidScheduledFor("2026-07-10")).toBe(true);
+    expect(isValidScheduledFor("2026-02-30")).toBe(false);
+    expect(isValidScheduledFor("10-07-2026")).toBe(false);
   });
 
   it("isValidEventStart accepts ISO with minutes or seconds and timezone", () => {
@@ -348,7 +355,51 @@ describe("POST /api/calls", () => {
         contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie" }],
       }));
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("contacts_creation_failed");
+      expect((await res.json()).error).toBe("session_contacts_insert_failed");
+    });
+
+    it("returns 400 for invalid scheduled_for", async () => {
+      const res = await POST(makeReq("POST", {
+        action: "create_session",
+        name: "Test",
+        scheduled_for: "2026-02-30",
+        contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie" }],
+      }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("invalid_scheduled_for");
+    });
+
+    it("persists title and linkedin_url on session contacts", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: { id: 12, name: "Prospection Lyon", status: "active", created_at: "2026-01-01T00:00:00Z", scheduled_for: "2026-07-10" }, error: null })
+        .mockResolvedValueOnce({
+          data: [{
+            id: 201,
+            position: 0,
+            sf_contact_id: "003000000000001",
+            contact_name: "Marie Dupont",
+            title: "RF",
+            linkedin_url: "https://linkedin.com/in/marie",
+            status: "pending",
+          }],
+          error: null,
+        });
+
+      const res = await POST(makeReq("POST", {
+        action: "create_session",
+        name: "Prospection Lyon",
+        scheduled_for: "2026-07-10",
+        contacts: [{
+          sf_contact_id: "003000000000001",
+          contact_name: "Marie Dupont",
+          title: "RF",
+          linkedin_url: "https://linkedin.com/in/marie",
+        }],
+      }));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.contacts[0].title).toBe("RF");
+      expect(body.contacts[0].linkedin_url).toBe("https://linkedin.com/in/marie");
     });
   });
 
