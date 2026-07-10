@@ -1,10 +1,34 @@
 # 🌌 Projet X OS — Portail Intranet de Pilotage Commercial
 
-Le projet **X OS** (jeu de mots avec XOS et Operating System) est un portail intranet conçu sous la forme d'un **système d'exploitation virtuel (Virtual Desktop)** s'exécutant dans le navigateur. 
+**Version 2 — plan affiné du 2026-07-10** (v1 conservée dans l'historique git).
+
+Le projet **X OS** (jeu de mots avec XOS et Operating System) est un portail intranet conçu sous la forme d'un **système d'exploitation virtuel (Virtual Desktop)** s'exécutant dans le navigateur.
 
 L'objectif est double :
 1. **Pour les Managers** : Offrir un cockpit de pilotage en temps réel de la performance commerciale et de l'hygiène du CRM.
 2. **Pour les Commerciaux** : Simplifier leur quotidien en réduisant les frictions de saisie et en priorisant leurs actions avec des outils simples et interactifs.
+
+---
+
+## 🧭 Décisions d'architecture (actées le 2026-07-10)
+
+| Sujet | Décision | Motivation |
+|---|---|---|
+| **Stack front** | **Vite + React + TypeScript**, SPA statique. Pas de Next.js. | Composants réutilisables entre apps, état réactif partagé, et garde-fous mécaniques (tsc, ESLint) pour le contrôle qualité du travail des agents d'implémentation. L'API existe déjà en serverless, un framework fullstack n'apporte rien. |
+| **Dashboard déchet actuel** | **Préservé tel quel** (`dashboard.html` + `api/refresh.py` + `api/update.js` intouchés), embarqué en **iframe** dans la fenêtre "CRM Cleaner". Migration React ultérieure, app par app, jamais big-bang. | Zéro risque de régression sur la seule app en production. La préservation ne contraint pas la stack du reste du portail. |
+| **Authentification** | **Supabase Auth + Google SSO**, restreint au domaine Google Workspace de l'entreprise. Comptes individuels, sessions JWT, révocation immédiate. | Un mot de passe partagé est inacceptable pour une app qui écrit dans Salesforce, affiche la perf individuelle et gamifie l'équipe. |
+| **Persistance** | **Supabase Postgres** : profils (mapping ↔ user Salesforce), challenges/scores Arena, configuration, journal d'actions. | Le journal actuel en Blob immuable est déjà un contournement des limites de Vercel Blob (pas de read-modify-write sûr). Arena et la config exigent requêtes, transactions et concurrence propres. |
+| **Écritures Salesforce** | Via l'**utilisateur d'intégration** côté serveur (comme aujourd'hui), chaque action **attribuée à la personne connectée** dans le journal Postgres. | Upgrade possible plus tard vers OAuth SF par user (actions sous le nom de chacun dans SF) sans rien casser. |
+| **API** | Endpoints serverless Vercel conservés et étendus (nouveaux endpoints en Node, protégés par vérification du JWT Supabase). | Continuité, pas de réécriture. |
+| **Périmètre** | **Tout le plan, phasé** : socle → Launcher → Weekly Perf → Lead Tracker → Arena. | Architecture dimensionnée pour l'ensemble dès le départ. |
+| **Cible d'affichage** | Desktop-first (métaphore bureau). Mobile : consultation dégradée non prioritaire. | Le public est l'équipe commerciale au poste de travail. |
+| **Déploiement & URL** | Même projet Vercel (xos-dechet-repo), nouveau sous-domaine **`xos.hellotheo.fr`** (CNAME + domaine ajouté au projet + redirect URL Supabase). L'URL Vercel actuelle reste valide pendant la transition. | Zéro migration d'env vars, iframe same-origin, branding propre pour le lancement. |
+| **Tests des écritures SF** | Org de production avec précautions : enregistrements de test créés puis nettoyés ; chaque spec d'agent est relue sous cet angle (pas de sandbox disponible). | Pratique actuelle d'update.js, discipline vérifiée à la gate QC. |
+| **Basic Auth legacy** | Coexistence SSO + Basic Auth pendant les phases 0–2, puis **extinction du Basic Auth** une fois l'équipe basculée sur Google SSO. | Un secret partagé de moins à terme. |
+
+### Réalités des données Salesforce (vérifiées avec Théo)
+- Les activités (appels, RDV) **sont loggées** en Tasks/Events → le Pulse hebdo est faisable.
+- **L'objet Lead n'est pas utilisé : la prospection vit sur l'objet Contact**, plus Opportunities/Accounts/Campaigns → le Lead Tracker est respécifié sur **Contacts + opportunités en étapes amont + campagnes** (voir app 3). Chaque dashboard commence par un **audit SOQL de volumétrie** pour caler ses définitions avant tout développement UI.
 
 ---
 
@@ -20,54 +44,112 @@ Le portail adoptera une esthétique **Dark Mode Premium & Glassmorphism** inspir
 *   **Typography** : Polices de la charte XOS chargées via `@font-face` :
     *   `Brockmann` (police principale pour le texte et les en-têtes).
     *   `Aeonik` ou `Neue Montreal` (polices secondaires pour les chiffres et les interfaces de tableau de bord).
+    *   ✅ **Brockmann livrée** : webfont kit complet dans `fonts/brockmann-complete-webfont/` (woff2 Regular / Medium / SemiBold / Bold + italiques, licence webfont incluse). Les woff2 nécessaires sont copiés dans `public/fonts/` et déclarés en `@font-face` (jamais les .otf desktop, licence différente).
+    *   ✅ **Neue Montreal livrée** (`fonts/Neue-Montreal-Font-Family/`, OTF Light→Bold + italiques) : **police secondaire retenue pour les chiffres et dashboards** (conversion OTF → woff2 au build, `tabular-nums`).
+    *   ⛔ **Aeonik : fichiers TRIAL uniquement** (EULA d'essai CoType) — **exclue de la production**, ne jamais l'embarquer dans le build.
     *   `Logo officiel` : [logo XOS.webp](https://cdn.prod.website-files.com/6544f8a01bb184e8bf74376c/6548fadbd2f17da27dbdc484_logo%20XOS.webp)
 *   **Mise en page "Bureau Virtuel"** :
     *   **Fond d'écran** : Dégradé fluide et animé entre les couleurs de la charte.
     *   **Le Dock X OS** : Barre d'applications flottante en bas de l'écran avec effet de reflet et zoom au survol.
-    *   **Gestionnaire de Fenêtres** : Possibilité d'ouvrir, fermer (rouge), réduire (jaune) ou agrandir (vert) chaque outil dans une fenêtre flottante déplaçable.
+    *   **Gestionnaire de Fenêtres** : Ouvrir, fermer (rouge), réduire (jaune), agrandir (vert), déplacer, redimensionner, focus/z-index — implémenté avec `react-rnd`.
+
+---
+
+## 🏗️ Architecture technique
+
+```
+/                        SPA React (Vite build → dist/)
+├── src/
+│   ├── os/              shell : Desktop, Dock, WindowManager, Launcher, thème
+│   ├── apps/            une app = un dossier, contrat AppManifest
+│   │   ├── cleaner/     iframe → /dashboard.html (préservé)
+│   │   ├── weekly/      Weekly Perf
+│   │   ├── leads/       Lead Tracker (Contacts)
+│   │   ├── arena/       Gamification
+│   │   └── hub/         Paramètres & statut
+│   ├── lib/             client Supabase, client API, composants partagés (ui/)
+│   └── main.tsx
+├── public/dashboard.html   ← dashboard déchet actuel, servi tel quel sur /dashboard.html
+├── api/                 serverless Vercel (Node + refresh.py existant)
+│   ├── refresh.py       ✅ inchangé        ├── update.js  ✅ inchangé
+│   ├── search.js        Launcher (SOSL)    ├── log.js     /log & /create
+│   ├── perf.js          Weekly Perf        ├── funnel.js  Lead Tracker
+│   ├── arena/*.js       challenges         └── status.js  Hub (limits SF)
+├── middleware.js        auth edge : session Supabase OU Basic Auth legacy
+└── supabase/migrations/ schéma Postgres
+```
+
+**Contrat d'app** (frontière de délégation aux agents) :
+```ts
+interface AppManifest {
+  id: string;            // "cleaner", "weekly"…
+  title: string;         // nom affiché
+  icon: ReactNode;       // icône du dock
+  component: LazyExoticComponent<FC>;  // contenu de la fenêtre
+  defaultSize: { w: number; h: number };
+  roles?: ("manager" | "commercial")[];  // visibilité dock (défaut : tous)
+}
+```
+Chaque app est enregistrée dans `src/os/registry.ts`. Une app ne touche jamais au shell ni à une autre app.
+
+**Schéma Supabase** (migrations SQL versionnées) :
+- `profiles` : id (= auth.users), email, full_name, `sf_user_id`, role (`manager`/`commercial`)
+- `settings` : key, value jsonb (seuils de retard, exclusions de comptes…)
+- `challenges` : titre, métrique, période, statut, créateur
+- `challenge_results` : challenge_id, profile_id, valeur, rang, maj
+- `badges` : profile_id, type, date, meta
+- `action_journal` : at, actor (profile_id), action_type, changes jsonb, targets jsonb, result jsonb — **remplace le journal Blob** pour les nouvelles actions
+- RLS : lecture pour tout utilisateur authentifié ; écritures uniquement via service role (endpoints serverless).
+
+**Auth de bout en bout** :
+1. SPA : Supabase Auth (Google SSO, domaine restreint) ; pas de session → écran de login.
+2. Endpoints Node : vérification du JWT Supabase (header Authorization) avant toute action ; l'identité vérifiée alimente `action_journal.actor`.
+3. `middleware.js` : accepte **soit** une session Supabase valide (cookie) **soit** le Basic Auth legacy — l'iframe Cleaner et l'accès direct historique à `/dashboard.html` continuent de fonctionner pendant toute la transition.
+
+**Cache des données** : `refresh.py` garde son cache CDN 24 h (+ bouton refresh). Les nouveaux endpoints analytics (`perf`, `funnel`, `arena`) utilisent `s-maxage=900` (15 min) — la perf hebdo doit être plus fraîche que l'hygiène CRM. `search` : pas de cache.
 
 ---
 
 ## 🚀 Les Applications du Dock (Le Hub X OS)
 
-### 1. 🗑️ CRM Cleaner (Hygiène CRM) — *Actuel*
+### 1. 🗑️ CRM Cleaner (Hygiène CRM) — *Actuel, préservé*
 L'application actuelle de détection et traitement en lot des opportunités défectueuses.
 *   **Fonctionnalités** : Filtrage croisé par types de vente, familles de raisons (ET/OU), réassignation en lot au propriétaire du compte, fermeture assistée avec contrôle Picklist Salesforce.
-*   **Statut** : Opérationnel, à intégrer dans le gestionnaire de fenêtres.
+*   **Intégration** : fenêtre X OS contenant une **iframe** vers `/dashboard.html`, servi et fonctionnant exactement comme aujourd'hui (mêmes endpoints, même comportement). Accès direct à l'URL conservé. Migration React ultérieure hors périmètre.
 
 ### 2. 📈 Weekly Perf (Cockpit Hebdomadaire) — *Nouveau*
 Suivi hebdomadaire de la performance commerciale pour piloter le rythme de vente.
-*   **Fonctionnalités** :
-    *   **Le "Pulse"** : Nombre d'appels, rendez-vous et propositions envoyées sur la semaine par commercial.
-    *   **Pipeline Généré vs Gagné** : Graphique comparatif de la création de valeur et du taux de closing.
-    *   **Le Taux d'Effort** : Ratio d'opportunités passées à l'étape supérieure.
+*   **Le "Pulse"** : par commercial et par semaine — appels (Tasks type appel), RDV (Events), propositions envoyées (opportunités entrées en étape "Proposition" sur la période, via `OpportunityHistory`).
+*   **Pipeline Généré vs Gagné** : somme des montants des opps créées vs gagnées par semaine (graphique comparatif) + taux de closing.
+*   **Le Taux d'Effort** : ratio d'opportunités passées à l'étape supérieure sur la période (`OpportunityHistory`).
+*   **Précondition** : audit SOQL de volumétrie (types de Tasks réellement utilisés, nommage des étapes) pour figer les définitions exactes des trois métriques — validées par Théo avant l'UI.
 
-### 3. 🎯 Lead Tracker (Suivi de la Prospection) — *Nouveau*
-Visualisation du "Pipe d'entrée" et de la vélocité de prospection.
-*   **Fonctionnalités** :
-    *   **Entonnoir de Prospection** : Taux de transformation des leads en opportunités qualifiées.
-    *   **Bottleneck Detector** : Identification des étapes où les prospects stagnent le plus longtemps.
-    *   **Performance des canaux** : Efficacité comparée des campagnes, du site web ou de l'outbound.
+### 3. 🎯 Lead Tracker (Suivi de la Prospection) — *Nouveau, respécifié sur Contact*
+L'objet Lead n'étant pas utilisé, l'entonnoir se construit sur **Contacts → Opportunités amont → Opportunités qualifiées** :
+*   **Entonnoir de Prospection** : contacts créés → contacts rattachés à une opportunité → opportunités passées en étape qualifiée, avec taux de transformation à chaque cran.
+*   **Bottleneck Detector** : temps de stagnation par étape amont (`LastStageChangeDate` / `OpportunityHistory`).
+*   **Performance des canaux** : efficacité comparée par `LeadSource` des opportunités et par Campagne (`CampaignId`).
+*   **Précondition** : audit SOQL (remplissage de `LeadSource`, usage réel des campagnes, process de création des contacts) — définitions validées par Théo avant l'UI.
 
-### 4. ⚡ XOS Launcher (Spotlight Command - Game Changer) — *Nouveau*
-Un centre de commande rapide inspiré de Spotlight (macOS) accessible via `Cmd + K`.
-*   **Fonctionnalités** :
-    *   Recherche ultra-rapide de comptes, contacts ou opportunités Salesforce.
-    *   **Actions instantanées par raccourcis clavier** :
-        *   `/log` : Saisie d'une note d'appel rapide sans ouvrir Salesforce (synchro API).
-        *   `/create` : Création express d'un prospect.
-        *   `/clean` : Lance une analyse d'hygiène sur un compte donné.
-    *   *Bénéfice* : Gain de temps massif pour les commerciaux par rapport aux temps de chargement de Salesforce.
+### 4. ⚡ XOS Launcher (Spotlight Command) — *Nouveau*
+Un centre de commande rapide inspiré de Spotlight (macOS), accessible via `Cmd + K` (lib `cmdk`).
+*   **Recherche** : comptes, contacts, opportunités via SOSL (`api/search`), navigation vers la fiche SF ou les apps X OS.
+*   **Actions instantanées** :
+    *   `/log` : saisie d'une note d'appel rapide → crée une Task Salesforce rattachée au compte/contact/opp, attribuée dans le journal à l'utilisateur connecté (mention "via X OS par {nom}" dans la description SF).
+    *   `/create` : création express d'un **Contact** (pas d'objet Lead dans cet org).
+    *   `/clean` : ouvre le CRM Cleaner pré-filtré sur un compte donné.
+*   *Bénéfice* : gain de temps massif par rapport aux temps de chargement de Salesforce.
 
 ### 5. 🏆 XOS Arena (Gamification & Challenges) — *Nouveau*
 Rendre la saisie CRM et la prospection ludiques grâce au challenge d'équipe.
-*   **Fonctionnalités** :
-    *   **Défis hebdomadaires** : *"Le premier à nettoyer toutes ses opportunités en retard"*, *"Meilleur convertisseur de la semaine"*.
-    *   **Leaderboard** : Progression en direct des commerciaux avec médailles et badges animés.
-    *   *Bénéfice* : Augmente l'adoption du CRM et la qualité des données par l'émulation collective.
+*   **Défis hebdomadaires** : créés par les managers depuis l'app (ex. *"Le premier à nettoyer toutes ses opportunités en retard"*, *"Meilleur convertisseur de la semaine"*), sur un catalogue de métriques calculées depuis Salesforce/journal.
+*   **Leaderboard** : classement recalculé périodiquement (cron Vercel → snapshot dans `challenge_results`), médailles et badges persistés dans Postgres.
+*   *Bénéfice* : augmente l'adoption du CRM et la qualité des données par l'émulation collective.
 
 ### 6. ⚙️ Hub Connexion (Paramètres & Status) — *Nouveau*
-*   **Fonctionnalités** : Statut de la connexion API Salesforce, quotas d'appels API restants, configuration des seuils de retard et gestion des exclusions de comptes.
+*   **Statut** : connexion API Salesforce, quotas d'appels restants (endpoint SF `/limits`), fraîcheur des caches.
+*   **Configuration** (managers) : seuils de retard, exclusions de comptes — stockés dans `settings` (Supabase), consommés par les endpoints.
+*   **Compte** : profil connecté, mapping vers le user Salesforce, déconnexion.
 
 ---
 
@@ -75,28 +157,19 @@ Rendre la saisie CRM et la prospection ludiques grâce au challenge d'équipe.
 
 ```mermaid
 graph TD
-    A[Phase 1: Socle X OS & Intégration Cleaner] --> B[Phase 2: XOS Launcher Cmd+K]
-    B --> C[Phase 3: Dashboard Performance Hebdo]
-    C --> D[Phase 4: Dashboard Prospection]
-    D --> E[Phase 5: Gamification Arena]
+    Z[Phase 0: Socle technique — Vite/React/TS + Supabase Auth/DB] --> A[Phase 1: Bureau virtuel & Cleaner iframé]
+    A --> B[Phase 2: XOS Launcher Cmd+K + Hub]
+    B --> C[Phase 3: Weekly Perf]
+    C --> D[Phase 4: Lead Tracker]
+    D --> E[Phase 5: Arena]
 ```
 
-### Phase 1 : Le Bureau Virtuel (Socle)
-*   [ ] Création du layout HTML/CSS principal avec le fond d'écran XOS et le Dock.
-*   [ ] Écriture du gestionnaire de fenêtres en JS natif (déplacement, redimensionnement, focus, réduction).
-*   [ ] Migration du code existant de `dashboard.html` dans la fenêtre `CRM Cleaner`.
-*   [ ] Déploiement automatique sur Vercel.
+Le détail des lots, l'assignation aux agents (via Orca) et les critères de vérification par lot sont dans **`docs/xos_implementation_plan.md`**.
 
-### Phase 2 : XOS Launcher (`Cmd + K`) & Hub Paramètres
-*   [ ] Implémentation du moteur de recherche rapide et des commandes d'action rapide `/log` et `/create`.
-*   [ ] Interfaçage avec les APIs de mise à jour rapide Salesforce.
+**Invariant de non-régression, vérifié à chaque phase** : `GET /dashboard.html` (direct et via Basic Auth legacy), `GET /api/refresh` et `POST /api/update` se comportent exactement comme avant le chantier.
 
-### Phase 3 : Dashboard Performance Hebdomadaire
-*   [ ] Ajout des indicateurs de performance ("Pulse" hebdomadaire) dans l'API de rafraîchissement.
-*   [ ] Création d'une nouvelle fenêtre graphique dans l'OS pour le suivi.
-
-### Phase 4 : Dashboard Prospection
-*   [ ] Intégration des statistiques sur l'entonnoir d'entrée et la vélocité.
-
-### Phase 5 : Arena (Gamification)
-*   [ ] Tableau des scores et gestion des défis en temps réel.
+### Risques identifiés
+1. **Config Vercel hybride** (SPA Vite + `dashboard.html` statique + fonctions Node/Python + middleware) : traité en tout premier (lot 0.1) pour dérisquer le déploiement.
+2. **Définitions des métriques** (Pulse, entonnoir) dépendantes de la discipline de saisie réelle : audits SOQL préalables + validation Théo avant chaque UI de dashboard.
+3. **Polices** : Brockmann (webfont) + Neue Montreal (OTF→woff2) livrées ; ⚠️ Aeonik en version TRIAL seulement → exclue de la prod.
+4. **Quotas API Salesforce** : les nouveaux endpoints sont cachés (15 min) et le Hub affiche la consommation.

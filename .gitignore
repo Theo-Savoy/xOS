@@ -4,3 +4,7 @@ __pycache__/
 .vercel
 dashboard_data.json
 .env*
+__MACOSX/
+.claude/
+.commandcode/
+fonts/New Aeonik Trials/
