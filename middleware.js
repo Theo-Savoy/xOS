@@ -1,6 +1,6 @@
 // Auth par cookie xos_auth sur les routes legacy (dashboard.html et /api/*).
 // Route / (racine exacte) et /assets/* /fonts/* /favicon* sont publiques :
-//   la SPA charge et LoginScreen gère Google SSO avec PKCE.
+//   la SPA charge et LoginScreen gère le magic link email avec PKCE.
 // Le cookie xos_auth est posé soit par POST /login (Basic Auth),
 //   soit par /api/sso-bridge (vérification JWT Supabase → cookie legacy).
 // /api/sso-bridge est public : il porte son propre JWT en Authorization header.

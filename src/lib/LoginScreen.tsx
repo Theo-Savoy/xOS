@@ -10,18 +10,21 @@ export function LoginScreen() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isValidEmail = (value: string) => value.endsWith(`@${ALLOWED_DOMAIN}`);
+  const isValidEmail = (value: string) =>
+    value.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim()) {
+    const normalized = email.trim().toLowerCase();
+
+    if (!normalized) {
       setError("Veuillez saisir une adresse email.");
       return;
     }
 
-    if (!isValidEmail(email.trim())) {
+    if (!isValidEmail(normalized)) {
       setError(`Seules les adresses @${ALLOWED_DOMAIN} sont autorisées.`);
       return;
     }
@@ -29,7 +32,7 @@ export function LoginScreen() {
     setLoading(true);
 
     const { error: err } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+      email: normalized,
       options: {
         emailRedirectTo: window.location.origin,
       },
