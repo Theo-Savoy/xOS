@@ -192,6 +192,12 @@ describe("parseFilters", () => {
     });
   });
 
+  it("treats empty/whitespace accountId as absent (UI sends '')", () => {
+    const result = parseFilters({ filters: { accountId: "  " } });
+    expect(result.ok).toBe(true);
+    expect(result.filters.accountId).toBeUndefined();
+  });
+
   it("rejects limit above max", () => {
     expect(parseFilters({ filters: { limit: 201 } })).toEqual({
       ok: false,
@@ -263,12 +269,12 @@ describe("POST /api/calls-list", () => {
     expect(body.error).toBe("invalid_body");
   });
 
-  it("returns 400 invalid_filters when ownerOnly is true but profile has no sf_user_id", async () => {
+  it("returns 400 no_sf_user_mapping when ownerOnly is true but profile has no sf_user_id", async () => {
     mockMaybeSingle.mockResolvedValue({ data: { sf_user_id: null }, error: null });
     const res = await POST(makeReq({ filters: {} }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("invalid_filters");
+    expect(body.error).toBe("no_sf_user_mapping");
   });
 
   it("skips profile lookup when ownerOnly is false", async () => {

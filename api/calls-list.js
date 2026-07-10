@@ -87,11 +87,14 @@ export function parseFilters(body) {
   }
 
   let accountId;
-  if (raw.accountId !== undefined && raw.accountId !== null) {
-    if (typeof raw.accountId !== "string" || !SF_ID.test(raw.accountId)) {
+  // An empty/whitespace accountId means "no account filter" (the UI sends "").
+  const rawAccountId =
+    typeof raw.accountId === "string" ? raw.accountId.trim() : raw.accountId;
+  if (rawAccountId !== undefined && rawAccountId !== null && rawAccountId !== "") {
+    if (typeof rawAccountId !== "string" || !SF_ID.test(rawAccountId)) {
       return { ok: false, error: "invalid_filters" };
     }
-    accountId = raw.accountId;
+    accountId = rawAccountId;
   }
 
   return {
@@ -215,7 +218,7 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: "invalid_filters" }), { status: 400, headers });
     }
     if (!profileResult.sfUserId || !SF_ID.test(profileResult.sfUserId)) {
-      return new Response(JSON.stringify({ error: "invalid_filters" }), { status: 400, headers });
+      return new Response(JSON.stringify({ error: "no_sf_user_mapping" }), { status: 400, headers });
     }
     sfUserId = profileResult.sfUserId;
   }
