@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildTargetQuery, escapeSOQL, filterTargetContacts } from "./_crm/salesforce.js";
+import {
+  boundedLimit,
+  buildTargetQuery,
+  escapeSOQL,
+  filterTargetContacts,
+  hasRelanceQueryFilters,
+  SOQL_FETCH_CAP,
+} from "./_crm/salesforce.js";
 import mapping from "./_crm/mapping.js";
 import { POST } from "./calls-list.js";
 
@@ -62,6 +69,10 @@ const SF_RECORDS = [
     Id: "003000000000001AAA",
     Name: "Marie Dupont",
     Phone: "+33123456789",
+    Title: "Responsable formation",
+    Profil_Linkedin__c: "https://linkedin.com/in/marie",
+    Email: "marie@acme.fr",
+    MobilePhone: "+33600000000",
     AccountId: "001000000000001AAA",
     Account: { Id: "001000000000001AAA", Name: "ACME" },
     Tasks: { totalSize: 1, records: [{ ActivityDate: "2026-07-01", Resultat_call__c: "Appel décroché", CallDurationInSeconds: 60 }] },
@@ -79,7 +90,69 @@ describe("adapter exports", () => {
     expect(soql).toContain(`Account.${mapping.objects.account.fields.industry} IN ('Finance')`);
     expect(soql).toContain(`${mapping.objects.contact.fields.phone} != null`);
     expect(soql).toContain(`${mapping.objects.contact.fields.doNotCall} = false`);
+    expect(soql).toContain(`${mapping.objects.contact.fields.title}`);
+    expect(soql).toContain(`${mapping.objects.contact.fields.linkedin}`);
+    expect(soql).not.toMatch(/NOT IN \(SELECT .* FROM Task/);
     expect(soql).toContain("LIMIT 200");
+  });
+
+  it("buildTargetQuery fetches wide when relance predicates need JS filtering", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, relance: { jamais_appele: true }, limit: 50 },
+      mapping,
+      null,
+    );
+    expect(soql).not.toMatch(/LAST_N_DAYS/);
+    expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
+    expect(hasRelanceQueryFilters({ relance: { jamais_appele: true } })).toBe(true);
+  });
+
+  it("boundedLimit accepts up to the SOQL fetch cap", () => {
+    expect(boundedLimit(2000)).toBe(2000);
+    expect(boundedLimit(9000)).toBe(SOQL_FETCH_CAP);
+  });
+
+  it("buildTargetQuery adds fonction preset clauses", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, contact: { fonctions: ["responsable_formation"] } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain("Title LIKE '%responsable%formation%'");
+    expect(soql).toContain("Title IN ('RF')");
+  });
+
+  it("filterTargetContacts applies relance predicates from Tasks child records", () => {
+    const now = new Date("2026-07-10T12:00:00Z");
+    const records = [
+      { Id: "never", Tasks: null },
+      {
+        Id: "recent",
+        Tasks: { records: [{ ActivityDate: "2026-07-09", Resultat_call__c: "Appel décroché" }] },
+      },
+      {
+        Id: "old",
+        Tasks: { records: [{ ActivityDate: "2026-05-01", Resultat_call__c: "Appel décroché" }] },
+      },
+    ];
+    expect(
+      filterTargetContacts(records, { relance: { jamais_appele: true } }, mapping, now).map((r) => r.Id),
+    ).toEqual(["never"]);
+    expect(
+      filterTargetContacts(records, { relance: { dernier_appel_avant_jours: 30 } }, mapping, now).map((r) => r.Id).sort(),
+    ).toEqual(["never", "old"]);
+    expect(
+      filterTargetContacts(records, { relance: { dernier_appel_dans_jours: 7 } }, mapping, now).map((r) => r.Id),
+    ).toEqual(["recent"]);
+  });
+
+  it("filterTargetContacts ignores legacy duration keys from old presets", () => {
+    const filtered = filterTargetContacts(
+      SF_RECORDS,
+      { relance: { duree_min_sec: 9999, duree_max_sec: 1 } },
+      mapping,
+    );
+    expect(filtered).toHaveLength(1);
   });
 
   it("filterTargetContacts applies dernier_resultat from relance filters", () => {
@@ -189,6 +262,12 @@ describe("POST /api/calls-list", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.contacts).toHaveLength(1);
+    expect(body.contacts[0]).toMatchObject({
+      title: "Responsable formation",
+      linkedin_url: "https://linkedin.com/in/marie",
+      email: "marie@acme.fr",
+      mobile_phone: "+33600000000",
+    });
     expect(body.dedup).toEqual([]);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });

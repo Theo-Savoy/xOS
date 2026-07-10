@@ -1,6 +1,8 @@
 /** Salesforce CRM adapter. All organization-specific API names come from mapping. */
 import defaultMapping from "./mapping.js";
 
+export const SOQL_FETCH_CAP = 2000;
+
 export function escapeSOQL(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
@@ -17,9 +19,18 @@ function positiveInteger(value) {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
-function boundedLimit(value) {
+export function boundedLimit(value) {
   if (!Number.isInteger(value)) return 200;
-  return Math.max(1, Math.min(value, 500));
+  return Math.max(1, Math.min(value, SOQL_FETCH_CAP));
+}
+
+export function hasRelanceQueryFilters(filters = {}) {
+  const followUp = filters.relance || {};
+  return (
+    followUp.jamais_appele === true
+    || positiveInteger(followUp.dernier_appel_avant_jours) !== null
+    || positiveInteger(followUp.dernier_appel_dans_jours) !== null
+  );
 }
 
 function taskSubquery(mapping) {
@@ -28,18 +39,39 @@ function taskSubquery(mapping) {
   return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' ORDER BY ${fields.activityDate} DESC)`;
 }
 
+function fonctionPresetClause(preset, titleField) {
+  const parts = [];
+  for (const like of preset.likes || []) {
+    parts.push(`${titleField} LIKE '${escapeSOQL(like)}'`);
+  }
+  const exacts = (preset.exacts || []).filter((value) => typeof value === "string" && value);
+  if (exacts.length) {
+    parts.push(`${titleField} IN (${escapedList(exacts)})`);
+  }
+  return parts.length ? `(${parts.join(" OR ")})` : null;
+}
+
+function buildFonctionConditions(fonctionIds, mapping) {
+  const presets = mapping.objects.contact.fonctionPresets || [];
+  const titleField = mapping.objects.contact.fields.title;
+  const clauses = fonctionIds
+    .map((id) => presets.find((preset) => preset.id === id))
+    .filter(Boolean)
+    .map((preset) => fonctionPresetClause(preset, titleField))
+    .filter(Boolean);
+  return clauses.length ? [`(${clauses.join(" OR ")})`] : [];
+}
+
 /**
- * Builds the Contact SOQL query. Some last-call predicates are completed by
- * filterTargetContacts because SOQL cannot compare a Task row to its latest sibling.
+ * Builds the Contact SOQL query. Last-call predicates that SOQL cannot express
+ * on Task anti/semi-joins are completed in filterTargetContacts.
  */
 export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserId) {
   const account = mapping.objects.account;
   const contact = mapping.objects.contact;
-  const task = mapping.objects.task;
   const opportunity = mapping.objects.opportunity;
   const enterprise = filters.entreprise || {};
   const contactFilters = filters.contact || {};
-  const followUp = filters.relance || {};
   const conditions = [];
 
   const sectors = stringList(enterprise.secteurs);
@@ -64,34 +96,27 @@ export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserI
   if (contactFilters.exclure_npa !== false) conditions.push(`${contact.fields.doNotCall} = false`);
   const decisionLevels = stringList(contactFilters.niveau_decision);
   if (decisionLevels.length) conditions.push(`${contact.fields.decisionLevel} IN (${escapedList(decisionLevels)})`);
+  conditions.push(...buildFonctionConditions(stringList(contactFilters.fonctions), mapping));
   if (filters.ownerOnly === true && typeof sfUserId === "string" && sfUserId) {
     conditions.push(`Account.${account.fields.ownerId} = '${escapeSOQL(sfUserId)}'`);
-  }
-
-  const callBase = `${task.fields.subtype} = '${escapeSOQL(task.subtypeValue)}'`;
-  if (followUp.jamais_appele === true) {
-    conditions.push(`${contact.fields.id} NOT IN (SELECT ${task.fields.whoId} FROM ${task.name} WHERE ${callBase})`);
-  }
-  const beforeDays = positiveInteger(followUp.dernier_appel_avant_jours);
-  if (beforeDays) {
-    conditions.push(`${contact.fields.id} NOT IN (SELECT ${task.fields.whoId} FROM ${task.name} WHERE ${callBase} AND ${task.fields.activityDate} >= LAST_N_DAYS:${beforeDays})`);
-  }
-  const withinDays = positiveInteger(followUp.dernier_appel_dans_jours);
-  if (withinDays) {
-    conditions.push(`${contact.fields.id} IN (SELECT ${task.fields.whoId} FROM ${task.name} WHERE ${callBase} AND ${task.fields.activityDate} = LAST_N_DAYS:${withinDays})`);
   }
 
   const select = [
     contact.fields.id,
     contact.fields.name,
     contact.fields.phone,
+    contact.fields.title,
+    contact.fields.linkedin,
+    contact.fields.email,
+    contact.fields.mobilePhone,
     `${contact.fields.accountId}`,
     `Account.${account.fields.id}`,
     `Account.${account.fields.name}`,
     taskSubquery(mapping),
   ].join(", ");
   const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
-  return `SELECT ${select} FROM ${contact.name}${where} LIMIT ${boundedLimit(filters.limit)}`;
+  const limit = hasRelanceQueryFilters(filters) ? SOQL_FETCH_CAP : boundedLimit(filters.limit);
+  return `SELECT ${select} FROM ${contact.name}${where} LIMIT ${limit}`;
 }
 
 function dateAgeDays(dateValue, now) {
@@ -99,29 +124,44 @@ function dateAgeDays(dateValue, now) {
   return Number.isNaN(date.getTime()) ? null : (now.getTime() - date.getTime()) / 86_400_000;
 }
 
-/** Apply predicates that depend on the latest Task record returned by SOQL. */
+function callTasks(record, mapping) {
+  const tasks = record?.[mapping.objects.task.childRelationship];
+  if (!tasks) return [];
+  return Array.isArray(tasks.records) ? tasks.records : [];
+}
+
+function hasAnyCall(record, mapping) {
+  const tasks = record?.[mapping.objects.task.childRelationship];
+  if (!tasks) return false;
+  if (typeof tasks.totalSize === "number" && tasks.totalSize > 0) return true;
+  return callTasks(record, mapping).length > 0;
+}
+
+function callInLastNDays(call, days, now, fields) {
+  const age = dateAgeDays(call[fields.activityDate], now);
+  return age !== null && age >= 0 && age <= days;
+}
+
+/** Apply predicates that depend on Task child records returned by SOQL. */
 export function filterTargetContacts(records, filters = {}, mapping, now = new Date()) {
   const followUp = filters.relance || {};
   const fields = mapping.objects.task.fields;
   const excluded = followUp.exclure_si_plus_de || {};
   const maxCalls = positiveInteger(excluded.appels);
   const recentDays = positiveInteger(excluded.sur_jours);
-  // ponytail: only filter on last-call result when the caller asks for it;
-  // no implicit follow-up default here (that belongs to the UI preset), else a
-  // plain enterprise filter and jamais_appele would wrongly drop every contact.
   const wantedResults = stringList(followUp.dernier_resultat);
-  const minDuration = Number.isFinite(followUp.duree_min_sec) ? followUp.duree_min_sec : null;
-  const maxDuration = Number.isFinite(followUp.duree_max_sec) ? followUp.duree_max_sec : null;
+  const beforeDays = positiveInteger(followUp.dernier_appel_avant_jours);
+  const withinDays = positiveInteger(followUp.dernier_appel_dans_jours);
 
   return (Array.isArray(records) ? records : []).filter((record) => {
-    const calls = Array.isArray(record?.[mapping.objects.task.childRelationship]?.records)
-      ? record[mapping.objects.task.childRelationship].records
-      : [];
+    const calls = callTasks(record, mapping);
     const latest = calls[0];
+
+    if (followUp.jamais_appele === true && hasAnyCall(record, mapping)) return false;
+    if (beforeDays && calls.some((call) => callInLastNDays(call, beforeDays, now, fields))) return false;
+    if (withinDays && !calls.some((call) => callInLastNDays(call, withinDays, now, fields))) return false;
+
     if (wantedResults.length && (!latest || !wantedResults.includes(latest[fields.result]))) return false;
-    const duration = latest?.[fields.duration];
-    if (minDuration !== null && (!Number.isFinite(duration) || duration < minDuration)) return false;
-    if (maxDuration !== null && (!Number.isFinite(duration) || duration > maxDuration)) return false;
     if (maxCalls && recentDays) {
       const recentCalls = calls.filter((call) => {
         const age = dateAgeDays(call[fields.activityDate], now);

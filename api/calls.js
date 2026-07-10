@@ -7,6 +7,23 @@ const SF_ID = /^[a-zA-Z0-9]{15,18}$/;
 const VALID_RESULTS = mapping.objects.task.results;
 const TASK_SEMANTIC = mapping.objects.task.resultSemantic;
 const ISO_START_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isValidScheduledFor(value) {
+  if (typeof value !== "string" || !ISO_DATE_RE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const check = new Date(Date.UTC(year, month - 1, day));
+  return (
+    check.getUTCFullYear() === year
+    && check.getUTCMonth() + 1 === month
+    && check.getUTCDate() === day
+  );
+}
+
+export function todayParisDate() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
+}
+
 const PGRST_NOT_FOUND = "PGRST116";
 
 export function isNotFoundError(error) {
@@ -132,11 +149,11 @@ async function assertSessionContact(client, sessionId, contactId) {
   return { contact };
 }
 
-async function insertSessionWithContacts(client, userId, name, contacts) {
+async function insertSessionWithContacts(client, userId, name, contacts, scheduledFor) {
   const { data: session, error: sessionError } = await client
     .from("call_sessions")
-    .insert({ owner: userId, name: name.trim(), status: "active" })
-    .select("id, name, status, created_at")
+    .insert({ owner: userId, name: name.trim(), status: "active", scheduled_for: scheduledFor })
+    .select("id, name, status, created_at, scheduled_for")
     .single();
 
   if (sessionError || !session) return { error: "session_creation_failed", status: 500 };
@@ -149,18 +166,20 @@ async function insertSessionWithContacts(client, userId, name, contacts) {
     contact_name: contact.contact_name.trim(),
     account_name: contact.account_name || null,
     phone: contact.phone || null,
+    title: contact.title || null,
+    linkedin_url: contact.linkedin_url || null,
     status: "pending",
   }));
 
   const { data: insertedContacts, error: contactsError } = await client
     .from("call_session_contacts")
     .insert(contactRows)
-    .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, status, outcome, comments, sf_task_id, sf_event_id, called_at")
+    .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at")
     .order("position", { ascending: true });
 
   if (contactsError || !insertedContacts?.length) {
     await client.from("call_sessions").delete().eq("id", session.id);
-    return { error: "contacts_creation_failed", status: 500 };
+    return { error: "session_contacts_insert_failed", status: 500 };
   }
 
   return { session, contacts: insertedContacts };
@@ -280,7 +299,7 @@ export async function GET(request) {
 
     const { data: session, error: sessionError } = await client
       .from("call_sessions")
-      .select("id, owner, name, status, created_at")
+      .select("id, owner, name, status, created_at, scheduled_for")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -296,7 +315,7 @@ export async function GET(request) {
 
     const { data: contacts, error: contactsError } = await client
       .from("call_session_contacts")
-      .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, status, outcome, comments, sf_task_id, sf_event_id, called_at")
+      .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at")
       .eq("session_id", sessionId)
       .order("position", { ascending: true });
 
@@ -313,7 +332,7 @@ export async function GET(request) {
 
   const { data: sessions, error: sessionsError } = await client
     .from("call_sessions")
-    .select("id, name, status, created_at")
+    .select("id, name, status, created_at, scheduled_for")
     .eq("owner", user.id)
     .order("created_at", { ascending: false });
 
@@ -349,6 +368,7 @@ export async function GET(request) {
     name: session.name,
     status: session.status,
     created_at: session.created_at,
+    scheduled_for: session.scheduled_for ?? null,
     ...(grouped[session.id] || { total: 0, called: 0, skipped: 0, pending: 0 }),
   }));
 
@@ -385,13 +405,20 @@ export async function POST(request) {
   }
 
   if (action === "create_session") {
-    const { name, contacts } = body;
+    const { name, contacts, scheduled_for: scheduledForInput } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return new Response(JSON.stringify({ error: "invalid_name" }), { status: 400, headers });
     }
     if (!Array.isArray(contacts) || contacts.length === 0) {
       return new Response(JSON.stringify({ error: "invalid_contacts" }), { status: 400, headers });
+    }
+    let scheduledFor = todayParisDate();
+    if (scheduledForInput !== undefined) {
+      if (!isValidScheduledFor(scheduledForInput)) {
+        return new Response(JSON.stringify({ error: "invalid_scheduled_for" }), { status: 400, headers });
+      }
+      scheduledFor = scheduledForInput;
     }
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
@@ -409,7 +436,7 @@ export async function POST(request) {
       }
     }
 
-    const created = await insertSessionWithContacts(client, user.id, name, contacts);
+    const created = await insertSessionWithContacts(client, user.id, name, contacts, scheduledFor);
     if (created.error) {
       return new Response(JSON.stringify({ error: created.error }), { status: created.status, headers });
     }
