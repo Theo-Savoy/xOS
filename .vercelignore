@@ -1,0 +1,5 @@
+# Les fichiers de test ne doivent pas être déployés comme fonctions serverless.
+# Chaque fichier de api/ devient une fonction sur Vercel ; les *.test.js
+# faisaient dépasser la limite de 12 fonctions du plan Hobby.
+api/**/*.test.js
+api/**/*.test.ts
