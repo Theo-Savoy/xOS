@@ -66,7 +66,7 @@ export default function HubApp() {
           <dl className="hub-details"><div><dt>Email</dt><dd>{status.profile.email || "—"}</dd></div><div><dt>Rôle</dt><dd><Tag>{status.role}</Tag></dd></div><div><dt>Salesforce</dt><dd>{status.profile.sfUserId ? `Mappé · ${status.profile.sfUserId}` : "Non mappé"}</dd></div></dl>
         </GlassCard>
         <GlassCard className="hub-panel"><p className="hub-eyebrow">Statut</p><h3>Services</h3>
-          <div className="hub-status"><span>Salesforce <Tag variant={status.salesforce.connected ? "success" : "warning"}>{status.salesforce.connected ? "OK" : "KO"}</Tag></span><span>Quota <strong>{quota ? `${quota.remaining.toLocaleString("fr-FR")} / ${quota.max.toLocaleString("fr-FR")}` : "Indisponible"}</strong></span><span>Cache Cleaner <strong>{status.cache.cleaner.version || "Non disponible"}</strong></span><span>Déploiement <strong>{status.version}</strong></span></div>
+          <div className="hub-status"><span>Salesforce <Tag variant={status.salesforce.connected ? "success" : "warning"}>{status.salesforce.connected ? "OK" : "KO"}</Tag></span><span>API SF (24 h glissantes) <strong>{quota ? `${(quota.max - quota.remaining).toLocaleString("fr-FR")} utilisés / ${quota.max.toLocaleString("fr-FR")} — ${quota.remaining.toLocaleString("fr-FR")} restants` : "Indisponible"}</strong></span><span>Cache Cleaner <strong>{status.cache.cleaner.version || "Non disponible"}</strong></span><span>Déploiement <strong>{status.version}</strong></span></div>
         </GlassCard>
       </section>
       {status.capabilities.manageSettings && <GlassCard className="hub-panel"><p className="hub-eyebrow">Équipe</p><h3>Configuration équipe</h3>
