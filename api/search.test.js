@@ -1,7 +1,7 @@
 /**
- * api/search.test.js — Tests for api/search.js.
+ * Tests for api/launcher.js GET.
  *
- * Imports and exercises the actual server module at ../../api/search.js.
+ * Imports and exercises the actual server module at ./launcher.js.
  * Uses vi.mock (hoisted) for _auth.js — not vi.doMock after static import.
  * Mocks: SF OAuth token fetch and SOSL search (external HTTP only).
  * Coverage: GET handler, JWT rejection, query validation, SOSL escaping,
@@ -13,10 +13,11 @@ import {
   escapeSOSL,
   normalizeSFResults,
   GET,
-} from "../../api/search.js";
+} from "./launcher.js";
+import { __resetSFTokenCache } from "./_crm/salesforce.js";
 
-// Hoisted mock — intercepts the static import inside ../../api/search.js.
-// Path is relative to this test file (api/search.test.js) since both files
+// Hoisted mock — intercepts the static import inside ./launcher.js.
+// Path is relative to this test file since both files
 // import "./_auth.js", they resolve to the same absolute module.
 const { mockVerifyJWT } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock("./_auth.js", () => ({
 // ── Helpers ──
 
 function makeReq(query, token = "supabase-jwt-token") {
-  const url = `http://localhost/api/search?q=${encodeURIComponent(query)}`;
+  const url = `http://localhost/api/launcher?q=${encodeURIComponent(query)}`;
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   return new Request(url, { method: "GET", headers });
@@ -229,10 +230,11 @@ describe("normalizeSFResults", () => {
   });
 });
 
-// ── Integration: GET handler (exercises actual api/search.js) ──
+// ── Integration: GET handler (exercises actual api/launcher.js) ──
 
-describe("GET /api/search", () => {
+describe("GET /api/launcher", () => {
   beforeEach(() => {
+    __resetSFTokenCache();
     vi.restoreAllMocks();
     vi.stubEnv("SF_CLIENT_ID", "test-client-id");
     vi.stubEnv("SF_CLIENT_SECRET", "test-client-secret");

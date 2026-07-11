@@ -500,6 +500,13 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         recallAt: payload.recallAt,
         doNotCall: payload.doNotCall,
       });
+      const syncWarnings = [
+        ...(result.recall_failed ? ["Appel consigné, mais la création du rappel a échoué dans Salesforce — vérifie la fiche."] : []),
+        ...(result.npa_failed ? ["Appel consigné, mais le marquage NPA a échoué dans Salesforce — vérifie la fiche."] : []),
+      ];
+      if (syncWarnings.length) {
+        setRunnerError(syncWarnings.join(" "));
+      }
       if (view === "recalls") {
         setFocusedContactId(null);
         await refreshRecallsQueue();

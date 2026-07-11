@@ -13,12 +13,13 @@ import {
 import mapping from "./_crm/mapping.js";
 import { __resetProfileCache } from "./_calls/profileCache.js";
 
-const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds } = vi.hoisted(() => ({
+const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds, mockUpdateContactDoNotCall } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
   mockFetchSFToken: vi.fn(),
   mockLogCall: vi.fn(),
   mockCreateEvent: vi.fn(),
   mockFetchContactBasicsByIds: vi.fn(),
+  mockUpdateContactDoNotCall: vi.fn(),
 }));
 
 vi.mock("./_auth.js", () => ({
@@ -34,7 +35,7 @@ vi.mock("./_crm/salesforce.js", () => ({
   fetchSFToken: mockFetchSFToken,
   logCall: mockLogCall,
   createEvent: mockCreateEvent,
-  updateContactDoNotCall: vi.fn().mockResolvedValue({ ok: true }),
+  updateContactDoNotCall: mockUpdateContactDoNotCall,
   fetchContactBasicsByIds: mockFetchContactBasicsByIds,
   fetchContactContext: vi.fn().mockResolvedValue({
     contact_record_url: "https://example.salesforce.com/lightning/r/Contact/003/view",
@@ -56,7 +57,7 @@ const mockChain = {
     return Promise.resolve(mockDb()).then(onFulfilled, onRejected);
   },
   select() { return this; },
-  insert() { return this; },
+  insert: vi.fn(function insert() { return this; }),
   update() { return this; },
   delete() { return this; },
   eq() { return this; },
@@ -106,15 +107,18 @@ beforeEach(() => {
   vi.restoreAllMocks();
   mockDb.mockReset();
   mockFrom.mockClear();
+  mockChain.insert.mockClear();
   mockFetchSFToken.mockReset();
   mockLogCall.mockReset();
   mockCreateEvent.mockReset();
+  mockUpdateContactDoNotCall.mockReset();
 
   vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
 
   mockVerifyJWT.mockResolvedValue(defaultUser);
   mockFetchSFToken.mockResolvedValue({ accessToken: "sf-token" });
+  mockUpdateContactDoNotCall.mockResolvedValue({ ok: true });
   mockDb.mockResolvedValue({ data: null, error: null });
 });
 
@@ -293,6 +297,16 @@ describe("GET /api/calls", () => {
     });
     const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
     expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for another owner even when the parallel contacts lookup has completed", async () => {
+    mockDb
+      .mockResolvedValueOnce({ data: { id: 1, owner: "other-user", name: "Test", status: "active" }, error: null })
+      .mockResolvedValueOnce({ data: [{ id: 101, session_id: 1 }], error: null });
+
+    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    expect(res.status).toBe(404);
+    expect(mockDb).toHaveBeenCalledTimes(2);
   });
 
   it("returns session detail with contacts", async () => {
@@ -650,6 +664,28 @@ describe("POST /api/calls", () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({ ok: true, sf_task_id: "00T456" });
       expect(mockLogCall).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns npa_failed while retaining the local call log when Salesforce rejects NPA", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: sessionRow, error: null })
+        .mockResolvedValueOnce({ data: contactRow, error: null })
+        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null });
+      mockLogCall.mockResolvedValue({ record: { id: "00T456" } });
+      mockUpdateContactDoNotCall.mockResolvedValue({ error: "sf_write_error" });
+
+      const res = await POST(makeReq("POST", {
+        action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[0], do_not_call: true,
+      }));
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, npa_failed: true });
+      expect(mockFrom).toHaveBeenCalledWith("action_journal");
+      expect(mockChain.insert).toHaveBeenCalledWith(expect.objectContaining({
+        result: expect.objectContaining({ npa_failed: true }),
+      }));
     });
 
     it("returns 500 when local persistence fails after SF success", async () => {

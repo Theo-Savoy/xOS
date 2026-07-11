@@ -73,7 +73,7 @@ describe("useSession — auth bridge", () => {
       getSessionResolver!({ data: { session: mockSession } });
     });
 
-    expect(global.fetch).toHaveBeenCalledWith("/api/sso-bridge", expect.objectContaining({
+    expect(global.fetch).toHaveBeenCalledWith("/api/auth", expect.objectContaining({
       method: "POST",
       headers: { Authorization: "Bearer test-token-abc" },
     }));

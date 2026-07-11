@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "./log.js";
+import { POST } from "./launcher.js";
+import { __resetSFTokenCache } from "./_crm/salesforce.js";
+import { __resetProfileCache } from "./_calls/profileCache.js";
+import { __resetServiceClient } from "./_calls/http.js";
 
 // Hoisted mock for _auth.js
 const { mockVerifyJWT } = vi.hoisted(() => ({
@@ -25,7 +28,7 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 
 function makeReq(body) {
-  const url = `http://localhost/api/log`;
+  const url = `http://localhost/api/launcher`;
   const headers = new Headers();
   headers.set("Authorization", "Bearer supabase-jwt-token");
   headers.set("Content-Type", "application/json");
@@ -37,7 +40,7 @@ function makeReq(body) {
 }
 
 function makeRawReq(rawBody) {
-  const url = `http://localhost/api/log`;
+  const url = `http://localhost/api/launcher`;
   const headers = new Headers();
   headers.set("Authorization", "Bearer supabase-jwt-token");
   headers.set("Content-Type", "application/json");
@@ -48,9 +51,12 @@ function makeRawReq(rawBody) {
   });
 }
 
-describe("POST /api/log", () => {
+describe("POST /api/launcher", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    __resetSFTokenCache();
+    __resetProfileCache();
+    __resetServiceClient();
     mockInsert.mockClear();
     mockFrom.mockClear();
 
@@ -80,7 +86,7 @@ describe("POST /api/log", () => {
   });
 
   it("returns 400 when body is invalid JSON", async () => {
-    const req = new Request("http://localhost/api/log", {
+    const req = new Request("http://localhost/api/launcher", {
       method: "POST",
       headers: {
         Authorization: "Bearer token",
@@ -151,6 +157,40 @@ describe("POST /api/log", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.error).toBe("missing_comments");
+    });
+
+    it("attribue la Task au commercial quand profiles.sf_user_id est mappé", async () => {
+      const maybeSingle = vi.fn().mockResolvedValue({
+        data: { sf_user_id: "005AA0000012345AAA", full_name: "Jean Dupont" },
+        error: null,
+      });
+      mockFrom.mockImplementation((table) =>
+        table === "profiles"
+          ? { select: () => ({ eq: () => ({ maybeSingle }) }) }
+          : { insert: mockInsert },
+      );
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "sf-access-token" }), { status: 200 })
+      );
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "task-sf-id-456", success: true }), { status: 201 })
+      );
+
+      const res = await POST(makeReq({
+        action: "log_call",
+        recordId: "003000000000001",
+        recordType: "Contact",
+        comments: "Appel attribué",
+      }));
+
+      expect(res.status).toBe(200);
+      const payload = JSON.parse(fetchSpy.mock.calls[1][1].body);
+      expect(payload.OwnerId).toBe("005AA0000012345AAA");
+      expect(payload.WhoId).toBe("003000000000001");
+
+      mockFrom.mockReturnValue({ insert: mockInsert });
     });
 
     it("creates a Salesforce Task with WhatId and logs to database on success", async () => {

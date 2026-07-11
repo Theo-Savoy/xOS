@@ -7,7 +7,7 @@ import "./login.css";
 const ALLOWED_DOMAIN = "xos-learning.fr";
 
 /** Endpoint OAuth SF (Phase 8.1). Le bouton y pointe déjà ; le backend le branchera. */
-export const SALESFORCE_AUTH_START = "/api/auth/salesforce";
+export const SALESFORCE_AUTH_START = "/api/auth?flow=salesforce";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   domain_not_allowed: `Seules les adresses @${ALLOWED_DOMAIN} sont autorisées.`,

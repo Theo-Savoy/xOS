@@ -80,7 +80,7 @@ describe("LoginScreen — dual auth layout", () => {
     expect(screen.getByRole("separator", { name: "ou" })).toBeTruthy();
   });
 
-  it("starts Salesforce OAuth via the reserved auth endpoint", async () => {
+  it("starts Salesforce OAuth via the auth router", async () => {
     const user = userEvent.setup();
     const assign = vi.fn();
     vi.stubGlobal("location", {

@@ -94,7 +94,7 @@ describe("Launcher", () => {
 
     await waitFor(() => {
       const searchCall = fetchSpy.mock.calls.find(
-        (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/search"),
+        (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/launcher"),
       );
       expect(searchCall).toBeDefined();
       expect((searchCall![1] as RequestInit).headers).toEqual(
@@ -289,7 +289,7 @@ describe("Launcher", () => {
     await new Promise((r) => setTimeout(r, 400));
 
     const searchCalls = fetchSpy.mock.calls.filter(
-      (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/search"),
+      (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/launcher"),
     );
     expect(searchCalls).toHaveLength(0);
   });
@@ -304,7 +304,7 @@ describe("Launcher", () => {
     await user.type(screen.getByRole("combobox"), "ABCD", { delay: 1 } as Parameters<typeof user.type>[2]);
 
     const searchCalls = fetchSpy.mock.calls.filter(
-      (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/search"),
+      (c: [string | URL | Request, RequestInit?]) => typeof c[0] === "string" && c[0].includes("/api/launcher"),
     );
     expect(searchCalls.length).toBeLessThanOrEqual(2);
   });
@@ -518,7 +518,7 @@ describe("Launcher", () => {
       const user = userEvent.setup();
       const localFetchSpy = vi.spyOn(globalThis, "fetch");
 
-      // Mock API call to /api/search for autocomplete inside form
+      // Mock API call to /api/launcher for autocomplete inside form
       localFetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({
           error: null,
@@ -526,7 +526,7 @@ describe("Launcher", () => {
         }), { status: 200, headers: { "Content-Type": "application/json" } })
       );
 
-      // Mock API call to /api/log for submission
+      // Mock API call to /api/launcher for submission
       localFetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({ error: null, success: true, taskId: "00T123" }), {
           status: 200,
@@ -573,7 +573,7 @@ describe("Launcher", () => {
       });
 
       // Verify fetch payload
-      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/log");
+      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/launcher");
       expect(logCall).toBeTruthy();
       const payload = JSON.parse(logCall![1]!.body as string);
       expect(payload.action).toBe("log_call");
@@ -586,7 +586,7 @@ describe("Launcher", () => {
       const user = userEvent.setup();
       const localFetchSpy = vi.spyOn(globalThis, "fetch");
 
-      // Mock API call to /api/log for submission
+      // Mock API call to /api/launcher for submission
       localFetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({ error: null, success: true, contactId: "003XYZ" }), {
           status: 200,
@@ -625,7 +625,7 @@ describe("Launcher", () => {
       });
 
       // Verify fetch payload
-      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/log");
+      const logCall = localFetchSpy.mock.calls.find(c => c[0] === "/api/launcher");
       expect(logCall).toBeTruthy();
       const payload = JSON.parse(logCall![1]!.body as string);
       expect(payload.action).toBe("create_contact");

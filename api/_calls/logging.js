@@ -84,9 +84,15 @@ export async function handleLogging({ action, body, user, client, headers }) {
 
     const taskId = sfResult.record?.id;
     const wantsRecall = typeof recall_at === "string" && recall_at;
+    let npaFailed = false;
 
     if (do_not_call === true) {
-      await updateContactDoNotCall(tokenResult.accessToken, contact.sf_contact_id, true, mapping);
+      try {
+        const npaResult = await updateContactDoNotCall(tokenResult.accessToken, contact.sf_contact_id, true, mapping);
+        npaFailed = Boolean(npaResult?.error);
+      } catch {
+        npaFailed = true;
+      }
     }
 
     const { error: updateError } = await client
@@ -120,10 +126,10 @@ export async function handleLogging({ action, body, user, client, headers }) {
         do_not_call: do_not_call === true,
       },
       targets: [{ id: contact.sf_contact_id, type: "Contact", session_contact_id: contact_id, session_id }],
-      result: { success: true, taskId },
+      result: { success: true, taskId, npa_failed: npaFailed },
     });
 
-    const response = { ok: true, contact_id, sf_task_id: taskId };
+    const response = { ok: true, contact_id, sf_task_id: taskId, ...(npaFailed ? { npa_failed: true } : {}) };
     if (resultat === TASK_SEMANTIC.rdv) {
       response.needs_event = true;
     }

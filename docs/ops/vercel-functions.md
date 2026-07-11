@@ -2,9 +2,9 @@
 
 **Constat 2026-07-11** : le plan Hobby Vercel limite à **12 Serverless Functions**.
 
-**Mise à jour** : consolidation **B** appliquée (−`auth-test`, `calls-list` + `presets` absorbés dans `calls`).
+**Mise à jour** : consolidations **B** et **C** appliquées (`search` + `log` → `launcher`, `sso-bridge` + `auth/salesforce` → `auth`).
 
-## Inventaire actuel (handlers HTTP) — post consolidation B
+## Inventaire actuel (handlers HTTP) — post consolidation C
 
 | # | Fichier | Rôle | Touché par |
 |---|---|---|---|
@@ -12,14 +12,30 @@
 | 2 | `api/update.js` | Actions lot Cleaner | Cleaner legacy |
 | 3 | `api/history.js` | Journal Blob Cleaner | `dashboard.html` |
 | 4 | `api/version.js` | Clé cache Cleaner | `dashboard.html` |
-| 5 | `api/search.js` | Launcher SOSL | Cmd+K |
-| 6 | `api/log.js` | `/log` `/create` | Launcher |
-| 7 | `api/sso-bridge.js` | Cookie legacy | Login |
-| 8 | `api/calls.js` | Sessions + list_contacts + presets | Calls app |
-| 9 | `api/auth/salesforce.js` | OAuth SF (stub → 8.1) | Login |
-| 10–12 | **libres** | Hub `status`, Weekly `perf`, réserve | — |
+| 5 | `api/launcher.js` | SOSL + `/log` + `/create` | Cmd+K |
+| 6 | `api/auth.js` | Cookie legacy + OAuth SF (stub → 8.1) | Login |
+| 7 | `api/calls.js` | Sessions + list_contacts + presets | Calls app |
+| 8–12 | **libres** | Hub `status`, Weekly `perf`, réserve | — |
 
 Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `api/_calls/*`, `api/_config/*`.
+
+### Routes `/api/launcher`
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `GET` | `?q=` | SOSL multi-objet (ancien `/api/search`) |
+| `POST` | `{ action: "log_call" }` | Création de Task Salesforce (ancien `/api/log`) |
+| `POST` | `{ action: "create_contact" }` | Création de Contact Salesforce (ancien `/api/log`) |
+| `OPTIONS` | — | CORS : `GET, POST, OPTIONS` |
+
+### Routes `/api/auth`
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `POST` | — | Vérifie le JWT puis pose le cookie `xos_auth` (ancien `/api/sso-bridge`) |
+| `GET` | `?flow=salesforce` | Stub OAuth : redirection `/?auth_error=sf_coming_soon` (ancien `/api/auth/salesforce`) |
+| `GET` | sans flux reconnu | `400 { error: "invalid_flow" }` |
+| `OPTIONS` | — | CORS : `GET, POST, OPTIONS` |
 
 ### Actions / resources sur `/api/calls`
 
@@ -45,10 +61,10 @@ Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `
 
 ## Stratégie restante
 
-### C — Moyen risque → **−2** (si Agent/Arena)
+### C — Fait → **−2**
 
-4. **Router Launcher** `api/launcher.js` : fusion `search` + `log`.
-5. **Auth router** `api/auth.js` : salesforce + sso-bridge.
+4. **Router Launcher** `api/launcher.js` : `search` + `log`.
+5. **Auth router** `api/auth.js` : `salesforce` + `sso-bridge`.
 
 ### D — Ne pas toucher sans lot dédié
 
@@ -64,5 +80,5 @@ Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `
 
 ## Décision produit
 
-- **Fait** : consolidation **B** + retrait **auth-test** → **3 slots libres** pour Hub + Weekly + marge.
-- **Moyen terme** : si Agent + Arena partent, consolidation **C** ou **upgrade Vercel Pro**.
+- **Fait** : consolidations **B** et **C** → **7 fonctions**, soit **5 slots libres** pour Hub + Weekly + marge.
+- **Moyen terme** : la consolidation **D** reste intouchable hors lot Cleaner ; envisager Vercel Pro si les besoins dépassent ces 5 slots.

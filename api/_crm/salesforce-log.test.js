@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import mapping from "./mapping.js";
-import { logCall, parisToday } from "./salesforce.js";
+import { createEvent, logCall, parisToday } from "./salesforce.js";
 
 describe("logCall Salesforce payload", () => {
   afterEach(() => {
@@ -62,5 +62,32 @@ describe("logCall Salesforce payload", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.CallDurationInSeconds).toBe(90);
+  });
+
+  it("creates all invitee relations in parallel and preserves the event on an invitee error", async () => {
+    const relationResponses = [];
+    const fetchMock = vi.fn((url) => {
+      if (String(url).includes("/sobjects/EventRelation")) {
+        return new Promise((resolve) => relationResponses.push(resolve));
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ id: "00U000000000001" }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = createEvent("token", {
+      subject: "RDV", startDateTime: "2026-07-15T10:00:00Z", durationMin: 30,
+      whoId: "003000000000001", invitees: ["003000000000002", "003000000000003", "003000000000004"],
+    });
+
+    await vi.waitFor(() => expect(relationResponses).toHaveLength(3));
+    relationResponses[0]({ ok: true, json: async () => ({ id: "rel-1" }) });
+    relationResponses[1]({ ok: false, text: async () => "relation refused" });
+    relationResponses[2]({ ok: true, json: async () => ({ id: "rel-3" }) });
+
+    await expect(resultPromise).resolves.toMatchObject({
+      record: { id: "00U000000000001" },
+      inviteeError: "sf_write_error",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
