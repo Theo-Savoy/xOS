@@ -54,6 +54,9 @@ function errorMessage(err: unknown): string {
   if (err instanceof CallsApiError) {
     if (err.status === 401) return "Session expirée — reconnectez-vous.";
     if (err.status === 404) return "Séance introuvable.";
+    if (err.status === 409 && err.code === "contact_already_processed") {
+      return "Contact déjà traité — liste actualisée.";
+    }
     if (err.code === "no_follow_up_contacts") return "Aucun contact ne nécessite de relance.";
     if (err.code === "session_contacts_insert_failed") {
       return "Échec d'enregistrement de la liste d'appels (base de données)";
@@ -602,39 +605,38 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
     setRunnerLoading(true);
     setRunnerError(null);
-    try {
-      for (const contactId of contactIds) {
-        const target = resolveLogTarget(contactId);
-        if (!target) continue;
-        await logCall(token, target.sessionId, target.contactId, payload.resultat, {
+    const targets = contactIds
+      .map((contactId) => resolveLogTarget(contactId))
+      .filter((target): target is { sessionId: number; contactId: number } => target !== null);
+    const results: PromiseSettledResult<unknown>[] = [];
+    for (let start = 0; start < targets.length; start += 4) {
+      results.push(...await Promise.allSettled(targets.slice(start, start + 4).map((target) =>
+        logCall(token, target.sessionId, target.contactId, payload.resultat, {
           comments: payload.comments,
           recallAt: payload.recallAt,
           doNotCall: payload.doNotCall,
-        });
-      }
+        }),
+      )));
+    }
+    const failures = results.filter((result) => (
+      result.status === "rejected"
+      && !(result.reason instanceof CallsApiError
+        && result.reason.status === 409
+        && result.reason.code === "contact_already_processed")
+    ));
+    const succeeded = results.length - failures.length;
+    try {
       setFocusedContactId(null);
       if (view === "recalls") {
         await refreshRecallsQueue();
-        return;
+      } else if (activeSession) {
+        await advanceOrComplete(activeSession.id);
       }
-      if (activeSession) await advanceOrComplete(activeSession.id);
+      if (failures.length) {
+        setRunnerError(`${succeeded} consignés, ${failures.length} en échec — liste actualisée`);
+      }
     } catch (err) {
       setRunnerError(errorMessage(err));
-      if (view === "recalls") {
-        try {
-          await refreshRecallsQueue();
-        } catch {
-          /* keep */
-        }
-        return;
-      }
-      if (!activeSession) return;
-      try {
-        const refreshed = await fetchSession(token, activeSession.id);
-        setContacts(refreshed.contacts);
-      } catch {
-        /* keep current list */
-      }
     } finally {
       setRunnerLoading(false);
     }

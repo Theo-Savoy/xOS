@@ -765,6 +765,11 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: contactCheck.error }), { status: contactCheck.status, headers });
     }
     const contact = contactCheck.contact;
+    // The recalls queue targets its original persisted row, already called but
+    // still carrying its scheduled recall. It is the only valid second log.
+    if (contact.status && contact.status !== "pending" && !(contact.status === "called" && contact.recall_at)) {
+      return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
+    }
 
     const profileResult = await fetchUserProfile(client, user.id);
     if (profileResult.error) {
@@ -1010,6 +1015,9 @@ export async function POST(request) {
     const contactCheck = await assertSessionContact(client, session_id, contact_id);
     if (contactCheck.error) {
       return new Response(JSON.stringify({ error: contactCheck.error }), { status: contactCheck.status, headers });
+    }
+    if (contactCheck.contact.status && contactCheck.contact.status !== "pending") {
+      return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
     }
 
     const { error: updateError } = await client

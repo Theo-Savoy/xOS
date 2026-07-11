@@ -78,7 +78,7 @@ function buildMonthGrid(year: number, monthIndex: number): (Date | null)[] {
   return cells;
 }
 
-function matchesSchedule(session: SessionSummary, filter: ScheduleFilter, _today: string): boolean {
+function matchesSchedule(session: SessionSummary, filter: ScheduleFilter): boolean {
   if (filter === "all") return true;
   if (filter === "upcoming") return session.status === "active";
   return session.status === "completed";
@@ -136,20 +136,20 @@ export function SessionsView({
     let upcoming = 0;
     let done = 0;
     for (const session of sessions) {
-      if (matchesSchedule(session, "upcoming", today)) upcoming++;
-      if (matchesSchedule(session, "done", today)) done++;
+      if (matchesSchedule(session, "upcoming")) upcoming++;
+      if (matchesSchedule(session, "done")) done++;
     }
     return { upcoming, done, all: sessions.length };
-  }, [sessions, today]);
+  }, [sessions]);
 
   const filteredSessions = useMemo(() => {
     const list = sessions.filter((session) => {
-      if (!matchesSchedule(session, scheduleFilter, today)) return false;
+      if (!matchesSchedule(session, scheduleFilter)) return false;
       if (typeFilter !== "all" && session.session_type !== typeFilter) return false;
       return true;
     });
     return sortSessions(list, scheduleFilter);
-  }, [sessions, scheduleFilter, typeFilter, today]);
+  }, [sessions, scheduleFilter, typeFilter]);
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, SessionSummary[]>();

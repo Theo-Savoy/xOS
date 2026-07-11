@@ -300,4 +300,67 @@ describe("CallManagerApp component", () => {
     await screen.findByText("Terminée");
     expect(postedActions).toEqual(["log_call", "log_event", "complete_session"]);
   });
+
+  it("logs selected contacts in waves of four and aggregates failures", async () => {
+    const contacts = Array.from({ length: 7 }, (_, index) => ({
+      id: index + 1,
+      position: index,
+      sf_contact_id: `00300000000000${index + 1}AAA`,
+      sf_account_id: null,
+      contact_name: `Contact ${index + 1}`,
+      account_name: "Acme",
+      phone: "0102030405",
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    }));
+    const activeSession = { id: 1, name: "Vagues", status: "active", created_at: "2026-07-10T10:00:00Z" };
+    const resolvers: Array<(response: Response) => void> = [];
+    let sessionFetches = 0;
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?stats=1") return Promise.resolve(new Response(JSON.stringify(mockStats), { status: 200 }));
+      if (url === "/api/calls?resource=recalls") return Promise.resolve(new Response(JSON.stringify({ recalls: [] }), { status: 200 }));
+      if (url === "/api/calls?session_id=1") {
+        sessionFetches += 1;
+        return Promise.resolve(new Response(JSON.stringify({
+          session: sessionFetches === 1 ? activeSession : { ...activeSession, status: "completed" },
+          contacts: sessionFetches === 1 ? contacts : contacts.map((contact) => ({ ...contact, status: "called" })),
+        }), { status: 200 }));
+      }
+      if (url.startsWith("/api/calls?session_id=1&context_contact_id=")) {
+        return Promise.resolve(new Response(JSON.stringify({ session: activeSession, contacts, context: { contact_record_url: null, account_record_url: null, tasks: [], opportunities: [] } }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        const action = JSON.parse(String(init.body)).action;
+        if (action === "log_call") return new Promise((resolve) => resolvers.push(resolve));
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    const user = userEvent.setup();
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+    await screen.findByRole("heading", { name: "Vagues" });
+    await user.click(screen.getByRole("button", { name: "Sélectionner les à faire (7)" }));
+    await user.click(screen.getByRole("button", { name: "Consigner pour 7" }));
+
+    await waitFor(() => expect(resolvers).toHaveLength(4));
+    resolvers[0](new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    resolvers[1](new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    resolvers[2](new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409 }));
+    resolvers[3](new Response(JSON.stringify({ error: "sf_write_error" }), { status: 502 }));
+    await waitFor(() => expect(resolvers).toHaveLength(7));
+    resolvers[4](new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    resolvers[5](new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    resolvers[6](new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert").textContent).toContain("6 consignés, 1 en échec — liste actualisée");
+  });
 });

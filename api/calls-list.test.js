@@ -6,6 +6,7 @@ import {
   filterTargetContacts,
   hasRelanceQueryFilters,
   SOQL_FETCH_CAP,
+  __resetSFTokenCache,
 } from "./_crm/salesforce.js";
 import mapping from "./_crm/mapping.js";
 import { FONCTION_PRESETS } from "../src/crm/index.ts";
@@ -129,6 +130,10 @@ describe("adapter exports", () => {
     expect(soql).not.toMatch(/LAST_N_DAYS/);
     expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
     expect(hasRelanceQueryFilters({ relance: { jamais_appele: true } })).toBe(true);
+    expect(hasRelanceQueryFilters({ relance: { dernier_resultat: ["Appel décroché"] } })).toBe(true);
+    expect(hasRelanceQueryFilters({ relance: { exclure_si_plus_de: { appels: 2, sur_jours: 7 } } })).toBe(true);
+    expect(buildTargetQuery({ ...baseFilters, relance: { dernier_resultat: ["Appel décroché"] }, limit: 20 }, mapping)).toContain("LIMIT 2000");
+    expect(soql).toContain("Resultat_call__c != null");
   });
 
   it("boundedLimit accepts up to the SOQL fetch cap", () => {
@@ -288,6 +293,7 @@ describe("adapter exports", () => {
 describe("POST /api/calls action=list_contacts", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    __resetSFTokenCache();
     mockMaybeSingle.mockReset();
     mockFrom.mockClear();
 
