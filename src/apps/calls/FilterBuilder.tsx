@@ -26,6 +26,7 @@ type FilterBuilderProps = {
   matchCount: number | null;
   matchCountCapped: boolean;
   matchCountLoading: boolean;
+  matchCountError: string | null;
   contactLimit: ContactLimit;
   onContactLimitChange: (limit: ContactLimit) => void;
   maxPerCompany: MaxPerCompany | null;
@@ -99,6 +100,7 @@ export function FilterBuilder({
   matchCount,
   matchCountCapped,
   matchCountLoading,
+  matchCountError,
   contactLimit,
   onContactLimitChange,
   maxPerCompany,
@@ -379,13 +381,17 @@ export function FilterBuilder({
         <div className="calls-fb-match" role="status" aria-live="polite">
           {matchCountLoading ? (
             <Tag>Comptage…</Tag>
+          ) : matchCountError ? (
+            <Tag variant="alert" title={matchCountError}>
+              Comptage impossible
+            </Tag>
           ) : matchCount !== null ? (
             <Tag variant="accent">
               {matchCountCapped ? "≥ " : ""}
               {matchCount} contact{matchCount > 1 ? "s" : ""} dans les filtres
             </Tag>
           ) : (
-            <Tag>Filtres → comptage live</Tag>
+            <Tag>Ajustez les filtres</Tag>
           )}
         </div>
         <label className="calls-field calls-field--inline">

@@ -1385,11 +1385,38 @@
   max-width: 14rem;
 }
 
-.calls-view--recalls .calls-contact-card__top {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+.calls-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+  padding: 1.5rem 1rem 1.25rem;
+  text-align: center;
+}
+
+.calls-empty-state__art {
+  color: var(--xos-accent);
+  margin-bottom: 0.25rem;
+}
+
+.calls-empty-state h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-family: var(--xos-font-display);
+}
+
+.calls-empty-state p {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--xos-text-muted);
+  line-height: 1.45;
+}
+
+.calls-cockpit-list__rows--recalls {
+  --calls-col-status: 9rem;
+}
+
+.calls-cockpit-list__empty .calls-empty-state {
+  padding: 2rem 1rem;
 }
 
 .calls-context-inline {
