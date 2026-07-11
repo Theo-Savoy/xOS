@@ -323,7 +323,7 @@ export async function GET(request) {
 
     const { data: contacts, error: contactsError } = await client
       .from("call_session_contacts")
-      .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at, do_not_call")
+      .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at")
       .eq("session_id", sessionId)
       .order("position", { ascending: true });
 
@@ -582,7 +582,6 @@ export async function POST(request) {
         sf_task_id: taskId,
         called_at: new Date().toISOString(),
         recall_at: wantsRecall && do_not_call !== true ? recall_at : null,
-        do_not_call: do_not_call === true,
       })
       .eq("id", contact_id);
 

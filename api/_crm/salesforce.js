@@ -252,14 +252,26 @@ export function buildLightningUrl(objectType, recordId) {
   return `${instanceUrl()}/lightning/r/${objectType}/${recordId}/view`;
 }
 
-/** Live Task history + open/closed opportunities for the runner cockpit. */
+/** Live Task history + open/closed opportunities + NPA for the runner cockpit. */
 export async function fetchContactContext(token, { contactId, accountId }, mapping = defaultMapping) {
   const contact = mapping.objects.contact;
   const account = mapping.objects.account;
   const task = mapping.objects.task;
   const opportunity = mapping.objects.opportunity;
   const tf = task.fields;
+  const cf = contact.fields;
   const of = opportunity.fields;
+
+  const contactSoql = [
+    `SELECT ${cf.doNotCall}`,
+    `FROM ${contact.name}`,
+    `WHERE ${cf.id} = '${escapeSOQL(contactId)}'`,
+    `LIMIT 1`,
+  ].join(" ");
+  const contactResult = await searchContacts(token, contactSoql);
+  if (contactResult.error) return { error: contactResult.error };
+  const contactRow = contactResult.records?.[0];
+  const npa = Boolean(contactRow?.[cf.doNotCall]);
 
   const taskSoql = [
     `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(", ")}`,
@@ -299,6 +311,7 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
   return {
     contact_record_url: buildLightningUrl(contact.name, contactId),
     account_record_url: accountId ? buildLightningUrl(account.name, accountId) : null,
+    npa,
     tasks: (tasksResult.records || []).map((record) => ({
       id: record[tf.id],
       activity_date: record[tf.activityDate] || null,

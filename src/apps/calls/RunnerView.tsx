@@ -440,9 +440,7 @@ export function RunnerView({
                   <span>{contact.account_name ?? "—"}</span>
                   <Tag variant={statusVariant(contact.status)}>{statusLabel(contact.status)}</Tag>
                   <span>{contact.outcome ?? "—"}</span>
-                  <span className="xos-numeric">
-                    {contact.do_not_call ? "NPA" : contact.recall_at ?? "—"}
-                  </span>
+                <span className="xos-numeric">{contact.recall_at ?? "—"}</span>
                 </li>
               ))}
             </ul>
@@ -498,7 +496,7 @@ export function RunnerView({
                 <Tag variant={statusVariant(focusedContact.status)}>{statusLabel(focusedContact.status)}</Tag>
                 {focusedContact.outcome && <Tag variant="accent">{focusedContact.outcome}</Tag>}
                 {focusedContact.recall_at && <span>Rappel {focusedContact.recall_at}</span>}
-                {focusedContact.do_not_call && <Tag variant="alert">Ne pas rappeler</Tag>}
+                {contactContext?.npa && <Tag variant="alert">Ne pas rappeler (NPA)</Tag>}
               </div>
             )}
           </GlassCard>
