@@ -414,8 +414,11 @@ export function RunnerView({
     setComments("");
     setDoNotCall(false);
     setScheduleRecall(true);
+  }, [focusedContact?.id]);
+
+  useEffect(() => {
     setRecallAt(addDaysIso(defaultRecallDays));
-  }, [focusedContact?.id, defaultRecallDays]);
+  }, [focusedContact?.id]);
 
   useEffect(() => {
     setScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(resultat));
@@ -993,7 +996,7 @@ export function RunnerView({
                 </Button>
               </div>
             ) : (
-              <p className="calls-contact-card__no-phone">Aucun numéro mobile</p>
+              <p className="calls-contact-card__no-phone">Aucun numéro</p>
             )}
 
             {displayEmail ? (

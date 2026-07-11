@@ -2,6 +2,17 @@
 import defaultMapping from "./mapping.js";
 
 export const SOQL_FETCH_CAP = 2000;
+const SF_TOKEN_TTL_MS = 30 * 60_000;
+let sfTokenCache = { accessToken: null, fetchedAt: 0 };
+
+function invalidateSFTokenCache() {
+  sfTokenCache = { accessToken: null, fetchedAt: 0 };
+}
+
+/** Test-only hook to isolate module-scope token cache state. */
+export function __resetSFTokenCache() {
+  invalidateSFTokenCache();
+}
 
 export function escapeSOQL(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -24,19 +35,23 @@ export function boundedLimit(value) {
   return Math.max(1, Math.min(value, SOQL_FETCH_CAP));
 }
 
+/** Filtres appliqués en post-traitement JS ⇒ fetch au cap puis troncature. */
 export function hasRelanceQueryFilters(filters = {}) {
   const followUp = filters.relance || {};
+  const excluded = followUp.exclure_si_plus_de || {};
   return (
     followUp.jamais_appele === true
     || positiveInteger(followUp.dernier_appel_avant_jours) !== null
     || positiveInteger(followUp.dernier_appel_dans_jours) !== null
+    || stringList(followUp.dernier_resultat).length > 0
+    || (positiveInteger(excluded.appels) !== null && positiveInteger(excluded.sur_jours) !== null)
   );
 }
 
 function taskSubquery(mapping) {
   const task = mapping.objects.task;
   const fields = task.fields;
-  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' ORDER BY ${fields.activityDate} DESC)`;
+  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' AND ${fields.result} != null ORDER BY ${fields.activityDate} DESC)`;
 }
 
 function fonctionPresetClause(preset, titleField) {
@@ -187,45 +202,100 @@ export function filterTargetContacts(records, filters = {}, mapping, now = new D
   });
 }
 
-export async function fetchSFToken() {
+export async function fetchSFToken(options = {}) {
+  if (!options.forceRefresh && sfTokenCache.accessToken && Date.now() - sfTokenCache.fetchedAt < SF_TOKEN_TTL_MS) {
+    return { accessToken: sfTokenCache.accessToken };
+  }
   const clientId = process.env.SF_CLIENT_ID || "";
   const clientSecret = process.env.SF_CLIENT_SECRET || "";
   const refreshToken = process.env.SF_REFRESH_TOKEN || "";
   const loginUrl = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
-  if (!clientId || !clientSecret || !refreshToken) return { error: "sf_missing_credentials" };
-  const response = await fetch(`${loginUrl}/services/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) return { error: "sf_auth_error" };
-  return { accessToken: (await response.json()).access_token };
+  if (!clientId || !clientSecret || !refreshToken) {
+    invalidateSFTokenCache();
+    return { error: "sf_missing_credentials" };
+  }
+  try {
+    const response = await fetch(`${loginUrl}/services/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      invalidateSFTokenCache();
+      return { error: "sf_auth_error" };
+    }
+    const accessToken = (await response.json()).access_token;
+    if (!accessToken) {
+      invalidateSFTokenCache();
+      return { error: "sf_auth_error" };
+    }
+    sfTokenCache = { accessToken, fetchedAt: Date.now() };
+    return { accessToken };
+  } catch (error) {
+    invalidateSFTokenCache();
+    throw error;
+  }
 }
 
 function instanceUrl() {
   return process.env.SF_INSTANCE_URL || "https://db0000000d7rdeay.my.salesforce.com";
 }
 
+async function sfFetchWithRetry(token, makeRequest) {
+  let response = await makeRequest(token);
+  if (response.status !== 401) return { response, token };
+
+  invalidateSFTokenCache();
+  const refreshed = await fetchSFToken({ forceRefresh: true });
+  if (refreshed.error) return { error: "sf_auth_error" };
+
+  response = await makeRequest(refreshed.accessToken);
+  return { response, token: refreshed.accessToken };
+}
+
 export async function searchContacts(token, soql) {
-  const response = await fetch(`${instanceUrl()}/services/data/v67.0/query?${new URLSearchParams({ q: soql })}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/query?${new URLSearchParams({ q: soql })}`, {
+    headers: { Authorization: `Bearer ${requestToken}` },
     signal: AbortSignal.timeout(30_000),
   });
+  const result = await sfFetchWithRetry(token, request);
+  if (result.error) return result;
+  const { response } = result;
   if (!response.ok) {
     const message = (await response.text()).slice(0, 500);
     return { error: "sf_query_error", message };
   }
-  return { records: (await response.json()).records || [] };
+  let page = await response.json();
+  let currentToken = result.token;
+  const records = [...(page.records || [])];
+  while (page.done === false && page.nextRecordsUrl && records.length < SOQL_FETCH_CAP) {
+    const nextRequest = (requestToken) => fetch(`${instanceUrl()}${page.nextRecordsUrl}`, {
+      headers: { Authorization: `Bearer ${requestToken}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    const nextResult = await sfFetchWithRetry(currentToken, nextRequest);
+    if (nextResult.error) return nextResult;
+    if (!nextResult.response.ok) {
+      return { error: "sf_query_error", message: (await nextResult.response.text()).slice(0, 500) };
+    }
+    page = await nextResult.response.json();
+    currentToken = nextResult.token;
+    records.push(...(page.records || []));
+  }
+  return { records: records.slice(0, SOQL_FETCH_CAP) };
 }
 
 async function createSObject(token, objectName, fields) {
-  const response = await fetch(`${instanceUrl()}/services/data/v67.0/sobjects/${objectName}`, {
+  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/sobjects/${objectName}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${requestToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(fields),
     signal: AbortSignal.timeout(30_000),
   });
+  const result = await sfFetchWithRetry(token, request);
+  if (result.error) return result;
+  const { response } = result;
   if (!response.ok) return { error: "sf_write_error", message: (await response.text()).slice(0, 500) };
   return { record: await response.json() };
 }
@@ -369,15 +439,18 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
 
 export async function updateContactDoNotCall(token, contactId, value, mapping = defaultMapping) {
   const contact = mapping.objects.contact;
-  const response = await fetch(
+  const request = (requestToken) => fetch(
     `${instanceUrl()}/services/data/v67.0/sobjects/${contact.name}/${encodeURIComponent(contactId)}`,
     {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${requestToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ [contact.fields.doNotCall]: Boolean(value) }),
       signal: AbortSignal.timeout(30_000),
     },
   );
+  const result = await sfFetchWithRetry(token, request);
+  if (result.error) return result;
+  const { response } = result;
   if (!response.ok) return { error: "sf_write_error", message: (await response.text()).slice(0, 500) };
   return { ok: true };
 }

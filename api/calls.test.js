@@ -497,7 +497,7 @@ describe("POST /api/calls", () => {
 
   describe("log_call", () => {
     const sessionRow = { id: 1, owner: "user-123", name: "Test", status: "active" };
-    const contactRow = { id: 101, session_id: 1, sf_contact_id: "003000000000001", sf_account_id: "001000000000001" };
+    const contactRow = { id: 101, session_id: 1, sf_contact_id: "003000000000001", sf_account_id: "001000000000001", status: "pending" };
 
     it("returns 400 for invalid session_id", async () => {
       const res = await POST(makeReq("POST", { action: "log_call", session_id: "abc", contact_id: 1, resultat: RESULTS[0] }));
@@ -534,6 +534,33 @@ describe("POST /api/calls", () => {
         .mockResolvedValueOnce({ data: { ...contactRow, session_id: 99 }, error: null });
       const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
       expect(res.status).toBe(404);
+    });
+
+    it("rejects a previously processed contact before writing Salesforce", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: sessionRow, error: null })
+        .mockResolvedValueOnce({ data: { ...contactRow, status: "called" }, error: null });
+
+      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "contact_already_processed" });
+      expect(mockLogCall).not.toHaveBeenCalled();
+    });
+
+    it("allows a queued recall from the recalls view to be logged again", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: sessionRow, error: null })
+        .mockResolvedValueOnce({ data: { ...contactRow, status: "called", recall_at: "2026-07-20" }, error: null })
+        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null });
+      mockLogCall.mockResolvedValue({ record: { id: "00T789" } });
+
+      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
+
+      expect(res.status).toBe(200);
+      expect(mockLogCall).toHaveBeenCalledOnce();
     });
 
     it("returns 500 on real session lookup DB error", async () => {
@@ -790,6 +817,17 @@ describe("POST /api/calls", () => {
         .mockResolvedValueOnce({ data: { id: 101, session_id: 99 }, error: null });
       const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
       expect(res.status).toBe(404);
+    });
+
+    it("rejects a previously processed contact", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
+        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "skipped" }, error: null });
+
+      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "contact_already_processed" });
     });
 
     it("skips contact successfully", async () => {

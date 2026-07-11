@@ -315,6 +315,28 @@ describe("RunnerView", () => {
     );
   });
 
+  it("keeps the in-progress result and comments when changing the default recall delay", async () => {
+    const user = userEvent.setup();
+    const current = { ...bob, status: "pending" as const, outcome: null };
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Fiche" }));
+    await user.click(screen.getByRole("button", { name: "Appel décroché" }));
+    await user.type(screen.getByPlaceholderText("Notes sur l'appel…"), "À rappeler après validation");
+    await user.click(screen.getByLabelText("Planifier un rappel"));
+    await user.click(screen.getByRole("button", { name: "+7 j" }));
+
+    expect(screen.getByRole("button", { name: "Appel décroché" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByPlaceholderText("Notes sur l'appel…") as HTMLTextAreaElement).value).toBe("À rappeler après validation");
+  });
+
   it("opens continuation session panel from Non contacté with date", async () => {
     const user = userEvent.setup();
     const onDeferContacts = vi.fn();
