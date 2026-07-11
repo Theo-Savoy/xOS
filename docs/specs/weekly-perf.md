@@ -246,3 +246,40 @@ Consolidation Vercel B (calls-list + presets → calls, −auth-test)
 ```
 
 Bootstrap rôles (`access.js` + migration 008) utile pour le filtre manager mais **pas bloquant** pour 3.1 si le mapping owner se fait via SF User ; le filtre « Commerciaux seulement » utilise `profiles.role` quand l'email est mappé.
+
+---
+
+## 9. Extension v2 — le rituel équipe *(2026-07-11, remplace le Google Sheet de suivi hebdo/trimestre)*
+
+Weekly Perf doit permettre de **retrouver toutes les infos du tableur de suivi actuel** (métrique × semaines par commercial, photo du 2026-07-11), présentées UX-friendly. Lot dédié **3.3** (API + UI), après le socle 3.2.
+
+### 9.1 Mapping tableur → données
+
+| Ligne du tableur | Source | Statut |
+|---|---|---|
+| Nombre de RDV effectués | `pulse.meetings` (Events, `ActivityDate`) | ✅ déjà en 3.1 |
+| Nombre d'opportunités détectées | `pipeline.generated_count` (Opportunity `CreatedDate`) | ✅ déjà en 3.1 |
+| Montant HT signé sur la semaine | `pipeline.won_amount` (`IsWon`, `CloseDate` ∈ semaine) | ✅ déjà en 3.1 |
+| Montant sur-mesure / catalogue / conseil / ventes exceptionnelles | breakdown du signé par `Type_de_vente__c` — **nouvelle clé mapping CRM** (`saleTypes`), valeurs org réelles à confirmer (Catalogue, Sur-mesure, Conseil, LMS, XOS+ ↔ « exceptionnelles » ?) | 🆕 3.3 |
+| Dont ventes ARR | champ SF à identifier — **question Théo** (champ dédié ? type de vente ? produit ?) | ❓ bloquant |
+| Forecast sur le trimestre | définition à acter — **question Théo** (somme pondérée des opps ouvertes du trimestre ? champ forecast ? saisie manuelle ?) | ❓ bloquant |
+| Montant de pipe sur-mesure | opps ouvertes `Type_de_vente__c = Sur-mesure`, somme `Amount` (règle V6 : `CloseDate ∈ [aujourd'hui, +180 j]`) | 🆕 3.3 |
+| Target | absente de SF → **Supabase** (`settings` clé `targets.{sf_user_id}.{quarter}` ou table dédiée), éditable dans le Hub (manager+admin) — **valeurs à fournir par Théo** | 🆕 3.3 |
+| Total / Moyenne | calculés côté client sur la fenêtre affichée | 🆕 3.3 (UI) |
+
+### 9.2 API (extension `api/perf`)
+
+- `GET /api/perf?weeks=N` enrichi : `pipeline[].won_by_type` (map type → montant), `won_arr_amount` (une fois le champ acté), + resource trimestre : `quarter: { signed_to_date, forecast, custom_pipe, target }` par owner. Même cache, même authz.
+- Aucun nom de champ/valeur picklist en dur : tout passe par `api/_crm/mapping.js`.
+
+### 9.3 UI (principes)
+
+- **Vue Équipe = le rituel du lundi** : une card par commercial — RDV & opps détectées de la semaine (vs moyenne 8 s), CA signé de la semaine avec mini-breakdown par type (barres empilées), **jauge trimestre** réalisé cumulé vs forecast vs target.
+- **Toggle « Tableau »** : grille métrique × semaines fidèle au tableur (totaux + moyennes calculés, zéro `#DIV/0!`), pour une transition douce depuis Sheets.
+- Les métriques spec v1 (propositions, effort) restent, visuellement secondaires par rapport aux métriques du rituel.
+
+### 9.4 Questions ouvertes (bloquent 3.3, pas 3.2)
+
+1. **ARR** : comment « Dont ventes ARR » est-il identifiable dans SF ?
+2. **Forecast trimestre** : définition exacte (le tableur montre une valeur par semaine qui évolue → recalcul hebdo d'une projection ? source ?).
+3. **Targets** : valeurs par commercial × trimestre à saisir (proposition : édition dans le Hub, stockage `settings`).
