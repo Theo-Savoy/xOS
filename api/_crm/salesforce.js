@@ -471,12 +471,13 @@ export async function createEvent(token, { subject, startDateTime, durationMin, 
   if (ownerId) payload[fields.ownerId] = ownerId;
   const created = await createSObject(token, event.name, payload);
   if (created.error || !Array.isArray(invitees)) return created;
-  for (const invitee of invitees.filter((id) => typeof id === "string" && id)) {
-    const relation = await createSObject(token, event.relationName, {
+  const relations = await Promise.all(invitees
+    .filter((id) => typeof id === "string" && id)
+    .map((invitee) => createSObject(token, event.relationName, {
       [fields.eventId]: created.record.id,
       [fields.relationId]: invitee,
-    });
-    if (relation.error) return { ...created, inviteeError: relation.error };
-  }
+    })));
+  const failedRelation = relations.find((relation) => relation.error);
+  if (failedRelation) return { ...created, inviteeError: failedRelation.error };
   return created;
 }

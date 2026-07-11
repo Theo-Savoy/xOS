@@ -304,6 +304,50 @@ describe("CallManagerApp component", () => {
     expect(postedActions).toEqual(["log_call", "log_event", "complete_session"]);
   });
 
+  it("warns about a failed NPA sync without blocking runner progression", async () => {
+    const user = userEvent.setup();
+    const pendingContact = {
+      id: 101, position: 0, sf_contact_id: "003000000000001AAA", sf_account_id: null,
+      contact_name: "Alice Martin", account_name: "Acme", phone: "0102030405", title: null,
+      linkedin_url: null, status: "pending", outcome: null, comments: null,
+      sf_task_id: null, sf_event_id: null, called_at: null,
+    };
+    const activeSession = { id: 1, name: "NPA", status: "active", created_at: "2026-07-10T10:00:00Z" };
+    let sessionFetches = 0;
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?stats=1") return Promise.resolve(new Response(JSON.stringify(mockStats), { status: 200 }));
+      if (url === "/api/calls?session_id=1") {
+        sessionFetches += 1;
+        return Promise.resolve(new Response(JSON.stringify({
+          session: sessionFetches === 1 ? activeSession : { ...activeSession, status: "completed" },
+          contacts: sessionFetches === 1 ? [pendingContact] : [{ ...pendingContact, status: "called" }],
+        }), { status: 200 }));
+      }
+      if (url.startsWith("/api/calls?session_id=1&context_contact_id=")) {
+        return Promise.resolve(new Response(JSON.stringify({ context: { contact_record_url: null, account_record_url: null, tasks: [], opportunities: [] } }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        const action = JSON.parse(String(init.body)).action;
+        return Promise.resolve(new Response(JSON.stringify(action === "log_call" ? { ok: true, npa_failed: true } : { ok: true }), { status: 200 }));
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+    await screen.findByRole("heading", { name: "NPA" });
+    await user.click(screen.getByRole("button", { name: "Fiche" }));
+    await user.click(screen.getByLabelText("Ne pas rappeler (NPA)"));
+    await user.click(screen.getByRole("button", { name: "Logguer & suivant" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Appel consigné, mais le marquage NPA a échoué dans Salesforce — vérifie la fiche.",
+    );
+    expect(sessionFetches).toBeGreaterThan(1);
+  });
+
   it("loads a new context when the focused contact changes", async () => {
     const contacts = [
       {

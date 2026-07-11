@@ -154,11 +154,21 @@ export async function handleSessionsRead({ url, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_session_id" }), { status: 400, headers });
     }
 
-    const { data: session, error: sessionError } = await client
-      .from("call_sessions")
-      .select("id, owner, name, status, created_at, scheduled_for, session_type")
-      .eq("id", sessionId)
-      .maybeSingle();
+    const [
+      { data: session, error: sessionError },
+      { data: contactsRaw, error: contactsError },
+    ] = await Promise.all([
+      client
+        .from("call_sessions")
+        .select("id, owner, name, status, created_at, scheduled_for, session_type")
+        .eq("id", sessionId)
+        .maybeSingle(),
+      client
+        .from("call_session_contacts")
+        .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at, attempt_count, marked_npa")
+        .eq("session_id", sessionId)
+        .order("position", { ascending: true }),
+    ]);
 
     if (sessionError && !isNotFoundError(sessionError)) {
       return new Response(JSON.stringify({ error: "session_lookup_failed" }), { status: 500, headers });
@@ -169,12 +179,6 @@ export async function handleSessionsRead({ url, user, client, headers }) {
     if (session.owner !== user.id) {
       return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers });
     }
-
-    const { data: contactsRaw, error: contactsError } = await client
-      .from("call_session_contacts")
-      .select("id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at, attempt_count, marked_npa")
-      .eq("session_id", sessionId)
-      .order("position", { ascending: true });
 
     if (contactsError) {
       return new Response(JSON.stringify({ error: "contacts_lookup_failed" }), { status: 500, headers });

@@ -132,7 +132,7 @@ export function Launcher({ accessToken, onOpenApp }: LauncherProps) {
       setError(false);
 
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+        const res = await fetch(`/api/launcher?q=${encodeURIComponent(q)}`, {
           signal: controller.signal,
           headers: { Authorization: `Bearer ${accessToken}` },
         });
@@ -178,7 +178,7 @@ export function Launcher({ accessToken, onOpenApp }: LauncherProps) {
     setLogSearchLoading(true);
     const delay = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(logSearchQuery)}`, {
+        const res = await fetch(`/api/launcher?q=${encodeURIComponent(logSearchQuery)}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: controller.signal,
         });
@@ -212,7 +212,7 @@ export function Launcher({ accessToken, onOpenApp }: LauncherProps) {
     setCreateAccountLoading(true);
     const delay = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(createAccountQuery)}`, {
+        const res = await fetch(`/api/launcher?q=${encodeURIComponent(createAccountQuery)}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: controller.signal,
         });
@@ -238,7 +238,7 @@ export function Launcher({ accessToken, onOpenApp }: LauncherProps) {
     setLogLoading(true);
     setLogError(null);
     try {
-      const res = await fetch("/api/log", {
+      const res = await fetch("/api/launcher", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -271,7 +271,7 @@ export function Launcher({ accessToken, onOpenApp }: LauncherProps) {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const res = await fetch("/api/log", {
+      const res = await fetch("/api/launcher", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

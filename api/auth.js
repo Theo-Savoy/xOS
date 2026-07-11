@@ -1,15 +1,9 @@
 import { verifyJWT, respond } from "./_auth.js";
 
 /**
- * POST /api/sso-bridge — pont SSO → legacy.
- * Vérifie le JWT Supabase dans le header Authorization,
- * puis pose le cookie xos_auth pour compatibilité avec
- * l'iframe Cleaner et les APIs legacy.
- *
- * Répond 204 (pas de corps) avec Set-Cookie.
- * Si JWT invalide → 401.
+ * POST /api/auth — pont SSO → legacy.
+ * GET /api/auth?flow=salesforce — stub OAuth Salesforce.
  */
-
 export async function POST(request) {
   const user = await verifyJWT(request);
   if (!user) {
@@ -29,12 +23,26 @@ export async function POST(request) {
   });
 }
 
+export async function GET(request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("flow") === "salesforce") {
+    const redirect = new URL("/", url.origin);
+    redirect.searchParams.set("auth_error", "sf_coming_soon");
+    return Response.redirect(redirect.toString(), 302);
+  }
+
+  return new Response(JSON.stringify({ error: "invalid_flow" }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export async function OPTIONS() {
   return new Response(null, {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
     },
   });

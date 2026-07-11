@@ -17,7 +17,7 @@ export function useSession() {
       if (bridged.current || bridging.current) return;
       bridging.current = true;
       try {
-        const res = await fetch("/api/sso-bridge", {
+        const res = await fetch("/api/auth", {
           method: "POST",
           headers: { Authorization: `Bearer ${s.access_token}` },
         });

@@ -24,6 +24,7 @@ export function todayParisDate() {
 }
 
 const PGRST_NOT_FOUND = "PGRST116";
+let serviceClient = null;
 
 export function isNotFoundError(error) {
   return error?.code === PGRST_NOT_FOUND;
@@ -118,22 +119,26 @@ export function computeHubKpis(rows) {
 }
 
 export function getServiceClient() {
+  if (serviceClient) return serviceClient;
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseServiceKey) return null;
-  return createClient(supabaseUrl, supabaseServiceKey);
+  serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+  return serviceClient;
+}
+
+/** Test-only hook to isolate the module-scope service client. */
+export function __resetServiceClient() {
+  serviceClient = null;
 }
 
 export async function journalAction({ actorId, actionType, changes, targets, result }) {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
+  const supabase = getServiceClient();
+  if (!supabase) {
     console.error("_journal: missing Supabase URL or service role key");
     return;
   }
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     await supabase.from("action_journal").insert({
       actor: actorId,
       action_type: actionType,
