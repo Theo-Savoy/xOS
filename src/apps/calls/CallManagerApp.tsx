@@ -13,6 +13,7 @@ import {
   fetchContactCount,
   fetchContactList,
   fetchPresets,
+  fetchTeam,
   fetchRecalls,
   fetchSession,
   fetchSessions,
@@ -37,6 +38,7 @@ import type {
   SessionDetail,
   SessionSummary,
   SessionType,
+  TeamMember,
 } from "./types";
 import "./calls.css";
 
@@ -104,6 +106,8 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [presets, setPresets] = useState<CallTargetPreset[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const teamRequested = useRef(false);
 
   const [activeSession, setActiveSession] = useState<SessionDetail | null>(null);
   const [contacts, setContacts] = useState<SessionContact[]>([]);
@@ -115,7 +119,12 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [contextContactId, setContextContactId] = useState<number | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const contextRequest = useRef(0);
+  const lastContextKey = useRef<string | null>(null);
   const [focusedContactId, setFocusedContactId] = useState<number | null>(null);
+
+  useEffect(() => {
+    lastContextKey.current = null;
+  }, [activeSession?.id]);
 
   const loadSessions = useCallback(async () => {
     if (!token) return;
@@ -150,6 +159,22 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
       setPresetsLoading(false);
     }
   }, [token]);
+
+  const loadTeam = useCallback(async () => {
+    if (!token || teamRequested.current) return;
+    teamRequested.current = true;
+    try {
+      setTeam(await fetchTeam(token));
+    } catch {
+      setTeam([]);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (view === "runner" || view === "recalls") {
+      void loadTeam();
+    }
+  }, [view, loadTeam]);
 
   const openSession = useCallback(
     async (sessionId: number, focusContactId?: number) => {
@@ -385,7 +410,10 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   );
 
   useEffect(() => {
-    if (view !== "runner" && view !== "recalls") return;
+    if (view !== "runner" && view !== "recalls") {
+      lastContextKey.current = null;
+      return;
+    }
     if (view === "runner" && !activeSession) return;
 
     if (view === "recalls") {
@@ -393,10 +421,14 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         ? contacts.find((c) => c.id === focusedContactId)
         : contacts.find((c) => c.status === "pending") ?? null;
       if (!focused?.origin_session_id) {
+        lastContextKey.current = null;
         setContactContext(null);
         setContextContactId(null);
         return;
       }
+      const contextKey = `${focused.origin_session_id}:${focused.id}`;
+      if (lastContextKey.current === contextKey) return;
+      lastContextKey.current = contextKey;
       void loadContactContext(focused.origin_session_id, focused.id);
       return;
     }
@@ -404,10 +436,14 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     if (!activeSession) return;
     const targetId = resolveContextContactId(contacts, awaitingEvent?.id, focusedContactId);
     if (!targetId) {
+      lastContextKey.current = null;
       setContactContext(null);
       setContextContactId(null);
       return;
     }
+    const contextKey = `${activeSession.id}:${targetId}`;
+    if (lastContextKey.current === contextKey) return;
+    lastContextKey.current = contextKey;
     void loadContactContext(activeSession.id, targetId);
   }, [view, activeSession?.id, awaitingEvent?.id, focusedContactId, contacts, loadContactContext]);
 
@@ -755,6 +791,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           contactContext={contactContext}
           contextContactId={contextContactId}
           contextLoading={contextLoading}
+          team={team}
           onBack={goToSessions}
           onFocusContact={setFocusedContactId}
           onLogAndNext={(contactId, payload) => void handleLogAndNext(contactId, payload)}

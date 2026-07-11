@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import mapping from "../_crm/mapping.js";
-import { hydrateSessionContactsFromCrm } from "./hydrateContacts.js";
+import { __resetHydrationAttempts, hydrateSessionContactsFromCrm } from "./hydrateContacts.js";
 
 const mockFetchContactBasicsByIds = vi.fn();
 
@@ -9,6 +9,10 @@ vi.mock("../_crm/salesforce.js", () => ({
 }));
 
 describe("hydrateSessionContactsFromCrm", () => {
+  beforeEach(() => {
+    __resetHydrationAttempts();
+    mockFetchContactBasicsByIds.mockReset();
+  });
   it("fills missing email and title from CRM and persists updates", async () => {
     mockFetchContactBasicsByIds.mockResolvedValue({
       byId: new Map([
@@ -42,7 +46,6 @@ describe("hydrateSessionContactsFromCrm", () => {
   });
 
   it("skips CRM lookup when all fields are already present", async () => {
-    mockFetchContactBasicsByIds.mockClear();
     const contacts = [
       {
         id: 1,
@@ -54,5 +57,15 @@ describe("hydrateSessionContactsFromCrm", () => {
     const enriched = await hydrateSessionContactsFromCrm(null, contacts, "sf-token", mapping);
     expect(enriched).toEqual(contacts);
     expect(mockFetchContactBasicsByIds).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a CRM lookup for an unchanged incomplete contact", async () => {
+    mockFetchContactBasicsByIds.mockResolvedValue({ byId: new Map() });
+    const contacts = [{ id: 1, sf_contact_id: "003AAA", email: null, title: null }];
+
+    await hydrateSessionContactsFromCrm(null, contacts, "sf-token", mapping);
+    await hydrateSessionContactsFromCrm(null, contacts, "sf-token", mapping);
+
+    expect(mockFetchContactBasicsByIds).toHaveBeenCalledTimes(1);
   });
 });

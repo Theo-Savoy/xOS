@@ -254,6 +254,7 @@ describe("CallManagerApp component", () => {
       { session: { ...activeSession, status: "completed" }, contacts: [calledContact] },
     ];
     const postedActions: string[] = [];
+    let contextFetches = 0;
 
     vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -261,6 +262,7 @@ describe("CallManagerApp component", () => {
         return Promise.resolve(new Response(JSON.stringify(mockStats), { status: 200 }));
       }
       if (url.startsWith("/api/calls?session_id=1&context_contact_id=")) {
+        contextFetches += 1;
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -294,11 +296,54 @@ describe("CallManagerApp component", () => {
     await user.click(screen.getByRole("button", { name: "RDV planifié" }));
 
     expect(await screen.findByRole("heading", { name: "Détails du RDV" })).toBeTruthy();
+    expect(contextFetches).toBe(1);
     expect(screen.queryByRole("button", { name: "Logguer & suivant" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Logguer appel + RDV & suivant" }));
     await screen.findByText("Terminée");
     expect(postedActions).toEqual(["log_call", "log_event", "complete_session"]);
+  });
+
+  it("loads a new context when the focused contact changes", async () => {
+    const contacts = [
+      {
+        id: 101, position: 0, sf_contact_id: "003000000000001AAA", sf_account_id: null,
+        contact_name: "Alice Martin", account_name: "Acme", phone: "0102030405", title: null,
+        linkedin_url: null, status: "pending" as const, outcome: null, comments: null,
+        sf_task_id: null, sf_event_id: null, called_at: null,
+      },
+      {
+        id: 102, position: 1, sf_contact_id: "003000000000002AAA", sf_account_id: null,
+        contact_name: "Bruno Martin", account_name: "Acme", phone: "0102030406", title: null,
+        linkedin_url: null, status: "pending" as const, outcome: null, comments: null,
+        sf_task_id: null, sf_event_id: null, called_at: null,
+      },
+    ];
+    const activeSession = { id: 1, name: "Changement de contact", status: "active" as const, created_at: "2026-07-10T10:00:00Z" };
+    const contextFetches: string[] = [];
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/calls?stats=1") return Promise.resolve(new Response(JSON.stringify(mockStats), { status: 200 }));
+      if (url === "/api/calls?session_id=1") return Promise.resolve(new Response(JSON.stringify({ session: activeSession, contacts }), { status: 200 }));
+      if (url.startsWith("/api/calls?session_id=1&context_contact_id=")) {
+        contextFetches.push(url);
+        return Promise.resolve(new Response(JSON.stringify({ context: { contact_record_url: null, account_record_url: null, tasks: [], opportunities: [] } }), { status: 200 }));
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    const user = userEvent.setup();
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+    await screen.findByRole("heading", { name: "Changement de contact" });
+    await waitFor(() => expect(contextFetches).toEqual(["/api/calls?session_id=1&context_contact_id=101"]));
+
+    await user.click(screen.getByRole("button", { name: "Bruno Martin" }));
+
+    await waitFor(() => expect(contextFetches).toEqual([
+      "/api/calls?session_id=1&context_contact_id=101",
+      "/api/calls?session_id=1&context_contact_id=102",
+    ]));
   });
 
   it("logs selected contacts in waves of four and aggregates failures", async () => {

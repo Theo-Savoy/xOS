@@ -12,6 +12,7 @@ import mapping from "./_crm/mapping.js";
 import { FONCTION_PRESETS } from "../src/crm/index.ts";
 import { parseListContactsBody } from "./_calls/listContacts.js";
 import { buildPreviewContactList } from "./_calls/selection.js";
+import { __resetProfileCache } from "./_calls/profileCache.js";
 import { POST } from "./calls.js";
 
 const { mockVerifyJWT } = vi.hoisted(() => ({
@@ -133,7 +134,7 @@ describe("adapter exports", () => {
     expect(hasRelanceQueryFilters({ relance: { dernier_resultat: ["Appel décroché"] } })).toBe(true);
     expect(hasRelanceQueryFilters({ relance: { exclure_si_plus_de: { appels: 2, sur_jours: 7 } } })).toBe(true);
     expect(buildTargetQuery({ ...baseFilters, relance: { dernier_resultat: ["Appel décroché"] }, limit: 20 }, mapping)).toContain("LIMIT 2000");
-    expect(soql).toContain("Resultat_call__c != null");
+    expect(soql).not.toContain("Resultat_call__c != null");
   });
 
   it("boundedLimit accepts up to the SOQL fetch cap", () => {
@@ -288,10 +289,38 @@ describe("adapter exports", () => {
     );
     expect(filtered).toHaveLength(0);
   });
+
+  it("filterTargetContacts uses the latest call with a result while all calls remain attempts", () => {
+    const now = new Date("2026-07-10T12:00:00Z");
+    const records = [
+      {
+        Id: "future-then-result",
+        Tasks: {
+          totalSize: 2,
+          records: [
+            { ActivityDate: "2026-07-11", Resultat_call__c: null },
+            { ActivityDate: "2026-07-09", Resultat_call__c: "Appel argumenté" },
+          ],
+        },
+      },
+      {
+        Id: "no-result",
+        Tasks: { totalSize: 1, records: [{ ActivityDate: "2026-07-09", Resultat_call__c: "" }] },
+      },
+    ];
+
+    expect(
+      filterTargetContacts(records, { relance: { dernier_resultat: ["Appel argumenté"] } }, mapping, now).map((record) => record.Id),
+    ).toEqual(["future-then-result"]);
+    expect(
+      filterTargetContacts(records, { relance: { jamais_appele: true } }, mapping, now),
+    ).toEqual([]);
+  });
 });
 
 describe("POST /api/calls action=list_contacts", () => {
   beforeEach(() => {
+    __resetProfileCache();
     vi.restoreAllMocks();
     __resetSFTokenCache();
     mockMaybeSingle.mockReset();
@@ -445,6 +474,42 @@ describe("POST /api/calls action=list_contacts", () => {
     });
     expect(body.dedup).toEqual([]);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the latest non-future task for last_call_at", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const records = [
+      {
+        ...SF_RECORDS[0],
+        Id: "past-and-future",
+        Tasks: {
+          totalSize: 2,
+          records: [{ ActivityDate: "2099-01-01" }, { ActivityDate: "2020-01-01" }],
+        },
+      },
+      {
+        ...SF_RECORDS[0],
+        Id: "only-future",
+        Tasks: { totalSize: 1, records: [{ ActivityDate: "2099-01-01" }] },
+      },
+    ];
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ records }), { status: 200 }));
+    mockFrom.mockImplementation((table) => {
+      if (table === "call_sessions") {
+        return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) };
+      }
+      return { select: mockSelect };
+    });
+
+    const res = await POST(makeReq({ filters: baseFilters }));
+    const body = await res.json();
+    expect(body.contacts.find((contact) => contact.sf_contact_id === "past-and-future")).toMatchObject({
+      last_call_at: "2020-01-01",
+      call_count: 2,
+    });
+    expect(body.contacts.find((contact) => contact.sf_contact_id === "only-future")).not.toHaveProperty("last_call_at");
   });
 
   it("applies max_per_company before the contact limit on wide fetch", async () => {

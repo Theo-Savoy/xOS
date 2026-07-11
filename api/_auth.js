@@ -13,6 +13,14 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY =
   process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000;
+const AUTH_CACHE_MAX_ENTRIES = 200;
+const authCache = new Map();
+
+/** Test-only helper to clear the module-scope authentication cache. */
+export function __resetAuthCache() {
+  authCache.clear();
+}
 
 /**
  * @param {Request} request
@@ -32,6 +40,12 @@ export async function verifyJWT(request) {
   const token = authHeader.slice(7);
   if (!token) return null;
 
+  const cached = authCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.user;
+  }
+  if (cached) authCache.delete(token);
+
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -43,7 +57,12 @@ export async function verifyJWT(request) {
     return null;
   }
 
-  return res.json();
+  const user = await res.json();
+  if (authCache.size >= AUTH_CACHE_MAX_ENTRIES) {
+    authCache.delete(authCache.keys().next().value);
+  }
+  authCache.set(token, { user, expiresAt: Date.now() + AUTH_CACHE_TTL_MS });
+  return user;
 }
 
 /**

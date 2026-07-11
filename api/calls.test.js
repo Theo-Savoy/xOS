@@ -11,6 +11,7 @@ import {
   isValidSessionType,
 } from "./calls.js";
 import mapping from "./_crm/mapping.js";
+import { __resetProfileCache } from "./_calls/profileCache.js";
 
 const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
@@ -101,6 +102,7 @@ const defaultUser = {
 };
 
 beforeEach(() => {
+  __resetProfileCache();
   vi.restoreAllMocks();
   mockDb.mockReset();
   mockFrom.mockClear();
@@ -193,6 +195,37 @@ describe("GET /api/calls", () => {
     mockVerifyJWT.mockResolvedValue(null);
     const res = await GET(makeReq("GET", undefined));
     expect(res.status).toBe(401);
+  });
+
+  it("returns Salesforce-enabled team members with display labels", async () => {
+    mockDb.mockResolvedValueOnce({
+      data: [
+        { id: "user-1", full_name: "Alice Martin", email: "alice@example.com", sf_user_id: "005000000000001" },
+        { id: "user-2", full_name: null, email: "bob@example.com", sf_user_id: "005000000000002" },
+        { id: "user-3", full_name: "Sans Salesforce", email: "none@example.com", sf_user_id: null },
+      ],
+      error: null,
+    });
+
+    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?resource=team"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      team: [
+        { user_id: "user-1", label: "Alice Martin", sf_user_id: "005000000000001" },
+        { user_id: "user-2", label: "bob@example.com", sf_user_id: "005000000000002" },
+      ],
+    });
+    expect(mockFrom).toHaveBeenCalledWith("profiles");
+  });
+
+  it("returns 500 when the team lookup fails", async () => {
+    mockDb.mockResolvedValueOnce({ data: null, error: { message: "profiles failed" } });
+
+    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?resource=team"));
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("team_lookup_failed");
   });
 
   it("returns empty sessions list on successful empty query", async () => {
