@@ -42,6 +42,7 @@ function errorMessage(err: unknown): string {
   if (err instanceof CallsApiError) {
     if (err.status === 401) return "Session expirée — reconnectez-vous.";
     if (err.status === 404) return "Séance introuvable.";
+    if (err.code === "contact_already_processed") return "Contact déjà traité — liste actualisée.";
     if (err.code === "no_follow_up_contacts") return "Aucun contact ne nécessite de relance.";
     if (err.code === "session_contacts_insert_failed") {
       return "Échec d'enregistrement de la liste d'appels (base de données)";
@@ -59,6 +60,24 @@ function errorMessage(err: unknown): string {
 
 function findNextPending(contacts: SessionContact[]): SessionContact | null {
   return contacts.find((c) => c.status === "pending") ?? null;
+}
+
+async function runInBatches<T>(
+  items: T[],
+  operation: (item: T) => Promise<unknown>,
+): Promise<PromiseSettledResult<unknown>[]> {
+  const results: PromiseSettledResult<unknown>[] = [];
+  for (let index = 0; index < items.length; index += 4) {
+    results.push(...(await Promise.allSettled(items.slice(index, index + 4).map(operation))));
+  }
+  return results;
+}
+
+function isAlreadyProcessed(result: PromiseSettledResult<unknown>): boolean {
+  return result.status === "rejected"
+    && result.reason instanceof CallsApiError
+    && result.reason.status === 409
+    && result.reason.code === "contact_already_processed";
 }
 
 export default function CallManagerApp({ params }: CallManagerAppProps) {
@@ -93,6 +112,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [contactContext, setContactContext] = useState<ContactContext | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const [focusedContactId, setFocusedContactId] = useState<number | null>(null);
+  const contextKeyRef = useRef<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     if (!token) return;
@@ -129,6 +149,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
       if (!token) return;
       setRunnerError(null);
       setAwaitingEvent(null);
+      setFocusedContactId(null);
+      setContactContext(null);
+      contextKeyRef.current = null;
       setRunnerLoading(true);
       try {
         const data = await fetchSession(token, sessionId);
@@ -226,6 +249,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   const handleCreate = async (name: string, contactList: ContactPreview[], scheduledFor: string) => {
     if (!token) return;
+    setFocusedContactId(null);
+    setContactContext(null);
+    contextKeyRef.current = null;
     setCreateLoading(true);
     setNewError(null);
     try {
@@ -279,8 +305,12 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     const targetId = awaitingEvent?.id ?? focusedContactId ?? findNextPending(contacts)?.id;
     if (!targetId) {
       setContactContext(null);
+      contextKeyRef.current = null;
       return;
     }
+    const contextKey = `${activeSession.id}:${targetId}`;
+    if (contextKeyRef.current === contextKey) return;
+    contextKeyRef.current = contextKey;
     void loadContactContext(activeSession.id, targetId);
   }, [view, activeSession?.id, awaitingEvent?.id, focusedContactId, contacts, loadContactContext]);
 
@@ -302,6 +332,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         setAwaitingEvent(updatedCurrent ?? null);
       } else {
         await advanceOrComplete(activeSession.id);
+      }
+      if (result.recall_failed) {
+        setRunnerError("Appel consigné, mais le rappel n'a pas pu être créé dans Salesforce — pose-le à la main.");
       }
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -345,10 +378,14 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setRunnerLoading(true);
     setRunnerError(null);
     try {
-      for (const contactId of contactIds) {
-        await skipContact(token, activeSession.id, contactId);
-      }
+      const results = await runInBatches(contactIds, (contactId) =>
+        skipContact(token, activeSession.id, contactId),
+      );
       await advanceOrComplete(activeSession.id);
+      const failures = results.filter((result) => result.status === "rejected" && !isAlreadyProcessed(result));
+      if (failures.length > 0) {
+        setRunnerError(`${contactIds.length - failures.length} passés, ${failures.length} en échec — liste actualisée`);
+      }
     } catch (err) {
       setRunnerError(errorMessage(err));
     } finally {
@@ -366,14 +403,18 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setRunnerLoading(true);
     setRunnerError(null);
     try {
-      for (const contactId of contactIds) {
-        await logCall(token, activeSession.id, contactId, payload.resultat, {
+      const results = await runInBatches(contactIds, (contactId) =>
+        logCall(token, activeSession.id, contactId, payload.resultat, {
           comments: payload.comments,
           recallAt: payload.recallAt,
           doNotCall: payload.doNotCall,
-        });
-      }
+        }),
+      );
       await advanceOrComplete(activeSession.id);
+      const failures = results.filter((result) => result.status === "rejected" && !isAlreadyProcessed(result));
+      if (failures.length > 0) {
+        setRunnerError(`${contactIds.length - failures.length} consignés, ${failures.length} en échec — liste actualisée`);
+      }
     } catch (err) {
       setRunnerError(errorMessage(err));
       try {
@@ -389,6 +430,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   const handleCreateFollowUp = async () => {
     if (!token || !activeSession) return;
+    setFocusedContactId(null);
+    setContactContext(null);
+    contextKeyRef.current = null;
     setFollowUpLoading(true);
     try {
       const data = await createFollowUpSession(token, activeSession.id);
@@ -411,6 +455,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setDedup([]);
     setNewError(null);
     setAwaitingEvent(null);
+    setFocusedContactId(null);
+    setContactContext(null);
+    contextKeyRef.current = null;
     void loadSessions();
   };
 

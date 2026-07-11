@@ -243,7 +243,7 @@ export async function GET(request) {
   if (statsParam === "1") {
     const { data: userSessions, error: sessionsError } = await client
       .from("call_sessions")
-      .select("id")
+      .select("id, status")
       .eq("owner", user.id);
 
     if (sessionsError) {
@@ -252,22 +252,8 @@ export async function GET(request) {
 
     const sessionIds = (userSessions || []).map((session) => session.id);
 
-    let sessionsActive = 0;
-    let sessionsCompleted = 0;
-    for (const session of userSessions || []) {
-      const { data: sessionData, error: statusError } = await client
-        .from("call_sessions")
-        .select("status")
-        .eq("id", session.id)
-        .maybeSingle();
-      if (statusError && !isNotFoundError(statusError)) {
-        return new Response(JSON.stringify({ error: "session_lookup_failed" }), { status: 500, headers });
-      }
-      if (sessionData) {
-        if (sessionData.status === "active") sessionsActive++;
-        else if (sessionData.status === "completed") sessionsCompleted++;
-      }
-    }
+    const sessionsActive = (userSessions || []).filter((session) => session.status === "active").length;
+    const sessionsCompleted = (userSessions || []).filter((session) => session.status === "completed").length;
 
     let callsToday = 0;
     let callsWeek = 0;
@@ -518,6 +504,9 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: contactCheck.error }), { status: contactCheck.status, headers });
     }
     const contact = contactCheck.contact;
+    if (contact.status !== "pending") {
+      return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
+    }
 
     const profileResult = await fetchUserProfile(client, user.id);
     if (profileResult.error) {
@@ -554,6 +543,7 @@ export async function POST(request) {
     const taskId = sfResult.record?.id;
     const wantsRecall = typeof recall_at === "string" && recall_at;
     let recallTaskId = null;
+    let recallFailed = false;
     if (wantsRecall && do_not_call !== true) {
       const recall = await createRecallTask(
         tokenResult.accessToken,
@@ -566,7 +556,8 @@ export async function POST(request) {
         },
         mapping,
       );
-      if (!recall.error) recallTaskId = recall.record?.id || null;
+      if (recall.error) recallFailed = true;
+      else recallTaskId = recall.record?.id || null;
     }
 
     if (do_not_call === true) {
@@ -581,7 +572,7 @@ export async function POST(request) {
         comments: callComments || null,
         sf_task_id: taskId,
         called_at: new Date().toISOString(),
-        recall_at: wantsRecall && do_not_call !== true ? recall_at : null,
+        recall_at: wantsRecall && do_not_call !== true && !recallFailed ? recall_at : null,
         do_not_call: do_not_call === true,
       })
       .eq("id", contact_id);
@@ -602,12 +593,13 @@ export async function POST(request) {
         recall_at: wantsRecall ? recall_at : null,
         do_not_call: do_not_call === true,
         recall_task_id: recallTaskId,
+        recall_failed: recallFailed,
       },
       targets: [{ id: contact.sf_contact_id, type: "Contact", session_contact_id: contact_id, session_id }],
       result: { success: true, taskId },
     });
 
-    const response = { ok: true, contact_id, sf_task_id: taskId };
+    const response = { ok: true, contact_id, sf_task_id: taskId, ...(recallFailed ? { recall_failed: true } : {}) };
     if (resultat === TASK_SEMANTIC.rdv) {
       response.needs_event = true;
     }
@@ -729,7 +721,7 @@ export async function POST(request) {
 
     const { data: sessionContacts, error: contactsLookupError } = await client
       .from("call_session_contacts")
-      .select("sf_contact_id, sf_account_id, contact_name, account_name, phone, outcome")
+      .select("sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, outcome")
       .eq("session_id", session_id)
       .order("position", { ascending: true });
 
@@ -745,7 +737,7 @@ export async function POST(request) {
     const created = await insertSessionWithContacts(
       client,
       user.id,
-      `Relance — ${sessionCheck.session.name}`,
+      sessionCheck.session.name.startsWith("Relance — ") ? sessionCheck.session.name : `Relance — ${sessionCheck.session.name}`,
       followUpContacts,
     );
     if (created.error) {
@@ -776,6 +768,9 @@ export async function POST(request) {
     const contactCheck = await assertSessionContact(client, session_id, contact_id);
     if (contactCheck.error) {
       return new Response(JSON.stringify({ error: contactCheck.error }), { status: contactCheck.status, headers });
+    }
+    if (contactCheck.contact.status !== "pending") {
+      return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
     }
 
     const { error: updateError } = await client

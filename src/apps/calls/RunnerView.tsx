@@ -169,15 +169,19 @@ export function RunnerView({
   useEffect(() => {
     if (currentContact && (focusedId == null || !contacts.some((c) => c.id === focusedId && c.status === "pending"))) {
       setFocusedId(currentContact.id);
+      onFocusContact(currentContact.id);
     }
-  }, [currentContact?.id, contacts, focusedId]);
+  }, [currentContact?.id, contacts, focusedId, onFocusContact]);
 
   useEffect(() => {
     setResultat(RESULTAT_OPTIONS[0].value);
     setComments("");
     setDoNotCall(false);
+  }, [focusedContact?.id]);
+
+  useEffect(() => {
     setRecallAt(addDaysIso(defaultRecallDays));
-  }, [focusedContact?.id, defaultRecallDays]);
+  }, [focusedContact?.id]);
 
   useEffect(() => {
     // Drop selections that are no longer pending after a bulk action.
@@ -490,7 +494,7 @@ export function RunnerView({
                 </Button>
               </div>
             ) : (
-              <p className="calls-contact-card__no-phone">Aucun numéro mobile</p>
+              <p className="calls-contact-card__no-phone">Aucun numéro</p>
             )}
 
             {focusedContact.status !== "pending" && (

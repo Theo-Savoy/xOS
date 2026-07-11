@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   boundedLimit,
   buildTargetQuery,
+  __resetSFTokenCache,
   escapeSOQL,
   filterTargetContacts,
   hasRelanceQueryFilters,
+  searchContacts,
   SOQL_FETCH_CAP,
 } from "./_crm/salesforce.js";
 import mapping from "./_crm/mapping.js";
@@ -126,6 +128,29 @@ describe("adapter exports", () => {
     expect(soql).not.toMatch(/LAST_N_DAYS/);
     expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
     expect(hasRelanceQueryFilters({ relance: { jamais_appele: true } })).toBe(true);
+  });
+
+  it("fetches wide for post-processed result and frequency relance filters", () => {
+    expect(hasRelanceQueryFilters({ relance: { dernier_resultat: ["Appel décroché"] } })).toBe(true);
+    expect(hasRelanceQueryFilters({ relance: { exclure_si_plus_de: { appels: 2, sur_jours: 30 } } })).toBe(true);
+    expect(hasRelanceQueryFilters({ relance: { dernier_resultat: [], exclure_si_plus_de: { appels: 0, sur_jours: 0 } } })).toBe(false);
+  });
+
+  it("excludes planned recall tasks from the target Task subquery", () => {
+    expect(buildTargetQuery(baseFilters, mapping, null)).toContain("Resultat_call__c != null");
+  });
+
+  it("searchContacts concatenates Salesforce query pages up to the cap", async () => {
+    vi.stubEnv("SF_INSTANCE_URL", "https://test.my.salesforce.com");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify({ done: false, nextRecordsUrl: "/services/data/v67.0/query/next", records: [{ Id: "1" }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ done: true, records: [{ Id: "2" }] }), { status: 200 }));
+
+    const result = await searchContacts("sf-token", "SELECT Id FROM Contact");
+
+    expect(result.records).toEqual([{ Id: "1" }, { Id: "2" }]);
+    expect(fetchSpy.mock.calls[1][0]).toBe("https://test.my.salesforce.com/services/data/v67.0/query/next");
   });
 
   it("boundedLimit accepts up to the SOQL fetch cap", () => {
@@ -263,6 +288,7 @@ describe("adapter exports", () => {
 describe("POST /api/calls-list", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    __resetSFTokenCache();
     mockMaybeSingle.mockReset();
     mockFrom.mockClear();
 

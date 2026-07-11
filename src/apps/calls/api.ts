@@ -131,7 +131,7 @@ export async function logCall(
   contactId: number,
   resultat: ResultatCall,
   options: LogCallOptions = {},
-): Promise<{ needs_event?: boolean }> {
+): Promise<{ needs_event?: boolean; recall_failed?: boolean }> {
   return apiFetch(token, "/api/calls", {
     method: "POST",
     body: JSON.stringify({

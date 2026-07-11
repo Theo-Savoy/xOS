@@ -134,6 +134,29 @@ describe("RunnerView", () => {
     expect(screen.getByText("Restant")).toBeTruthy();
   });
 
+  it("keeps the selected result and comments when default recall days changes", async () => {
+    const user = userEvent.setup();
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[bob]}
+        currentContact={bob}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Fiche" }));
+    await user.click(screen.getByRole("button", { name: "Message répondeur" }));
+    await user.type(screen.getByLabelText("Commentaires"), "Rappeler demain");
+    await user.clear(screen.getByLabelText("Défaut rappel (jours)"));
+    await user.type(screen.getByLabelText("Défaut rappel (jours)"), "7");
+
+    expect(screen.getByRole("button", { name: "Message répondeur" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByLabelText("Commentaires") as HTMLTextAreaElement).value).toBe(
+      "Rappeler demain",
+    );
+  });
+
   it("toggles to list mode with session statuses", () => {
     render(
       <RunnerView
