@@ -13,6 +13,7 @@ import {
   fetchContactCount,
   fetchContactList,
   fetchPresets,
+  fetchRecalls,
   fetchSession,
   fetchSessions,
   fetchStats,
@@ -21,6 +22,7 @@ import {
   updateSession,
   CallsApiError,
 } from "./api";
+import { resolveContextContactId } from "./runnerContext";
 import { NewSessionView } from "./NewSessionView";
 import { RecapView } from "./RecapView";
 import { RunnerView, type LogPayload } from "./RunnerView";
@@ -29,6 +31,7 @@ import type {
   CallStats,
   ContactContext,
   ContactPreview,
+  RecallInboxItem,
   SessionContact,
   SessionDetail,
   SessionSummary,
@@ -37,6 +40,10 @@ import type {
 import "./calls.css";
 
 type View = "sessions" | "new" | "runner" | "recap";
+
+function findNextPending(contacts: SessionContact[]): SessionContact | null {
+  return contacts.find((c) => c.status === "pending") ?? null;
+}
 
 type CallManagerAppProps = {
   params?: Record<string, string>;
@@ -61,10 +68,6 @@ function errorMessage(err: unknown): string {
   return "Une erreur est survenue.";
 }
 
-function findNextPending(contacts: SessionContact[]): SessionContact | null {
-  return contacts.find((c) => c.status === "pending") ?? null;
-}
-
 export default function CallManagerApp({ params }: CallManagerAppProps) {
   const { session } = useSession();
   const token = session?.access_token ?? "";
@@ -72,6 +75,8 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [view, setView] = useState<View>("sessions");
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [stats, setStats] = useState<CallStats | null>(null);
+  const [recalls, setRecalls] = useState<RecallInboxItem[]>([]);
+  const [recallsLoading, setRecallsLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
@@ -100,24 +105,30 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [awaitingEvent, setAwaitingEvent] = useState<SessionContact | null>(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [contactContext, setContactContext] = useState<ContactContext | null>(null);
+  const [contextContactId, setContextContactId] = useState<number | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
+  const contextRequest = useRef(0);
   const [focusedContactId, setFocusedContactId] = useState<number | null>(null);
 
   const loadSessions = useCallback(async () => {
     if (!token) return;
     setSessionsLoading(true);
+    setRecallsLoading(true);
     setSessionsError(null);
     try {
-      const [sessionList, statsData] = await Promise.all([
+      const [sessionList, statsData, recallList] = await Promise.all([
         fetchSessions(token),
         fetchStats(token).catch(() => null),
+        fetchRecalls(token).catch(() => []),
       ]);
       setSessions(sessionList);
       setStats(statsData);
+      setRecalls(recallList);
     } catch (err) {
       setSessionsError(errorMessage(err));
     } finally {
       setSessionsLoading(false);
+      setRecallsLoading(false);
     }
   }, [token]);
 
@@ -134,15 +145,21 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   }, [token]);
 
   const openSession = useCallback(
-    async (sessionId: number) => {
+    async (sessionId: number, focusContactId?: number) => {
       if (!token) return;
       setRunnerError(null);
       setAwaitingEvent(null);
+      setFocusedContactId(focusContactId ?? null);
+      setContactContext(null);
+      setContextContactId(null);
       setRunnerLoading(true);
       try {
         const data = await fetchSession(token, sessionId);
         setActiveSession(data.session);
         setContacts(data.contacts);
+        if (focusContactId != null && data.contacts.some((c) => c.id === focusContactId)) {
+          setFocusedContactId(focusContactId);
+        }
         setView(data.session.status === "completed" ? "recap" : "runner");
       } catch (err) {
         setSessionsError(errorMessage(err));
@@ -337,14 +354,22 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const loadContactContext = useCallback(
     async (sessionId: number, contactId: number) => {
       if (!token) return;
+      const requestId = contextRequest.current + 1;
+      contextRequest.current = requestId;
       setContactContext(null);
+      setContextContactId(null);
       setContextLoading(true);
       try {
-        setContactContext(await fetchContactContext(token, sessionId, contactId));
+        const context = await fetchContactContext(token, sessionId, contactId);
+        if (contextRequest.current !== requestId) return;
+        setContactContext(context);
+        setContextContactId(contactId);
       } catch {
+        if (contextRequest.current !== requestId) return;
         setContactContext(null);
+        setContextContactId(null);
       } finally {
-        setContextLoading(false);
+        if (contextRequest.current === requestId) setContextLoading(false);
       }
     },
     [token],
@@ -352,9 +377,10 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   useEffect(() => {
     if (view !== "runner" || !activeSession) return;
-    const targetId = awaitingEvent?.id ?? focusedContactId ?? findNextPending(contacts)?.id;
+    const targetId = resolveContextContactId(contacts, awaitingEvent?.id, focusedContactId);
     if (!targetId) {
       setContactContext(null);
+      setContextContactId(null);
       return;
     }
     void loadContactContext(activeSession.id, targetId);
@@ -377,6 +403,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         setContacts(refreshed.contacts);
         setAwaitingEvent(updatedCurrent ?? null);
       } else {
+        setFocusedContactId(null);
         await advanceOrComplete(activeSession.id);
       }
     } catch (err) {
@@ -411,6 +438,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         );
       }
       setAwaitingEvent(null);
+      setFocusedContactId(null);
       await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -436,6 +464,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     try {
       await logEvent(token, activeSession.id, awaitingEvent.id, start, durationMin, invitees);
       setAwaitingEvent(null);
+      setFocusedContactId(null);
       await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -446,20 +475,30 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   const handleDeferContacts = async (
     contactIds: number[],
-    payload: { scheduledFor: string; targetSessionId: number | null },
+    payload: { scheduledFor: string; targetSessionId: number | null; name?: string | null },
   ) => {
     if (!token || !activeSession || contactIds.length === 0) return;
     setRunnerLoading(true);
     setRunnerError(null);
     try {
-      await deferContacts(
+      const result = await deferContacts(
         token,
         activeSession.id,
         contactIds,
         payload.scheduledFor,
         payload.targetSessionId,
+        payload.name,
       );
       await loadSessions();
+      if (result.target_session && payload.name && !payload.targetSessionId) {
+        setFocusedContactId(null);
+        setAwaitingEvent(null);
+        setActiveSession(result.target_session);
+        setContacts(result.contacts ?? []);
+        setView("runner");
+        return;
+      }
+      setFocusedContactId(null);
       await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -492,6 +531,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         });
       }
       await advanceOrComplete(activeSession.id);
+      setFocusedContactId(null);
     } catch (err) {
       setRunnerError(errorMessage(err));
       try {
@@ -546,6 +586,8 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         <SessionsView
           sessions={sessions}
           stats={stats}
+          recalls={recalls}
+          recallsLoading={recallsLoading}
           loading={sessionsLoading}
           error={sessionsError}
           onRefresh={() => void loadSessions()}
@@ -561,7 +603,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
             setNewError(null);
             void loadPresets();
           }}
-          onOpenSession={(id) => void openSession(id)}
+          onOpenSession={(id, contactId) => void openSession(id, contactId)}
           onUpdateSession={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
         />
@@ -608,6 +650,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           error={runnerError}
           awaitingEvent={awaitingEvent}
           contactContext={contactContext}
+          contextContactId={contextContactId}
           contextLoading={contextLoading}
           onBack={goToSessions}
           onFocusContact={setFocusedContactId}

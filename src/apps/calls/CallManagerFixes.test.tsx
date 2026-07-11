@@ -91,6 +91,7 @@ describe("RunnerView", () => {
     loading: false,
     error: null as string | null,
     contactContext: null,
+    contextContactId: null,
     contextLoading: false,
     onBack: vi.fn(),
     onFocusContact: vi.fn(),
@@ -225,12 +226,37 @@ describe("RunnerView", () => {
           tasks: [],
           opportunities: [],
         }}
+        contextContactId={current.id}
         awaitingEvent={null}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Fiche" }));
     expect(screen.getByRole("link", { name: "bob@acme.fr" }).getAttribute("href")).toBe("mailto:bob@acme.fr");
+  });
+
+  it("does not show previous contact CRM history when context is stale", () => {
+    const current = { ...bob, id: 9, status: "pending" as const, outcome: null, contact_name: "Carla" };
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        contactContext={{
+          contact_record_url: null,
+          account_record_url: null,
+          email: null,
+          title: null,
+          npa: false,
+          tasks: [{ id: "00T1", activity_date: "2026-07-01", result: "Appel décroché", subject: null, description: null, record_url: null }],
+          opportunities: [],
+        }}
+        contextContactId={2}
+        awaitingEvent={null}
+      />,
+    );
+
+    expect(screen.queryByText("Appel décroché")).toBeNull();
   });
 
   it("bulk-logs the same outcome for selected contacts", async () => {
@@ -285,6 +311,32 @@ describe("RunnerView", () => {
       expect.objectContaining({
         resultat: "Appel décroché",
         recallAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    );
+  });
+
+  it("creates a continuation session #2 from pending contacts", async () => {
+    const user = userEvent.setup();
+    const onDeferContacts = vi.fn();
+    const pendingA = { ...bob, id: 2, status: "pending" as const, outcome: null };
+    const pendingB = { ...bob, id: 3, contact_name: "Claire", status: "pending" as const, outcome: null };
+    render(
+      <RunnerView
+        {...runnerProps}
+        session={{ ...session, name: "Prospection Lyon" }}
+        onDeferContacts={onDeferContacts}
+        contacts={[pendingA, pendingB]}
+        currentContact={pendingA}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Créer séance #2/i }));
+    expect(onDeferContacts).toHaveBeenCalledWith(
+      [2, 3],
+      expect.objectContaining({
+        targetSessionId: null,
+        name: "Prospection Lyon #2",
       }),
     );
   });
@@ -360,6 +412,8 @@ describe("SessionsView hub filters", () => {
       <SessionsView
         sessions={sessions}
         stats={null}
+        recalls={[]}
+        recallsLoading={false}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
@@ -380,6 +434,47 @@ describe("SessionsView hub filters", () => {
     await user.click(screen.getByRole("button", { name: /^Toutes$/i }));
     expect(screen.getByText("À faire demain")).toBeTruthy();
     expect(screen.getByText("Déjà faite")).toBeTruthy();
+  });
+
+  it("shows the recalls inbox from the hub", async () => {
+    const user = userEvent.setup();
+    const onOpenSession = vi.fn();
+    render(
+      <SessionsView
+        sessions={[]}
+        stats={null}
+        recalls={[
+          {
+            id: 55,
+            session_id: 9,
+            session_name: "Prospection Lyon",
+            session_status: "active",
+            contact_name: "Alice Martin",
+            account_name: "Acme",
+            phone: null,
+            email: null,
+            title: "DRH",
+            recall_at: "2026-07-10",
+            outcome: "Appel non décroché",
+            attempt_count: 1,
+          },
+        ]}
+        recallsLoading={false}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        onNewSession={vi.fn()}
+        onOpenSession={onOpenSession}
+        onUpdateSession={vi.fn()}
+        onDeleteSession={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Rappels/i }));
+    expect(screen.getByText("Alice Martin")).toBeTruthy();
+    expect(screen.getByText(/En retard/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Alice Martin/i }));
+    expect(onOpenSession).toHaveBeenCalledWith(9, 55);
   });
 });
 

@@ -10,6 +10,7 @@ import {
 import { EventPanel } from "./EventPanel";
 import { DatePicker, formatIsoDateFr, todayParisIso } from "./formControls";
 import { ProgressBar } from "./ProgressBar";
+import { nextContinuationName } from "./sessionNaming";
 import type { ContactContext, SessionContact, SessionDetail, SessionSummary } from "./types";
 import { RESULTAT_OPTIONS, sessionTypeLabel } from "./types";
 
@@ -27,6 +28,7 @@ type LogPayload = {
 type DeferPayload = {
   scheduledFor: string;
   targetSessionId: number | null;
+  name?: string | null;
 };
 
 type ListStatusFilter = "all" | "pending" | "called" | "skipped";
@@ -40,6 +42,7 @@ type RunnerViewProps = {
   error: string | null;
   awaitingEvent: SessionContact | null;
   contactContext: ContactContext | null;
+  contextContactId: number | null;
   contextLoading: boolean;
   onBack: () => void;
   onFocusContact: (contactId: number) => void;
@@ -189,6 +192,7 @@ export function RunnerView({
   error,
   awaitingEvent,
   contactContext,
+  contextContactId,
   contextLoading,
   onBack,
   onFocusContact,
@@ -282,19 +286,33 @@ export function RunnerView({
   }, [awaitingEvent, focusedId, contacts, currentContact]);
 
   const sfContactUrl =
-    contactContext?.contact_record_url ?? focusedContact?.sf_contact_url ?? null;
-  const displayEmail = focusedContact?.email ?? contactContext?.email ?? null;
-  const displayTitle = focusedContact?.title ?? contactContext?.title ?? null;
+    contextContactId === focusedContact?.id
+      ? (contactContext?.contact_record_url ?? focusedContact?.sf_contact_url ?? null)
+      : (focusedContact?.sf_contact_url ?? null);
+  const displayEmail =
+    focusedContact?.email
+    ?? (contextContactId === focusedContact?.id ? contactContext?.email : null)
+    ?? null;
+  const displayTitle =
+    focusedContact?.title
+    ?? (contextContactId === focusedContact?.id ? contactContext?.title : null)
+    ?? null;
+  const contextApplies = contextContactId != null && contextContactId === focusedContact?.id;
 
   useEffect(() => {
     if (awaitingEvent) setMode("detail");
   }, [awaitingEvent?.id]);
 
   useEffect(() => {
-    if (currentContact && (focusedId == null || !contacts.some((c) => c.id === focusedId && c.status === "pending"))) {
-      setFocusedId(currentContact.id);
-    }
+    if (focusedId != null && contacts.some((c) => c.id === focusedId)) return;
+    if (currentContact) setFocusedId(currentContact.id);
   }, [currentContact?.id, contacts, focusedId]);
+
+  useEffect(() => {
+    if (focusedId != null && contacts.some((c) => c.id === focusedId && c.status !== "pending")) {
+      setMode("detail");
+    }
+  }, [focusedId, contacts]);
 
   useEffect(() => {
     setResultat(RESULTAT_OPTIONS[0].value);
@@ -407,6 +425,16 @@ export function RunnerView({
       targetSessionId: deferTargetId,
     });
     setDeferIds(null);
+    setSelectedIds(new Set());
+  };
+
+  const createContinuationSession = (ids: number[]) => {
+    if (ids.length === 0) return;
+    onDeferContacts(ids, {
+      scheduledFor: todayParisIso(),
+      targetSessionId: null,
+      name: nextContinuationName(session.name),
+    });
     setSelectedIds(new Set());
   };
 
@@ -567,6 +595,14 @@ export function RunnerView({
                   </Button>
                   <Button
                     variant="secondary"
+                    onClick={() => createContinuationSession(pendingSelected)}
+                    disabled={loading}
+                    title={`Créer « ${nextContinuationName(session.name)} » avec la sélection`}
+                  >
+                    Créer séance #2
+                  </Button>
+                  <Button
+                    variant="secondary"
                     onClick={() => openDefer(pendingSelected)}
                     disabled={loading}
                   >
@@ -639,7 +675,17 @@ export function RunnerView({
                   disabled={loading || pendingContacts.length === 0}
                   onClick={toggleSelectAllPending}
                 >
-                  {allPendingSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                  {allPendingSelected
+                    ? "Tout désélectionner"
+                    : `Sélectionner les à faire (${pendingContacts.length})`}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={loading || pendingContacts.length === 0}
+                  onClick={() => createContinuationSession(pendingContacts.map((c) => c.id))}
+                  title={`Créer « ${nextContinuationName(session.name)} » avec tous les contacts sans statut`}
+                >
+                  Créer séance #2
                 </Button>
               </div>
             </div>
@@ -822,7 +868,7 @@ export function RunnerView({
                 {focusedContact.recall_at && <span>Rappel {focusedContact.recall_at}</span>}
               </div>
             )}
-            {!contextLoading && contactContext?.npa && (
+            {!contextLoading && contextApplies && contactContext?.npa && (
               <Tag variant="alert" className="calls-contact-card__npa">
                 Ne pas rappeler (NPA)
               </Tag>
@@ -838,10 +884,10 @@ export function RunnerView({
               <>
             <GlassCard className="calls-context-panel">
               <h3>Historique d&apos;appels</h3>
-              {contactContext && contactContext.tasks.length === 0 && (
+              {contextApplies && contactContext && contactContext.tasks.length === 0 && (
                 <p className="calls-muted">Aucun appel Salesforce récent.</p>
               )}
-              {contactContext && contactContext.tasks.length > 0 && (
+              {contextApplies && contactContext && contactContext.tasks.length > 0 && (
                 <ul className="calls-context-list">
                   {contactContext.tasks.map((task) => (
                     <li key={task.id}>
@@ -860,10 +906,10 @@ export function RunnerView({
 
             <GlassCard className="calls-context-panel">
               <h3>Opportunités</h3>
-              {contactContext && contactContext.opportunities.length === 0 && (
+              {contextApplies && contactContext && contactContext.opportunities.length === 0 && (
                 <p className="calls-muted">Aucune opportunité sur le compte.</p>
               )}
-              {contactContext && contactContext.opportunities.length > 0 && (
+              {contextApplies && contactContext && contactContext.opportunities.length > 0 && (
                 <ul className="calls-context-list">
                   {contactContext.opportunities.map((opp) => (
                     <li key={opp.id}>

@@ -3,8 +3,9 @@ import { verifyJWT } from "./_auth.js";
 import { listContacts } from "./_calls/listContacts.js";
 import { hydrateSessionContactsFromCrm } from "./_calls/hydrateContacts.js";
 import { deletePreset, listPresets, savePreset } from "./_calls/presets.js";
+import { nextContinuationName } from "./_calls/sessionNaming.js";
 import mapping from "./_crm/mapping.js";
-import { buildLightningUrl, createEvent, createRecallTask, fetchContactContext, fetchSFToken, logCall, updateContactDoNotCall } from "./_crm/salesforce.js";
+import { buildLightningUrl, createEvent, fetchContactContext, fetchSFToken, logCall, updateContactDoNotCall } from "./_crm/salesforce.js";
 
 const SF_ID = /^[a-zA-Z0-9]{15,18}$/;
 const VALID_RESULTS = mapping.objects.task.results;
@@ -300,6 +301,50 @@ export async function GET(request) {
       return new Response(JSON.stringify({ error: result.error }), { status: 500, headers });
     }
     return new Response(JSON.stringify({ presets: result.presets }), { status: 200, headers });
+  }
+
+  if (resource === "recalls") {
+    const { data: ownedSessions, error: sessionsError } = await client
+      .from("call_sessions")
+      .select("id, name, status, scheduled_for")
+      .eq("owner", user.id);
+    if (sessionsError) {
+      return new Response(JSON.stringify({ error: "sessions_lookup_failed" }), { status: 500, headers });
+    }
+    const sessions = ownedSessions || [];
+    if (!sessions.length) {
+      return new Response(JSON.stringify({ recalls: [] }), { status: 200, headers });
+    }
+    const sessionById = new Map(sessions.map((session) => [session.id, session]));
+    const { data: rows, error: recallsError } = await client
+      .from("call_session_contacts")
+      .select("id, session_id, contact_name, account_name, phone, email, title, recall_at, outcome, attempt_count, status")
+      .in("session_id", sessions.map((session) => session.id))
+      .not("recall_at", "is", null)
+      .order("recall_at", { ascending: true });
+    if (recallsError) {
+      return new Response(JSON.stringify({ error: "recalls_lookup_failed" }), { status: 500, headers });
+    }
+    const recalls = (rows || [])
+      .filter((row) => row.status === "called" && row.recall_at)
+      .map((row) => {
+        const session = sessionById.get(row.session_id);
+        return {
+          id: row.id,
+          session_id: row.session_id,
+          session_name: session?.name ?? "Séance",
+          session_status: session?.status ?? "active",
+          contact_name: row.contact_name,
+          account_name: row.account_name,
+          phone: row.phone,
+          email: row.email,
+          title: row.title,
+          recall_at: row.recall_at,
+          outcome: row.outcome,
+          attempt_count: row.attempt_count,
+        };
+      });
+    return new Response(JSON.stringify({ recalls }), { status: 200, headers });
   }
 
   if (statsParam === "1") {
@@ -746,21 +791,6 @@ export async function POST(request) {
 
     const taskId = sfResult.record?.id;
     const wantsRecall = typeof recall_at === "string" && recall_at;
-    let recallTaskId = null;
-    if (wantsRecall && do_not_call !== true) {
-      const recall = await createRecallTask(
-        tokenResult.accessToken,
-        {
-          contactId: contact.sf_contact_id,
-          accountId: contact.sf_account_id,
-          recallAt: recall_at,
-          ownerId: profileResult.sfUserId || undefined,
-          actorName: actorName(user, profileResult),
-        },
-        mapping,
-      );
-      if (!recall.error) recallTaskId = recall.record?.id || null;
-    }
 
     if (do_not_call === true) {
       await updateContactDoNotCall(tokenResult.accessToken, contact.sf_contact_id, true, mapping);
@@ -793,9 +823,8 @@ export async function POST(request) {
       changes: {
         resultat,
         comments: callComments,
-        recall_at: wantsRecall ? recall_at : null,
+        recall_at: wantsRecall && do_not_call !== true ? recall_at : null,
         do_not_call: do_not_call === true,
-        recall_task_id: recallTaskId,
       },
       targets: [{ id: contact.sf_contact_id, type: "Contact", session_contact_id: contact_id, session_id }],
       result: { success: true, taskId },
@@ -939,7 +968,7 @@ export async function POST(request) {
     const created = await insertSessionWithContacts(
       client,
       user.id,
-      `Relance — ${sessionCheck.session.name}`,
+      nextContinuationName(sessionCheck.session.name),
       followUpContacts,
       todayParisDate(),
       { sessionType: "relance" },
@@ -995,6 +1024,7 @@ export async function POST(request) {
       contact_ids,
       scheduled_for: scheduledForInput,
       target_session_id: targetSessionId,
+      name: nameInput,
     } = body;
 
     if (typeof session_id !== "number" || !Number.isInteger(session_id) || session_id < 1) {
@@ -1012,6 +1042,13 @@ export async function POST(request) {
       && (typeof targetSessionId !== "number" || !Number.isInteger(targetSessionId) || targetSessionId < 1)
     ) {
       return new Response(JSON.stringify({ error: "invalid_target_session_id" }), { status: 400, headers });
+    }
+    if (
+      nameInput !== undefined
+      && nameInput !== null
+      && (typeof nameInput !== "string" || nameInput.trim().length === 0 || nameInput.trim().length > 120)
+    ) {
+      return new Response(JSON.stringify({ error: "invalid_name" }), { status: 400, headers });
     }
 
     const sessionCheck = await assertSessionOwner(client, session_id, user.id);
@@ -1118,10 +1155,13 @@ export async function POST(request) {
       }
       targetSession = refreshedTarget;
     } else {
+      const continuationName = typeof nameInput === "string" && nameInput.trim()
+        ? nameInput.trim()
+        : nextContinuationName(sessionCheck.session.name);
       const created = await insertSessionWithContacts(
         client,
         user.id,
-        `Relance — ${sessionCheck.session.name}`,
+        continuationName,
         payloadContacts,
         scheduledForInput,
         { sessionType: "relance" },
