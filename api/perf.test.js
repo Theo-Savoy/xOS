@@ -154,10 +154,12 @@ describe("GET /api/perf", () => {
     expect(arrQuery).toContain(`'${mapping.objects.opportunity.saleTypes.catalogue[0]}'`);
   });
 
-  it("aggregates mapped sale types, ARR, quarter forecast and custom pipe", async () => {
+  it("aggregates tracked sale types without bucketing LMS or XOS+, plus ARR and quarter metrics", async () => {
     const body = await (await GET(request())).json();
+    expect(Object.keys(mapping.objects.opportunity.saleTypes)).toEqual(["catalogue", "sur_mesure", "conseil"]);
     expect(body.pipeline.find((row) => row.week === "2026-W28")).toMatchObject({
-      won_by_type: { catalogue: 50, sur_mesure: 0, conseil: 0, exceptionnel: 50 },
+      won_amount: 100,
+      won_by_type: { catalogue: 50, sur_mesure: 0, conseil: 0 },
       won_arr_amount: 50,
     });
     expect(body.quarter).toEqual([{

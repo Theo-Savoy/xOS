@@ -189,7 +189,7 @@ export async function GET(request) {
     const data = new Map();
     const row = (owner, start) => {
       const key = `${owner}:${start}`;
-      if (!data.has(key)) data.set(key, { sf_user_id: owner, week: isoWeek(start), week_start: start, calls: 0, meetings: 0, proposals: 0, generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0, exceptionnel: 0 }, won_arr_amount: 0, progressions: 0 });
+      if (!data.has(key)) data.set(key, { sf_user_id: owner, week: isoWeek(start), week_start: start, calls: 0, meetings: 0, proposals: 0, generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, progressions: 0 });
       return data.get(key);
     };
     for (const owner of ownerIds) for (const start of window.starts) row(owner, start);

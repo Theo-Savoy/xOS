@@ -6,7 +6,7 @@ import "./weekly.css";
 
 type Owner = { sf_user_id: string; name: string; email: string | null; role: "commercial" | "manager" | "admin" | null };
 type Pulse = { sf_user_id: string; week: string; week_start: string; calls: number; meetings: number; proposals: number };
-type WonByType = { catalogue: number; sur_mesure: number; conseil: number; exceptionnel: number };
+type WonByType = { catalogue: number; sur_mesure: number; conseil: number };
 type Pipeline = { sf_user_id: string; week: string; week_start: string; generated_count: number; generated_amount: number; won_count: number; won_amount: number; won_by_type: WonByType; won_arr_amount: number; closing_rate_count: number | null; closing_rate_amount: number | null };
 type Effort = { sf_user_id: string; week: string; week_start: string; progressions: number; open_opps_at_start: number; effort_rate: number | null };
 type Quarter = { sf_user_id: string; quarter: string; signed_to_date: number; weighted_open: number; forecast: number; custom_pipe: number; target: number | null };
@@ -17,7 +17,7 @@ const money = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR
 const percent = new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 0 });
 const count = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 const weekLabel = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
-const emptyWonByType = (): WonByType => ({ catalogue: 0, sur_mesure: 0, conseil: 0, exceptionnel: 0 });
+const emptyWonByType = (): WonByType => ({ catalogue: 0, sur_mesure: 0, conseil: 0 });
 
 function addDays(value: string, amount: number) {
   const date = new Date(`${value}T12:00:00.000Z`);
@@ -80,7 +80,6 @@ function MetricTable({ owner, weeks, pulse, pipeline, quarter }: { owner: Owner;
     { label: "Sur-mesure", format: "money", values: pipeline.map((point) => point.won_by_type.sur_mesure) },
     { label: "Catalogue", format: "money", values: pipeline.map((point) => point.won_by_type.catalogue) },
     { label: "Conseil", format: "money", values: pipeline.map((point) => point.won_by_type.conseil) },
-    { label: "Ventes exceptionnelles", format: "money", values: pipeline.map((point) => point.won_by_type.exceptionnel) },
     { label: "Dont ARR", format: "money", values: pipeline.map((point) => point.won_arr_amount) },
     { label: "Forecast trimestre", format: "money", values: snapshot(quarter?.forecast) },
     { label: "Pipe sur-mesure", format: "money", values: snapshot(quarter?.custom_pipe) },
@@ -173,11 +172,11 @@ export default function WeeklyApp() {
     {!hasActivity ? <GlassCard className="weekly-empty"><h3>Une semaine encore calme</h3><p>Les activités Salesforce apparaîtront ici au fil des saisies.</p><span>Consultez Call Manager pour enregistrer vos appels.</span></GlassCard> : <>
       {displayMode === "table" ? <section className="weekly-section"><div className="weekly-section-heading"><p>Rituel équipe</p><h3>Suivi semaine par semaine</h3></div><div className="weekly-tables weekly-view-transition">{visibleOwners.map((owner) => <MetricTable key={owner.sf_user_id} owner={owner} weeks={model.weeks} pulse={pulseFor(owner)} pipeline={pipelineFor(owner)} quarter={quarterFor(owner)} />)}</div></section> : <>
         <section className="weekly-section"><div className="weekly-section-heading"><p>Pulse</p><h3>Qui a bougé cette semaine ?</h3></div><div className="weekly-pulse-grid weekly-view-transition">{visibleOwners.map((owner, ownerIndex) => {
-          const pulseSeries = pulseFor(owner); const pipelineSeries = pipelineFor(owner); const current = pulseSeries.at(-1)!; const currentPipeline = pipelineSeries.at(-1)!; const badge = roleLabel(owner.role); const breakdownTotal = Object.values(currentPipeline.won_by_type).reduce((sum, value) => sum + value, 0);
+          const pulseSeries = pulseFor(owner); const pipelineSeries = pipelineFor(owner); const current = pulseSeries.at(-1)!; const currentPipeline = pipelineSeries.at(-1)!; const badge = roleLabel(owner.role);
           return <GlassCard className="weekly-pulse-card weekly-pulse-card--current" key={owner.sf_user_id} style={{ "--weekly-delay": `${ownerIndex * 70}ms` } as React.CSSProperties}>
             <div className="weekly-person"><h4>{owner.name}</h4>{badge && <Tag variant="muted">{badge}</Tag>}</div>
             <div className="weekly-metrics">{([ ["Appels", current.calls, pulseSeries.map((point) => point.calls)], ["RDV", current.meetings, pulseSeries.map((point) => point.meetings)], ["Opps détectées", currentPipeline.generated_count, pipelineSeries.map((point) => point.generated_count)], ["Propositions", current.proposals, pulseSeries.map((point) => point.proposals)] ] as const).map(([label, value, values]) => <div key={label}><span>{label}</span><strong className="xos-numeric">{value}</strong><Sparkline values={[...values]} /></div>)}</div>
-            <div className="weekly-revenue"><div><span>CA signé</span><strong className="xos-numeric">{money.format(currentPipeline.won_amount)}</strong></div><div className="weekly-breakdown" aria-label="Répartition du CA signé">{(Object.entries(currentPipeline.won_by_type) as Array<[keyof WonByType, number]>).map(([type, value]) => <span className={`weekly-breakdown-${type}`} key={type} style={{ width: breakdownTotal ? `${value / breakdownTotal * 100}%` : "0%" }} title={`${type}: ${money.format(value)}`} />)}</div><div className="weekly-breakdown-labels"><span>Catalogue</span><span>Sur-mesure</span><span>Conseil</span><span>Exceptionnel</span></div></div>
+            <div className="weekly-revenue"><div><span>CA signé</span><strong className="xos-numeric">{money.format(currentPipeline.won_amount)}</strong></div><div className="weekly-breakdown" aria-label="Répartition du CA signé">{(Object.entries(currentPipeline.won_by_type) as Array<[keyof WonByType, number]>).map(([type, value]) => <span className={`weekly-breakdown-${type}`} key={type} style={{ width: currentPipeline.won_amount ? `${value / currentPipeline.won_amount * 100}%` : "0%" }} title={`${type}: ${money.format(value)}`} />)}</div><div className="weekly-breakdown-labels"><span>Catalogue</span><span>Sur-mesure</span><span>Conseil</span></div></div>
             <QuarterGauge data={quarterFor(owner)} />
           </GlassCard>;
         })}</div></section>

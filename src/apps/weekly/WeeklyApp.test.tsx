@@ -24,7 +24,7 @@ const selfPayload = {
   view: "self" as const,
   owners: [{ sf_user_id: "self", name: "Ada Lovelace", email: "ada@xos-learning.fr", role: "commercial" }],
   pulse: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 4, meetings: 2, proposals: 1 }],
-  pipeline: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 2, generated_amount: 12000, won_count: 1, won_amount: 6000, won_by_type: { catalogue: 3000, sur_mesure: 2000, conseil: 1000, exceptionnel: 0 }, won_arr_amount: 3000, closing_rate_count: 0.5, closing_rate_amount: 0.5 }],
+  pipeline: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 2, generated_amount: 12000, won_count: 1, won_amount: 6000, won_by_type: { catalogue: 3000, sur_mesure: 2000, conseil: 1000 }, won_arr_amount: 3000, closing_rate_count: 0.5, closing_rate_amount: 0.5 }],
   effort: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", progressions: 3, open_opps_at_start: 20, effort_rate: 0.15 }],
   quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: 60000 }],
 };
@@ -37,7 +37,7 @@ const teamPayload = {
     { sf_user_id: "manager", name: "Grace Hopper", email: "grace@xos-learning.fr", role: "manager" },
   ],
   pulse: [...selfPayload.pulse, { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", calls: 7, meetings: 3, proposals: 2 }],
-  pipeline: [...selfPayload.pipeline, { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", generated_count: 3, generated_amount: 18000, won_count: 2, won_amount: 9000, won_by_type: { catalogue: 4000, sur_mesure: 3000, conseil: 1000, exceptionnel: 1000 }, won_arr_amount: 4000, closing_rate_count: 0.67, closing_rate_amount: 0.5 }],
+  pipeline: [...selfPayload.pipeline, { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", generated_count: 3, generated_amount: 18000, won_count: 2, won_amount: 9000, won_by_type: { catalogue: 4000, sur_mesure: 3000, conseil: 1000 }, won_arr_amount: 4000, closing_rate_count: 0.67, closing_rate_amount: 0.5 }],
   effort: [...selfPayload.effort, { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", progressions: 4, open_opps_at_start: 20, effort_rate: 0.2 }],
   quarter: [...selfPayload.quarter, { sf_user_id: "manager", quarter: "FY27-Q1", signed_to_date: 25000, weighted_open: 10000, forecast: 35000, custom_pipe: 12000, target: null }],
 };
@@ -51,8 +51,8 @@ const tablePayload = {
     { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 2, meetings: 4, proposals: 1 },
   ],
   pipeline: [
-    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 1, generated_amount: 5000, won_count: 1, won_amount: 1000, won_by_type: { catalogue: 1000, sur_mesure: 0, conseil: 0, exceptionnel: 0 }, won_arr_amount: 1000, closing_rate_count: 1, closing_rate_amount: 0.2 },
-    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 3, generated_amount: 9000, won_count: 2, won_amount: 3000, won_by_type: { catalogue: 1000, sur_mesure: 1000, conseil: 500, exceptionnel: 500 }, won_arr_amount: 1000, closing_rate_count: 2 / 3, closing_rate_amount: 1 / 3 },
+    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 1, generated_amount: 5000, won_count: 1, won_amount: 1000, won_by_type: { catalogue: 1000, sur_mesure: 0, conseil: 0 }, won_arr_amount: 1000, closing_rate_count: 1, closing_rate_amount: 0.2 },
+    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 3, generated_amount: 9000, won_count: 2, won_amount: 3000, won_by_type: { catalogue: 1000, sur_mesure: 1000, conseil: 500 }, won_arr_amount: 1000, closing_rate_count: 2 / 3, closing_rate_amount: 1 / 3 },
   ],
   quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: null }],
 };
@@ -118,6 +118,7 @@ describe("Weekly Perf", () => {
     expect(screen.getByLabelText(/Signé.*20.*000/)).toBeTruthy();
     expect(screen.getByLabelText(/Forecast.*35.*000/)).toBeTruthy();
     expect(screen.getByLabelText(/Target.*60.*000/)).toBeTruthy();
+    expect(screen.getByLabelText("Répartition du CA signé").parentElement?.querySelectorAll(".weekly-breakdown-labels span")).toHaveLength(3);
   });
 
   it("computes table totals and averages client-side", async () => {
@@ -130,6 +131,7 @@ describe("Weekly Perf", () => {
     expect(within(table).getByRole("columnheader", { name: "Moyenne" })).toBeTruthy();
     expect(within(table).getByRole("row", { name: /RDV effectués.*2.*4.*6.*3/ })).toBeTruthy();
     expect(within(table).getByRole("row", { name: /CA signé.*1.*000.*3.*000.*4.*000.*2.*000/ })).toBeTruthy();
+    expect(within(table).getAllByRole("row")).toHaveLength(11);
   });
 
   it("shows dashes for a missing target and its empty average", async () => {

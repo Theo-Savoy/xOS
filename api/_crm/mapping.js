@@ -277,7 +277,6 @@ const mapping = {
         catalogue: ["Catalogue"],
         sur_mesure: ["Sur-mesure"],
         conseil: ["Conseil"],
-        exceptionnel: ["LMS", "XOS+"],
       },
       commissionTypeField: "Type_de_commission__c",
       arrCommissionTypes: [
