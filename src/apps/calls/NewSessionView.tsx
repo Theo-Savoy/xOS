@@ -196,6 +196,39 @@ export function NewSessionView({
 
       {preview.length > 0 && (
         <>
+          <GlassCard className="calls-name-form calls-name-form--sticky">
+            <div className="calls-name-form__meta">
+              <Tag>
+                {selectedContacts.length} sélectionné{selectedContacts.length > 1 ? "s" : ""}
+              </Tag>
+            </div>
+            <label className="calls-field">
+              <span>Nom de la séance</span>
+              <input
+                type="text"
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                placeholder="Prospection Lyon"
+                className="calls-input"
+              />
+            </label>
+            <label className="calls-field">
+              <span>Date de séance</span>
+              <input
+                type="date"
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                className="calls-input"
+              />
+            </label>
+            <Button
+              onClick={handleCreate}
+              disabled={loading || !sessionName.trim() || selectedContacts.length === 0}
+            >
+              {loading ? "Création…" : "Lancer la séance"}
+            </Button>
+          </GlassCard>
+
           <GlassCard className="calls-preview">
             <div className="calls-preview__header">
               <div className="calls-preview__heading">
@@ -283,34 +316,6 @@ export function NewSessionView({
                 })}
               </ul>
             </div>
-          </GlassCard>
-
-          <GlassCard className="calls-name-form">
-            <label className="calls-field">
-              <span>Nom de la séance</span>
-              <input
-                type="text"
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                placeholder="Prospection Lyon"
-                className="calls-input"
-              />
-            </label>
-            <label className="calls-field">
-              <span>Date de séance</span>
-              <input
-                type="date"
-                value={scheduledFor}
-                onChange={(e) => setScheduledFor(e.target.value)}
-                className="calls-input"
-              />
-            </label>
-            <Button
-              onClick={handleCreate}
-              disabled={loading || !sessionName.trim() || selectedContacts.length === 0}
-            >
-              {loading ? "Création…" : "Lancer la séance"}
-            </Button>
           </GlassCard>
         </>
       )}
