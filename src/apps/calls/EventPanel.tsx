@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, GlassCard } from "../../components/ui";
 import { TagInput } from "./filterControls";
+import type { TeamMember } from "./types";
 
 export type EventDraft = {
   start: string;
@@ -16,6 +17,7 @@ type EventPanelProps = {
   submitLabel?: string;
   heading?: string;
   className?: string;
+  team?: TeamMember[];
 };
 
 function defaultStart(): string {
@@ -32,10 +34,12 @@ export function EventPanel({
   submitLabel,
   heading,
   className,
+  team = [],
 }: EventPanelProps) {
   const [start, setStart] = useState(defaultStart());
   const [durationMin, setDurationMin] = useState(30);
   const [invitees, setInvitees] = useState<string[]>([]);
+  const [selectedTeamInvitees, setSelectedTeamInvitees] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = () => {
@@ -53,7 +57,15 @@ export function EventPanel({
       return;
     }
     setError(null);
-    onSubmit(eventStart.toISOString(), durationMin, invitees);
+    onSubmit(eventStart.toISOString(), durationMin, [...new Set([...selectedTeamInvitees, ...invitees])]);
+  };
+
+  const toggleTeamInvitee = (sfUserId: string) => {
+    setSelectedTeamInvitees((selected) => (
+      selected.includes(sfUserId)
+        ? selected.filter((id) => id !== sfUserId)
+        : [...selected, sfUserId]
+    ));
   };
 
   const inline = Boolean(className?.includes("calls-event-panel--inline"));
@@ -85,8 +97,23 @@ export function EventPanel({
           />
         </label>
       </div>
+      {team.length > 0 && (
+        <div className="calls-fb-control">
+          <div className="calls-fb-control__label">Inviter des collègues</div>
+          {team.map((member) => (
+            <label key={member.user_id} className="calls-checkbox calls-checkbox--tight">
+              <input
+                type="checkbox"
+                checked={selectedTeamInvitees.includes(member.sf_user_id)}
+                onChange={() => toggleTeamInvitee(member.sf_user_id)}
+              />
+              {member.label}
+            </label>
+          ))}
+        </div>
+      )}
       <TagInput
-        label="IDs CRM"
+        label="Autres invités (ID CRM)"
         hint="15 ou 18 caractères"
         value={invitees}
         onChange={setInvitees}

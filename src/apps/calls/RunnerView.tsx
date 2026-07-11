@@ -17,7 +17,7 @@ import {
   type RecallDateFilter,
 } from "./recallQueue";
 import { nextContinuationName } from "./sessionNaming";
-import type { ContactContext, SessionContact, SessionDetail, SessionSummary } from "./types";
+import type { ContactContext, SessionContact, SessionDetail, SessionSummary, TeamMember } from "./types";
 import { RESULTAT_OPTIONS, sessionTypeLabel } from "./types";
 
 const RECALL_DAYS_KEY = "xos-calls-default-recall-days";
@@ -64,6 +64,7 @@ type RunnerViewProps = {
   onLogMany: (contactIds: number[], payload: LogPayload) => void;
   onLogEvent: (start: string, durationMin: number, invitees: string[]) => void;
   onDeferContacts: (contactIds: number[], payload: DeferPayload) => void;
+  team?: TeamMember[];
 };
 
 function addDaysIso(days: number): string {
@@ -250,6 +251,7 @@ export function RunnerView({
   onLogMany,
   onLogEvent,
   onDeferContacts,
+  team = [],
 }: RunnerViewProps) {
   const isRecallQueue = variant === "recalls";
   const today = todayParisIso();
@@ -715,6 +717,7 @@ export function RunnerView({
                   submitLabel="Logguer appel + RDV & suivant"
                   heading={`Détails du RDV — ${singleSelectedContact.contact_name}`}
                   className="calls-event-panel--inline"
+                  team={team}
                 />
               ) : (
                 <div className="calls-runner-actions">
@@ -1084,6 +1087,7 @@ export function RunnerView({
               loading={loading}
               onSubmit={onLogEvent}
               heading={`Finaliser le RDV — ${awaitingEvent.contact_name}`}
+              team={team}
             />
           ) : focusedContact.status === "pending" ? (
             <GlassCard className="calls-log-form">
@@ -1134,6 +1138,7 @@ export function RunnerView({
                   submitLabel="Logguer appel + RDV & suivant"
                   heading="Détails du RDV"
                   className="calls-event-panel--inline"
+                  team={team}
                 />
               ) : (
                 <div className="calls-runner-actions">

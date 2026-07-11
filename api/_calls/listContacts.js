@@ -6,10 +6,12 @@ import {
   fetchSFToken,
   filterTargetContacts,
   hasRelanceQueryFilters,
+  parisToday,
   searchContacts,
   SOQL_FETCH_CAP,
 } from "../_crm/salesforce.js";
 import { buildPreviewContactList } from "./selection.js";
+import { getProfile } from "./profileCache.js";
 
 const MAX_PER_COMPANY_OPTIONS = [1, 2, 3, 5];
 
@@ -45,25 +47,23 @@ export function parseListContactsBody(body) {
   };
 }
 
-async function fetchProfile(client, userId) {
-  const { data, error } = await client
-    .from("profiles")
-    .select("sf_user_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) return { error: "profile_lookup_failed" };
-  return { sfUserId: data?.sf_user_id || null };
-}
-
 function normalizeContacts(records) {
   const contact = mapping.objects.contact.fields;
   const account = mapping.objects.account.fields;
   const task = mapping.objects.task;
+  // ActivityDate est un date literal SOQL (YYYY-MM-DD) : comparaison de chaînes,
+  // en date Paris pour ne pas basculer une tentative du jour dans le futur après minuit.
+  const today = parisToday();
   return records
     .filter((record) => typeof record?.[contact.id] === "string")
     .map((record) => {
       const tasks = record[task.childRelationship];
-      const lastCall = Array.isArray(tasks?.records) ? tasks.records[0] : null;
+      const lastCall = Array.isArray(tasks?.records)
+        ? tasks.records.find((record) => {
+          const activityDate = record[task.fields.activityDate];
+          return typeof activityDate === "string" && activityDate.slice(0, 10) <= today;
+        })
+        : null;
       return {
         sf_contact_id: record[contact.id],
         sf_account_id: record.Account?.[account.id] ?? record[contact.accountId] ?? null,
@@ -114,7 +114,7 @@ export async function listContacts(client, userId, body) {
   const parsed = parseListContactsBody(body);
   if (parsed.error) return { error: parsed.error, status: 400 };
 
-  const profile = await fetchProfile(client, userId);
+  const profile = await getProfile(client, userId);
   if (profile.error) return { error: profile.error, status: 500 };
 
   const tokenResult = await fetchSFToken();

@@ -7,6 +7,7 @@ import type {
   SessionContact,
   SessionDetail,
   SessionSummary,
+  TeamMember,
 } from "./types";
 
 export class CallsApiError extends Error {
@@ -276,6 +277,11 @@ export async function createFollowUpSession(
 export async function fetchPresets(token: string): Promise<CallTargetPreset[]> {
   const data = await apiFetch<{ presets: CallTargetPreset[] }>(token, "/api/calls?resource=presets");
   return data.presets;
+}
+
+export async function fetchTeam(token: string): Promise<TeamMember[]> {
+  const data = await apiFetch<{ team: TeamMember[] }>(token, "/api/calls?resource=team");
+  return data.team;
 }
 
 export async function createPreset(

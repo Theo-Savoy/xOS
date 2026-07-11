@@ -149,6 +149,12 @@ export type CallStats = {
   month?: PeriodKpis;
 };
 
+export type TeamMember = {
+  user_id: string;
+  label: string;
+  sf_user_id: string;
+};
+
 export type { FilterTree };
 
 export const RESULTAT_OPTIONS: { value: ResultatCall; label: string }[] = RESULTAT_CALL_VALUES.map(

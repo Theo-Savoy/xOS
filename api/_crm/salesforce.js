@@ -51,7 +51,7 @@ export function hasRelanceQueryFilters(filters = {}) {
 function taskSubquery(mapping) {
   const task = mapping.objects.task;
   const fields = task.fields;
-  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' AND ${fields.result} != null ORDER BY ${fields.activityDate} DESC)`;
+  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' ORDER BY ${fields.activityDate} DESC)`;
 }
 
 function fonctionPresetClause(preset, titleField) {
@@ -184,13 +184,13 @@ export function filterTargetContacts(records, filters = {}, mapping, now = new D
 
   return (Array.isArray(records) ? records : []).filter((record) => {
     const calls = callTasks(record, mapping);
-    const latest = calls[0];
+    const latestWithResult = calls.find((call) => call[fields.result] != null && call[fields.result] !== "");
 
     if (followUp.jamais_appele === true && hasAnyCall(record, mapping)) return false;
     if (beforeDays && calls.some((call) => callInLastNDays(call, beforeDays, now, fields))) return false;
     if (withinDays && !calls.some((call) => callInLastNDays(call, withinDays, now, fields))) return false;
 
-    if (wantedResults.length && (!latest || !wantedResults.includes(latest[fields.result]))) return false;
+    if (wantedResults.length && (!latestWithResult || !wantedResults.includes(latestWithResult[fields.result]))) return false;
     if (maxCalls && recentDays) {
       const recentCalls = calls.filter((call) => {
         const age = dateAgeDays(call[fields.activityDate], now);

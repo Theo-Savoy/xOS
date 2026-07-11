@@ -70,17 +70,56 @@ describe("EventPanel", () => {
     expect(screen.getByRole("alert").textContent?.toLowerCase()).toContain("date");
   });
 
-  it("labels invitees as CRM IDs and rejects an invalid ID before submitting", async () => {
+  it("labels external invitees as CRM IDs and rejects an invalid ID before submitting", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<EventPanel contactName="Alice" loading={false} onSubmit={onSubmit} />);
 
-    const invitees = screen.getByLabelText("IDs CRM");
+    const invitees = screen.getByLabelText("Autres invités (ID CRM)");
     await user.type(invitees, "not-an-id{Enter}");
     await user.click(screen.getByRole("button", { name: /enregistrer le rdv/i }));
 
     expect(screen.getByRole("alert").textContent).toContain("15 ou 18");
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("keeps manual invitees working when no team is available", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<EventPanel contactName="Alice" loading={false} onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Autres invités (ID CRM)"), "003000000000001{Enter}");
+    await user.click(screen.getByRole("button", { name: /enregistrer le rdv/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.any(String), 30, ["003000000000001"]);
+  });
+
+  it("combines selected colleagues with manual invitees without duplicates", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <EventPanel
+        contactName="Alice"
+        loading={false}
+        onSubmit={onSubmit}
+        team={[
+          { user_id: "user-1", label: "Alice", sf_user_id: "005000000000001" },
+          { user_id: "user-2", label: "Bob", sf_user_id: "005000000000002" },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Alice"));
+    await user.click(screen.getByLabelText("Bob"));
+    await user.type(screen.getByLabelText("Autres invités (ID CRM)"), "003000000000001{Enter}");
+    await user.type(screen.getByLabelText("Autres invités (ID CRM)"), "005000000000001{Enter}");
+    await user.click(screen.getByRole("button", { name: /enregistrer le rdv/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.any(String),
+      30,
+      ["005000000000001", "005000000000002", "003000000000001"],
+    );
   });
 });
 
