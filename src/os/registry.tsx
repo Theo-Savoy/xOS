@@ -1,4 +1,13 @@
 import { lazy, type FC, type LazyExoticComponent, type ReactNode } from "react";
+import {
+  CallsIcon,
+  CleanerIcon,
+  DemoNotesIcon,
+  DemoOverviewIcon,
+  DemoUiIcon,
+  HubIcon,
+  WeeklyIcon,
+} from "./AppIcons";
 
 export type AppRole = "admin" | "manager" | "commercial";
 
@@ -15,28 +24,28 @@ export const appRegistry: AppManifest[] = [
   {
     id: "cleaner",
     title: "CRM Cleaner",
-    icon: "◈",
+    icon: <CleanerIcon />,
     component: lazy(() => import("../apps/cleaner/CleanerApp")),
     defaultSize: { w: 1100, h: 540 },
   },
   {
     id: "calls",
     title: "Call Manager",
-    icon: "☎",
+    icon: <CallsIcon />,
     component: lazy(() => import("../apps/calls/CallManagerApp")),
     defaultSize: { w: 960, h: 620 },
   },
   {
     id: "weekly",
     title: "Weekly Perf",
-    icon: "◔",
+    icon: <WeeklyIcon />,
     component: lazy(() => import("../apps/weekly/WeeklyApp")),
-    defaultSize: { w: 1040, h: 680 },
+    defaultSize: { w: 1100, h: 720 },
   },
   {
     id: "hub",
     title: "Hub",
-    icon: "◌",
+    icon: <HubIcon />,
     component: lazy(() => import("../apps/hub/HubApp")),
     defaultSize: { w: 820, h: 620 },
     // Panneau système : bruit pour un commercial, réservé au pilotage.
@@ -47,21 +56,21 @@ export const appRegistry: AppManifest[] = [
         {
           id: "overview-demo",
           title: "Aperçu commercial",
-          icon: "◒",
+          icon: <DemoOverviewIcon />,
           component: lazy(() => import("../apps/demo/OverviewDemo")),
           defaultSize: { w: 760, h: 520 },
         },
         {
           id: "notes-demo",
           title: "Notes d’équipe",
-          icon: "✦",
+          icon: <DemoNotesIcon />,
           component: lazy(() => import("../apps/demo/NotesDemo")),
           defaultSize: { w: 620, h: 460 },
         },
         {
           id: "ui-demo",
           title: "Design system",
-          icon: "⌘",
+          icon: <DemoUiIcon />,
           component: lazy(() => import("../components/ui/demo")),
           defaultSize: { w: 800, h: 580 },
         },

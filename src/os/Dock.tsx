@@ -17,6 +17,7 @@ export function Dock({ apps, windows, onOpen }: DockProps) {
         return (
           <button
             className="xos-dock__item"
+            data-app={app.id}
             data-open={Boolean(appWindow)}
             key={app.id}
             onClick={() => onOpen(app)}

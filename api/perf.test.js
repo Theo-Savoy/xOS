@@ -55,7 +55,7 @@ function recordSet() {
       { OwnerId: "005A", CloseDate: "2026-08-10", Amount: 200, Probability: 50 },
       { OwnerId: "005A", CloseDate: "2026-09-10", Amount: 100, Probability: 25 },
     ],
-    [{ OwnerId: "005A", CloseDate: "2026-10-15", Amount: 300, Type_de_vente__c: "Sur-mesure" }],
+    [{ OwnerId: "005A", CloseDate: "2026-10-15", Amount: 300, Type_de_vente__c: "Sur-mesure", ExpectedRevenue: 150, Probability: 50, Id: "006SM", Name: "Deal SM" }],
   ];
 }
 
@@ -76,7 +76,30 @@ beforeEach(() => {
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-key");
   mockFrom.mockImplementation((table) => {
     if (table === "profiles") return { select: () => Promise.resolve({ data: teamProfiles, error: null }) };
-    if (table === "settings") return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { value: { "005A": { "FY27-Q1": 60000 } } }, error: null }) }) }) };
+    if (table === "settings") {
+      return {
+        select: () => ({
+          eq: (_col, key) => ({
+            maybeSingle: () => Promise.resolve({
+              data: key === "weekly_targets" ? { value: { "005A": { "FY27-Q1": 60000 } } } : { value: {} },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
+    if (table === "perf_forecast_snapshots") {
+      return {
+        select: () => ({
+          eq: () => ({
+            in: () => ({
+              order: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        }),
+        upsert: () => Promise.resolve({ error: null }),
+      };
+    }
     throw new Error(`Unexpected table ${table}`);
   });
   mockVerifyJWT.mockResolvedValue({ id: "user-a", email: "ada@xos-learning.fr" });
@@ -92,6 +115,14 @@ describe("fiscal quarter helpers", () => {
 
   it("computes the August quarter across the July fiscal-year boundary", () => {
     expect(perf.fiscalQuarter("2026-08-20")).toEqual({ from: "2026-07-01", toExclusive: "2026-10-01", label: "FY27-Q1" });
+  });
+
+  it("builds the week window from the fiscal quarter start to the current Monday", () => {
+    expect(perf.quarterWeekWindow("2026-07-11")).toMatchObject({
+      from: "2026-07-06",
+      period: "quarter",
+      starts: ["2026-07-06"],
+    });
   });
 
   it("adds signed and probability-weighted open amounts", () => {
@@ -177,6 +208,7 @@ describe("GET /api/perf", () => {
     mockFrom.mockImplementation((table) => {
       if (table === "profiles") return { select: () => Promise.resolve({ data: teamProfiles, error: null }) };
       if (table === "settings") return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) };
+      if (table === "perf_forecast_snapshots") return { select: () => ({ eq: () => ({ in: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }), upsert: () => Promise.resolve({ error: null }) };
       throw new Error(`Unexpected table ${table}`);
     });
     const body = await (await GET(request())).json();
@@ -186,11 +218,30 @@ describe("GET /api/perf", () => {
   it("keeps an explicitly null owner target null", async () => {
     mockFrom.mockImplementation((table) => {
       if (table === "profiles") return { select: () => Promise.resolve({ data: teamProfiles, error: null }) };
-      if (table === "settings") return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { value: { "005A": { "FY27-Q1": null } } }, error: null }) }) }) };
+      if (table === "settings") {
+        return {
+          select: () => ({
+            eq: (_col, key) => ({
+              maybeSingle: () => Promise.resolve({
+                data: key === "weekly_targets" ? { value: { "005A": { "FY27-Q1": null } } } : { value: {} },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "perf_forecast_snapshots") return { select: () => ({ eq: () => ({ in: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }), upsert: () => Promise.resolve({ error: null }) };
       throw new Error(`Unexpected table ${table}`);
     });
     const body = await (await GET(request())).json();
     expect(body.quarter[0].target).toBeNull();
+  });
+
+  it("attaches tracking modes and prefers profile names over Salesforce ids", async () => {
+    mockGetProfile.mockResolvedValue({ sfUserId: "005A", fullName: "Ada", role: "manager" });
+    const body = await (await GET(request())).json();
+    expect(body.owners[0]).toMatchObject({ sf_user_id: "005A", name: "Ada", tracking: "commercial" });
+    expect(body.owners[0].name).not.toMatch(/^005/);
   });
 
   it("counts the first in-window transition thanks to the pre-window baseline", async () => {
@@ -202,10 +253,37 @@ describe("GET /api/perf", () => {
     queueSalesforce(records, [{ OpportunityId: "opp-9", StageName: "Projet identifié" }]);
 
     const body = await (await GET(request())).json();
-    const baselineQuery = mockSearchContacts.mock.calls.at(-1)[1];
-    expect(baselineQuery).toContain("OpportunityId IN ('opp-9')");
+    const baselineQuery = mockSearchContacts.mock.calls.map(([, soql]) => soql).find((soql) => soql.includes("OpportunityId IN ('opp-9')"));
     expect(baselineQuery).toContain("CreatedDate < 2026-05-18T00:00:00Z");
     expect(body.effort.find((row) => row.week === "2026-W28")).toMatchObject({ progressions: 1 });
+  });
+
+  it("returns forecast history points for the effort chart", async () => {
+    const body = await (await GET(request())).json();
+    expect(body.forecast_history.length).toBeGreaterThan(0);
+    expect(body.forecast_history.at(-1)).toMatchObject({
+      sf_user_id: "005A",
+      forecast: 225,
+      signed_to_date: 100,
+    });
+  });
+
+  it("returns custom_pipe monthly buckets with expected revenue", async () => {
+    const body = await (await GET(request())).json();
+    expect(body.custom_pipe).toMatchObject({
+      horizon_days: 180,
+      total_amount: 300,
+      total_expected: 150,
+      count: 1,
+    });
+    expect(body.custom_pipe.months.find((month) => month.month === "2026-10")).toMatchObject({ amount: 300, expected: 150, count: 1 });
+    expect(body.custom_pipe.opps[0]).toMatchObject({ name: "Deal SM", expected: 150 });
+  });
+
+  it("builds custom pipe months from today even when empty", () => {
+    expect(perf.buildCustomPipe([], { ownerId: "OwnerId", closeDate: "CloseDate", amount: "Amount", probability: "Probability", expectedRevenue: "ExpectedRevenue", id: "Id", name: "Name" }, "2026-07-11").months.map((month) => month.month)).toEqual([
+      "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12",
+    ]);
   });
 
   it("sets the shared cache policy", async () => {

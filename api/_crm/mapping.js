@@ -268,6 +268,7 @@ const mapping = {
         stageName: "StageName",
         amount: "Amount",
         probability: "Probability",
+        expectedRevenue: "ExpectedRevenue",
         closeDate: "CloseDate",
         ownerId: "OwnerId",
         createdDate: "CreatedDate",
@@ -326,6 +327,14 @@ const mapping = {
         relationId: "RelationId",
         eventId: "EventId",
         activityDate: "ActivityDate",
+      },
+    },
+    user: {
+      name: "User",
+      fields: {
+        id: "Id",
+        name: "Name",
+        email: "Email",
       },
     },
   },

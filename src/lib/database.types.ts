@@ -66,6 +66,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      perf_forecast_snapshots: {
+        Row: {
+          week_start: string;
+          sf_user_id: string;
+          quarter: string;
+          forecast: number;
+          signed_to_date: number;
+          created_at: string;
+        };
+        Insert: {
+          week_start: string;
+          sf_user_id: string;
+          quarter: string;
+          forecast?: number;
+          signed_to_date?: number;
+          created_at?: string;
+        };
+        Update: {
+          week_start?: string;
+          sf_user_id?: string;
+          quarter?: string;
+          forecast?: number;
+          signed_to_date?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       challenges: {
         Row: {
           id: number;

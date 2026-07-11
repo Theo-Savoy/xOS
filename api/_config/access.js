@@ -9,11 +9,17 @@
  * - admin  : full Hub config, role management, all manager capabilities
  * - manager: team views, settings CRUD (seuils, exclusions), Arena challenges
  * - commercial: own data, own sessions, Hub status read-only
+ *
+ * Weekly Perf tracking modes (orthogonal to access roles):
+ * - commercial : activité + ventes (défaut)
+ * - sdr        : appels, RDV pris, opps détectées — pas de ventes
+ * - dg         : signatures / CA signé seulement
  */
 
 export const ROLES = ["commercial", "manager", "admin"];
 
 /** @typedef {"commercial" | "manager" | "admin"} Role */
+/** @typedef {"commercial" | "sdr" | "dg"} TrackingMode */
 
 /**
  * Email → role overrides applied on profile create / login bootstrap.
@@ -25,10 +31,32 @@ export const ROLE_BOOTSTRAP_BY_EMAIL = {
   "paul.rathouin@xos-learning.fr": "manager",
 };
 
+/**
+ * SF User Id → mode de suivi Weekly Perf (surchargeable via settings.weekly_tracking).
+ * IDs alignés sur sf_user_map (migration 013).
+ */
+export const WEEKLY_TRACKING_BY_SF_USER = {
+  "005Sb000007b6dWIAQ": "sdr", // Yanis Agharbi
+  "005b0000005zfnvAAA": "dg", // Jérôme Bosio
+};
+
 export function roleFromEmail(email) {
   if (typeof email !== "string" || !email) return "commercial";
   const key = email.trim().toLowerCase();
   return ROLE_BOOTSTRAP_BY_EMAIL[key] || "commercial";
+}
+
+/** Compare Salesforce IDs on the case-sensitive 15-char prefix (18-char checksum ignored). */
+export function sfIdKey(id) {
+  return String(id || "").slice(0, 15);
+}
+
+export function trackingModeFor(sfUserId, overrides = {}) {
+  const key = sfIdKey(sfUserId);
+  const fromOverride = Object.entries(overrides || {}).find(([id]) => sfIdKey(id) === key)?.[1];
+  if (fromOverride === "sdr" || fromOverride === "dg" || fromOverride === "commercial") return fromOverride;
+  const fromDefault = Object.entries(WEEKLY_TRACKING_BY_SF_USER).find(([id]) => sfIdKey(id) === key)?.[1];
+  return fromDefault || "commercial";
 }
 
 export function roleAtLeast(role, minimum) {

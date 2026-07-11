@@ -1,12 +1,13 @@
 import { verifyJWT } from "./_auth.js";
 import { getServiceClient } from "./_calls/http.js";
 import { getProfile } from "./_calls/profileCache.js";
-import { canViewTeamPerf } from "./_config/access.js";
+import { canViewTeamPerf, sfIdKey, trackingModeFor } from "./_config/access.js";
 import mapping from "./_crm/mapping.js";
 import { escapeSOQL, fetchSFToken, searchContacts } from "./_crm/salesforce.js";
 
 const CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=60";
 const TIMEZONE = "Europe/Paris";
+const MAX_WEEKS = 16;
 
 function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": CACHE_CONTROL } });
@@ -47,7 +48,20 @@ function isoWeek(key) {
 function weekWindow(weeks) {
   const currentMonday = mondayFor(dateKey());
   const starts = Array.from({ length: weeks }, (_, index) => addDays(currentMonday, (index - weeks + 1) * 7));
-  return { starts, from: starts[0], to: addDays(currentMonday, 6), toExclusive: addDays(currentMonday, 7) };
+  return { starts, from: starts[0], to: addDays(currentMonday, 6), toExclusive: addDays(currentMonday, 7), period: "weeks" };
+}
+
+/** Semaines ISO du trimestre fiscal en cours (lundi ≥ début de trimestre → lundi courant). */
+export function quarterWeekWindow(today = dateKey()) {
+  const quarter = fiscalQuarter(today);
+  const currentMonday = mondayFor(today);
+  let start = mondayFor(quarter.from);
+  if (start < quarter.from) start = addDays(start, 7);
+  const starts = [];
+  for (let cursor = start; cursor <= currentMonday; cursor = addDays(cursor, 7)) starts.push(cursor);
+  if (!starts.length) starts.push(currentMonday);
+  const clipped = starts.slice(-MAX_WEEKS);
+  return { starts: clipped, from: clipped[0], to: addDays(currentMonday, 6), toExclusive: addDays(currentMonday, 7), period: "quarter", quarter };
 }
 
 export function fiscalQuarter(key) {
@@ -78,19 +92,27 @@ async function teamProfiles(client) {
   return error ? null : data || [];
 }
 
-async function weeklyTargets(client) {
-  const { data, error } = await client.from("settings").select("value").eq("key", "weekly_targets").maybeSingle();
-  if (error) throw new Error("weekly_targets_lookup_failed");
+async function settingsValue(client, key) {
+  const { data, error } = await client.from("settings").select("value").eq("key", key).maybeSingle();
+  if (error) throw new Error(`${key}_lookup_failed`);
   return data?.value && typeof data.value === "object" ? data.value : {};
 }
 
-function ownerMeta(profiles, sfUserId, fallback = {}) {
-  const profile = profiles.find((entry) => entry.sf_user_id === sfUserId);
+function findBySfId(entries, sfUserId) {
+  const key = sfIdKey(sfUserId);
+  return (entries || []).find((entry) => sfIdKey(entry.sf_user_id || entry.Id || entry.id) === key) || null;
+}
+
+function ownerMeta(profiles, sfUsers, sfUserId, fallback = {}, trackingOverrides = {}) {
+  const profile = findBySfId(profiles, sfUserId);
+  const sfUser = findBySfId(sfUsers, sfUserId);
+  const name = profile?.full_name || sfUser?.Name || fallback.name || profile?.email?.split("@")[0] || sfUserId;
   return {
     sf_user_id: sfUserId,
-    name: profile?.full_name || fallback.name || sfUserId,
-    email: profile?.email || null,
+    name,
+    email: profile?.email || sfUser?.Email || null,
     role: profile?.role || fallback.role || null,
+    tracking: trackingModeFor(sfUserId, trackingOverrides),
   };
 }
 
@@ -103,38 +125,162 @@ export function quarterForecast(signedToDate, records, fields) {
   return { weightedOpen, forecast: number(signedToDate) + weightedOpen };
 }
 
+function expectedRevenue(record, fields) {
+  if (record[fields.expectedRevenue] !== null && record[fields.expectedRevenue] !== undefined) return number(record[fields.expectedRevenue]);
+  return number(record[fields.amount]) * number(record[fields.probability]) / 100;
+}
+
+function monthKey(value) {
+  return dateKey(value).slice(0, 7);
+}
+
+function monthLabel(key) {
+  const [year, month] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(new Date(Date.UTC(year, month - 1, 15)));
+}
+
+/** Ventilation mensuelle du pipe sur-mesure (CloseDate ∈ [today, +180 j]), Amount + ExpectedRevenue. */
+export function buildCustomPipe(records, fields, today = dateKey(), ownerIds = null, horizonDays = 180) {
+  const toExclusive = addDays(today, horizonDays + 1);
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const anchor = new Date(`${today}T12:00:00.000Z`);
+    anchor.setUTCMonth(anchor.getUTCMonth() + index, 1);
+    const key = `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, "0")}`;
+    return { month: key, label: monthLabel(key), amount: 0, expected: 0, count: 0, by_owner: {} };
+  });
+  const monthIndex = new Map(months.map((entry, index) => [entry.month, index]));
+  const byOwner = new Map();
+  const opps = [];
+  for (const record of records) {
+    const owner = record[fields.ownerId];
+    if (ownerIds && ![...ownerIds].some((id) => sfIdKey(id) === sfIdKey(owner))) continue;
+    const close = dateKey(record[fields.closeDate]);
+    if (close < today || close >= toExclusive) continue;
+    const key = monthKey(close);
+    const amount = number(record[fields.amount]);
+    const expected = expectedRevenue(record, fields);
+    const bucket = monthIndex.has(key) ? months[monthIndex.get(key)] : null;
+    if (bucket) {
+      bucket.amount += amount;
+      bucket.expected += expected;
+      bucket.count += 1;
+      const ownerBucket = bucket.by_owner[owner] || { amount: 0, expected: 0, count: 0 };
+      ownerBucket.amount += amount;
+      ownerBucket.expected += expected;
+      ownerBucket.count += 1;
+      bucket.by_owner[owner] = ownerBucket;
+    }
+    const ownerRow = byOwner.get(owner) || { sf_user_id: owner, amount: 0, expected: 0, count: 0 };
+    ownerRow.amount += amount;
+    ownerRow.expected += expected;
+    ownerRow.count += 1;
+    byOwner.set(owner, ownerRow);
+    opps.push({
+      id: record.Id || record[fields.id] || null,
+      name: record.Name || record[fields.name] || "Opportunité",
+      sf_user_id: owner,
+      amount,
+      expected,
+      probability: number(record[fields.probability]),
+      close_date: close,
+      month: key,
+    });
+  }
+  opps.sort((a, b) => b.expected - a.expected || b.amount - a.amount);
+  const total_amount = months.reduce((sum, entry) => sum + entry.amount, 0);
+  const total_expected = months.reduce((sum, entry) => sum + entry.expected, 0);
+  return {
+    horizon_days: horizonDays,
+    total_amount,
+    total_expected,
+    count: opps.length,
+    months,
+    by_owner: [...byOwner.values()],
+    opps: opps.slice(0, 8),
+  };
+}
+
+/** Cumul signé à la fin de chaque semaine (CloseDate ≤ dimanche de la semaine). */
+export function signedSeries(starts, quarterWon, ownerField, amountField, closeDateField, ownerId) {
+  return starts.map((start) => {
+    const endInclusive = addDays(start, 6);
+    return quarterWon
+      .filter((record) => sfIdKey(record[ownerField]) === sfIdKey(ownerId) && dateKey(record[closeDateField]) <= endInclusive)
+      .reduce((sum, record) => sum + number(record[amountField]), 0);
+  });
+}
+
+async function loadForecastHistory(client, quarterLabel, ownerIds) {
+  if (!ownerIds.length) return [];
+  const { data, error } = await client
+    .from("perf_forecast_snapshots")
+    .select("week_start, sf_user_id, forecast, signed_to_date")
+    .eq("quarter", quarterLabel)
+    .in("sf_user_id", ownerIds)
+    .order("week_start", { ascending: true });
+  if (error) {
+    // Table absente en local / avant migration : on ne casse pas Weekly Perf.
+    if (/perf_forecast_snapshots|schema cache|does not exist/i.test(error.message || "")) return [];
+    throw new Error("forecast_history_lookup_failed");
+  }
+  return data || [];
+}
+
+async function upsertForecastSnapshots(client, rows) {
+  if (!rows.length) return;
+  const { error } = await client.from("perf_forecast_snapshots").upsert(rows, { onConflict: "week_start,sf_user_id" });
+  if (error && !/perf_forecast_snapshots|schema cache|does not exist/i.test(error.message || "")) {
+    throw new Error("forecast_snapshot_write_failed");
+  }
+}
+
 export async function GET(request) {
   const user = await verifyJWT(request);
   if (!user) return json(401, { error: "unauthorized" });
-  const rawWeeks = new URL(request.url).searchParams.get("weeks");
+  const url = new URL(request.url);
+  const period = url.searchParams.get("period") === "quarter" ? "quarter" : "weeks";
+  const rawWeeks = url.searchParams.get("weeks");
   const weeks = rawWeeks === null ? 8 : Number(rawWeeks);
-  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 16) return json(400, { error: "invalid_weeks" });
+  if (period === "weeks" && (!Number.isInteger(weeks) || weeks < 1 || weeks > MAX_WEEKS)) return json(400, { error: "invalid_weeks" });
 
   const client = getServiceClient();
   if (!client) return json(500, { error: "service_unavailable" });
   const profile = await getProfile(client, user.id);
   if (profile.error) return json(500, { error: profile.error });
   const teamView = canViewTeamPerf(profile.role);
-  const window = weekWindow(weeks);
-  const empty = { weeks, timezone: TIMEZONE, range: { from: window.from, to: window.to }, view: teamView ? "team" : "self", owners: [], pulse: [], pipeline: [], effort: [], quarter: [] };
+  const today = dateKey();
+  const quarter = fiscalQuarter(today);
+  const window = period === "quarter" ? quarterWeekWindow(today) : weekWindow(weeks);
+  const empty = {
+    weeks: window.starts.length,
+    period,
+    timezone: TIMEZONE,
+    range: { from: window.from, to: window.to },
+    view: teamView ? "team" : "self",
+    owners: [],
+    pulse: [],
+    pipeline: [],
+    effort: [],
+    quarter: [],
+    forecast_history: [],
+    custom_pipe: { horizon_days: 180, total_amount: 0, total_expected: 0, count: 0, months: [], by_owner: [], opps: [] },
+  };
   if (!teamView && !profile.sfUserId) return json(200, { ...empty, warning: "sf_user_unmapped" });
 
   const tokenResult = await fetchSFToken();
   if (tokenResult.error || !tokenResult.accessToken) return json(502, { error: tokenResult.error || "sf_auth_error" });
-  const { task, event, opportunity, opportunityHistory } = mapping.objects;
+  const { task, event, opportunity, opportunityHistory, user: sfUserObject } = mapping.objects;
   // SOQL : les littéraux date (YYYY-MM-DD) et datetime (ISO Z) ne se quotent PAS —
   // quotés, Salesforce répond MALFORMED_QUERY (vérifié live sur l'org).
   const fromDate = window.from;
   const toDate = window.toExclusive;
   const fromDateTime = `${window.from}T00:00:00Z`;
   const toDateTime = `${window.toExclusive}T00:00:00Z`;
-  const today = dateKey();
-  const quarter = fiscalQuarter(today);
   const customToExclusive = addDays(today, 181);
   const saleTypeValues = opportunity.saleTypes;
   const arrWhere = `${opportunity.saleTypeField} = '${escapeSOQL(saleTypeValues.catalogue[0])}' AND ${opportunity.commissionTypeField} IN (${opportunity.arrCommissionTypes.map((value) => `'${escapeSOQL(value)}'`).join(", ")})`;
   try {
-    const [tasks, events, histories, generated, won, wonArr, openOpps, quarterWon, quarterOpen, customOpen, profiles, targets] = await Promise.all([
+    const [tasks, events, histories, generated, won, wonArr, openOpps, quarterWon, quarterOpen, customOpen, profiles, targets, trackingOverrides] = await Promise.all([
       crmRecords(tokenResult.accessToken, query(task.name, [task.fields.ownerId, task.fields.activityDate, task.fields.subtype], `${task.fields.subtype} = '${task.subtypeValue}' AND ${task.fields.activityDate} >= ${fromDate} AND ${task.fields.activityDate} < ${toDate}`)),
       crmRecords(tokenResult.accessToken, query(event.name, [event.fields.ownerId, event.fields.activityDate], `${event.fields.activityDate} >= ${fromDate} AND ${event.fields.activityDate} < ${toDate}`)),
       // Borné à la fenêtre : l'org compte 17k+ lignes d'historique, le cap SOQL en tronquerait un sous-ensemble arbitraire.
@@ -145,9 +291,10 @@ export async function GET(request) {
       crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.isClosed, opportunity.fields.stageName], `${opportunity.fields.isClosed} = false AND ${opportunity.fields.stageName} != '${opportunityHistory.stages.stalledSuspect}'`)),
       crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount], `${opportunity.fields.isWon} = true AND ${opportunity.fields.closeDate} >= ${quarter.from} AND ${opportunity.fields.closeDate} < ${quarter.toExclusive}`)),
       crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount, opportunity.fields.probability], `${opportunity.fields.isClosed} = false AND ${opportunity.fields.closeDate} >= ${quarter.from} AND ${opportunity.fields.closeDate} < ${quarter.toExclusive}`)),
-      crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount, opportunity.saleTypeField], `${opportunity.fields.isClosed} = false AND ${opportunity.saleTypeField} = '${escapeSOQL(saleTypeValues.sur_mesure[0])}' AND ${opportunity.fields.closeDate} >= ${today} AND ${opportunity.fields.closeDate} < ${customToExclusive}`)),
+      crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.id, opportunity.fields.name, opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount, opportunity.fields.probability, opportunity.fields.expectedRevenue, opportunity.saleTypeField], `${opportunity.fields.isClosed} = false AND ${opportunity.saleTypeField} = '${escapeSOQL(saleTypeValues.sur_mesure[0])}' AND ${opportunity.fields.closeDate} >= ${today} AND ${opportunity.fields.closeDate} < ${customToExclusive}`)),
       teamView ? teamProfiles(client) : Promise.resolve([]),
-      weeklyTargets(client),
+      settingsValue(client, "weekly_targets"),
+      settingsValue(client, "weekly_tracking").catch(() => ({})),
     ]);
     if (profiles === null) return json(500, { error: "team_lookup_failed" });
 
@@ -178,12 +325,25 @@ export async function GET(request) {
     addOwners(quarterOpen, opportunity.fields.ownerId);
     addOwners(customOpen, opportunity.fields.ownerId);
     if (!teamView) owners.clear(), owners.add(profile.sfUserId);
-    const allowed = (id) => owners.has(id);
+    const allowed = (id) => [...owners].some((owner) => sfIdKey(owner) === sfIdKey(id));
     const ownerIds = [...owners];
+
+    const sfUsers = ownerIds.length
+      ? await crmRecords(
+        tokenResult.accessToken,
+        query(
+          sfUserObject.name,
+          [sfUserObject.fields.id, sfUserObject.fields.name, sfUserObject.fields.email],
+          `${sfUserObject.fields.id} IN (${ownerIds.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
+        ),
+      )
+      : [];
+
     const openByOwner = new Map();
     for (const record of openOpps) {
       if (allowed(record[opportunity.fields.ownerId]) && !record[opportunity.fields.isClosed] && record[opportunity.fields.stageName] !== opportunityHistory.stages.stalledSuspect) {
-        openByOwner.set(record[opportunity.fields.ownerId], (openByOwner.get(record[opportunity.fields.ownerId]) || 0) + 1);
+        const owner = record[opportunity.fields.ownerId];
+        openByOwner.set(owner, (openByOwner.get(owner) || 0) + 1);
       }
     }
     const data = new Map();
@@ -235,19 +395,52 @@ export async function GET(request) {
       const owner = record[opportunity.fields.ownerId];
       if (allowed(owner)) customByOwner.set(owner, (customByOwner.get(owner) || 0) + number(record[opportunity.fields.amount]));
     }
+
+    const customPipe = buildCustomPipe(customOpen, opportunity.fields, today, owners);
+
+    const quarterRows = ownerIds.map((owner) => {
+      const signedToDate = signedByOwner.get(owner) || 0;
+      const { weightedOpen, forecast } = quarterForecast(signedToDate, openQuarterByOwner.get(owner) || [], opportunity.fields);
+      const targetEntry = Object.entries(targets || {}).find(([id]) => sfIdKey(id) === sfIdKey(owner))?.[1];
+      const targetValue = targetEntry?.[quarter.label];
+      const target = targetValue !== null && targetValue !== undefined && Number.isFinite(Number(targetValue)) ? Number(targetValue) : null;
+      return { sf_user_id: owner, quarter: quarter.label, signed_to_date: signedToDate, weighted_open: weightedOpen, forecast, custom_pipe: customByOwner.get(owner) || 0, target };
+    });
+
+    const currentMonday = mondayFor(today);
+    await upsertForecastSnapshots(client, quarterRows.map((entry) => ({
+      week_start: currentMonday,
+      sf_user_id: entry.sf_user_id,
+      quarter: quarter.label,
+      forecast: entry.forecast,
+      signed_to_date: entry.signed_to_date,
+    })));
+
+    const storedHistory = await loadForecastHistory(client, quarter.label, ownerIds);
+    const historyByOwnerWeek = new Map(storedHistory.map((entry) => [`${sfIdKey(entry.sf_user_id)}:${entry.week_start}`, entry]));
+    const forecastHistory = ownerIds.flatMap((owner) => window.starts.map((start, index) => {
+      const stored = historyByOwnerWeek.get(`${sfIdKey(owner)}:${start}`);
+      const signedValues = signedSeries(window.starts, quarterWon, opportunity.fields.ownerId, opportunity.fields.amount, opportunity.fields.closeDate, owner);
+      const live = quarterRows.find((entry) => sfIdKey(entry.sf_user_id) === sfIdKey(owner));
+      const isCurrent = start === currentMonday;
+      return {
+        sf_user_id: owner,
+        week_start: start,
+        week: isoWeek(start),
+        forecast: isCurrent ? (live?.forecast ?? null) : (stored ? number(stored.forecast) : null),
+        signed_to_date: isCurrent ? (live?.signed_to_date ?? signedValues[index]) : (stored ? number(stored.signed_to_date) : signedValues[index]),
+      };
+    }));
+
     return json(200, {
       ...empty,
-      owners: ownerIds.map((id) => ownerMeta(profiles, id, id === profile.sfUserId ? { name: profile.fullName, role: profile.role } : {})),
+      owners: ownerIds.map((id) => ownerMeta(profiles, sfUsers, id, id === profile.sfUserId || sfIdKey(id) === sfIdKey(profile.sfUserId) ? { name: profile.fullName, role: profile.role } : {}, trackingOverrides)),
       pulse: rows.map(({ sf_user_id, week, week_start, calls, meetings, proposals }) => ({ sf_user_id, week, week_start, calls, meetings, proposals })),
       pipeline: rows.map((entry) => ({ ...((({ sf_user_id, week, week_start, generated_count, generated_amount, won_count, won_amount, won_by_type, won_arr_amount }) => ({ sf_user_id, week, week_start, generated_count, generated_amount, won_count, won_amount, won_by_type, won_arr_amount }))(entry)), closing_rate_count: entry.generated_count ? entry.won_count / entry.generated_count : null, closing_rate_amount: entry.generated_amount ? entry.won_amount / entry.generated_amount : null })),
       effort: rows.map((entry) => { const open = openByOwner.get(entry.sf_user_id) || 0; return { sf_user_id: entry.sf_user_id, week: entry.week, week_start: entry.week_start, progressions: entry.progressions, open_opps_at_start: open, effort_rate: open ? entry.progressions / open : null }; }),
-      quarter: ownerIds.map((owner) => {
-        const signedToDate = signedByOwner.get(owner) || 0;
-        const { weightedOpen, forecast } = quarterForecast(signedToDate, openQuarterByOwner.get(owner) || [], opportunity.fields);
-        const targetValue = targets?.[owner]?.[quarter.label];
-        const target = targetValue !== null && targetValue !== undefined && Number.isFinite(Number(targetValue)) ? Number(targetValue) : null;
-        return { sf_user_id: owner, quarter: quarter.label, signed_to_date: signedToDate, weighted_open: weightedOpen, forecast, custom_pipe: customByOwner.get(owner) || 0, target };
-      }),
+      quarter: quarterRows,
+      forecast_history: forecastHistory,
+      custom_pipe: customPipe,
     });
   } catch (error) {
     return json(502, { error: error.message || "sf_query_error" });
