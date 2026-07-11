@@ -86,12 +86,17 @@ export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserI
     conditions.push(`Account.${account.fields.parentId} = '${escapeSOQL(enterprise.compte_principal)}'`);
   }
 
-  const openOpportunities = `${contact.fields.accountId} IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`;
-  if (enterprise.opp_ouverte === true) conditions.push(openOpportunities);
-  if (enterprise.opp_ouverte === false) conditions.push(`${contact.fields.accountId} NOT IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`);
+  if (enterprise.opp_ouverte === true) {
+    conditions.push(`${contact.fields.accountId} IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`);
+  }
+  if (enterprise.opp_ouverte === false) {
+    conditions.push(`${contact.fields.accountId} NOT IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`);
+  }
   if (enterprise.opp_perdue === true) {
     conditions.push(`${contact.fields.accountId} IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.stageName} = '${escapeSOQL(opportunity.closedLostStage)}')`);
-    conditions.push(`${contact.fields.accountId} NOT IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`);
+    if (enterprise.opp_ouverte !== false) {
+      conditions.push(`${contact.fields.accountId} NOT IN (SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false)`);
+    }
   }
 
   if (contactFilters.a_telephone === true) conditions.push(`${contact.fields.phone} != null`);
