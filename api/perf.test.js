@@ -166,7 +166,7 @@ describe("GET /api/perf", () => {
   });
 
   it("never quotes SOQL date or datetime literals (Salesforce rejects them)", async () => {
-    await GET(request());
+    await GET(request("?weeks=8"));
     const queries = mockSearchContacts.mock.calls.map(([, soql]) => soql);
     expect(queries.length).toBeGreaterThanOrEqual(6);
     for (const soql of queries) {
@@ -252,7 +252,7 @@ describe("GET /api/perf", () => {
     ];
     queueSalesforce(records, [{ OpportunityId: "opp-9", StageName: "Projet identifié" }]);
 
-    const body = await (await GET(request())).json();
+    const body = await (await GET(request("?weeks=8"))).json();
     const baselineQuery = mockSearchContacts.mock.calls.map(([, soql]) => soql).find((soql) => soql.includes("OpportunityId IN ('opp-9')"));
     expect(baselineQuery).toContain("CreatedDate < 2026-05-18T00:00:00Z");
     expect(body.effort.find((row) => row.week === "2026-W28")).toMatchObject({ progressions: 1 });
@@ -284,6 +284,32 @@ describe("GET /api/perf", () => {
     expect(perf.buildCustomPipe([], { ownerId: "OwnerId", closeDate: "CloseDate", amount: "Amount", probability: "Probability", expectedRevenue: "ExpectedRevenue", id: "Id", name: "Name" }, "2026-07-11").months.map((month) => month.month)).toEqual([
       "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12",
     ]);
+  });
+
+  it("excludes inactive former commercials from the team roster", async () => {
+    mockGetProfile.mockResolvedValue({ sfUserId: "005B", fullName: "Béa", role: "manager" });
+    const records = recordSet();
+    records[0].push(
+      { OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" },
+      { OwnerId: "005R", ActivityDate: "2026-07-07", TaskSubtype: "Call" },
+    );
+    queueSalesforce(records);
+    const original = mockSearchContacts.getMockImplementation();
+    mockSearchContacts.mockImplementation(async (token, soql) => {
+      if (soql.includes("FROM User")) {
+        return {
+          records: [
+            { Id: "005A", Name: "Ada", Email: "ada@xos-learning.fr", IsActive: true },
+            { Id: "005B", Name: "Béa", Email: "bea@xos-learning.fr", IsActive: true },
+            { Id: "005R", Name: "Romain Waeselynck", Email: "romain@xos-learning.fr", IsActive: false },
+          ],
+        };
+      }
+      return original(token, soql);
+    });
+    const body = await (await GET(request("?weeks=8"))).json();
+    expect(body.owners.map((owner) => owner.sf_user_id).sort()).toEqual(["005A", "005B"]);
+    expect(body.owners.some((owner) => /waeselynck/i.test(owner.name))).toBe(false);
   });
 
   it("sets the shared cache policy", async () => {

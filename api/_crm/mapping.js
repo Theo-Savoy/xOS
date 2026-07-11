@@ -335,6 +335,7 @@ const mapping = {
         id: "Id",
         name: "Name",
         email: "Email",
+        isActive: "IsActive",
       },
     },
   },

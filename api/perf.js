@@ -1,7 +1,7 @@
 import { verifyJWT } from "./_auth.js";
 import { getServiceClient } from "./_calls/http.js";
 import { getProfile } from "./_calls/profileCache.js";
-import { canViewTeamPerf, sfIdKey, trackingModeFor } from "./_config/access.js";
+import { canViewTeamPerf, isWeeklyOwnerExcluded, sfIdKey, trackingModeFor } from "./_config/access.js";
 import mapping from "./_crm/mapping.js";
 import { escapeSOQL, fetchSFToken, searchContacts } from "./_crm/salesforce.js";
 
@@ -238,10 +238,12 @@ export async function GET(request) {
   const user = await verifyJWT(request);
   if (!user) return json(401, { error: "unauthorized" });
   const url = new URL(request.url);
-  const period = url.searchParams.get("period") === "quarter" ? "quarter" : "weeks";
+  const rawPeriod = url.searchParams.get("period");
+  const period = rawPeriod === "quarter" ? "quarter" : rawPeriod === "week" ? "week" : null;
   const rawWeeks = url.searchParams.get("weeks");
-  const weeks = rawWeeks === null ? 8 : Number(rawWeeks);
-  if (period === "weeks" && (!Number.isInteger(weeks) || weeks < 1 || weeks > MAX_WEEKS)) return json(400, { error: "invalid_weeks" });
+  const weeks = rawWeeks === null ? 2 : Number(rawWeeks);
+  // period=week → 2 semaines (S + S−1) ; period=quarter → trimestre fiscal ; weeks=N reste supporté pour tests.
+  if (period === null && (!Number.isInteger(weeks) || weeks < 1 || weeks > MAX_WEEKS)) return json(400, { error: "invalid_weeks" });
 
   const client = getServiceClient();
   if (!client) return json(500, { error: "service_unavailable" });
@@ -250,10 +252,13 @@ export async function GET(request) {
   const teamView = canViewTeamPerf(profile.role);
   const today = dateKey();
   const quarter = fiscalQuarter(today);
-  const window = period === "quarter" ? quarterWeekWindow(today) : weekWindow(weeks);
+  const resolvedPeriod = period || (rawWeeks !== null ? "weeks" : "week");
+  const window = resolvedPeriod === "quarter"
+    ? quarterWeekWindow(today)
+    : weekWindow(resolvedPeriod === "week" ? 2 : weeks);
   const empty = {
     weeks: window.starts.length,
-    period,
+    period: resolvedPeriod === "weeks" ? "week" : resolvedPeriod,
     timezone: TIMEZONE,
     range: { from: window.from, to: window.to },
     view: teamView ? "team" : "self",
@@ -325,19 +330,32 @@ export async function GET(request) {
     addOwners(quarterOpen, opportunity.fields.ownerId);
     addOwners(customOpen, opportunity.fields.ownerId);
     if (!teamView) owners.clear(), owners.add(profile.sfUserId);
-    const allowed = (id) => [...owners].some((owner) => sfIdKey(owner) === sfIdKey(id));
-    const ownerIds = [...owners];
+    const candidateOwnerIds = [...owners];
 
-    const sfUsers = ownerIds.length
+    const sfUsers = candidateOwnerIds.length
       ? await crmRecords(
         tokenResult.accessToken,
         query(
           sfUserObject.name,
-          [sfUserObject.fields.id, sfUserObject.fields.name, sfUserObject.fields.email],
-          `${sfUserObject.fields.id} IN (${ownerIds.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
+          [sfUserObject.fields.id, sfUserObject.fields.name, sfUserObject.fields.email, sfUserObject.fields.isActive],
+          `${sfUserObject.fields.id} IN (${candidateOwnerIds.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
         ),
       )
       : [];
+
+    const activeOwnerIds = candidateOwnerIds.filter((id) => {
+      const sfUser = findBySfId(sfUsers, id);
+      const mapped = findBySfId(profiles, id);
+      return !isWeeklyOwnerExcluded(sfUser, mapped?.full_name || sfUser?.Name || "");
+    });
+    // Self-view : ne jamais s'exclure soi-même même si inactif (cas edge).
+    if (!teamView && profile.sfUserId && !activeOwnerIds.some((id) => sfIdKey(id) === sfIdKey(profile.sfUserId))) {
+      activeOwnerIds.push(profile.sfUserId);
+    }
+    owners.clear();
+    for (const id of activeOwnerIds) owners.add(id);
+    const allowed = (id) => [...owners].some((owner) => sfIdKey(owner) === sfIdKey(id));
+    const ownerIds = [...owners];
 
     const openByOwner = new Map();
     for (const record of openOpps) {

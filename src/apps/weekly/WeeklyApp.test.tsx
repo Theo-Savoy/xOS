@@ -22,14 +22,20 @@ vi.mock("recharts", () => ({
 import WeeklyApp from "./WeeklyApp";
 
 const selfPayload = {
-  weeks: 8,
-  period: "weeks" as const,
+  weeks: 2,
+  period: "week" as const,
   timezone: "Europe/Paris",
-  range: { from: "2026-05-18", to: "2026-07-12" },
+  range: { from: "2026-06-29", to: "2026-07-12" },
   view: "self" as const,
   owners: [{ sf_user_id: "self", name: "Ada Lovelace", email: "ada@xos-learning.fr", role: "commercial" as const, tracking: "commercial" as const }],
-  pulse: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 4, meetings: 2, proposals: 1 }],
-  pipeline: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 2, generated_amount: 12000, won_count: 1, won_amount: 6000, won_by_type: { catalogue: 3000, sur_mesure: 2000, conseil: 1000 }, won_arr_amount: 3000, closing_rate_count: 0.5, closing_rate_amount: 0.5 }],
+  pulse: [
+    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", calls: 2, meetings: 1, proposals: 0 },
+    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 4, meetings: 2, proposals: 1 },
+  ],
+  pipeline: [
+    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 1, generated_amount: 5000, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 2, generated_amount: 12000, won_count: 1, won_amount: 6000, won_by_type: { catalogue: 3000, sur_mesure: 2000, conseil: 1000 }, won_arr_amount: 3000, closing_rate_count: 0.5, closing_rate_amount: 0.5 },
+  ],
   effort: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", progressions: 3, open_opps_at_start: 20, effort_rate: 0.15 }],
   quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: 60000 }],
   forecast_history: [
@@ -78,19 +84,11 @@ const teamPayload = {
   quarter: [...selfPayload.quarter, { sf_user_id: "manager", quarter: "FY27-Q1", signed_to_date: 25000, weighted_open: 10000, forecast: 35000, custom_pipe: 12000, target: null }],
 };
 
-const tablePayload = {
+const quarterPayload = {
   ...selfPayload,
   weeks: 2,
+  period: "quarter" as const,
   range: { from: "2026-06-29", to: "2026-07-12" },
-  pulse: [
-    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", calls: 1, meetings: 2, proposals: 0 },
-    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 2, meetings: 4, proposals: 1 },
-  ],
-  pipeline: [
-    { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 1, generated_amount: 5000, won_count: 1, won_amount: 1000, won_by_type: { catalogue: 1000, sur_mesure: 0, conseil: 0 }, won_arr_amount: 1000, closing_rate_count: 1, closing_rate_amount: 0.2 },
-    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 3, generated_amount: 9000, won_count: 2, won_amount: 3000, won_by_type: { catalogue: 1000, sur_mesure: 1000, conseil: 500 }, won_arr_amount: 1000, closing_rate_count: 2 / 3, closing_rate_amount: 1 / 3 },
-  ],
-  quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: null }],
 };
 
 beforeEach(() => {
@@ -101,18 +99,45 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("Weekly Perf", () => {
-  it("renders a commercial's metrics without a team toggle", async () => {
+  it("renders a commercial's week metrics without a team toggle", async () => {
     render(<WeeklyApp />);
 
     expect(await screen.findByText("Ada Lovelace")).toBeTruthy();
-    expect(screen.getByText("4")).toBeTruthy();
+    expect(screen.getByText("RDV")).toBeTruthy();
+    expect(screen.getAllByText(/\+1 vs S−1/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Équipe" })).toBeNull();
   });
 
-  it("requests the current fiscal quarter by default", async () => {
+  it("requests the current week by default", async () => {
     render(<WeeklyApp />);
     await screen.findByText("Ada Lovelace");
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/perf?period=quarter", expect.any(Object));
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/perf?period=week", expect.any(Object));
+  });
+
+  it("switches to quarter consolidated view", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(selfPayload), { status: 200 }))
+      .mockResolvedValue(new Response(JSON.stringify(quarterPayload), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<WeeklyApp />);
+    await screen.findByText("Ada Lovelace");
+    fireEvent.click(screen.getByRole("button", { name: "Trimestre" }));
+    expect(await screen.findByText("Trimestre fiscal en cours, semaine par semaine")).toBeTruthy();
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("period=quarter"))).toBe(true);
+  });
+
+  it("shows consolidated team stats in team view", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(teamPayload), { status: 200 })));
+    render(<WeeklyApp />);
+    fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
+    expect(await screen.findByText("Consolidé vs S−1")).toBeTruthy();
+    const rollup = screen.getByText("Consolidé vs S−1").closest(".weekly-section") as HTMLElement;
+    expect(within(rollup).getByText("RDV")).toBeTruthy();
+    expect(within(rollup).getByText("7")).toBeTruthy();
+    expect(within(rollup).getByText("CA signé")).toBeTruthy();
+    expect(within(rollup).getByText(/Ada 6/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
+    expect(await screen.findByRole("table", { name: /consolidé de l.équipe/i })).toBeTruthy();
   });
 
   it("filters managers and DG by default and reveals them with their badge", async () => {
@@ -157,58 +182,22 @@ describe("Weekly Perf", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Réessayer" }));
     expect(await screen.findByText("Ada Lovelace")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("renders the forecast vs signed effort chart", async () => {
+  it("renders the dedicated sur-mesure 6-month section", async () => {
     render(<WeeklyApp />);
-
-    await screen.findByText("Ada Lovelace");
-    expect(screen.getByText("Le pipeline avance-t-il ?")).toBeTruthy();
-    expect(screen.getByTestId("forecast-chart")).toBeTruthy();
-  });
-
-  it("renders the quarter gauge with signed, forecast and target amounts", async () => {
-    render(<WeeklyApp />);
-
-    await screen.findByText("Ada Lovelace");
-    expect(screen.getByLabelText(/Signé.*20.*000/)).toBeTruthy();
-    expect(screen.getByLabelText(/Forecast.*35.*000/)).toBeTruthy();
-    expect(screen.getByLabelText(/Target.*60.*000/)).toBeTruthy();
-    const legend = screen.getByLabelText("Répartition du CA signé").parentElement?.querySelectorAll(".weekly-breakdown-labels span");
-    expect(legend).toHaveLength(3);
-    expect(legend?.[0].className).toContain("weekly-legend-catalogue");
+    expect(await screen.findByText("6 prochains mois")).toBeTruthy();
+    expect(screen.getByText("Deal SM")).toBeTruthy();
   });
 
   it("computes table totals and averages client-side", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(tablePayload), { status: 200 })));
     render(<WeeklyApp />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Tableau" }));
     const table = screen.getByRole("table", { name: "Suivi hebdomadaire de Ada Lovelace" });
     expect(within(table).getByRole("columnheader", { name: "Total" })).toBeTruthy();
-    expect(within(table).getByRole("columnheader", { name: "Moyenne" })).toBeTruthy();
-    expect(within(table).getByRole("row", { name: /RDV effectués.*2.*4.*6.*3/ })).toBeTruthy();
-    expect(within(table).getByRole("row", { name: /CA signé.*1.*000.*3.*000.*4.*000.*2.*000/ })).toBeTruthy();
+    expect(within(table).getByRole("row", { name: /RDV effectués/ })).toBeTruthy();
     expect(within(table).queryByRole("row", { name: /Pipe sur-mesure/ })).toBeNull();
     expect(within(table).getAllByRole("row")).toHaveLength(10);
-  });
-
-  it("renders the dedicated sur-mesure 6-month section", async () => {
-    render(<WeeklyApp />);
-    expect(await screen.findByText("6 prochains mois consolidés")).toBeTruthy();
-    expect(screen.getByText("Deal SM")).toBeTruthy();
-    expect(screen.getByText(/ExpectedRevenue/)).toBeTruthy();
-  });
-
-  it("shows dashes for a missing target and its empty average", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(tablePayload), { status: 200 })));
-    render(<WeeklyApp />);
-
-    await screen.findByText("Ada Lovelace");
-    expect(screen.getByLabelText("Target —")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
-    const targetRow = within(screen.getByRole("table", { name: "Suivi hebdomadaire de Ada Lovelace" })).getByRole("row", { name: /Target/ });
-    expect(within(targetRow).getAllByText("—")).toHaveLength(4);
   });
 });

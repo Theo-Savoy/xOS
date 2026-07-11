@@ -40,6 +40,15 @@ export const WEEKLY_TRACKING_BY_SF_USER = {
   "005b0000005zfnvAAA": "dg", // Jérôme Bosio
 };
 
+/** Commerciaux inactifs / anciens à exclure du rituel Weekly Perf (nom SF). */
+export const WEEKLY_EXCLUDED_NAME_PATTERNS = [
+  /waeselynck/i, // Romain Waeselynck
+  /^julien bak$/i,
+  /^roxane s[eé]rie$/i,
+  /^antoine fardet$/i,
+  /ibrahima sissoko/i,
+];
+
 export function roleFromEmail(email) {
   if (typeof email !== "string" || !email) return "commercial";
   const key = email.trim().toLowerCase();
@@ -57,6 +66,13 @@ export function trackingModeFor(sfUserId, overrides = {}) {
   if (fromOverride === "sdr" || fromOverride === "dg" || fromOverride === "commercial") return fromOverride;
   const fromDefault = Object.entries(WEEKLY_TRACKING_BY_SF_USER).find(([id]) => sfIdKey(id) === key)?.[1];
   return fromDefault || "commercial";
+}
+
+/** Exclut les users SF inactifs et les anciens commerciaux listés. */
+export function isWeeklyOwnerExcluded(sfUser, nameFallback = "") {
+  if (sfUser && sfUser.IsActive === false) return true;
+  const name = String(sfUser?.Name || nameFallback || "");
+  return WEEKLY_EXCLUDED_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 export function roleAtLeast(role, minimum) {
