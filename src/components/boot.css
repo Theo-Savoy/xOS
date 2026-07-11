@@ -173,8 +173,8 @@
 
 .xos-desktop-stage--in {
   opacity: 1;
-  transform: scale(1);
-  filter: blur(0);
+  transform: none;
+  filter: none;
 }
 
 @keyframes xos-boot-backdrop {

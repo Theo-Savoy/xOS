@@ -110,7 +110,7 @@
     180% 180%,
     180% 180%,
     200% 200%;
-  animation: xos-wallpaper-drift 30s ease-in-out infinite;
+  /* animation: xos-wallpaper-drift 30s ease-in-out infinite; */
 }
 
 @keyframes xos-wallpaper-drift {
