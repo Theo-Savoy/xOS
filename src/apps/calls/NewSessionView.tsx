@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button, GlassCard, Tag } from "../../components/ui";
 import {
-  MAX_PER_COMPANY_OPTIONS,
   type CallTargetPreset,
   type ContactLimit,
   type DedupEntry,
@@ -40,6 +39,23 @@ type NewSessionViewProps = {
     sessionType: SessionType,
   ) => void;
 };
+
+function Cell({
+  children,
+  title,
+  className,
+}: {
+  children: ReactNode;
+  title?: string | null;
+  className?: string;
+}) {
+  const tip = title ?? (typeof children === "string" ? children : undefined);
+  return (
+    <span className={["calls-preview__cell", className].filter(Boolean).join(" ")} title={tip || undefined}>
+      {children}
+    </span>
+  );
+}
 
 export function NewSessionView({
   filters,
@@ -86,7 +102,11 @@ export function NewSessionView({
 
   useEffect(() => {
     setSelectedIds(selectIdsWithCompanyCap(preview, maxPerCompany, eligibleIds));
-    setCapHint(null);
+    setCapHint(
+      maxPerCompany
+        ? `Max ${maxPerCompany}/entreprise — priorité aux directeurs / responsables.`
+        : null,
+    );
   }, [preview, eligibleIds, maxPerCompany]);
 
   const selectedContacts = useMemo(
@@ -120,7 +140,7 @@ export function NewSessionView({
     setSelectedIds(selectIdsWithCompanyCap(preview, maxPerCompany, eligibleIds));
     setCapHint(
       maxPerCompany
-        ? `Sélection limitée à ${maxPerCompany} contact${maxPerCompany > 1 ? "s" : ""} par entreprise.`
+        ? `Sélection limitée à ${maxPerCompany}/entreprise (directeurs / responsables prioritaires).`
         : null,
     );
   };
@@ -154,6 +174,8 @@ export function NewSessionView({
         previewLoading={previewLoading}
         contactLimit={contactLimit}
         onContactLimitChange={onContactLimitChange}
+        maxPerCompany={maxPerCompany}
+        onMaxPerCompanyChange={setMaxPerCompany}
         onPreview={onPreview}
         presets={presets}
         presetsLoading={presetsLoading}
@@ -176,95 +198,12 @@ export function NewSessionView({
 
       {preview.length > 0 && (
         <>
-          <GlassCard className="calls-preview">
-            <div className="calls-preview__header">
-              <h3>Aperçu</h3>
+          <GlassCard className="calls-name-form calls-name-form--sticky">
+            <div className="calls-name-form__meta">
               <Tag>
-                {selectedContacts.length} sélectionné{selectedContacts.length > 1 ? "s" : ""} / {preview.length}
+                {selectedContacts.length} sélectionné{selectedContacts.length > 1 ? "s" : ""}
               </Tag>
-              <label className="calls-field calls-field--inline">
-                <span>Max / entreprise</span>
-                <select
-                  className="calls-select"
-                  value={maxPerCompany ?? ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMaxPerCompany(value ? (Number(value) as MaxPerCompany) : null);
-                  }}
-                  aria-label="Maximum de contacts par entreprise"
-                >
-                  <option value="">Pas de limite</option>
-                  {MAX_PER_COMPANY_OPTIONS.map((limit) => (
-                    <option key={limit} value={limit}>
-                      {limit}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="calls-preview__actions">
-                <Button variant="secondary" onClick={selectAll}>
-                  Tout sélectionner
-                </Button>
-                <Button variant="secondary" onClick={deselectAll}>
-                  Tout désélectionner
-                </Button>
-              </div>
             </div>
-            {capHint && (
-              <p className="calls-preview__cap-hint" role="status" aria-live="polite">
-                {capHint}
-              </p>
-            )}
-            <ul className="calls-preview__list">
-              <li className="calls-preview__list-header" aria-hidden="true">
-                <span className="calls-preview__select" />
-                <span>Contact</span>
-                <span>Poste</span>
-                <span>Entreprise</span>
-                <span>Téléphone</span>
-                <span>LinkedIn</span>
-                <span />
-              </li>
-              {preview.map((contact) => {
-                const dup = inSessionOf.get(contact.sf_contact_id);
-                const checked = selectedIds.has(contact.sf_contact_id);
-                const blocked =
-                  !checked && !canSelectContact(preview, selectedIds, contact.sf_contact_id, maxPerCompany);
-                return (
-                  <li key={contact.sf_contact_id} className={!checked ? "calls-preview__row--excluded" : undefined}>
-                    <label className="calls-preview__select calls-checkbox calls-checkbox--tight">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={blocked}
-                        title={blocked ? (capHint ?? "Plafond entreprise atteint") : undefined}
-                        onChange={() => toggleContact(contact.sf_contact_id)}
-                        aria-label={`Sélectionner ${contact.contact_name}`}
-                      />
-                    </label>
-                    <strong>{contact.contact_name}</strong>
-                    <span>{contact.title ?? "—"}</span>
-                    <span>{contact.account_name ?? "—"}</span>
-                    <span className="xos-numeric">{contact.phone ?? contact.mobile_phone ?? "—"}</span>
-                    {contact.linkedin_url ? (
-                      <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer">
-                        LinkedIn
-                      </a>
-                    ) : (
-                      <span>—</span>
-                    )}
-                    {dup ? (
-                      <Tag variant="alert">Déjà en séance — {dup}</Tag>
-                    ) : (
-                      <span />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </GlassCard>
-
-          <GlassCard className="calls-name-form">
             <label className="calls-field">
               <span>Nom de la séance</span>
               <input
@@ -283,6 +222,95 @@ export function NewSessionView({
             >
               {loading ? "Création…" : "Lancer la séance"}
             </Button>
+          </GlassCard>
+
+          <GlassCard className="calls-preview">
+            <div className="calls-preview__header">
+              <div className="calls-preview__heading">
+                <h3>Aperçu</h3>
+                <Tag>
+                  {selectedContacts.length} sélectionné{selectedContacts.length > 1 ? "s" : ""} /{" "}
+                  {preview.length}
+                </Tag>
+              </div>
+              <div className="calls-preview__actions">
+                <Button variant="secondary" onClick={selectAll}>
+                  Tout sélectionner
+                </Button>
+                <Button variant="secondary" onClick={deselectAll}>
+                  Tout désélectionner
+                </Button>
+              </div>
+            </div>
+            {capHint && (
+              <p className="calls-preview__cap-hint" role="status" aria-live="polite">
+                {capHint}
+              </p>
+            )}
+            <div className="calls-preview__table-wrap">
+              <ul className="calls-preview__list">
+                <li className="calls-preview__list-header" aria-hidden="true">
+                  <span className="calls-preview__select" />
+                  <span>Contact</span>
+                  <span>Poste</span>
+                  <span>Entreprise</span>
+                  <span>Téléphone</span>
+                  <span>LinkedIn</span>
+                  <span>Statut</span>
+                </li>
+                {preview.map((contact) => {
+                  const dup = inSessionOf.get(contact.sf_contact_id);
+                  const checked = selectedIds.has(contact.sf_contact_id);
+                  const blocked =
+                    !checked && !canSelectContact(preview, selectedIds, contact.sf_contact_id, maxPerCompany);
+                  const phone = contact.phone ?? contact.mobile_phone ?? null;
+                  return (
+                    <li
+                      key={contact.sf_contact_id}
+                      className={!checked ? "calls-preview__row--excluded" : undefined}
+                    >
+                      <label className="calls-preview__select calls-checkbox calls-checkbox--tight">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={blocked}
+                          title={blocked ? (capHint ?? "Plafond entreprise atteint") : undefined}
+                          onChange={() => toggleContact(contact.sf_contact_id)}
+                          aria-label={`Sélectionner ${contact.contact_name}`}
+                        />
+                      </label>
+                      <Cell className="calls-preview__name" title={contact.contact_name}>
+                        <strong>{contact.contact_name}</strong>
+                      </Cell>
+                      <Cell title={contact.title}>{contact.title ?? "—"}</Cell>
+                      <Cell title={contact.account_name}>{contact.account_name ?? "—"}</Cell>
+                      <Cell className="xos-numeric" title={phone}>
+                        {phone ?? "—"}
+                      </Cell>
+                      {contact.linkedin_url ? (
+                        <a
+                          href={contact.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="calls-preview__linkedin"
+                        >
+                          LinkedIn
+                        </a>
+                      ) : (
+                        <Cell>—</Cell>
+                      )}
+                      {dup ? (
+                        <Tag variant="alert" className="calls-preview__dup" title={`Déjà en séance — ${dup}`}>
+                          Déjà en séance — {dup}
+                        </Tag>
+                      ) : (
+                        <Cell>—</Cell>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </GlassCard>
         </>
       )}
