@@ -31,6 +31,8 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
   const [role, setRole] = useState<AppRole>("commercial");
   const [sfLinked, setSfLinked] = useState(false);
   const [sfLinking, setSfLinking] = useState(false);
+  const [sfLinkChecked, setSfLinkChecked] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,8 +53,11 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
       .eq("email", userEmail)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled && data && "sf_auth_connected_at" in data) {
-          setSfLinked(Boolean(data.sf_auth_connected_at));
+        if (!cancelled) {
+          if (data && "sf_auth_connected_at" in data) {
+            setSfLinked(Boolean(data.sf_auth_connected_at));
+          }
+          setSfLinkChecked(true);
         }
       });
     return () => {
@@ -97,17 +102,6 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
         </span>
         <button
           type="button"
-          className="xos-menubar__sf-link"
-          disabled={sfLinking}
-          onClick={() => {
-            setSfLinking(true);
-            void startSalesforceLink(accessToken).catch(() => setSfLinking(false));
-          }}
-        >
-          {sfLinked ? "Salesforce lié" : sfLinking ? "Connexion…" : "Lier Salesforce"}
-        </button>
-        <button
-          type="button"
           className="xos-menubar__logout"
           onClick={() => void supabase.auth.signOut()}
         >
@@ -118,6 +112,47 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
       <WindowManager windows={state.windows} dispatch={dispatch} />
       <Dock apps={visibleApps} windows={state.windows} onOpen={openApp} />
       <Launcher accessToken={accessToken} onOpenApp={openApp} apps={visibleApps} />
+
+      {!sfLinked && sfLinkChecked && !dismissed && (
+        <div className="xos-notification" role="alert">
+          <div className="xos-notification__header">
+            <div className="xos-notification__icon">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+              </svg>
+            </div>
+            <span className="xos-notification__appname">Salesforce</span>
+            <span className="xos-notification__time">maintenant</span>
+            <button
+              type="button"
+              className="xos-notification__close"
+              aria-label="Fermer"
+              onClick={() => setDismissed(true)}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="xos-notification__body">
+            <h3 className="xos-notification__title">Liaison requise</h3>
+            <p className="xos-notification__message">
+              Votre compte Salesforce n'est pas lié. Connectez-le pour synchroniser vos appels.
+            </p>
+          </div>
+          <div className="xos-notification__actions">
+            <button
+              type="button"
+              className="xos-notification__btn xos-notification__btn--primary"
+              disabled={sfLinking}
+              onClick={() => {
+                setSfLinking(true);
+                void startSalesforceLink(accessToken).catch(() => setSfLinking(false));
+              }}
+            >
+              {sfLinking ? "Connexion…" : "Lier Salesforce"}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
