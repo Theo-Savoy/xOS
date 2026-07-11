@@ -141,7 +141,7 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
           <div className="xos-notification__actions">
             <button
               type="button"
-              className="xos-notification__btn xos-notification__btn--primary"
+              className="xos-btn xos-btn--primary"
               disabled={sfLinking}
               onClick={() => {
                 setSfLinking(true);
