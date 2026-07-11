@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react";
 import "./ui.css";
 
 type TagProps = HTMLAttributes<HTMLSpanElement> & {
-  variant?: "default" | "accent" | "alert";
+  variant?: "default" | "accent" | "alert" | "success" | "warning" | "muted";
 };
 
 export function Tag({ variant = "default", className, ...props }: TagProps) {

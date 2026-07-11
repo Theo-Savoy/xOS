@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import mapping from "../api/_crm/mapping.js";
-import { filterContactsForFollowUp, getFollowUpOutcomes, isValidEventStart } from "../api/calls.js";
+import { filterContactsForFollowUp, getFollowUpOutcomes, isValidEventStart, computeHubKpis } from "../api/calls.js";
 import { parsePresetId, validatePresetInput } from "../api/_calls/presets.js";
 
 const followUpOutcomes = getFollowUpOutcomes(mapping);
@@ -10,19 +10,29 @@ assert.deepEqual(followUpOutcomes, [
 ]);
 
 const contacts = [
-  { contact_name: "Alice", outcome: "Appel non décroché" },
-  { contact_name: "Bob", outcome: "Message répondeur" },
-  { contact_name: "Carol", outcome: "Appel décroché" },
-  { contact_name: "Dave", outcome: "RDV planifié" },
-  { contact_name: "Eve", outcome: null },
+  { contact_name: "Alice", outcome: "Appel non décroché", status: "called" },
+  { contact_name: "Bob", outcome: "Message répondeur", status: "called" },
+  { contact_name: "Carol", outcome: "Appel décroché", status: "called" },
+  { contact_name: "Dave", outcome: "RDV planifié", status: "called" },
+  { contact_name: "Eve", outcome: null, status: "pending" },
+  { contact_name: "Frank", outcome: null, status: "skipped" },
 ];
 
 const filtered = filterContactsForFollowUp(contacts, followUpOutcomes);
-assert.equal(filtered.length, 2);
+assert.equal(filtered.length, 4);
 assert.deepEqual(
   filtered.map((contact) => contact.contact_name),
-  ["Alice", "Bob"],
+  ["Alice", "Bob", "Eve", "Frank"],
 );
+
+const kpis = computeHubKpis([
+  { status: "called", outcome: "RDV planifié", marked_npa: false },
+  { status: "called", outcome: "Appel argumenté", marked_npa: true },
+]);
+assert.equal(kpis.calls, 2);
+assert.equal(kpis.rdv, 1);
+assert.equal(kpis.npa, 1);
+assert.equal(kpis.rate_rdv_per_argumente, 50);
 
 assert.equal(validatePresetInput(null).error, "invalid_body");
 assert.equal(validatePresetInput({ name: "", filters: {} }).error, "invalid_name");

@@ -27,6 +27,8 @@ const mockSessions = {
       name: "Prospection Lyon",
       status: "active" as const,
       created_at: "2026-07-10T10:00:00Z",
+      scheduled_for: "2026-07-10",
+      session_type: "prospection" as const,
       total: 10,
       called: 3,
       skipped: 1,
@@ -41,6 +43,28 @@ const mockStats = {
     calls_week: 20,
     sessions_active: 1,
     sessions_completed: 2,
+    week: {
+      calls: 20,
+      decroche: 10,
+      argumente: 5,
+      rdv: 2,
+      npa: 1,
+      rate_decroche: 50,
+      rate_argumente: 25,
+      rate_rdv_per_decroche: 20,
+      rate_rdv_per_argumente: 40,
+    },
+    month: {
+      calls: 40,
+      decroche: 20,
+      argumente: 10,
+      rdv: 4,
+      npa: 2,
+      rate_decroche: 50,
+      rate_argumente: 25,
+      rate_rdv_per_decroche: 20,
+      rate_rdv_per_argumente: 40,
+    },
   },
 };
 
@@ -194,7 +218,7 @@ describe("CallManagerApp component", () => {
     expect(screen.queryByText("Contact obsolète")).toBeNull();
   });
 
-  it("keeps the last RDV contact visible until its Event is logged", async () => {
+  it("logs call and Event together when RDV planifié is selected", async () => {
     const user = userEvent.setup();
     const pendingContact = {
       id: 101,
@@ -226,7 +250,6 @@ describe("CallManagerApp component", () => {
     };
     const detailResponses = [
       { session: activeSession, contacts: [pendingContact] },
-      { session: activeSession, contacts: [calledContact] },
       { session: activeSession, contacts: [calledContact] },
       { session: { ...activeSession, status: "completed" }, contacts: [calledContact] },
     ];
@@ -269,12 +292,11 @@ describe("CallManagerApp component", () => {
     await screen.findByRole("heading", { name: "Dernier contact" });
     await user.click(screen.getByRole("button", { name: "Fiche" }));
     await user.click(screen.getByRole("button", { name: "RDV planifié" }));
-    await user.click(screen.getByRole("button", { name: "Logguer & suivant" }));
 
-    await screen.findByRole("heading", { name: "RDV planifié — Alice Martin" });
-    expect(postedActions).toEqual(["log_call"]);
+    expect(await screen.findByRole("heading", { name: "Détails du RDV" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Logguer & suivant" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Enregistrer le RDV & suivant" }));
+    await user.click(screen.getByRole("button", { name: "Logguer appel + RDV & suivant" }));
     await screen.findByText("Terminée");
     expect(postedActions).toEqual(["log_call", "log_event", "complete_session"]);
   });

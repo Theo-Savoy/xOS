@@ -84,3 +84,21 @@
   border-color: color-mix(in srgb, var(--xos-alert) 60%, transparent);
   background: var(--xos-alert);
 }
+
+.xos-tag--success {
+  color: #d8ffe8;
+  border-color: color-mix(in srgb, #22c55e 55%, transparent);
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+}
+
+.xos-tag--warning {
+  color: #ffe8c2;
+  border-color: color-mix(in srgb, #f59e0b 55%, transparent);
+  background: color-mix(in srgb, #f59e0b 20%, transparent);
+}
+
+.xos-tag--muted {
+  color: var(--xos-text-muted);
+  border-color: var(--xos-border);
+  background: rgba(255, 255, 255, 0.03);
+}
