@@ -10,14 +10,18 @@ vi.mock("recharts", () => ({
   Bar: () => null,
   BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
+  Cell: () => null,
   Legend: () => null,
   Line: () => null,
   LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="forecast-chart">{children}</div>,
   ReferenceLine: () => null,
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Scatter: ({ children }: { children?: React.ReactNode }) => <div data-testid="opp-scatter">{children}</div>,
+  ScatterChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Tooltip: () => null,
   XAxis: () => null,
   YAxis: () => null,
+  ZAxis: () => null,
 }));
 
 import WeeklyApp from "./WeeklyApp";
@@ -43,10 +47,10 @@ const selfPayload = {
     { sf_user_id: "self", week_start: "2026-07-06", week: "2026-W28", forecast: 35000, signed_to_date: 20000 },
   ],
   follow_up_opps: [
-    { id: "006F", name: "Deal à pousser", sf_user_id: "self", stage: "Négo financière engagée", amount: 20000, probability: 50, expected: 10000, close_date: "2026-08-15" },
+    { id: "006F", name: "Deal à pousser", sf_user_id: "self", stage: "Négo financière engagée", amount: 20000, probability: 50, expected: 10000, close_date: "2026-08-15", url: "https://example.salesforce.com/lightning/r/Opportunity/006F/view" },
   ],
   stagnant_opps: [
-    { id: "006S", name: "Deal silencieux", sf_user_id: "self", stage: "Proposition envoyée", amount: 12000, probability: 40, expected: 4800, close_date: "2026-09-01", days_in_stage: 52, days_since_activity: 28, reasons: ["stage", "silence"] },
+    { id: "006S", name: "Deal silencieux", sf_user_id: "self", stage: "Proposition envoyée", amount: 12000, probability: 40, expected: 4800, close_date: "2026-09-01", days_in_stage: 52, days_since_activity: 28, reasons: ["stage", "silence"], url: "https://example.salesforce.com/lightning/r/Opportunity/006S/view" },
   ],
   pace: {
     week_of_quarter: 1,
@@ -119,12 +123,22 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 describe("Weekly Perf", () => {
   it("renders the Monday decision board with weighted and stagnant opps", async () => {
     render(<WeeklyApp />);
-    expect(await screen.findByText("Ce qu’il faut bouger lundi")).toBeTruthy();
-    expect(screen.getByText("Deal à pousser")).toBeTruthy();
-    expect(screen.getByText("Deal silencieux")).toBeTruthy();
-    expect(screen.getByText("Étape + silence")).toBeTruthy();
-    expect(screen.getByText("Objectif trimestre en vue")).toBeTruthy();
-    expect(screen.getByText(/\+5 000|vs N−1/)).toBeTruthy();
+    expect(await screen.findByText("Opportunités essentielles du trimestre")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Deal à pousser" }).getAttribute("href")).toBe("https://example.salesforce.com/lightning/r/Opportunity/006F/view");
+    expect(screen.getByRole("link", { name: "Deal silencieux" })).toBeTruthy();
+    expect(screen.getByText("Objectif du trimestre")).toBeTruthy();
+    expect(screen.getByText(/vs même période N−1/)).toBeTruthy();
+    expect(screen.getByTestId("opp-scatter")).toBeTruthy();
+  });
+
+  it("filters the team view down to one commercial", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(teamPayload), { status: 200 })));
+    render(<WeeklyApp />);
+    fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
+    expect(screen.getAllByText("Yanis Agharbi").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Filtrer un commercial"), { target: { value: "self" } });
+    expect(screen.getByRole("heading", { level: 4, name: "Ada Lovelace" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { level: 4, name: "Yanis Agharbi" })).toBeNull();
   });
 
   it("renders a commercial's week metrics without a team toggle", async () => {
@@ -190,11 +204,11 @@ describe("Weekly Perf", () => {
     fireEvent.click(screen.getByRole("button", { name: "Équipe" }));
     expect(screen.queryByText("Grace Hopper")).toBeNull();
     expect(screen.queryByText("Jérôme Bosio")).toBeNull();
-    expect(screen.getByText("Yanis Agharbi")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 4, name: "Yanis Agharbi" })).toBeTruthy();
     expect(screen.getByText("SDR")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Commerciaux seulement" }));
-    expect(await screen.findByText("Grace Hopper")).toBeTruthy();
-    expect(screen.getByText("Jérôme Bosio")).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 4, name: "Grace Hopper" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 4, name: "Jérôme Bosio" })).toBeTruthy();
     expect(screen.getByText("DG")).toBeTruthy();
   });
 
@@ -202,7 +216,7 @@ describe("Weekly Perf", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(teamPayload), { status: 200 })));
     render(<WeeklyApp />);
     fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
-    const sdrCard = screen.getByText("Yanis Agharbi").closest(".weekly-pulse-card");
+    const sdrCard = screen.getByRole("heading", { level: 4, name: "Yanis Agharbi" }).closest(".weekly-pulse-card");
     expect(sdrCard).toBeTruthy();
     expect(within(sdrCard as HTMLElement).getByText("RDV pris")).toBeTruthy();
     expect(within(sdrCard as HTMLElement).queryByLabelText("Répartition du CA signé")).toBeNull();

@@ -12,7 +12,12 @@ vi.mock("./_auth.js", () => ({
   verifyJWT: mockVerifyJWT,
 }));
 vi.mock("./_calls/profileCache.js", () => ({ getProfile: mockGetProfile }));
-vi.mock("./_crm/salesforce.js", () => ({ fetchSFToken: mockFetchSFToken, searchContacts: mockSearchContacts, escapeSOQL: (v) => String(v).replace(/\\/g, "\\\\").replace(/'/g, "\\'") }));
+vi.mock("./_crm/salesforce.js", () => ({
+  fetchSFToken: mockFetchSFToken,
+  searchContacts: mockSearchContacts,
+  escapeSOQL: (v) => String(v).replace(/\\/g, "\\\\").replace(/'/g, "\\'"),
+  buildLightningUrl: (type, id) => (id ? `https://sf.test/lightning/r/${type}/${id}/view` : null),
+}));
 
 const teamProfiles = [
   { id: "user-a", email: "ada@xos-learning.fr", full_name: "Ada", sf_user_id: "005A", role: "commercial" },

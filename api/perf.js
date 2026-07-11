@@ -3,7 +3,7 @@ import { getServiceClient } from "./_calls/http.js";
 import { getProfile } from "./_calls/profileCache.js";
 import { canViewTeamPerf, isWeeklyOwnerExcluded, sfIdKey, trackingModeFor } from "./_config/access.js";
 import mapping from "./_crm/mapping.js";
-import { escapeSOQL, fetchSFToken, searchContacts } from "./_crm/salesforce.js";
+import { escapeSOQL, fetchSFToken, searchContacts, buildLightningUrl } from "./_crm/salesforce.js";
 
 const CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=60";
 const TIMEZONE = "Europe/Paris";
@@ -194,6 +194,7 @@ export function buildCustomPipe(records, fields, today = dateKey(), ownerIds = n
       probability: number(record[fields.probability]),
       close_date: close,
       month: key,
+      url: buildLightningUrl("Opportunity", record.Id || record[fields.id]),
     });
   }
   opps.sort((a, b) => b.expected - a.expected || b.amount - a.amount);
@@ -275,6 +276,7 @@ export function buildFollowUpOpps(records, fields, ownerIds, limit = 8) {
       probability: number(record[fields.probability]),
       expected: expectedRevenue(record, fields),
       close_date: record[fields.closeDate] ? dateKey(record[fields.closeDate]) : null,
+      url: buildLightningUrl("Opportunity", record[fields.id]),
     }))
     .filter((row) => row.expected > 0)
     .sort((a, b) => b.expected - a.expected || b.amount - a.amount)
@@ -316,6 +318,7 @@ export function buildStagnantOpps(records, fields, ownerIds, today = dateKey(), 
       days_in_stage: daysInStage,
       days_since_activity: daysSinceActivity,
       reasons,
+      url: buildLightningUrl("Opportunity", record[fields.id]),
     });
   }
   return rows
