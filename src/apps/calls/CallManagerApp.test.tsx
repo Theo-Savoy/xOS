@@ -194,7 +194,7 @@ describe("CallManagerApp component", () => {
     expect(screen.queryByText("Contact obsolète")).toBeNull();
   });
 
-  it("keeps the last RDV contact visible until its Event is logged", async () => {
+  it("logs call and Event together when RDV planifié is selected", async () => {
     const user = userEvent.setup();
     const pendingContact = {
       id: 101,
@@ -226,7 +226,6 @@ describe("CallManagerApp component", () => {
     };
     const detailResponses = [
       { session: activeSession, contacts: [pendingContact] },
-      { session: activeSession, contacts: [calledContact] },
       { session: activeSession, contacts: [calledContact] },
       { session: { ...activeSession, status: "completed" }, contacts: [calledContact] },
     ];
@@ -269,12 +268,11 @@ describe("CallManagerApp component", () => {
     await screen.findByRole("heading", { name: "Dernier contact" });
     await user.click(screen.getByRole("button", { name: "Fiche" }));
     await user.click(screen.getByRole("button", { name: "RDV planifié" }));
-    await user.click(screen.getByRole("button", { name: "Logguer & suivant" }));
 
-    await screen.findByRole("heading", { name: "RDV planifié — Alice Martin" });
-    expect(postedActions).toEqual(["log_call"]);
+    expect(await screen.findByRole("heading", { name: "Détails du RDV" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Logguer & suivant" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Enregistrer le RDV & suivant" }));
+    await user.click(screen.getByRole("button", { name: "Logguer appel + RDV & suivant" }));
     await screen.findByText("Terminée");
     expect(postedActions).toEqual(["log_call", "log_event", "complete_session"]);
   });

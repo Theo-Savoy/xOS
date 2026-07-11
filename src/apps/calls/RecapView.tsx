@@ -20,7 +20,12 @@ export function RecapView({
 }: RecapViewProps) {
   const called = contacts.filter((c) => c.status === "called");
   const skipped = contacts.filter((c) => c.status === "skipped");
+  const pending = contacts.filter((c) => c.status === "pending");
   const rdv = called.filter((c) => c.outcome === "RDV planifié");
+  const followUpCount =
+    called.filter((c) => c.outcome === "Appel non décroché" || c.outcome === "Message répondeur").length +
+    skipped.length +
+    pending.length;
 
   return (
     <div className="calls-view">
@@ -31,7 +36,9 @@ export function RecapView({
         </div>
         <div className="calls-view__actions">
           <Button variant="secondary" onClick={onCreateFollowUp} disabled={followUpLoading}>
-            {followUpLoading ? "Création…" : "Créer une séance de relance"}
+            {followUpLoading
+              ? "Création…"
+              : `Créer une séance de relance${followUpCount ? ` (${followUpCount})` : ""}`}
           </Button>
           <Button onClick={onBack}>Retour aux séances</Button>
         </div>
@@ -47,12 +54,12 @@ export function RecapView({
           <strong className="xos-numeric">{rdv.length}</strong>
         </GlassCard>
         <GlassCard className="calls-stat">
-          <span>Passés</span>
+          <span>Non joints</span>
           <strong className="xos-numeric">{skipped.length}</strong>
         </GlassCard>
         <GlassCard className="calls-stat">
-          <span>Total</span>
-          <strong className="xos-numeric">{contacts.length}</strong>
+          <span>Non contactés</span>
+          <strong className="xos-numeric">{pending.length}</strong>
         </GlassCard>
       </div>
 
@@ -65,10 +72,46 @@ export function RecapView({
             {called.map((contact) => (
               <li key={contact.id}>
                 <strong>{contact.contact_name}</strong>
-                <Tag variant={contact.outcome === "RDV planifié" ? "alert" : "accent"}>
+                <Tag
+                  variant={
+                    contact.outcome === "RDV planifié"
+                      ? "success"
+                      : contact.outcome === "Appel non décroché" || contact.outcome === "Message répondeur"
+                        ? "warning"
+                        : "accent"
+                  }
+                >
                   {contact.outcome ?? "—"}
                 </Tag>
                 {contact.comments && <span>{contact.comments}</span>}
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      )}
+
+      {skipped.length > 0 && (
+        <GlassCard className="calls-recap-list">
+          <h3>Non joints (inclus en relance)</h3>
+          <ul>
+            {skipped.map((contact) => (
+              <li key={contact.id}>
+                <strong>{contact.contact_name}</strong>
+                <Tag variant="warning">Non joint</Tag>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      )}
+
+      {pending.length > 0 && (
+        <GlassCard className="calls-recap-list">
+          <h3>Non contactés (inclus en relance)</h3>
+          <ul>
+            {pending.map((contact) => (
+              <li key={contact.id}>
+                <strong>{contact.contact_name}</strong>
+                <Tag variant="muted">À faire</Tag>
               </li>
             ))}
           </ul>

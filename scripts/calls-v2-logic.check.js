@@ -10,18 +10,19 @@ assert.deepEqual(followUpOutcomes, [
 ]);
 
 const contacts = [
-  { contact_name: "Alice", outcome: "Appel non décroché" },
-  { contact_name: "Bob", outcome: "Message répondeur" },
-  { contact_name: "Carol", outcome: "Appel décroché" },
-  { contact_name: "Dave", outcome: "RDV planifié" },
-  { contact_name: "Eve", outcome: null },
+  { contact_name: "Alice", outcome: "Appel non décroché", status: "called" },
+  { contact_name: "Bob", outcome: "Message répondeur", status: "called" },
+  { contact_name: "Carol", outcome: "Appel décroché", status: "called" },
+  { contact_name: "Dave", outcome: "RDV planifié", status: "called" },
+  { contact_name: "Eve", outcome: null, status: "pending" },
+  { contact_name: "Frank", outcome: null, status: "skipped" },
 ];
 
 const filtered = filterContactsForFollowUp(contacts, followUpOutcomes);
-assert.equal(filtered.length, 2);
+assert.equal(filtered.length, 4);
 assert.deepEqual(
   filtered.map((contact) => contact.contact_name),
-  ["Alice", "Bob"],
+  ["Alice", "Bob", "Eve", "Frank"],
 );
 
 assert.equal(validatePresetInput(null).error, "invalid_body");

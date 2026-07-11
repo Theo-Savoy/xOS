@@ -22,6 +22,8 @@ type LogPayload = {
   doNotCall: boolean;
 };
 
+type ListStatusFilter = "all" | "pending" | "called" | "skipped";
+
 type RunnerViewProps = {
   session: SessionDetail;
   contacts: SessionContact[];
@@ -34,6 +36,11 @@ type RunnerViewProps = {
   onBack: () => void;
   onFocusContact: (contactId: number) => void;
   onLogAndNext: (contactId: number, payload: LogPayload) => void;
+  onLogRdvAndNext: (
+    contactId: number,
+    payload: LogPayload,
+    event: { start: string; durationMin: number; invitees: string[] },
+  ) => void;
   onLogMany: (contactIds: number[], payload: LogPayload) => void;
   onLogEvent: (start: string, durationMin: number, invitees: string[]) => void;
   onSkip: (contactId: number) => void;
@@ -59,13 +66,22 @@ function readDefaultRecallDays(): number {
 
 function statusLabel(status: SessionContact["status"]): string {
   if (status === "called") return "Appelé";
-  if (status === "skipped") return "Passé";
+  if (status === "skipped") return "Non joint";
   return "À faire";
 }
 
-function statusVariant(status: SessionContact["status"]): "accent" | "default" | "alert" {
+function statusVariant(status: SessionContact["status"]): "accent" | "default" | "warning" {
   if (status === "called") return "default";
-  if (status === "skipped") return "alert";
+  if (status === "skipped") return "warning";
+  return "accent";
+}
+
+function outcomeVariant(
+  outcome: ResultatCall | null | undefined,
+): "success" | "warning" | "accent" | "muted" {
+  if (!outcome) return "muted";
+  if (outcome === "RDV planifié") return "success";
+  if (outcome === "Appel non décroché" || outcome === "Message répondeur") return "warning";
   return "accent";
 }
 
@@ -122,6 +138,7 @@ export function RunnerView({
   onBack,
   onFocusContact,
   onLogAndNext,
+  onLogRdvAndNext,
   onLogMany,
   onLogEvent,
   onSkip,
@@ -130,6 +147,8 @@ export function RunnerView({
   const [mode, setMode] = useState<RunnerMode>("list");
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [listStatusFilter, setListStatusFilter] = useState<ListStatusFilter>("all");
+  const [listQuery, setListQuery] = useState("");
   const [resultat, setResultat] = useState<ResultatCall>(RESULTAT_OPTIONS[0].value);
   const [bulkResultat, setBulkResultat] = useState<ResultatCall>(RESULTAT_OPTIONS[0].value);
   const [comments, setComments] = useState("");
@@ -144,6 +163,23 @@ export function RunnerView({
   const needsRecall = RELANCE_DEFAULT_RESULTATS.includes(resultat) && !doNotCall;
   const bulkNeedsRecall = RELANCE_DEFAULT_RESULTATS.includes(bulkResultat) && !bulkDoNotCall;
   const pendingContacts = useMemo(() => contacts.filter((c) => c.status === "pending"), [contacts]);
+  const filteredContacts = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    return contacts.filter((contact) => {
+      if (listStatusFilter !== "all" && contact.status !== listStatusFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        contact.contact_name,
+        contact.title,
+        contact.account_name,
+        contact.phone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [contacts, listStatusFilter, listQuery]);
   const pendingSelected = useMemo(
     () => [...selectedIds].filter((id) => pendingContacts.some((c) => c.id === id)),
     [selectedIds, pendingContacts],
@@ -223,12 +259,27 @@ export function RunnerView({
 
   const handleSubmit = () => {
     if (!focusedContact || focusedContact.status !== "pending") return;
+    if (resultat === "RDV planifié") return;
     onLogAndNext(focusedContact.id, {
       resultat,
       comments,
       recallAt: needsRecall ? recallAt : null,
       doNotCall,
     });
+  };
+
+  const handleRdvSubmit = (start: string, durationMin: number, invitees: string[]) => {
+    if (!focusedContact || focusedContact.status !== "pending") return;
+    onLogRdvAndNext(
+      focusedContact.id,
+      {
+        resultat: "RDV planifié",
+        comments,
+        recallAt: null,
+        doNotCall,
+      },
+      { start, durationMin, invitees },
+    );
   };
 
   const handleBulkLog = () => {
@@ -386,7 +437,7 @@ export function RunnerView({
                     : `Consigner pour ${pendingSelected.length}`}
                 </Button>
                 <Button variant="secondary" onClick={handleBulkSkip} disabled={loading}>
-                  Passer la sélection
+                  Non joint (relance)
                 </Button>
               </div>
             </GlassCard>
@@ -405,16 +456,48 @@ export function RunnerView({
                 </Button>
               </div>
             </div>
+            <div className="calls-cockpit-list__filters">
+              <div className="calls-list-filter-chips" role="group" aria-label="Filtrer par statut">
+                {(
+                  [
+                    ["all", "Tous"],
+                    ["pending", "À faire"],
+                    ["called", "Appelés"],
+                    ["skipped", "Non joints"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`calls-list-filter-chip${listStatusFilter === value ? " calls-list-filter-chip--active" : ""}`}
+                    aria-pressed={listStatusFilter === value}
+                    onClick={() => setListStatusFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="search"
+                className="calls-input calls-cockpit-list__search"
+                placeholder="Filtrer nom, poste, entreprise, tél…"
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+                aria-label="Filtrer la liste"
+              />
+            </div>
             <ul className="calls-cockpit-list__rows">
               <li className="calls-cockpit-list__header" aria-hidden="true">
                 <span />
                 <span>Contact</span>
+                <span>Poste</span>
                 <span>Entreprise</span>
+                <span>Téléphone</span>
                 <span>Statut</span>
                 <span>Résultat</span>
                 <span>Rappel</span>
               </li>
-              {contacts.map((contact) => (
+              {filteredContacts.map((contact) => (
                 <li
                   key={contact.id}
                   className={[
@@ -435,14 +518,36 @@ export function RunnerView({
                   </label>
                   <button type="button" className="calls-cockpit-list__name" onClick={() => openDetail(contact.id)}>
                     <strong>{contact.contact_name}</strong>
-                    <small>{contact.title ?? "—"}</small>
                   </button>
-                  <span>{contact.account_name ?? "—"}</span>
+                  <span className="calls-cockpit-list__cell" title={contact.title ?? undefined}>
+                    {contact.title ?? "—"}
+                  </span>
+                  <span className="calls-cockpit-list__cell" title={contact.account_name ?? undefined}>
+                    {contact.account_name ?? "—"}
+                  </span>
+                  {contact.phone ? (
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="calls-cockpit-list__phone xos-numeric"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {contact.phone}
+                    </a>
+                  ) : (
+                    <span className="calls-cockpit-list__cell">—</span>
+                  )}
                   <Tag variant={statusVariant(contact.status)}>{statusLabel(contact.status)}</Tag>
-                  <span>{contact.outcome ?? "—"}</span>
-                <span className="xos-numeric">{contact.recall_at ?? "—"}</span>
+                  {contact.outcome ? (
+                    <Tag variant={outcomeVariant(contact.outcome)}>{contact.outcome}</Tag>
+                  ) : (
+                    <span className="calls-cockpit-list__cell">—</span>
+                  )}
+                  <span className="xos-numeric">{contact.recall_at ?? "—"}</span>
                 </li>
               ))}
+              {filteredContacts.length === 0 && (
+                <li className="calls-cockpit-list__empty">Aucun contact pour ce filtre.</li>
+              )}
             </ul>
           </GlassCard>
         </div>
@@ -494,7 +599,9 @@ export function RunnerView({
             {focusedContact.status !== "pending" && (
               <div className="calls-contact-card__meta">
                 <Tag variant={statusVariant(focusedContact.status)}>{statusLabel(focusedContact.status)}</Tag>
-                {focusedContact.outcome && <Tag variant="accent">{focusedContact.outcome}</Tag>}
+                {focusedContact.outcome && (
+                  <Tag variant={outcomeVariant(focusedContact.outcome)}>{focusedContact.outcome}</Tag>
+                )}
                 {focusedContact.recall_at && <span>Rappel {focusedContact.recall_at}</span>}
               </div>
             )}
@@ -564,6 +671,7 @@ export function RunnerView({
               contactName={awaitingEvent.contact_name}
               loading={loading}
               onSubmit={onLogEvent}
+              heading={`Finaliser le RDV — ${awaitingEvent.contact_name}`}
             />
           ) : focusedContact.status === "pending" ? (
             <GlassCard className="calls-log-form">
@@ -620,18 +728,43 @@ export function RunnerView({
                 />
               </label>
 
-              <div className="calls-runner-actions">
-                <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? "Enregistrement…" : "Logguer & suivant"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => onSkip(focusedContact.id)}
-                  disabled={loading}
-                >
-                  Passer
-                </Button>
-              </div>
+              {resultat === "RDV planifié" ? (
+                <EventPanel
+                  contactName={focusedContact.contact_name}
+                  loading={loading}
+                  onSubmit={handleRdvSubmit}
+                  submitLabel="Logguer appel + RDV & suivant"
+                  heading="Détails du RDV"
+                  className="calls-event-panel--inline"
+                />
+              ) : (
+                <div className="calls-runner-actions">
+                  <Button onClick={handleSubmit} disabled={loading}>
+                    {loading ? "Enregistrement…" : "Logguer & suivant"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => onSkip(focusedContact.id)}
+                    disabled={loading}
+                    title="Marque comme non joint — inclus dans la séance de relance"
+                  >
+                    Non joint
+                  </Button>
+                </div>
+              )}
+
+              {resultat === "RDV planifié" && (
+                <div className="calls-runner-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => onSkip(focusedContact.id)}
+                    disabled={loading}
+                    title="Marque comme non joint — inclus dans la séance de relance"
+                  >
+                    Non joint
+                  </Button>
+                </div>
+              )}
             </GlassCard>
           ) : (
             <GlassCard className="calls-empty">

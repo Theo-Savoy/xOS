@@ -2,10 +2,20 @@ import { useState } from "react";
 import { Button, GlassCard } from "../../components/ui";
 import { TagInput } from "./filterControls";
 
+export type EventDraft = {
+  start: string;
+  durationMin: number;
+  invitees: string[];
+};
+
 type EventPanelProps = {
   contactName: string;
   loading: boolean;
   onSubmit: (start: string, durationMin: number, invitees: string[]) => void;
+  /** When set, used as primary CTA label (e.g. combined call+RDV log). */
+  submitLabel?: string;
+  heading?: string;
+  className?: string;
 };
 
 function defaultStart(): string {
@@ -15,7 +25,14 @@ function defaultStart(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function EventPanel({ contactName, loading, onSubmit }: EventPanelProps) {
+export function EventPanel({
+  contactName,
+  loading,
+  onSubmit,
+  submitLabel,
+  heading,
+  className,
+}: EventPanelProps) {
   const [start, setStart] = useState(defaultStart());
   const [durationMin, setDurationMin] = useState(30);
   const [invitees, setInvitees] = useState<string[]>([]);
@@ -40,8 +57,8 @@ export function EventPanel({ contactName, loading, onSubmit }: EventPanelProps) 
   };
 
   return (
-    <GlassCard className="calls-event-panel">
-      <h3>RDV planifié — {contactName}</h3>
+    <GlassCard className={["calls-event-panel", className].filter(Boolean).join(" ")}>
+      <h3>{heading ?? `RDV planifié — ${contactName}`}</h3>
       <div className="calls-fb-row">
         <label className="calls-field">
           <span>Date &amp; heure</span>
@@ -73,7 +90,7 @@ export function EventPanel({ contactName, loading, onSubmit }: EventPanelProps) 
       />
       {error && <p role="alert" aria-live="assertive" className="calls-error">{error}</p>}
       <Button onClick={handleSubmit} disabled={loading || !start}>
-        {loading ? "Enregistrement…" : "Enregistrer le RDV & suivant"}
+        {loading ? "Enregistrement…" : (submitLabel ?? "Enregistrer le RDV & suivant")}
       </Button>
     </GlassCard>
   );

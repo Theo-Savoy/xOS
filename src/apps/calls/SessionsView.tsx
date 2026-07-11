@@ -123,7 +123,7 @@ export function SessionsView({
                 <ProgressBar called={session.called} total={session.total} />
                 {session.skipped > 0 && (
                   <small className="calls-session-card__skipped">
-                    {session.skipped} passé{session.skipped > 1 ? "s" : ""}
+                    {session.skipped} non joint{session.skipped > 1 ? "s" : ""}
                   </small>
                 )}
               </GlassCard>

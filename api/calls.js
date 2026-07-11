@@ -78,9 +78,11 @@ export function getFollowUpOutcomes(taskMapping = mapping) {
 }
 
 export function filterContactsForFollowUp(contacts, followUpOutcomes = getFollowUpOutcomes()) {
-  return (Array.isArray(contacts) ? contacts : []).filter((contact) =>
-    followUpOutcomes.includes(contact.outcome),
-  );
+  return (Array.isArray(contacts) ? contacts : []).filter((contact) => {
+    // Non joints (marqués) + non contactés restants + non-réponses / répondeur
+    if (contact?.status === "skipped" || contact?.status === "pending") return true;
+    return followUpOutcomes.includes(contact?.outcome);
+  });
 }
 
 function getServiceClient() {
@@ -774,7 +776,7 @@ export async function POST(request) {
 
     const { data: sessionContacts, error: contactsLookupError } = await client
       .from("call_session_contacts")
-      .select("sf_contact_id, sf_account_id, contact_name, account_name, phone, outcome")
+      .select("sf_contact_id, sf_account_id, contact_name, account_name, phone, title, linkedin_url, outcome, status")
       .eq("session_id", session_id)
       .order("position", { ascending: true });
 

@@ -479,6 +479,46 @@
   font-size: 0.95rem;
 }
 
+.calls-cockpit-list__filters {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.calls-list-filter-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.2rem;
+  border: 1px solid var(--xos-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.calls-list-filter-chip {
+  font-family: var(--xos-font-display);
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--xos-text-muted);
+  cursor: pointer;
+}
+
+.calls-list-filter-chip--active {
+  background: var(--xos-accent);
+  color: #fff;
+}
+
+.calls-cockpit-list__search {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  margin: 0;
+}
+
 .calls-cockpit-list__rows {
   list-style: none;
   margin: 0;
@@ -489,8 +529,8 @@
 
 .calls-cockpit-list__rows li {
   display: grid;
-  grid-template-columns: auto 1.3fr 1fr auto 1fr 0.8fr;
-  gap: 0.55rem;
+  grid-template-columns: auto 1.1fr 0.95fr 1fr 7.5rem auto 1fr 0.7fr;
+  gap: 0.5rem;
   align-items: center;
   padding: 0.55rem 0.35rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -524,6 +564,7 @@
   cursor: pointer;
   padding: 0;
   font: inherit;
+  min-width: 0;
 }
 
 .calls-cockpit-list__name:hover strong {
@@ -534,8 +575,40 @@
   color: var(--xos-text-muted);
 }
 
+.calls-cockpit-list__cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xos-text-muted);
+}
+
+.calls-cockpit-list__phone {
+  color: var(--xos-accent);
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.calls-cockpit-list__phone:hover {
+  text-decoration: underline;
+}
+
+.calls-cockpit-list__empty {
+  display: block !important;
+  grid-template-columns: none !important;
+  padding: 1rem 0.5rem !important;
+  color: var(--xos-text-muted);
+  text-align: center;
+}
+
 .calls-cockpit-list__row--done {
   opacity: 0.62;
+}
+
+.calls-event-panel--inline {
+  margin-top: 0.35rem;
+  padding: 0.9rem;
 }
 
 .calls-cockpit-detail {

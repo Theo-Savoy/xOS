@@ -124,14 +124,16 @@ describe("helpers", () => {
     ]);
   });
 
-  it("filterContactsForFollowUp keeps only relance outcomes", () => {
+  it("filterContactsForFollowUp keeps relance outcomes, skipped and pending contacts", () => {
     const contacts = [
-      { outcome: SEMANTIC.followUpNoAnswer },
-      { outcome: SEMANTIC.followUpVoicemail },
-      { outcome: "Appel décroché" },
-      { outcome: SEMANTIC.rdv },
+      { outcome: SEMANTIC.followUpNoAnswer, status: "called" },
+      { outcome: SEMANTIC.followUpVoicemail, status: "called" },
+      { outcome: "Appel décroché", status: "called" },
+      { outcome: SEMANTIC.rdv, status: "called" },
+      { outcome: null, status: "skipped" },
+      { outcome: null, status: "pending" },
     ];
-    expect(filterContactsForFollowUp(contacts)).toHaveLength(2);
+    expect(filterContactsForFollowUp(contacts)).toHaveLength(4);
   });
 
   it("isValidScheduledFor accepts strict YYYY-MM-DD dates", () => {
