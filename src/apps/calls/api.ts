@@ -1,6 +1,7 @@
 import type { CallTargetPreset, DedupEntry, FilterTree, ResultatCall } from "../../crm";
 import type {
   CallStats,
+  ContactContext,
   ContactPreview,
   SessionContact,
   SessionDetail,
@@ -65,6 +66,18 @@ export async function fetchSession(
   return apiFetch(token, `/api/calls?session_id=${sessionId}`);
 }
 
+export async function fetchContactContext(
+  token: string,
+  sessionId: number,
+  contactId: number,
+): Promise<ContactContext> {
+  const data = await apiFetch<{ context: ContactContext }>(
+    token,
+    `/api/calls?session_id=${sessionId}&context_contact_id=${contactId}`,
+  );
+  return data.context;
+}
+
 export type ContactListResult = {
   contacts: ContactPreview[];
   dedup: DedupEntry[];
@@ -102,18 +115,19 @@ export async function createSession(
   });
 }
 
+export type LogCallOptions = {
+  comments?: string;
+  recallAt?: string | null;
+  doNotCall?: boolean;
+};
+
 export async function logCall(
   token: string,
   sessionId: number,
   contactId: number,
   resultat: ResultatCall,
-  comments: string,
-  durationSec: number | null,
+  options: LogCallOptions = {},
 ): Promise<{ needs_event?: boolean }> {
-  if (durationSec !== null && (!Number.isInteger(durationSec) || durationSec < 0)) {
-    throw new Error("La durée doit être un entier positif ou nul.");
-  }
-
   return apiFetch(token, "/api/calls", {
     method: "POST",
     body: JSON.stringify({
@@ -121,8 +135,9 @@ export async function logCall(
       session_id: sessionId,
       contact_id: contactId,
       resultat,
-      comments,
-      ...(durationSec === null ? {} : { duration_sec: durationSec }),
+      comments: options.comments ?? "",
+      ...(options.recallAt ? { recall_at: options.recallAt } : {}),
+      ...(options.doNotCall ? { do_not_call: true } : {}),
     }),
   });
 }

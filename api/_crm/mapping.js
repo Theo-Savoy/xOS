@@ -258,10 +258,14 @@ const mapping = {
     opportunity: {
       name: "Opportunity",
       fields: {
+        id: "Id",
+        name: "Name",
         accountId: "AccountId",
         isClosed: "IsClosed",
         isWon: "IsWon",
         stageName: "StageName",
+        amount: "Amount",
+        closeDate: "CloseDate",
       },
       closedLostStage: "Fermée / Perdue",
     },
