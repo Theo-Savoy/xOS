@@ -164,6 +164,59 @@ describe("adapter exports", () => {
     expect(soql).not.toContain("preset_inexistant");
   });
 
+  it("buildTargetQuery opp_ouverte=true adds open opportunity IN clause", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_ouverte: true } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain(`AccountId IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)`);
+    expect(soql).not.toContain("NOT IN");
+  });
+
+  it("buildTargetQuery opp_ouverte=false adds NOT IN open opportunity", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_ouverte: false } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain(`AccountId NOT IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)`);
+  });
+
+  it("buildTargetQuery opp_perdue=true adds lost stage IN + NOT IN open", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_perdue: true } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain(`AccountId IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Fermée / Perdue')`);
+    expect(soql).toContain(`AccountId NOT IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)`);
+  });
+
+  it("buildTargetQuery opp_ouverte=true + opp_perdue=true produces contradictory conditions without duplicate subqueries", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_ouverte: true, opp_perdue: true } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain(`AccountId IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)`);
+    expect(soql).toContain(`AccountId IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Fermée / Perdue')`);
+    expect(soql).toContain(`AccountId NOT IN (SELECT AccountId FROM Opportunity WHERE IsClosed = false)`);
+    const notInMatches = soql.match(/AccountId NOT IN \(SELECT AccountId FROM Opportunity WHERE IsClosed = false\)/g);
+    expect(notInMatches).toHaveLength(1);
+  });
+
+  it("buildTargetQuery opp_ouverte=false + opp_perdue=true has no duplicate NOT IN subquery", () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_ouverte: false, opp_perdue: true } },
+      mapping,
+      null,
+    );
+    expect(soql).toContain(`AccountId IN (SELECT AccountId FROM Opportunity WHERE StageName = 'Fermée / Perdue')`);
+    const notInMatches = soql.match(/AccountId NOT IN \(SELECT AccountId FROM Opportunity WHERE IsClosed = false\)/g);
+    expect(notInMatches).toHaveLength(1);
+  });
+
   it("filterTargetContacts applies relance predicates from Tasks child records", () => {
     const now = new Date("2026-07-10T12:00:00Z");
     const records = [
