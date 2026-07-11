@@ -4,7 +4,9 @@
 
 ## 1. Intention produit
 
-Le cockpit **prescriptif** du commercial. Weekly Perf regarde en arrière (ce qui s'est passé), Call Manager exécute (les appels du jour) ; Copilot répond à la question quotidienne : **« sur quoi je dois agir maintenant ? »**.
+Le cockpit **prescriptif** du commercial. Weekly Perf regarde en arrière (ce qui s'est passé), Call Manager exécute (les appels du jour) ; Copilot répond à la question quotidienne : **« comment piloter mon activité commerciale aujourd'hui ? »**.
+
+**Vue strictement personnelle** *(décision Théo 2026-07-11)* : chaque utilisateur — commercial ou manager — ne voit que **ses propres** opportunités, alertes et indicateurs. Pas de vue équipe, pas de sélecteur de commercial, sinon l'app devient illisible ; le pilotage d'équipe reste dans Weekly Perf (et la gamification dans Arena).
 
 Quatre volets :
 1. **Pipeline de travail** — mes opportunités ouvertes, triées par urgence.
@@ -12,7 +14,7 @@ Quatre volets :
 3. **Stratégies de prospection** — suggestions de ciblage concrètes (presets Call Manager).
 4. **Adoption & qualité CRM** — le CRM est-il bien utilisé ? (volumes d'activité loggée, créations, complétude des champs critiques).
 
-**Ce que Copilot n'est pas** : pas de LLM dans le repo (décision d'architecture actée — le volet conversationnel est Hermes, Phase 7, qui pourra consommer ces mêmes endpoints) ; pas de nouveau chemin d'écriture Salesforce (les actions 1-clic délèguent aux endpoints existants) ; pas un deuxième Weekly Perf (les métriques d'activité réutilisent les définitions actées de `docs/specs/weekly-perf.md`).
+**Ce que Copilot n'est pas** : pas un outil de pilotage d'équipe (vue personnelle uniquement, cf. ci-dessus) ; pas de LLM dans le repo (décision d'architecture actée — le volet conversationnel est Hermes, Phase 7, qui pourra consommer ces mêmes endpoints) ; pas de nouveau chemin d'écriture Salesforce (les actions 1-clic délèguent aux endpoints existants) ; pas un deuxième Weekly Perf (les métriques d'activité réutilisent les définitions actées de `docs/specs/weekly-perf.md`).
 
 ## 2. Périmètre fonctionnel
 
@@ -20,7 +22,6 @@ Quatre volets :
 - Liste des opps **ouvertes** dont l'utilisateur est Owner, triée par urgence : CloseDate dépassée, puis CloseDate ≤ `closing_window_days` (défaut 30 j), puis le reste (tri secondaire : montant décroissant).
 - Bandeau « À clôturer sous 30 jours » en tête (compte + montant total).
 - CloseDate dépassée = signal d'hygiène → lien « traiter dans le Cleaner » (`?open=cleaner`, pré-filtre si supporté).
-- Manager/admin : sélecteur de commercial (même modèle d'authz que `api/perf`).
 
 ### 2.2 Alertes & prochaines actions (le cœur)
 
