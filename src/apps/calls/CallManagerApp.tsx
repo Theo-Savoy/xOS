@@ -21,6 +21,7 @@ import {
   updateSession,
   CallsApiError,
 } from "./api";
+import { resolveContextContactId } from "./runnerContext";
 import { NewSessionView } from "./NewSessionView";
 import { RecapView } from "./RecapView";
 import { RunnerView, type LogPayload } from "./RunnerView";
@@ -37,6 +38,10 @@ import type {
 import "./calls.css";
 
 type View = "sessions" | "new" | "runner" | "recap";
+
+function findNextPending(contacts: SessionContact[]): SessionContact | null {
+  return contacts.find((c) => c.status === "pending") ?? null;
+}
 
 type CallManagerAppProps = {
   params?: Record<string, string>;
@@ -59,10 +64,6 @@ function errorMessage(err: unknown): string {
     return `Erreur API (${err.code})`;
   }
   return "Une erreur est survenue.";
-}
-
-function findNextPending(contacts: SessionContact[]): SessionContact | null {
-  return contacts.find((c) => c.status === "pending") ?? null;
 }
 
 export default function CallManagerApp({ params }: CallManagerAppProps) {
@@ -100,7 +101,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [awaitingEvent, setAwaitingEvent] = useState<SessionContact | null>(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [contactContext, setContactContext] = useState<ContactContext | null>(null);
+  const [contextContactId, setContextContactId] = useState<number | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
+  const contextRequest = useRef(0);
   const [focusedContactId, setFocusedContactId] = useState<number | null>(null);
 
   const loadSessions = useCallback(async () => {
@@ -138,6 +141,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
       if (!token) return;
       setRunnerError(null);
       setAwaitingEvent(null);
+      setFocusedContactId(null);
+      setContactContext(null);
+      setContextContactId(null);
       setRunnerLoading(true);
       try {
         const data = await fetchSession(token, sessionId);
@@ -337,14 +343,22 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const loadContactContext = useCallback(
     async (sessionId: number, contactId: number) => {
       if (!token) return;
+      const requestId = contextRequest.current + 1;
+      contextRequest.current = requestId;
       setContactContext(null);
+      setContextContactId(null);
       setContextLoading(true);
       try {
-        setContactContext(await fetchContactContext(token, sessionId, contactId));
+        const context = await fetchContactContext(token, sessionId, contactId);
+        if (contextRequest.current !== requestId) return;
+        setContactContext(context);
+        setContextContactId(contactId);
       } catch {
+        if (contextRequest.current !== requestId) return;
         setContactContext(null);
+        setContextContactId(null);
       } finally {
-        setContextLoading(false);
+        if (contextRequest.current === requestId) setContextLoading(false);
       }
     },
     [token],
@@ -352,9 +366,10 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   useEffect(() => {
     if (view !== "runner" || !activeSession) return;
-    const targetId = awaitingEvent?.id ?? focusedContactId ?? findNextPending(contacts)?.id;
+    const targetId = resolveContextContactId(contacts, awaitingEvent?.id, focusedContactId);
     if (!targetId) {
       setContactContext(null);
+      setContextContactId(null);
       return;
     }
     void loadContactContext(activeSession.id, targetId);
@@ -377,6 +392,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         setContacts(refreshed.contacts);
         setAwaitingEvent(updatedCurrent ?? null);
       } else {
+        setFocusedContactId(null);
         await advanceOrComplete(activeSession.id);
       }
     } catch (err) {
@@ -411,6 +427,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         );
       }
       setAwaitingEvent(null);
+      setFocusedContactId(null);
       await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -436,6 +453,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     try {
       await logEvent(token, activeSession.id, awaitingEvent.id, start, durationMin, invitees);
       setAwaitingEvent(null);
+      setFocusedContactId(null);
       await advanceOrComplete(activeSession.id);
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -492,6 +510,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         });
       }
       await advanceOrComplete(activeSession.id);
+      setFocusedContactId(null);
     } catch (err) {
       setRunnerError(errorMessage(err));
       try {
@@ -608,6 +627,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           error={runnerError}
           awaitingEvent={awaitingEvent}
           contactContext={contactContext}
+          contextContactId={contextContactId}
           contextLoading={contextLoading}
           onBack={goToSessions}
           onFocusContact={setFocusedContactId}

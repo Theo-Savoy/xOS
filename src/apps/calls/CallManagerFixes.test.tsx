@@ -91,6 +91,7 @@ describe("RunnerView", () => {
     loading: false,
     error: null as string | null,
     contactContext: null,
+    contextContactId: null,
     contextLoading: false,
     onBack: vi.fn(),
     onFocusContact: vi.fn(),
@@ -225,12 +226,37 @@ describe("RunnerView", () => {
           tasks: [],
           opportunities: [],
         }}
+        contextContactId={current.id}
         awaitingEvent={null}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Fiche" }));
     expect(screen.getByRole("link", { name: "bob@acme.fr" }).getAttribute("href")).toBe("mailto:bob@acme.fr");
+  });
+
+  it("does not show previous contact CRM history when context is stale", () => {
+    const current = { ...bob, id: 9, status: "pending" as const, outcome: null, contact_name: "Carla" };
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        contactContext={{
+          contact_record_url: null,
+          account_record_url: null,
+          email: null,
+          title: null,
+          npa: false,
+          tasks: [{ id: "00T1", activity_date: "2026-07-01", result: "Appel décroché", subject: null, description: null, record_url: null }],
+          opportunities: [],
+        }}
+        contextContactId={2}
+        awaitingEvent={null}
+      />,
+    );
+
+    expect(screen.queryByText("Appel décroché")).toBeNull();
   });
 
   it("bulk-logs the same outcome for selected contacts", async () => {

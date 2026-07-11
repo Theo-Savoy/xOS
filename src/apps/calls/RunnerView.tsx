@@ -40,6 +40,7 @@ type RunnerViewProps = {
   error: string | null;
   awaitingEvent: SessionContact | null;
   contactContext: ContactContext | null;
+  contextContactId: number | null;
   contextLoading: boolean;
   onBack: () => void;
   onFocusContact: (contactId: number) => void;
@@ -189,6 +190,7 @@ export function RunnerView({
   error,
   awaitingEvent,
   contactContext,
+  contextContactId,
   contextLoading,
   onBack,
   onFocusContact,
@@ -282,9 +284,18 @@ export function RunnerView({
   }, [awaitingEvent, focusedId, contacts, currentContact]);
 
   const sfContactUrl =
-    contactContext?.contact_record_url ?? focusedContact?.sf_contact_url ?? null;
-  const displayEmail = focusedContact?.email ?? contactContext?.email ?? null;
-  const displayTitle = focusedContact?.title ?? contactContext?.title ?? null;
+    contextContactId === focusedContact?.id
+      ? (contactContext?.contact_record_url ?? focusedContact?.sf_contact_url ?? null)
+      : (focusedContact?.sf_contact_url ?? null);
+  const displayEmail =
+    focusedContact?.email
+    ?? (contextContactId === focusedContact?.id ? contactContext?.email : null)
+    ?? null;
+  const displayTitle =
+    focusedContact?.title
+    ?? (contextContactId === focusedContact?.id ? contactContext?.title : null)
+    ?? null;
+  const contextApplies = contextContactId != null && contextContactId === focusedContact?.id;
 
   useEffect(() => {
     if (awaitingEvent) setMode("detail");
@@ -822,7 +833,7 @@ export function RunnerView({
                 {focusedContact.recall_at && <span>Rappel {focusedContact.recall_at}</span>}
               </div>
             )}
-            {!contextLoading && contactContext?.npa && (
+            {!contextLoading && contextApplies && contactContext?.npa && (
               <Tag variant="alert" className="calls-contact-card__npa">
                 Ne pas rappeler (NPA)
               </Tag>
@@ -838,10 +849,10 @@ export function RunnerView({
               <>
             <GlassCard className="calls-context-panel">
               <h3>Historique d&apos;appels</h3>
-              {contactContext && contactContext.tasks.length === 0 && (
+              {contextApplies && contactContext && contactContext.tasks.length === 0 && (
                 <p className="calls-muted">Aucun appel Salesforce récent.</p>
               )}
-              {contactContext && contactContext.tasks.length > 0 && (
+              {contextApplies && contactContext && contactContext.tasks.length > 0 && (
                 <ul className="calls-context-list">
                   {contactContext.tasks.map((task) => (
                     <li key={task.id}>
@@ -860,10 +871,10 @@ export function RunnerView({
 
             <GlassCard className="calls-context-panel">
               <h3>Opportunités</h3>
-              {contactContext && contactContext.opportunities.length === 0 && (
+              {contextApplies && contactContext && contactContext.opportunities.length === 0 && (
                 <p className="calls-muted">Aucune opportunité sur le compte.</p>
               )}
-              {contactContext && contactContext.opportunities.length > 0 && (
+              {contextApplies && contactContext && contactContext.opportunities.length > 0 && (
                 <ul className="calls-context-list">
                   {contactContext.opportunities.map((opp) => (
                     <li key={opp.id}>
