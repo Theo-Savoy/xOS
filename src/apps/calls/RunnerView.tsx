@@ -9,6 +9,19 @@ import {
 } from "../../crm";
 import { EventPanel } from "./EventPanel";
 import { EmptyState } from "./EmptyState";
+import { CommandBar, ShortcutHelp } from "./CommandBar";
+import { ComboOnboardingDemo } from "./ComboOnboardingDemo";
+import {
+  hasSeenComboDemo,
+  isModKey,
+  isTypingTarget,
+  readSoundsEnabled,
+  RECALL_SHORTCUT_PRESETS,
+  resultatFromDigit,
+  type ComboActionId,
+  writeSoundsEnabled,
+} from "./comboKeyboard";
+import { playComboSound } from "./comboSounds";
 import { DatePicker, formatActivityDateFr, formatIsoDateFr, todayParisIso } from "./formControls";
 import { LinkedInRecordLink, SalesforceRecordLink } from "./BrandLinks";
 import { ProgressBar } from "./ProgressBar";
@@ -154,8 +167,9 @@ function ResultButtons({
 }) {
   return (
     <div className="calls-result-seg" role="group" aria-label="Résultat de l'appel">
-      {RESULTAT_OPTIONS.map((opt) => {
+      {RESULTAT_OPTIONS.map((opt, index) => {
         const disabled = disabledValues.includes(opt.value);
+        const digit = String(index + 1);
         return (
           <button
             key={opt.value}
@@ -163,10 +177,11 @@ function ResultButtons({
             className={`calls-result-seg__btn${value === opt.value ? " calls-result-seg__btn--active" : ""}`}
             aria-pressed={value === opt.value}
             disabled={disabled}
-            title={disabled ? "Sélectionnez un seul contact pour planifier un RDV" : undefined}
+            title={disabled ? "Sélectionnez un seul contact pour planifier un RDV" : digit}
             onClick={() => onChange(opt.value)}
           >
-            {opt.label}
+            <span>{opt.label}</span>
+            <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">{digit}</kbd>
           </button>
         );
       })}
@@ -304,6 +319,10 @@ export function RunnerView({
   const [bulkRecallPicker, setBulkRecallPicker] = useState<{ ids: number[]; seed: string } | null>(null);
   const [pinned, setPinned] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(() => !hasSeenComboDemo());
+  const [soundsEnabled, setSoundsEnabled] = useState(readSoundsEnabled);
   const bootstrappedDetail = useRef(false);
 
   useEffect(() => {
@@ -533,11 +552,11 @@ export function RunnerView({
     });
   }, [contacts, isRecallQueue]);
 
-  const openDetail = (contactId: number) => {
+  const openDetail = useCallback((contactId: number) => {
     setFocusedId(contactId);
     onFocusContact(contactId);
     setMode("detail");
-  };
+  }, [onFocusContact]);
 
   const toggleSelected = (contactId: number) => {
     setSelectedIds((current) => {
@@ -576,6 +595,7 @@ export function RunnerView({
       recallAt: willSendRecall ? recallAt : null,
       doNotCall,
     });
+    playComboSound(willSendRecall ? "recall" : "success", soundsEnabled);
     setToast(
       willSendRecall
         ? `Loggué · rappel ${formatIsoDateFr(recallAt)}`
@@ -583,26 +603,7 @@ export function RunnerView({
           ? "Loggué · sans rappel"
           : "Loggué",
     );
-  }, [canRecall, comments, doNotCall, focusedContact, onLogAndNext, recallAt, resultat, scheduleRecall, willSendRecall]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key !== "Enter"
-        || (!event.metaKey && !event.ctrlKey)
-        || mode !== "detail"
-        || loading
-        || focusedContact?.status !== "pending"
-        || resultat === "RDV planifié"
-      ) {
-        return;
-      }
-      event.preventDefault();
-      handleSubmit();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [focusedContact?.status, handleSubmit, loading, mode, resultat]);
+  }, [canRecall, comments, doNotCall, focusedContact, onLogAndNext, recallAt, resultat, scheduleRecall, soundsEnabled, willSendRecall]);
 
   const handleRdvSubmit = (start: string, durationMin: number, invitees: string[]) => {
     if (!focusedContact || focusedContact.status !== "pending") return;
@@ -702,6 +703,239 @@ export function RunnerView({
     setBulkRecallPicker(null);
   };
 
+  const navigateContact = useCallback(
+    (direction: 1 | -1) => {
+      const pool = filteredContacts.length > 0 ? filteredContacts : contacts;
+      if (pool.length === 0) return;
+      const currentId = focusedContact?.id ?? focusedId ?? pool[0]?.id;
+      const index = pool.findIndex((c) => c.id === currentId);
+      const nextIndex = index < 0 ? 0 : (index + direction + pool.length) % pool.length;
+      const next = pool[nextIndex];
+      if (!next) return;
+      openDetail(next.id);
+      playComboSound("tick", soundsEnabled);
+    },
+    [contacts, filteredContacts, focusedContact?.id, focusedId, openDetail, soundsEnabled],
+  );
+
+  const runComboAction = useCallback(
+    (id: ComboActionId) => {
+      switch (id) {
+        case "result-1":
+        case "result-2":
+        case "result-3":
+        case "result-4":
+        case "result-5": {
+          if (mode !== "detail" || focusedContact?.status !== "pending") return;
+          const digit = id.slice(-1);
+          const next = resultatFromDigit(digit);
+          if (!next) return;
+          setResultat(next);
+          playComboSound("tick", soundsEnabled);
+          return;
+        }
+        case "toggle-recall": {
+          if (mode !== "detail" || focusedContact?.status !== "pending") return;
+          setScheduleRecall((v) => !v);
+          playComboSound("tick", soundsEnabled);
+          return;
+        }
+        case "recall-0":
+        case "recall-1":
+        case "recall-3":
+        case "recall-7":
+        case "recall-14": {
+          if (mode !== "detail" || focusedContact?.status !== "pending") return;
+          const preset = RECALL_SHORTCUT_PRESETS.find((item) => item.id === id);
+          if (!preset) return;
+          setScheduleRecall(true);
+          handleDefaultRecallDays(preset.days);
+          playComboSound("recall", soundsEnabled);
+          return;
+        }
+        case "toggle-npa": {
+          if (mode !== "detail" || focusedContact?.status !== "pending") return;
+          setDoNotCall((v) => !v);
+          playComboSound("warn", soundsEnabled);
+          return;
+        }
+        case "log-next":
+          handleSubmit();
+          return;
+        case "nav-next":
+          navigateContact(1);
+          return;
+        case "nav-prev":
+          navigateContact(-1);
+          return;
+        case "mode-list":
+          setMode("list");
+          playComboSound("tick", soundsEnabled);
+          return;
+        case "mode-fiche":
+          if (focusedContact) openDetail(focusedContact.id);
+          else if (currentContact) openDetail(currentContact.id);
+          else setMode("detail");
+          playComboSound("tick", soundsEnabled);
+          return;
+        case "call": {
+          const phone = focusedContact?.phone;
+          if (!phone) return;
+          window.open(`tel:${phone}`, "_self");
+          playComboSound("tick", soundsEnabled);
+          return;
+        }
+        case "defer": {
+          if (isRecallQueue || !focusedContact || focusedContact.status !== "pending") return;
+          openDefer([focusedContact.id]);
+          playComboSound("tick", soundsEnabled);
+          return;
+        }
+        case "remove": {
+          if (!focusedContact) return;
+          confirmRemove([focusedContact.id], focusedContact.contact_name);
+          return;
+        }
+        case "help":
+          setHelpOpen(true);
+          playComboSound("whoosh", soundsEnabled);
+          return;
+        case "command-bar":
+          setCommandBarOpen(true);
+          playComboSound("whoosh", soundsEnabled);
+          return;
+        case "replay-demo":
+          setDemoOpen(true);
+          return;
+        case "toggle-sounds": {
+          setSoundsEnabled((prev) => {
+            const next = !prev;
+            writeSoundsEnabled(next);
+            return next;
+          });
+          return;
+        }
+        default:
+          return;
+      }
+    },
+    [
+      currentContact,
+      focusedContact,
+      handleDefaultRecallDays,
+      handleSubmit,
+      isRecallQueue,
+      mode,
+      navigateContact,
+      openDetail,
+      soundsEnabled,
+    ],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Démo / overlays gèrent Esc + focus trap eux-mêmes.
+      if (demoOpen || commandBarOpen || helpOpen) return;
+
+      if (isModKey(event) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandBarOpen(true);
+        playComboSound("whoosh", soundsEnabled);
+        return;
+      }
+
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "?" || (event.shiftKey && event.key === "/")) {
+        event.preventDefault();
+        setHelpOpen(true);
+        playComboSound("whoosh", soundsEnabled);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setBulkRecallPicker(null);
+        setDeferIds(null);
+        return;
+      }
+
+      if (
+        event.key === "Enter"
+        && isModKey(event)
+        && mode === "detail"
+        && !loading
+        && focusedContact?.status === "pending"
+        && resultat !== "RDV planifié"
+      ) {
+        event.preventDefault();
+        handleSubmit();
+        return;
+      }
+
+      if (event.shiftKey && event.code.startsWith("Digit")) {
+        const digit = event.code.replace("Digit", "");
+        const preset = RECALL_SHORTCUT_PRESETS.find((item) => item.shiftDigit === digit);
+        if (preset) {
+          event.preventDefault();
+          runComboAction(preset.id);
+        }
+        return;
+      }
+
+      if (!event.shiftKey && !isModKey(event) && /^[1-5]$/.test(event.key)) {
+        event.preventDefault();
+        runComboAction(`result-${event.key}` as ComboActionId);
+        return;
+      }
+
+      if (isModKey(event) || event.altKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "r") {
+        event.preventDefault();
+        runComboAction("toggle-recall");
+        return;
+      }
+      if (key === "n") {
+        event.preventDefault();
+        runComboAction("toggle-npa");
+        return;
+      }
+      if (key === "j") {
+        event.preventDefault();
+        runComboAction("nav-next");
+        return;
+      }
+      if (key === "k") {
+        event.preventDefault();
+        runComboAction("nav-prev");
+        return;
+      }
+      if (key === "l") {
+        event.preventDefault();
+        runComboAction("mode-list");
+        return;
+      }
+      if (key === "f") {
+        event.preventDefault();
+        runComboAction("mode-fiche");
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [
+    commandBarOpen,
+    demoOpen,
+    focusedContact?.status,
+    handleSubmit,
+    helpOpen,
+    loading,
+    mode,
+    resultat,
+    runComboAction,
+    soundsEnabled,
+  ]);
+
   const continuationLabel = nextContinuationName(session.name);
 
   const handleBulkRdvSubmit = (start: string, durationMin: number, invitees: string[]) => {
@@ -744,18 +978,42 @@ export function RunnerView({
               className={`calls-mode-toggle__btn${mode === "list" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "list"}
               onClick={() => setMode("list")}
+              title="L"
             >
-              Liste
+              Liste <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">L</kbd>
             </button>
             <button
               type="button"
               className={`calls-mode-toggle__btn${mode === "detail" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "detail"}
               onClick={() => setMode("detail")}
+              title="F"
             >
-              Fiche
+              Fiche <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">F</kbd>
             </button>
           </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setCommandBarOpen(true);
+              playComboSound("whoosh", soundsEnabled);
+            }}
+            title="Command bar (⌘K)"
+            aria-label="Command bar"
+          >
+            ⌘K
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setHelpOpen(true);
+              playComboSound("whoosh", soundsEnabled);
+            }}
+            title="Aide raccourcis (?)"
+            aria-label="Aide raccourcis"
+          >
+            ?
+          </Button>
           {!isRecallQueue && onPin && (
             <Button
               variant="secondary"
@@ -1574,6 +1832,19 @@ export function RunnerView({
           <p>Tous les contacts ont été traités.</p>
         </GlassCard>
       )}
+
+      <CommandBar
+        open={commandBarOpen}
+        onClose={() => setCommandBarOpen(false)}
+        onRun={runComboAction}
+        soundsEnabled={soundsEnabled}
+      />
+      <ShortcutHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onOpenCommandBar={() => setCommandBarOpen(true)}
+      />
+      <ComboOnboardingDemo open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }
