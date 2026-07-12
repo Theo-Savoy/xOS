@@ -78,7 +78,6 @@ describe("GET /api/status", () => {
       },
       salesforce: {
         connected: true,
-        orgConnected: true,
         userLinked: false,
         dailyApiRequests: { max: 15000, remaining: 14900 },
       },
@@ -90,7 +89,7 @@ describe("GET /api/status", () => {
     });
   });
 
-  it("reports orgConnected false when only the user OAuth token works", async () => {
+  it("reports disconnected when the user OAuth token does not work", async () => {
     mockGetProfile.mockResolvedValue({
       fullName: "Ada Lovelace",
       sfUserId: "005xx",
@@ -98,28 +97,16 @@ describe("GET /api/status", () => {
       userLinked: true,
       sfAuthConnectedAt: "2026-07-01T00:00:00Z",
     });
-    mockFetchSFToken.mockImplementation(async (opts = {}) => {
-      if (opts.userId) return { accessToken: "user-token", credential: "user" };
-      return { error: "sf_auth_error" };
-    });
+    mockFetchSFToken.mockResolvedValue({ error: "sf_auth_error" });
 
     const response = await GET(request("GET"));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       salesforce: {
-        connected: true,
-        orgConnected: false,
+        connected: false,
         userLinked: true,
+        dailyApiRequests: null,
       },
-    });
-  });
-
-  it("reports disconnected when neither credential works", async () => {
-    mockFetchSFToken.mockResolvedValue({ error: "sf_auth_error" });
-    const response = await GET(request("GET"));
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      salesforce: { connected: false, orgConnected: false, dailyApiRequests: null },
     });
   });
 });
