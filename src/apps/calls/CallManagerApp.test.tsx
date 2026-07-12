@@ -190,6 +190,21 @@ describe("CallManagerApp component", () => {
     expect(screen.getByText("Aperçu de la liste")).toBeTruthy();
   });
 
+  it("restores new session view from persisted params", async () => {
+    render(<CallManagerApp params={{ view: "new" }} />);
+    expect(await screen.findByText("Composer une liste")).toBeTruthy();
+  });
+
+  it("syncs navigation params when changing view", async () => {
+    const onParamsChange = vi.fn();
+    const user = userEvent.setup();
+    render(<CallManagerApp onParamsChange={onParamsChange} />);
+    await screen.findByText("Nouvelle séance");
+    onParamsChange.mockClear();
+    await user.click(screen.getByText("Nouvelle séance"));
+    expect(onParamsChange).toHaveBeenCalledWith({ view: "new" });
+  });
+
   it("invalidates the preview and ignores an older preview response", async () => {
     const user = userEvent.setup();
     let resolveFirst!: (response: Response) => void;

@@ -128,7 +128,8 @@
 }
 
 .pilotage-compact-row {
-  --heatmap-gap: 0.14rem;
+  --heatmap-gap: 0.12rem;
+  --heatmap-cell: min(1.28rem, calc((100% - 6 * var(--heatmap-gap)) / 7));
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 1rem 1.25rem;
@@ -214,9 +215,10 @@
 }
 
 .pilotage-heatmap {
-  --heatmap-gap: 0.14rem;
+  --heatmap-gap: 0.12rem;
+  --heatmap-cell: min(1.28rem, calc((100% - 6 * var(--heatmap-gap)) / 7));
   display: grid;
-  justify-items: stretch;
+  justify-items: center;
   gap: 0.5rem;
   width: 100%;
   max-width: none;
@@ -236,8 +238,9 @@
 .pilotage-heatmap__inner {
   display: grid;
   gap: 0.42rem;
-  width: 100%;
+  width: min(100%, calc(7 * var(--heatmap-cell) + 6 * var(--heatmap-gap)));
   justify-items: stretch;
+  margin-inline: auto;
 }
 
 .pilotage-heatmap__head {
@@ -310,13 +313,14 @@
 
 .pilotage-heatmap__weekdays {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, var(--heatmap-cell));
   gap: var(--heatmap-gap);
   font-size: 0.64rem;
   color: var(--xos-text-muted);
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  justify-content: center;
   width: 100%;
 }
 
@@ -328,15 +332,15 @@
 
 .pilotage-heatmap__week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, var(--heatmap-cell));
   gap: var(--heatmap-gap);
+  justify-content: center;
 }
 
 .pilotage-heatmap__cell {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  height: auto;
+  width: var(--heatmap-cell);
+  height: var(--heatmap-cell);
   min-width: 0;
   min-height: 0;
   flex-shrink: 0;
