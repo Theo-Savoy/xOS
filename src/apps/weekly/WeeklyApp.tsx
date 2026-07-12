@@ -874,9 +874,9 @@ const PersonCard = memo(function PersonCard({
   onOpen?: () => void;
 }) {
   const tracking = trackingOf(owner);
-  const current = pulseSeries[currentIndex] || pulseSeries.at(-1)!;
+  const current = pulseSeries[currentIndex] || pulseSeries.at(-1) || EMPTY_PULSE(owner.sf_user_id, "");
   const previous = currentIndex > 0 ? pulseSeries[currentIndex - 1] : undefined;
-  const currentPipeline = pipelineSeries[currentIndex] || pipelineSeries.at(-1)!;
+  const currentPipeline = pipelineSeries[currentIndex] || pipelineSeries.at(-1) || EMPTY_PIPELINE(owner.sf_user_id, "");
   const previousPipeline = currentIndex > 0 ? pipelineSeries[currentIndex - 1] : undefined;
   const badge = trackingBadge(tracking, owner.role);
   const paceRatio = quarter?.pace_ratio ?? null;
@@ -1682,54 +1682,11 @@ export default function WeeklyApp() {
       setError(false);
     }
     try {
-      // Cold load: lite d’abord, puis enrich board (pas un 2e full SF).
-      const cold = !revalidate && !cacheRef.current[key];
-      const next = await perfRequest(nextPeriod, weekStart, signal, { lite: cold });
+      // Cold load: une seule requête full (lite→enrich a vidé l’UI en prod).
+      const next = await perfRequest(nextPeriod, weekStart, signal);
       if (!revalidate && seq !== requestSeq.current) return;
       storeEntry(key, nextPeriod, next);
       if (!revalidate) setError(false);
-      if (cold && next.payload.context?.lite) {
-        void (async () => {
-          try {
-            const board = await perfRequest(nextPeriod, weekStart, undefined, { enrich: true });
-            if (seq !== requestSeq.current) return;
-            const base = next.payload;
-            const patch = board.payload;
-            const effortOpen = patch.effort_open || {};
-            const merged: PerfCacheEntry = {
-              email: board.email || next.email,
-              payload: {
-                ...base,
-                custom_pipe: patch.custom_pipe ?? base.custom_pipe,
-                follow_up_opps: patch.follow_up_opps ?? base.follow_up_opps,
-                stagnant_opps: patch.stagnant_opps ?? base.stagnant_opps,
-                seasonality: patch.seasonality ?? base.seasonality,
-                prior_pulse: patch.prior_pulse?.length ? patch.prior_pulse : base.prior_pulse,
-                prior_pipeline: patch.prior_pipeline?.length ? patch.prior_pipeline : base.prior_pipeline,
-                quarter: patch.quarter?.length ? patch.quarter : base.quarter,
-                pace: patch.pace ?? base.pace,
-                effort: (base.effort || []).map((row) => {
-                  const open = effortOpen[row.sf_user_id] ?? row.open_opps_at_start;
-                  return {
-                    ...row,
-                    open_opps_at_start: open,
-                    effort_rate: open ? row.progressions / open : null,
-                  };
-                }),
-                context: {
-                  ...base.context!,
-                  ...(patch.context || {}),
-                  lite: false,
-                  enrich: true,
-                },
-              },
-            };
-            storeEntry(key, nextPeriod, merged);
-          } catch {
-            // Hydrate silencieuse — la vue lite reste utilisable.
-          }
-        })();
-      }
     } catch (err) {
       if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
       if (!revalidate) {
@@ -1822,18 +1779,21 @@ export default function WeeklyApp() {
   const model = useMemo(() => {
     if (!result) return null;
     const { payload, email } = result;
+    const owners = Array.isArray(payload.owners) ? payload.owners : [];
+    if (!payload.range?.from || !Number.isFinite(Number(payload.weeks)) || Number(payload.weeks) <= 0) return null;
     const weeks = makeWeeks(payload);
+    if (!weeks.length) return null;
     const currentWeekStart = addDays(payload.range.to, -6);
     const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === currentWeekStart));
-    const selfOwner = payload.owners.find((owner) => owner.email?.toLowerCase() === email?.toLowerCase()) || payload.owners[0];
+    const selfOwner = owners.find((owner) => owner.email?.toLowerCase() === email?.toLowerCase()) || owners[0];
     const roster = mode === "self"
       ? (selfOwner ? [selfOwner] : [])
-      : [...payload.owners].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+      : [...owners].sort((a, b) => a.name.localeCompare(b.name, "fr"));
     const visibleOwners = mode === "team" && selectedOwnerId !== "all"
-      ? roster.filter((owner) => owner.sf_user_id === selectedOwnerId)
+      ? roster.filter((owner) => owner.sf_user_id === selectedOwnerId || owner.sf_user_id?.slice(0, 15) === selectedOwnerId?.slice(0, 15))
       : roster;
-    const pulseIndex = seriesIndex(payload.pulse);
-    const pipelineIndex = seriesIndex(payload.pipeline);
+    const pulseIndex = seriesIndex(payload.pulse || []);
+    const pipelineIndex = seriesIndex(payload.pipeline || []);
     const priorPulseIndex = seriesIndex(payload.prior_pulse || []);
     const priorPipelineIndex = seriesIndex(payload.prior_pipeline || []);
     const pulseByOwner = new Map<string, Pulse[]>();
@@ -1855,8 +1815,11 @@ export default function WeeklyApp() {
     const pipelineFor = (owner: Owner) => pipelineByOwner.get(owner.sf_user_id) || weeks.map(({ start }) => EMPTY_PIPELINE(owner.sf_user_id, start));
     const sellers = visibleOwners.filter((owner) => trackingOf(owner) !== "sdr");
     const sellerIds = new Set(sellers.map((owner) => owner.sf_user_id));
-    const quarterFor = (owner: Owner) => payload.quarter.find((point) => point.sf_user_id === owner.sf_user_id);
-    const customPipe = payload.custom_pipe || emptyCustomPipe();
+    const quarterFor = (owner: Owner) => (payload.quarter || []).find((point) => point.sf_user_id === owner.sf_user_id);
+    const rawPipe = payload.custom_pipe;
+    const customPipe = rawPipe && Array.isArray(rawPipe.by_owner) && Array.isArray(rawPipe.opps) && Array.isArray(rawPipe.months)
+      ? rawPipe
+      : emptyCustomPipe();
     const ownerRows = customPipe.by_owner.filter((row) => sellerIds.has(row.sf_user_id));
     const scopedPipe: CustomPipe = {
       ...customPipe,
@@ -1877,7 +1840,7 @@ export default function WeeklyApp() {
       }),
     };
     const visibleIds = new Set(visibleOwners.map((owner) => owner.sf_user_id));
-    const quarterRows = payload.quarter.filter((row) => sellerIds.has(row.sf_user_id));
+    const quarterRows = (payload.quarter || []).filter((row) => sellerIds.has(row.sf_user_id));
     const pace = scopePace(quarterRows, payload.pace);
     const target = pace?.target ?? null;
     const followUps = (payload.follow_up_opps || []).filter((opp) => visibleIds.has(opp.sf_user_id));
@@ -1996,6 +1959,11 @@ export default function WeeklyApp() {
     {showSoftEmpty && (
       <div className="weekly-soft-empty" role="status">
         Pas encore d’activité sur cette vue — le détail reste disponible ci-dessous.
+      </div>
+    )}
+    {!visibleOwners.length && (
+      <div className="weekly-soft-empty" role="status">
+        Aucun commercial à afficher sur cette vue — basculez sur Équipe ou vérifiez le mapping Salesforce.
       </div>
     )}
       {showTeamRollup && displayMode === "cards" && <TeamRollup owners={visibleOwners} pulseFor={pulseFor} pipelineFor={pipelineFor} quarterFor={quarterFor} weekMode={weekMode} currentIndex={currentIndex} compareLabel={compareLabel} />}

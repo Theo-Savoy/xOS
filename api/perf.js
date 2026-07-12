@@ -1240,7 +1240,13 @@ export async function GET(request) {
     // Étape de départ des opps vues dans la fenêtre : dernière ligne d'historique
     // pré-fenêtre par opp, sinon la première transition de la fenêtre serait ignorée.
     const windowOppIds = [...new Set(histories.map((record) => record[opportunityHistory.fields.opportunityId]).filter(Boolean))];
-    const baselineStages = await loadBaselineStages(tokenResult.accessToken, opportunityHistory, windowOppIds, fromDateTime);
+    let baselineStages = new Map();
+    try {
+      baselineStages = await loadBaselineStages(tokenResult.accessToken, opportunityHistory, windowOppIds, fromDateTime);
+    } catch {
+      // Baseline best-effort : ne jamais vider Weekly Perf si OpportunityHistory rame.
+      baselineStages = new Map();
+    }
 
     const owners = new Set(scopeOwnerIds);
     if (!teamView && profile.sfUserId) {
@@ -1249,16 +1255,21 @@ export async function GET(request) {
     }
     const candidateOwnerIds = [...owners];
 
-    const sfUsers = candidateOwnerIds.length
-      ? await crmRecords(
-        tokenResult.accessToken,
-        query(
-          sfUserObject.name,
-          [sfUserObject.fields.id, sfUserObject.fields.name, sfUserObject.fields.email, sfUserObject.fields.isActive],
-          `${sfUserObject.fields.id} IN (${candidateOwnerIds.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
-        ),
-      )
-      : [];
+    let sfUsers = [];
+    try {
+      sfUsers = candidateOwnerIds.length
+        ? await crmRecords(
+          tokenResult.accessToken,
+          query(
+            sfUserObject.name,
+            [sfUserObject.fields.id, sfUserObject.fields.name, sfUserObject.fields.email, sfUserObject.fields.isActive],
+            `${sfUserObject.fields.id} IN (${candidateOwnerIds.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
+          ),
+        )
+        : [];
+    } catch {
+      sfUsers = [];
+    }
 
     const activeOwnerIds = candidateOwnerIds.filter((id) => {
       const sfUser = findBySfId(sfUsers, id);
@@ -1267,6 +1278,13 @@ export async function GET(request) {
     });
     if (!teamView && profile.sfUserId && !activeOwnerIds.some((id) => sfIdKey(id) === sfIdKey(profile.sfUserId))) {
       activeOwnerIds.push(profile.sfUserId);
+    }
+    // Fail-open : ne jamais renvoyer owners=[] si le roster profil a des SF ids.
+    if (!activeOwnerIds.length && candidateOwnerIds.length) {
+      for (const id of candidateOwnerIds) {
+        const mapped = findBySfId(profiles, id);
+        if (!isWeeklyOwnerExcluded(null, mapped?.full_name || "", mapped?.email || "")) activeOwnerIds.push(id);
+      }
     }
     owners.clear();
     for (const id of activeOwnerIds) owners.add(id);
