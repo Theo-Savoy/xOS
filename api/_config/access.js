@@ -40,17 +40,19 @@ export const WEEKLY_TRACKING_BY_SF_USER = {
   "005b0000005zfnvAAA": "dg", // Jérôme Bosio
 };
 
-/** Commerciaux inactifs / anciens à exclure du rituel Weekly Perf (nom SF). */
+/** Commerciaux inactifs / hors rituel Weekly Perf (nom SF ou email). */
 export const WEEKLY_EXCLUDED_NAME_PATTERNS = [
   /waeselynck/i, // Romain Waeselynck
   /^julien bak$/i,
   /^roxane s[eé]rie$/i,
   /^antoine fardet$/i,
   /ibrahima sissoko/i,
+  /th[eé]o\s*savoy/i,
+  /theo\.savoy/i,
 ];
 
 export function roleFromEmail(email) {
-  if (typeof email !== "string" || !email) return "commercial";
+  if (typeof email !== "string" || email === "") return "commercial";
   const key = email.trim().toLowerCase();
   return ROLE_BOOTSTRAP_BY_EMAIL[key] || "commercial";
 }
@@ -68,11 +70,12 @@ export function trackingModeFor(sfUserId, overrides = {}) {
   return fromDefault || "commercial";
 }
 
-/** Exclut les users SF inactifs et les anciens commerciaux listés. */
-export function isWeeklyOwnerExcluded(sfUser, nameFallback = "") {
+/** Exclut les users SF inactifs et les profils hors rituel (Théo, anciens commerciaux…). */
+export function isWeeklyOwnerExcluded(sfUser, nameFallback = "", emailFallback = "") {
   if (sfUser && sfUser.IsActive === false) return true;
   const name = String(sfUser?.Name || nameFallback || "");
-  return WEEKLY_EXCLUDED_NAME_PATTERNS.some((pattern) => pattern.test(name));
+  const email = String(sfUser?.Email || emailFallback || "");
+  return WEEKLY_EXCLUDED_NAME_PATTERNS.some((pattern) => pattern.test(name) || pattern.test(email));
 }
 
 export function roleAtLeast(role, minimum) {

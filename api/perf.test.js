@@ -151,6 +151,21 @@ describe("fiscal quarter helpers", () => {
     expect(perf.priorFiscalQuarter("2026-07-11")).toEqual({ from: "2025-07-01", toExclusive: "2025-10-01", label: "FY26-Q1" });
   });
 
+  it("builds seasonality weights for year and month-in-quarter", () => {
+    const seasonality = perf.buildSeasonality([
+      { year: 2024, month: 7, amount: 100 },
+      { year: 2025, month: 7, amount: 100 },
+      { year: 2024, month: 8, amount: 50 },
+      { year: 2024, month: 9, amount: 50 },
+    ], "2026-07-11");
+    expect(seasonality.month_of_year["07"]).toBeCloseTo(200 / 300, 5);
+    expect(seasonality.month_in_quarter.Q1["07"]).toBeCloseTo(200 / 300, 5);
+    expect(seasonality.quarter_of_year.Q1).toBeCloseTo(1, 5);
+    const expected = perf.seasonalExpectedToDate(30000, "2026-07-15", { label: "FY27-Q1" }, seasonality);
+    expect(expected).toBeGreaterThan(0);
+    expect(expected).toBeLessThan(30000);
+  });
+
   it("ranks follow-up opps by expected revenue", () => {
     const fields = { id: "Id", name: "Name", ownerId: "OwnerId", stageName: "StageName", amount: "Amount", probability: "Probability", expectedRevenue: "ExpectedRevenue", closeDate: "CloseDate" };
     const rows = perf.buildFollowUpOpps([
@@ -248,10 +263,14 @@ describe("GET /api/perf", () => {
       custom_pipe: 300,
       target: 60000,
       signed_n1: 80,
+      expected_to_date: expect.any(Number),
+      pace_ratio: expect.any(Number),
     }]);
     expect(body.follow_up_opps[0]).toMatchObject({ id: "006Q1", expected: 100 });
     expect(body.stagnant_opps.some((row) => row.id === "006OPEN")).toBe(true);
     expect(body.pace).toMatchObject({ week_of_quarter: 1, signed_to_date: 100, signed_n1: 80, target: 60000 });
+    expect(body.seasonality).toMatchObject({ month_of_year: expect.any(Object), month_in_quarter: expect.any(Object) });
+    expect(body.pulse.find((row) => row.week === "2026-W28")?.call_results).toEqual(expect.any(Object));
   });
 
   it("returns a null target when weekly_targets is absent", async () => {

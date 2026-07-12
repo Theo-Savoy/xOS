@@ -35,14 +35,28 @@ const selfPayload = {
   owners: [{ sf_user_id: "self", name: "Ada Lovelace", email: "ada@xos-learning.fr", role: "commercial" as const, tracking: "commercial" as const }],
   pulse: [
     { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", calls: 2, meetings: 1, proposals: 0 },
-    { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 4, meetings: 2, proposals: 1 },
+    {
+      sf_user_id: "self",
+      week: "2026-W28",
+      week_start: "2026-07-06",
+      calls: 4,
+      meetings: 2,
+      proposals: 1,
+      call_results: {
+        "Appel non décroché": 1,
+        "Message répondeur": 1,
+        "Appel décroché": 1,
+        "Appel argumenté": 0,
+        "RDV planifié": 1,
+      },
+    },
   ],
   pipeline: [
     { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 1, generated_amount: 5000, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
     { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 2, generated_amount: 12000, won_count: 1, won_amount: 6000, won_by_type: { catalogue: 3000, sur_mesure: 2000, conseil: 1000 }, won_arr_amount: 3000, closing_rate_count: 0.5, closing_rate_amount: 0.5 },
   ],
   effort: [{ sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", progressions: 3, open_opps_at_start: 20, effort_rate: 0.15 }],
-  quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: 60000, signed_n1: 15000 }],
+  quarter: [{ sf_user_id: "self", quarter: "FY27-Q1", signed_to_date: 20000, weighted_open: 15000, forecast: 35000, custom_pipe: 18000, target: 60000, signed_n1: 15000, pace_ratio: 4.33, expected_to_date: 4615 }],
   forecast_history: [
     { sf_user_id: "self", week_start: "2026-07-06", week: "2026-W28", forecast: 35000, signed_to_date: 20000 },
   ],
@@ -63,6 +77,7 @@ const selfPayload = {
     run_rate: 260000,
     won_count: 1,
   },
+  quarter_bounds: { from: "2026-07-01", to: "2026-09-30", label: "FY27-Q1" },
   custom_pipe: {
     horizon_days: 180,
     total_amount: 18000,
@@ -136,7 +151,8 @@ describe("Weekly Perf", () => {
     render(<WeeklyApp />);
     fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
     expect(screen.getAllByText("Yanis Agharbi").length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByLabelText("Filtrer un commercial"), { target: { value: "self" } });
+    fireEvent.click(screen.getByLabelText("Filtrer un commercial"));
+    fireEvent.click(screen.getByRole("option", { name: "Ada Lovelace" }));
     expect(screen.getByRole("heading", { level: 4, name: "Ada Lovelace" })).toBeTruthy();
     expect(screen.queryByRole("heading", { level: 4, name: "Yanis Agharbi" })).toBeNull();
   });
@@ -145,8 +161,13 @@ describe("Weekly Perf", () => {
     render(<WeeklyApp />);
 
     expect(await screen.findByText("Ada Lovelace")).toBeTruthy();
-    expect(screen.getByText("RDV")).toBeTruthy();
-    expect(screen.getAllByText(/\+1 vs S−1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("RDV").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("+1").length).toBeGreaterThan(0);
+    expect(screen.getByText("OK")).toBeTruthy();
+    expect(screen.getByText(/2\/5 RDV/)).toBeTruthy();
+    expect(screen.getByText(/trajectoire en avance/)).toBeTruthy();
+    expect(screen.getByText(/Forme/)).toBeTruthy();
+    expect(screen.getByText(/5 RDV \/ sem/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Équipe" })).toBeNull();
   });
 
@@ -175,7 +196,7 @@ describe("Weekly Perf", () => {
     expect(await screen.findByText("Consolidé vs S−1")).toBeTruthy();
     const rollup = screen.getByText("Consolidé vs S−1").closest(".weekly-section") as HTMLElement;
     expect(within(rollup).getByText("RDV")).toBeTruthy();
-    expect(within(rollup).getByText("7")).toBeTruthy();
+    expect(within(rollup).getByText("10")).toBeTruthy();
     expect(within(rollup).getByText("CA signé")).toBeTruthy();
     expect(within(rollup).getByText(/Ada 6/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
@@ -196,20 +217,18 @@ describe("Weekly Perf", () => {
     expect(screen.getByText("Target trimestre")).toBeTruthy();
   });
 
-  it("filters managers and DG by default and reveals them with their badge", async () => {
+  it("shows the full team roster without a DG badge", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(teamPayload), { status: 200 })));
     render(<WeeklyApp />);
 
-    expect(await screen.findByRole("button", { name: "Équipe" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Équipe" }));
-    expect(screen.queryByText("Grace Hopper")).toBeNull();
-    expect(screen.queryByText("Jérôme Bosio")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
+    expect(screen.getByRole("heading", { level: 4, name: "Grace Hopper" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 4, name: "Jérôme Bosio" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 4, name: "Yanis Agharbi" })).toBeTruthy();
     expect(screen.getByText("SDR")).toBeTruthy();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Commerciaux seulement" }));
-    expect(await screen.findByRole("heading", { level: 4, name: "Grace Hopper" })).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 4, name: "Jérôme Bosio" })).toBeTruthy();
-    expect(screen.getByText("DG")).toBeTruthy();
+    expect(screen.getByText("Manager")).toBeTruthy();
+    expect(screen.queryByText("DG")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Commerciaux seulement" })).toBeNull();
   });
 
   it("shows SDR metrics without sales breakdown", async () => {
@@ -246,12 +265,22 @@ describe("Weekly Perf", () => {
     expect(screen.getByText("Deal SM")).toBeTruthy();
   });
 
-  it("computes table totals and averages client-side", async () => {
+  it("renders call funnel and leading flux before Cap", async () => {
+    render(<WeeklyApp />);
+    expect(await screen.findByText("Funnel appels")).toBeTruthy();
+    expect(screen.getByText("Flux menant")).toBeTruthy();
+    expect(screen.getByText(/Les signés se lisent au Cap/)).toBeTruthy();
+    expect(screen.getByText("CA créé")).toBeTruthy();
+    expect(screen.getByText("Objectif du trimestre")).toBeTruthy();
+  });
+
+  it("computes table totals and week-over-week deltas client-side", async () => {
     render(<WeeklyApp />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Tableau" }));
     const table = screen.getByRole("table", { name: "Suivi hebdomadaire de Ada Lovelace" });
     expect(within(table).getByRole("columnheader", { name: "Total" })).toBeTruthy();
+    expect(within(table).getByRole("columnheader", { name: "Δ S−1" })).toBeTruthy();
     expect(within(table).getByRole("row", { name: /RDV effectués/ })).toBeTruthy();
     expect(within(table).queryByRole("row", { name: /Pipe sur-mesure/ })).toBeNull();
     expect(within(table).getAllByRole("row")).toHaveLength(8);

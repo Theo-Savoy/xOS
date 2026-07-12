@@ -3,6 +3,7 @@ import {
   canManageRoles,
   canManageSettings,
   canViewTeamPerf,
+  isWeeklyOwnerExcluded,
   roleAtLeast,
   roleFromEmail,
 } from "./access.js";
@@ -17,6 +18,16 @@ describe("roleFromEmail (XOS bootstrap)", () => {
   it("defaults unknown users to commercial", () => {
     expect(roleFromEmail("yanis.agharbi@xos-learning.fr")).toBe("commercial");
     expect(roleFromEmail("")).toBe("commercial");
+  });
+});
+
+describe("weekly owner exclusions", () => {
+  it("always excludes Théo even by email or name", () => {
+    expect(isWeeklyOwnerExcluded({ Name: "Théo Savoy", IsActive: true })).toBe(true);
+    expect(isWeeklyOwnerExcluded({ Name: "Theo Savoy", Email: "other@xos-learning.fr", IsActive: true })).toBe(true);
+    expect(isWeeklyOwnerExcluded({ Name: "Someone", Email: "theo.savoy@xos-learning.fr", IsActive: true })).toBe(true);
+    expect(isWeeklyOwnerExcluded(null, "Théo Savoy", "")).toBe(true);
+    expect(isWeeklyOwnerExcluded({ Name: "Ada Lovelace", Email: "ada@xos-learning.fr", IsActive: true })).toBe(false);
   });
 });
 
