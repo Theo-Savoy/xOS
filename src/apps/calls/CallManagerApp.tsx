@@ -704,7 +704,14 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   const handlePin = async () => {
     if (!activeSession || activeSession.id === RECALL_QUEUE_SESSION.id) return;
-    await addShortcut("calls", { session_id: String(activeSession.id) }, activeSession.name);
+    const dateLabel = activeSession.scheduled_for
+      ? new Date(`${activeSession.scheduled_for}T12:00:00`).toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "short",
+        })
+      : "";
+    const label = dateLabel ? `${activeSession.name} · ${dateLabel}` : activeSession.name;
+    await addShortcut("calls", { session_id: String(activeSession.id) }, label);
   };
 
   const goToSessions = () => {
