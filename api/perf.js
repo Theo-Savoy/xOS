@@ -497,14 +497,20 @@ async function loadPeriodHistory(client) {
     .from("perf_week_snapshots")
     .select("week_start, iso_week, quarter")
     .order("week_start", { ascending: false })
-    .limit(104);
+    .limit(520);
   if (error) {
     if (/perf_week_snapshots|schema cache|does not exist/i.test(error.message || "")) return { weeks: [], quarters: [] };
     throw new Error("period_history_lookup_failed");
   }
   const weeks = [];
+  const seen = new Set();
   const quarterSet = new Set();
+  const today = dateKey();
+  const currentMonday = mondayFor(today);
   for (const row of data || []) {
+    if (!row.week_start || row.week_start > currentMonday) continue;
+    if (seen.has(row.week_start)) continue;
+    seen.add(row.week_start);
     weeks.push({ week_start: row.week_start, iso_week: row.iso_week, quarter: row.quarter });
     if (row.quarter) quarterSet.add(row.quarter);
   }

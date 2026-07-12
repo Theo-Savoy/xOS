@@ -133,33 +133,38 @@
 }
 
 .weekly-tip--help {
-  margin-left: .35rem;
+  margin-left: .4rem;
 }
 
 .weekly-tip__btn {
   display: inline-grid;
   place-items: center;
-  width: 1.05rem;
-  height: 1.05rem;
+  width: .95rem;
+  height: .95rem;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--xos-accent) 35%, var(--xos-border));
-  border-radius: .35rem;
-  background: color-mix(in srgb, var(--xos-accent) 12%, transparent);
-  color: var(--xos-accent);
+  border: 0;
+  border-radius: 999px;
+  background: var(--xos-accent);
+  color: #0b1020;
   font-family: inherit;
-  font-size: .68rem;
-  font-weight: 700;
-  font-style: italic;
+  font-size: .62rem;
+  font-weight: 800;
+  font-style: normal;
   line-height: 1;
   cursor: help;
-  transition: background .15s ease, border-color .15s ease, color .15s ease;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 35%, transparent);
+  transition: transform .12s ease, filter .12s ease;
+}
+
+.weekly-tip__glyph {
+  display: block;
+  transform: translateY(-0.5px);
 }
 
 .weekly-tip__btn:hover,
 .weekly-tip__btn:focus-visible {
-  background: color-mix(in srgb, var(--xos-accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--xos-accent) 60%, transparent);
-  color: var(--xos-text);
+  filter: brightness(1.08);
+  transform: scale(1.06);
   outline: none;
 }
 
@@ -170,83 +175,26 @@
 }
 
 .weekly-tip__panel {
-  position: absolute;
-  z-index: 40;
-  left: 50%;
+  z-index: 80;
   width: max-content;
-  max-width: min(17.5rem, 78vw);
-  padding: .65rem .8rem;
-  border-radius: .7rem;
-  border: 1px solid color-mix(in srgb, var(--xos-accent) 28%, var(--xos-border));
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--xos-accent) 14%, transparent), transparent 42%),
-    color-mix(in srgb, var(--xos-window-content-bg) 96%, #000 4%);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--xos-text) 4%, transparent),
-    0 14px 36px -18px rgba(0, 0, 0, .7);
+  padding: .7rem .85rem;
+  border-radius: .65rem;
+  border: 1px solid color-mix(in srgb, var(--xos-border) 90%, var(--xos-accent));
+  background: #121826;
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .85);
   color: var(--xos-text);
   font-size: .78rem;
   font-weight: 450;
   line-height: 1.45;
-  letter-spacing: .005em;
+  letter-spacing: .01em;
   text-transform: none;
   pointer-events: none;
-  animation: weekly-tip-in .16s ease-out;
-}
-
-.weekly-tip--top .weekly-tip__panel {
-  bottom: calc(100% + .55rem);
-  transform: translateX(-50%);
-}
-
-.weekly-tip--bottom .weekly-tip__panel {
-  top: calc(100% + .55rem);
-  transform: translateX(-50%);
-}
-
-.weekly-tip__panel::before {
-  content: "";
-  position: absolute;
-  left: .75rem;
-  right: .75rem;
-  top: 0;
-  height: 2px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--xos-accent) 70%, transparent);
-}
-
-.weekly-tip--top .weekly-tip__panel::after,
-.weekly-tip--bottom .weekly-tip__panel::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  border: 6px solid transparent;
-}
-
-.weekly-tip--top .weekly-tip__panel::after {
-  top: 100%;
-  transform: translateX(-50%);
-  border-top-color: color-mix(in srgb, var(--xos-window-content-bg) 96%, #000 4%);
-}
-
-.weekly-tip--bottom .weekly-tip__panel::after {
-  bottom: 100%;
-  transform: translateX(-50%);
-  border-bottom-color: color-mix(in srgb, var(--xos-window-content-bg) 96%, #000 4%);
+  animation: weekly-tip-in .14s ease-out;
 }
 
 @keyframes weekly-tip-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-.weekly-tip--bottom .weekly-tip__panel {
-  animation-name: weekly-tip-in-bottom;
-}
-
-@keyframes weekly-tip-in-bottom {
-  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .weekly-chart-tooltip,
@@ -1179,6 +1127,7 @@
 .weekly-table tbody tr:last-child td { border-bottom: 0; }
 
 .weekly-table-total { color: var(--xos-accent); font-weight: 700; }
+.weekly-table-avg { color: var(--xos-text-muted); font-variant-numeric: tabular-nums; }
 .weekly-table-current {
   background: color-mix(in srgb, var(--xos-accent) 10%, transparent);
   font-weight: 600;

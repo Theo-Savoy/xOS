@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { Button, GlassCard, Select, Tag } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
@@ -121,7 +121,10 @@ function Tip({
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
+  const [resolvedSide, setResolvedSide] = useState(side);
   const rootRef = useRef<HTMLSpanElement>(null);
+  const panelRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -139,10 +142,48 @@ function Tip({
     };
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelStyle({ visibility: "hidden" });
+      return;
+    }
+    const place = () => {
+      const trigger = rootRef.current?.getBoundingClientRect();
+      const panel = panelRef.current?.getBoundingClientRect();
+      if (!trigger || !panel) return;
+      const margin = 10;
+      let nextSide = side;
+      if (nextSide === "top" && trigger.top < panel.height + margin + 8) nextSide = "bottom";
+      if (nextSide === "bottom" && trigger.bottom + panel.height + margin + 8 > window.innerHeight) nextSide = "top";
+      const width = Math.min(panel.width || 240, window.innerWidth - margin * 2);
+      let left = trigger.left + trigger.width / 2 - width / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      const top = nextSide === "top" ? trigger.top - panel.height - 8 : trigger.bottom + 8;
+      setResolvedSide(nextSide);
+      setPanelStyle({
+        position: "fixed",
+        top: Math.max(margin, top),
+        left,
+        width,
+        maxWidth: Math.min(280, window.innerWidth - margin * 2),
+        transform: "none",
+        visibility: "visible",
+      });
+    };
+    place();
+    const onResize = () => place();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
+    };
+  }, [open, side, text]);
+
   return (
     <span
       ref={rootRef}
-      className={["weekly-tip", `weekly-tip--${side}`, children ? "weekly-tip--anchor" : "weekly-tip--help", className].filter(Boolean).join(" ")}
+      className={["weekly-tip", `weekly-tip--${resolvedSide}`, children ? "weekly-tip--anchor" : "weekly-tip--help", className].filter(Boolean).join(" ")}
       style={style}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
@@ -167,11 +208,16 @@ function Tip({
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
         >
-          <span aria-hidden="true">i</span>
+          <span className="weekly-tip__glyph" aria-hidden="true">?</span>
         </button>
       )}
       {open && (
-        <span className="weekly-tip__panel" role="tooltip">
+        <span
+          ref={panelRef}
+          className="weekly-tip__panel"
+          role="tooltip"
+          style={{ position: "fixed", top: 0, left: 0, ...panelStyle }}
+        >
           {text}
         </span>
       )}
@@ -336,19 +382,22 @@ function pctChange(current: number, previous: number | undefined) {
   return (current - previous) / Math.abs(previous);
 }
 
-function formatPctChange(value: number | null, compareLabel: string, compact = false) {
+function formatPctChange(value: number | null) {
   if (value === null) return null;
-  if (value === 0) return compact ? "=" : `= ${compareLabel}`;
-  const signed = `${value > 0 ? "+" : "−"}${percent.format(Math.abs(value))}`;
-  return compact ? signed : `${signed} vs ${compareLabel}`;
+  if (value === 0) return "=";
+  return `${value > 0 ? "+" : "−"}${percent.format(Math.abs(value))}`;
 }
 
 function wowDelta(current: number, previous: number | undefined) {
   return pctChange(current, previous);
 }
 
-function formatDelta(value: number | null, compareLabel: string, compact = false) {
-  return formatPctChange(value, compareLabel, compact);
+function formatDelta(value: number | null) {
+  return formatPctChange(value);
+}
+
+function metricShowsAverage(label: string) {
+  return /^(RDV|Opps détectées|Appels)/i.test(label);
 }
 
 function trackingOf(owner: Owner): Tracking {
@@ -617,15 +666,16 @@ type TableMetric = { label: string; format: "count" | "money"; values: Array<num
 function tableFooter(metric: TableMetric, weekMode: boolean, currentIndex: number) {
   const elapsed = metric.values.slice(0, currentIndex + 1).filter((value): value is number => value !== null);
   const total = elapsed.length ? elapsed.reduce((sum, value) => sum + value, 0) : null;
-  if (weekMode) {
-    const delta = currentIndex > 0 ? wowDelta(metric.values[currentIndex] ?? 0, metric.values[currentIndex - 1] ?? undefined) : null;
-    return { summary: total, summaryLabel: "Total", delta, deltaClass: delta };
-  }
   const weeksElapsed = currentIndex + 1;
   const average = total !== null && weeksElapsed > 0 ? total / weeksElapsed : null;
+  if (weekMode) {
+    const delta = currentIndex > 0 ? wowDelta(metric.values[currentIndex] ?? 0, metric.values[currentIndex - 1] ?? undefined) : null;
+    return { total, average: null as number | null, delta };
+  }
   const prior = metric.priorTotal ?? null;
-  const delta = average !== null && prior !== null ? pctChange(average * weeksElapsed, prior) : null;
-  return { summary: average, summaryLabel: "Moyenne", delta, deltaClass: delta };
+  // Cumul à date vs même fenêtre du trimestre N−1 (même nombre de semaines écoulées).
+  const delta = total !== null && prior !== null ? pctChange(total, prior) : null;
+  return { total, average, delta };
 }
 
 function MetricTable({ owner, weeks, pulse, pipeline, priorPulse, priorPipeline, quarter, currentIndex, weekMode, compareLabel, priorQuarterLabel }: {
@@ -664,10 +714,27 @@ function MetricTable({ owner, weeks, pulse, pipeline, priorPulse, priorPipeline,
     <div className="weekly-person"><h4>{owner.name}</h4>{badge && <Tag variant="muted">{badge}</Tag>}</div>
     <div className="weekly-table-scroll">
       <table className="weekly-table" aria-label={`Suivi hebdomadaire de ${owner.name}`}>
-        <thead><tr><th scope="col">Métrique</th>{weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}<th scope="col">{weekMode ? "Total" : "Moyenne"}</th><th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th></tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">Métrique</th>
+            {weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}
+            {!weekMode && <th scope="col">Moyenne</th>}
+            <th scope="col">{weekMode ? "Total" : "Somme"}</th>
+            <th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th>
+          </tr>
+        </thead>
         <tbody>{rows.map((metric) => {
           const footer = tableFooter(metric, weekMode, currentIndex);
-          return <tr key={metric.label}><th scope="row">{metric.label}</th>{metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}<td className="weekly-table-total">{formatValue(footer.summary, metric.format)}</td><td className={footer.deltaClass && footer.deltaClass < 0 ? "weekly-delta--down" : footer.deltaClass && footer.deltaClass > 0 ? "weekly-delta--up" : undefined}>{formatDelta(footer.deltaClass, weekMode ? compareLabel : priorQuarterLabel) || "—"}</td></tr>;
+          const avg = !weekMode && metricShowsAverage(metric.label) ? footer.average : null;
+          return (
+            <tr key={metric.label}>
+              <th scope="row">{metric.label}</th>
+              {metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}
+              {!weekMode && <td className="weekly-table-avg">{formatValue(avg, metric.format)}</td>}
+              <td className="weekly-table-total">{formatValue(footer.total, metric.format)}</td>
+              <td className={footer.delta !== null && footer.delta < 0 ? "weekly-delta--down" : footer.delta !== null && footer.delta > 0 ? "weekly-delta--up" : undefined}>{formatDelta(footer.delta) || "—"}</td>
+            </tr>
+          );
         })}</tbody>
       </table>
     </div>
@@ -675,9 +742,9 @@ function MetricTable({ owner, weeks, pulse, pipeline, priorPulse, priorPipeline,
   </GlassCard>;
 }
 
-function MetricCell({ label, value, previous, moneyValue = false, compareLabel }: { label: string; value: number; previous?: number; moneyValue?: boolean; compareLabel: string }) {
+function MetricCell({ label, value, previous, moneyValue = false }: { label: string; value: number; previous?: number; moneyValue?: boolean; compareLabel?: string }) {
   const delta = wowDelta(value, previous);
-  const deltaText = formatDelta(delta, compareLabel, true);
+  const deltaText = formatDelta(delta);
   return <div>
     <span>{label}</span>
     <strong className="xos-numeric">{moneyValue ? money.format(value) : value}</strong>
@@ -886,10 +953,27 @@ function TeamMetricTable({
     <div className="weekly-person"><h4>Équipe</h4><Tag variant="accent">Consolidé</Tag></div>
     <div className="weekly-table-scroll">
       <table className="weekly-table" aria-label="Suivi hebdomadaire consolidé de l’équipe">
-        <thead><tr><th scope="col">Métrique</th>{weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}<th scope="col">{weekMode ? "Total" : "Moyenne"}</th><th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th></tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">Métrique</th>
+            {weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}
+            {!weekMode && <th scope="col">Moyenne</th>}
+            <th scope="col">{weekMode ? "Total" : "Somme"}</th>
+            <th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th>
+          </tr>
+        </thead>
         <tbody>{rows.map((metric) => {
           const footer = tableFooter(metric, weekMode, currentIndex);
-          return <tr key={metric.label}><th scope="row">{metric.label}</th>{metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}<td className="weekly-table-total">{formatValue(footer.summary, metric.format)}</td><td className={footer.deltaClass && footer.deltaClass < 0 ? "weekly-delta--down" : footer.deltaClass && footer.deltaClass > 0 ? "weekly-delta--up" : undefined}>{formatDelta(footer.deltaClass, weekMode ? compareLabel : priorQuarterLabel) || "—"}</td></tr>;
+          const avg = !weekMode && metricShowsAverage(metric.label) ? footer.average : null;
+          return (
+            <tr key={metric.label}>
+              <th scope="row">{metric.label}</th>
+              {metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}
+              {!weekMode && <td className="weekly-table-avg">{formatValue(avg, metric.format)}</td>}
+              <td className="weekly-table-total">{formatValue(footer.total, metric.format)}</td>
+              <td className={footer.delta !== null && footer.delta < 0 ? "weekly-delta--down" : footer.delta !== null && footer.delta > 0 ? "weekly-delta--up" : undefined}>{formatDelta(footer.delta) || "—"}</td>
+            </tr>
+          );
         })}</tbody>
       </table>
     </div>
@@ -1551,10 +1635,22 @@ export default function WeeklyApp() {
   const periodBadge = weekMode
     ? (currentWeekShort ? `Semaine ${currentWeekShort}` : "Semaine en cours")
     : (context?.quarter_label ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}` : "Trimestre en cours");
-  const historyOptions = (periodHistory.weeks || []).map((entry) => ({
-    value: entry.week_start,
-    label: shortWeekLabel(entry.iso_week) || entry.iso_week,
-  }));
+  const liveWeekStart = context?.anchor_week_start || addDays(payload.range.to, -6);
+  const historyOptions = (() => {
+    const seen = new Set<string>();
+    return (periodHistory.weeks || [])
+      .filter((entry) => entry.week_start <= liveWeekStart)
+      .filter((entry) => {
+        if (seen.has(entry.week_start)) return false;
+        seen.add(entry.week_start);
+        return true;
+      })
+      .sort((a, b) => b.week_start.localeCompare(a.week_start))
+      .map((entry) => ({
+        value: entry.week_start,
+        label: shortWeekLabel(entry.iso_week) || entry.iso_week,
+      }));
+  })();
   const hasActivity = payload.pulse.some((point) => point.calls || point.meetings || point.proposals) || payload.pipeline.some((point) => point.generated_amount || point.won_amount) || payload.effort.some((point) => point.progressions) || customPipe.count > 0 || followUps.length > 0 || stagnant.length > 0 || (pace?.signed_to_date || 0) > 0;
   const showForecast = !weekMode && visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
   const showActivityTrend = !weekMode;
