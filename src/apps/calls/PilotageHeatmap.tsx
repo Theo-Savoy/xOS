@@ -77,85 +77,90 @@ export function PilotageHeatmap({
 
   return (
     <section className="pilotage-heatmap" aria-label="Activité récente">
-      <div className="pilotage-heatmap__head">
-        <h3>Calendrier</h3>
-        <div className="calls-seg pilotage-heatmap__metric" role="group" aria-label="Métrique affichée">
-          <button
-            type="button"
-            className={`calls-seg__btn${metric === "calls" ? " calls-seg__btn--active" : ""}`}
-            aria-pressed={metric === "calls"}
-            onClick={() => setMetric("calls")}
-          >
-            Appels
-          </button>
-          <button
-            type="button"
-            className={`calls-seg__btn${metric === "rdv" ? " calls-seg__btn--active" : ""}`}
-            aria-pressed={metric === "rdv"}
-            onClick={() => setMetric("rdv")}
-          >
-            RDV
-          </button>
-        </div>
-      </div>
-
-      <div className="pilotage-heatmap__scale" aria-hidden="true">
-        <span className="pilotage-heatmap__scale-bound xos-numeric">0</span>
-        <div className={`pilotage-heatmap__gradient pilotage-heatmap__gradient--${metric}`} />
-        <span className="pilotage-heatmap__scale-bound xos-numeric">{maxValue}</span>
-      </div>
-
-      <div className="pilotage-heatmap__weekdays" aria-hidden="true">
-        {WEEKDAYS.map((label, i) => (
-          <span key={`${label}-${i}`}>{label}</span>
-        ))}
-      </div>
-
-      <div className="pilotage-heatmap__grid" role="grid" aria-label="Jours">
-        {weeks.map((week) => (
-          <div key={week.key} className="pilotage-heatmap__week" role="row">
-            {week.cells.map((cell, idx) => {
-              if (!cell) {
-                return (
-                  <span
-                    key={`${week.key}-empty-${idx}`}
-                    className="pilotage-heatmap__cell pilotage-heatmap__cell--empty"
-                    role="gridcell"
-                  />
-                );
-              }
-
-              const value = metric === "calls" ? cell.calls : cell.rdv;
-              const heatT = intensity(value, maxValue);
-              const selected = selectedDate === cell.date;
-              const dayNum = Number(cell.date.slice(8, 10));
-
-              return (
-                <button
-                  key={cell.date}
-                  type="button"
-                  role="gridcell"
-                  className={[
-                    "pilotage-heatmap__cell",
-                    `pilotage-heatmap__cell--${metric}`,
-                    selected ? "pilotage-heatmap__cell--selected" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  style={{ ["--heat-t" as string]: String(heatT) }}
-                  title={`${cell.label} · ${cell.calls} appels · ${cell.rdv} RDV`}
-                  aria-label={`${cell.label}, ${cell.calls} appels, ${cell.rdv} RDV`}
-                  aria-pressed={selected}
-                  onClick={() => onSelectDay(cell.date)}
-                  onMouseEnter={() => onPrefetchDay?.(cell.date)}
-                  onFocus={() => onPrefetchDay?.(cell.date)}
-                >
-                  <span className="pilotage-heatmap__day">{dayNum}</span>
-                </button>
-              );
-            })}
+      <div className="pilotage-heatmap__inner">
+        <div className="pilotage-heatmap__head">
+          <div>
+            <h3>Calendrier</h3>
+            <p className="pilotage-heatmap__hint">Cliquez un jour pour filtrer Pilotage.</p>
           </div>
-        ))}
+          <div className="calls-seg pilotage-heatmap__metric" role="group" aria-label="Métrique affichée">
+            <button
+              type="button"
+              className={`calls-seg__btn${metric === "calls" ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={metric === "calls"}
+              onClick={() => setMetric("calls")}
+            >
+              Appels
+            </button>
+            <button
+              type="button"
+              className={`calls-seg__btn${metric === "rdv" ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={metric === "rdv"}
+              onClick={() => setMetric("rdv")}
+            >
+              RDV
+            </button>
+          </div>
+        </div>
+
+        <div className="pilotage-heatmap__scale" aria-hidden="true">
+          <span className="pilotage-heatmap__scale-bound xos-numeric">0</span>
+          <div className={`pilotage-heatmap__gradient pilotage-heatmap__gradient--${metric}`} />
+          <span className="pilotage-heatmap__scale-bound xos-numeric">{maxValue}</span>
+        </div>
+
+        <div className="pilotage-heatmap__weekdays" aria-hidden="true">
+          {WEEKDAYS.map((label, i) => (
+            <span key={`${label}-${i}`}>{label}</span>
+          ))}
+        </div>
+
+        <div className="pilotage-heatmap__grid" role="grid" aria-label="Jours">
+          {weeks.map((week) => (
+            <div key={week.key} className="pilotage-heatmap__week" role="row">
+              {week.cells.map((cell, idx) => {
+                if (!cell) {
+                  return (
+                    <span
+                      key={`${week.key}-empty-${idx}`}
+                      className="pilotage-heatmap__cell pilotage-heatmap__cell--empty"
+                      role="gridcell"
+                    />
+                  );
+                }
+
+                const value = metric === "calls" ? cell.calls : cell.rdv;
+                const heatT = intensity(value, maxValue);
+                const selected = selectedDate === cell.date;
+                const dayNum = Number(cell.date.slice(8, 10));
+
+                return (
+                  <button
+                    key={cell.date}
+                    type="button"
+                    role="gridcell"
+                    className={[
+                      "pilotage-heatmap__cell",
+                      `pilotage-heatmap__cell--${metric}`,
+                      selected ? "pilotage-heatmap__cell--selected" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{ ["--heat-t" as string]: String(heatT) }}
+                    title={`${cell.label} · ${cell.calls} appels · ${cell.rdv} RDV`}
+                    aria-label={`${cell.label}, ${cell.calls} appels, ${cell.rdv} RDV`}
+                    aria-pressed={selected}
+                    onClick={() => onSelectDay(cell.date)}
+                    onMouseEnter={() => onPrefetchDay?.(cell.date)}
+                    onFocus={() => onPrefetchDay?.(cell.date)}
+                  >
+                    <span className="pilotage-heatmap__day">{dayNum}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

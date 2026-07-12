@@ -63,15 +63,18 @@ const mockChain = {
   eq() { return this; },
   in() { return this; },
   not() { return this; },
+  gte() { return this; },
   order() { return this; },
   single() { return mockDb(); },
   maybeSingle() { return mockDb(); },
+  // head+count queries resolve via then → mockDb()
 };
 
 const mockFrom = vi.fn(() => mockChain);
+const mockRpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "no rpc" } }));
 
 vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({ from: mockFrom }),
+  createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
 const RESULTS = mapping.objects.task.results;
@@ -407,7 +410,6 @@ describe("GET /api/calls", () => {
     mockDb
       .mockResolvedValueOnce({ data: [{ id: 1 }, { id: 2 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [{ id: 1, status: "active" }, { id: 2, status: "completed" }], error: null })
       .mockResolvedValueOnce({ data: [{ id: 1, status: "active" }, { id: 2, status: "completed" }], error: null })
       .mockResolvedValueOnce({
         data: [

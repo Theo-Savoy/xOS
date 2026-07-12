@@ -21,6 +21,7 @@ import { startSalesforceLink } from "./salesforceLink";
 // Side-effect import : déclenche les imports dynamiques qui cachent les
 // chunks lazy des apps. Voir preload.ts pour la liste complète.
 import "./preload";
+import { prefetchComboHub } from "../apps/calls/api";
 import "./theme.css";
 import "./desktop.css";
 import "./controlCenter.css";
@@ -45,6 +46,11 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
   const [sfLinkChecked, setSfLinkChecked] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [shortcuts, setShortcuts] = useState<DesktopShortcut[]>([]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    prefetchComboHub(accessToken);
+  }, [accessToken]);
 
   useEffect(() => {
     let cancelled = false;

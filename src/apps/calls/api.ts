@@ -65,6 +65,66 @@ export async function fetchStats(token: string): Promise<CallStats> {
   return data.stats;
 }
 
+export type ComboHubPayload = {
+  sessions: SessionSummary[];
+  stats: CallStats;
+  recall_count: number;
+};
+
+type HubCacheEntry = {
+  token: string;
+  at: number;
+  data?: ComboHubPayload;
+  promise?: Promise<ComboHubPayload>;
+};
+
+let hubCache: HubCacheEntry | null = null;
+const HUB_CACHE_TTL_MS = 45_000;
+
+export function invalidateComboHubCache() {
+  hubCache = null;
+}
+
+/** Prefetch hub Combo (Desktop) — partage le cache avec CallManagerApp. */
+export function prefetchComboHub(token: string): void {
+  if (!token) return;
+  void fetchComboHub(token).catch(() => {
+    /* ignore */
+  });
+}
+
+export async function fetchComboHub(
+  token: string,
+  opts?: { force?: boolean },
+): Promise<ComboHubPayload> {
+  const force = opts?.force === true;
+  const now = Date.now();
+  if (
+    !force
+    && hubCache
+    && hubCache.token === token
+    && hubCache.data
+    && now - hubCache.at < HUB_CACHE_TTL_MS
+  ) {
+    return hubCache.data;
+  }
+  if (!force && hubCache && hubCache.token === token && hubCache.promise) {
+    return hubCache.promise;
+  }
+
+  const promise = apiFetch<ComboHubPayload>(token, "/api/calls?resource=hub").then((data) => {
+    hubCache = { token, at: Date.now(), data };
+    return data;
+  });
+  hubCache = { token, at: now, promise };
+  try {
+    return await promise;
+  } catch (err) {
+    if (hubCache?.promise === promise) hubCache = null;
+    throw err;
+  }
+}
+
 export async function fetchSession(
   token: string,
   sessionId: number,
@@ -76,10 +136,16 @@ export async function fetchContactContext(
   token: string,
   sessionId: number,
   contactId: number,
+  opts?: { lite?: boolean },
 ): Promise<ContactContext> {
+  const params = new URLSearchParams({
+    session_id: String(sessionId),
+    context_contact_id: String(contactId),
+  });
+  if (opts?.lite) params.set("context_lite", "1");
   const data = await apiFetch<{ context: ContactContext }>(
     token,
-    `/api/calls?session_id=${sessionId}&context_contact_id=${contactId}`,
+    `/api/calls?${params}`,
   );
   return data.context;
 }

@@ -243,6 +243,42 @@ function formatPeriodLabel(period: CockpitPeriod, range?: CockpitRange | null): 
   return `${startDay} ${startMonth}–${endLabel}`;
 }
 
+/** Label immédiat à partir de l’ancre (avant retour API). */
+function formatAnchorLabel(period: CockpitPeriod, anchor: string): string {
+  const [y, m, d] = anchor.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d, 12));
+  if (period === "day") {
+    return date.toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+  }
+  if (period === "month") {
+    return date.toLocaleDateString("fr-FR", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+  const weekStart = new Date(date);
+  const dow = weekStart.getUTCDay();
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
+  weekStart.setUTCDate(weekStart.getUTCDate() - mondayOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+  const startDay = weekStart.toLocaleDateString("fr-FR", { day: "numeric", timeZone: "UTC" });
+  const endLabel = weekEnd.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+  const startMonth = weekStart.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
+  const endMonth = weekEnd.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
+  if (startMonth === endMonth) return `${startDay}–${endLabel}`;
+  return `${startDay} ${startMonth}–${endLabel}`;
+}
+
 function CommercialCard({
   caller,
   selected,
@@ -298,6 +334,7 @@ export function PilotageView({
   const [error, setError] = useState<string | null>(null);
   const cockpitCache = useRef<Map<string, ProspectionCockpit>>(new Map());
   const prefetching = useRef<Set<string>>(new Set());
+  const dataRef = useRef<ProspectionCockpit | null>(null);
   const [pinned, setPinned] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<number>>(new Set());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -324,8 +361,9 @@ export function PilotageView({
 
     if (cached) {
       applyCockpit(cached, period);
+      dataRef.current = cached;
       setLoading(false);
-    } else {
+    } else if (!dataRef.current) {
       setLoading(true);
     }
     setError(null);
@@ -334,27 +372,31 @@ export function PilotageView({
       const next = await fetchProspectionCockpit(token, period, anchor);
       cockpitCache.current.set(key, next);
       applyCockpit(next, period);
+      dataRef.current = next;
     } catch (err) {
-      if (!cached) {
+      if (!cached && !dataRef.current) {
         if (err instanceof PilotageApiError && err.code === "forbidden") {
           setError("Réservé aux managers.");
         } else {
           setError("Impossible de charger Pilotage.");
         }
         setData(null);
+        dataRef.current = null;
       }
     } finally {
       setLoading(false);
     }
   }, [token, period, anchor, applyCockpit]);
 
-  const prefetchDay = useCallback(
-    (date: string) => {
+  const prefetchCockpit = useCallback(
+    (nextPeriod: CockpitPeriod, nextAnchor: string) => {
       if (!token) return;
-      const key = cockpitCacheKey("day", date);
+      const today = todayParisDate();
+      if (nextAnchor > today) return;
+      const key = cockpitCacheKey(nextPeriod, nextAnchor);
       if (cockpitCache.current.has(key) || prefetching.current.has(key)) return;
       prefetching.current.add(key);
-      void fetchProspectionCockpit(token, "day", date)
+      void fetchProspectionCockpit(token, nextPeriod, nextAnchor)
         .then((next) => {
           cockpitCache.current.set(key, next);
         })
@@ -368,9 +410,29 @@ export function PilotageView({
     [token],
   );
 
+  const prefetchDay = useCallback(
+    (date: string) => {
+      prefetchCockpit("day", date);
+    },
+    [prefetchCockpit],
+  );
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Précharge les périodes adjacentes pour que ‹ › soit instantané.
+  useEffect(() => {
+    if (!token || !data) return;
+    const base = anchor ?? data.range?.anchor ?? todayParisDate();
+    const prev = shiftAnchor(base, period, -1);
+    const next = shiftAnchor(base, period, 1);
+    prefetchCockpit(period, prev);
+    prefetchCockpit(period, next);
+    if (period !== "day") {
+      prefetchCockpit("day", base);
+    }
+  }, [token, data, period, anchor, prefetchCockpit]);
 
   const sessions = data?.sessions ?? [];
   const byDay = data?.by_day ?? [];
@@ -458,8 +520,13 @@ export function PilotageView({
   }
 
   const kpis = filtered.kpis;
-  const periodLabel = formatPeriodLabel(period, data?.range);
   const effectiveAnchor = anchor ?? data?.range?.anchor ?? todayParisDate();
+  const rangeMatchesAnchor =
+    !anchor || data?.range?.anchor === anchor || (data?.range?.anchor == null && anchor == null);
+  const periodLabel =
+    rangeMatchesAnchor && data?.range
+      ? formatPeriodLabel(period, data.range)
+      : formatAnchorLabel(period, effectiveAnchor);
   const todayStr = todayParisDate();
   const canGoNext = shiftAnchor(effectiveAnchor, period, 1) <= todayStr;
   const heatmapDays = data?.heatmap ?? [];
@@ -469,10 +536,17 @@ export function PilotageView({
     ? rdvAttributions
     : rdvAttributions.slice(0, RDV_PREVIEW_LIMIT);
 
-  const goPrev = () => setAnchor(shiftAnchor(effectiveAnchor, period, -1));
+  const goPrev = () => {
+    const prev = shiftAnchor(effectiveAnchor, period, -1);
+    prefetchCockpit(period, prev);
+    setAnchor(prev);
+  };
   const goNext = () => {
     const next = shiftAnchor(effectiveAnchor, period, 1);
-    if (next <= todayStr) setAnchor(next);
+    if (next <= todayStr) {
+      prefetchCockpit(period, next);
+      setAnchor(next);
+    }
   };
   const selectHeatmapDay = (date: string) => {
     prefetchDay(date);
@@ -496,6 +570,8 @@ export function PilotageView({
               type="button"
               className="calls-seg__btn"
               onClick={goPrev}
+              onMouseEnter={() => prefetchCockpit(period, shiftAnchor(effectiveAnchor, period, -1))}
+              onFocus={() => prefetchCockpit(period, shiftAnchor(effectiveAnchor, period, -1))}
               aria-label="Période précédente"
             >
               ‹
@@ -506,6 +582,14 @@ export function PilotageView({
               className="calls-seg__btn"
               onClick={goNext}
               disabled={!canGoNext}
+              onMouseEnter={() => {
+                const next = shiftAnchor(effectiveAnchor, period, 1);
+                if (next <= todayStr) prefetchCockpit(period, next);
+              }}
+              onFocus={() => {
+                const next = shiftAnchor(effectiveAnchor, period, 1);
+                if (next <= todayStr) prefetchCockpit(period, next);
+              }}
               aria-label="Période suivante"
             >
               ›

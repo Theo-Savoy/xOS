@@ -957,7 +957,7 @@ describe("SessionsView hub filters", () => {
       <SessionsView
         sessions={sessions}
         stats={null}
-        recalls={[]}
+        recallCount={0}
         recallsLoading={false}
         loading={false}
         error={null}
@@ -989,22 +989,7 @@ describe("SessionsView hub filters", () => {
       <SessionsView
         sessions={[]}
         stats={null}
-        recalls={[
-          {
-            id: 55,
-            session_id: 9,
-            session_name: "Prospection Lyon",
-            session_status: "active",
-            contact_name: "Alice Martin",
-            account_name: "Acme",
-            phone: null,
-            email: null,
-            title: "DRH",
-            recall_at: "2026-07-10",
-            outcome: "Appel non décroché",
-            attempt_count: 1,
-          },
-        ]}
+        recallCount={1}
         recallsLoading={false}
         loading={false}
         error={null}

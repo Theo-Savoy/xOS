@@ -434,8 +434,16 @@ export async function fetchContactBasicsByIds(token, contactIds, mapping = defau
   return { byId };
 }
 
-/** Live Task history + open/closed opportunities + NPA for the runner cockpit. */
-export async function fetchContactContext(token, { contactId, accountId }, mapping = defaultMapping) {
+/** Live Task history + open/closed opportunities + NPA for the runner cockpit.
+ *  options.lite = prefetch path (moins de SOQL / pas de peers).
+ */
+export async function fetchContactContext(
+  token,
+  { contactId, accountId },
+  mapping = defaultMapping,
+  options = {},
+) {
+  const lite = options.lite === true;
   const contact = mapping.objects.contact;
   const account = mapping.objects.account;
   const task = mapping.objects.task;
@@ -445,20 +453,25 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
   const af = account.fields;
   const of = opportunity.fields;
 
-  const contactSoql = [
+  // Contact + Account en un seul SOQL (évite 2 round-trips).
+  const contactAccountSoql = [
     `SELECT ${cf.doNotCall}, ${cf.email}, ${cf.title}`,
+    accountId
+      ? `, Account.${af.id}, Account.${af.name}, Account.${af.industry}, Account.${af.customerType}, Account.${af.ownerId}`
+      : "",
     `FROM ${contact.name}`,
     `WHERE ${cf.id} = '${escapeSOQL(contactId)}'`,
     `LIMIT 1`,
-  ].join(" ");
+  ].filter(Boolean).join(" ");
 
+  const taskLimit = lite ? 8 : 12;
   const taskSoql = [
     `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(", ")}`,
     `FROM ${task.name}`,
     `WHERE ${tf.whoId} = '${escapeSOQL(contactId)}'`,
     `AND ${tf.subtype} = '${escapeSOQL(task.subtypeValue)}'`,
     `ORDER BY ${tf.activityDate} DESC NULLS LAST`,
-    `LIMIT 15`,
+    `LIMIT ${taskLimit}`,
   ].join(" ");
 
   const oppSoql = accountId
@@ -467,25 +480,9 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
         `FROM ${opportunity.name}`,
         `WHERE ${of.accountId} = '${escapeSOQL(accountId)}'`,
         `ORDER BY ${of.isClosed} ASC, ${of.closeDate} DESC NULLS LAST`,
-        `LIMIT 10`,
+        `LIMIT ${lite ? 6 : 10}`,
       ].join(" ")
     : null;
-
-  const accountSoql = accountId
-    ? [
-        `SELECT ${af.id}, ${af.name}, ${af.industry}, ${af.customerType}, ${af.ownerId}`,
-        `FROM ${account.name}`,
-        `WHERE ${af.id} = '${escapeSOQL(accountId)}'`,
-        `LIMIT 1`,
-      ].join(" ")
-    : null;
-
-  const ocrSoql = [
-    `SELECT OpportunityId`,
-    `FROM OpportunityContactRole`,
-    `WHERE ContactId = '${escapeSOQL(contactId)}'`,
-    `LIMIT 50`,
-  ].join(" ");
 
   const event = mapping.objects.event;
   const ef = event.fields;
@@ -495,29 +492,36 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
         `FROM ${event.name}`,
         `WHERE ${ef.whatId} = '${escapeSOQL(accountId)}'`,
         `ORDER BY ${ef.startDateTime} DESC NULLS LAST`,
-        `LIMIT 10`,
+        `LIMIT ${lite ? 6 : 10}`,
       ].join(" ")
     : [
         `SELECT Id, ${ef.subject}, ${ef.startDateTime}, ${ef.whoId}, ${ef.whatId}`,
         `FROM ${event.name}`,
         `WHERE ${ef.whoId} = '${escapeSOQL(contactId)}'`,
         `ORDER BY ${ef.startDateTime} DESC NULLS LAST`,
-        `LIMIT 10`,
+        `LIMIT ${lite ? 6 : 10}`,
       ].join(" ");
 
-  const [contactResult, tasksResult, oppResult, accountResult, ocrResult, eventResult] = await Promise.all([
-    searchContacts(token, contactSoql),
+  const ocrSoql = lite
+    ? null
+    : [
+        `SELECT OpportunityId`,
+        `FROM OpportunityContactRole`,
+        `WHERE ContactId = '${escapeSOQL(contactId)}'`,
+        `LIMIT 50`,
+      ].join(" ");
+
+  const [contactResult, tasksResult, oppResult, ocrResult, eventResult] = await Promise.all([
+    searchContacts(token, contactAccountSoql),
     searchContacts(token, taskSoql),
     oppSoql ? searchContacts(token, oppSoql) : Promise.resolve({ records: [] }),
-    accountSoql ? searchContacts(token, accountSoql) : Promise.resolve({ records: [] }),
-    searchContacts(token, ocrSoql),
+    ocrSoql ? searchContacts(token, ocrSoql) : Promise.resolve({ records: [] }),
     searchContacts(token, eventSoql),
   ]);
 
   if (contactResult.error) return { error: contactResult.error };
   if (tasksResult.error) return { error: tasksResult.error };
   if (oppResult.error) return { error: oppResult.error };
-  if (accountResult.error) return { error: accountResult.error };
   // Events best-effort : si inaccessible, on continue sans historique RDV.
   const events = (eventResult.error ? [] : eventResult.records || []).map((record) => ({
     id: record.Id,
@@ -534,12 +538,13 @@ export async function fetchContactContext(token, { contactId, accountId }, mappi
   );
 
   const contactRow = contactResult.records?.[0];
-  const accountRow = accountResult.records?.[0];
+  const accountRow = contactRow?.Account || null;
   const npa = Boolean(contactRow?.[cf.doNotCall]);
   const industry = accountRow?.[af.industry] || null;
 
+  // Peers : uniquement hors lite (prefetch) — 2ᵉ round-trip volontairement évité au warm-up.
   let peerClients = [];
-  if (industry) {
+  if (!lite && industry) {
     const peersSoql = [
       `SELECT ${af.id}, ${af.name}, ${af.industry}`,
       `FROM ${account.name}`,
