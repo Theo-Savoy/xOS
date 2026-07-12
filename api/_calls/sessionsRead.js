@@ -397,7 +397,7 @@ export async function handleSessionsRead({ url, user, client, headers }) {
 
     let contacts = contactsRaw || [];
     if (contacts.some((contact) => !contact.email || !contact.title)) {
-      const tokenResult = await fetchSFToken();
+      const tokenResult = await fetchSFToken({ client, userId: user.id });
       if (!tokenResult.error) {
         contacts = await hydrateSessionContactsFromCrm(client, contacts, tokenResult.accessToken, mapping);
       }
@@ -440,7 +440,7 @@ export async function handleSessionsRead({ url, user, client, headers }) {
       if (!row) {
         return new Response(JSON.stringify({ error: "contact_not_in_session" }), { status: 404, headers });
       }
-      const tokenResult = await fetchSFToken();
+      const tokenResult = await fetchSFToken({ client, userId: user.id });
       if (tokenResult.error) {
         return new Response(JSON.stringify({ error: tokenResult.error }), { status: 502, headers });
       }

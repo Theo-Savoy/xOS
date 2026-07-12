@@ -120,7 +120,9 @@ export async function listContacts(client, userId, body) {
   const profile = await getProfile(client, userId);
   if (profile.error) return { error: profile.error, status: 500 };
 
-  const tokenResult = await fetchSFToken();
+  // Prefer the user's Salesforce OAuth token so Combo keeps working when the
+  // shared org refresh token is revoked — fall back to SF_REFRESH_TOKEN.
+  const tokenResult = await fetchSFToken({ client, userId });
   if (tokenResult.error) return { error: tokenResult.error, status: 502 };
 
   const maxPerCompany = parsed.maxPerCompany;

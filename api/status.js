@@ -14,23 +14,36 @@ function instanceUrl() {
   return process.env.SF_INSTANCE_URL || "https://db0000000d7rdeay.my.salesforce.com";
 }
 
-async function fetchSalesforceStatus() {
+async function fetchSalesforceStatus({ client, userId }) {
+  const empty = { connected: false, orgConnected: false, dailyApiRequests: null };
   try {
-    const token = await fetchSFToken();
-    if (token.error || !token.accessToken) return { connected: false, dailyApiRequests: null };
+    // Prefer user OAuth, then org integration — what Combo actually uses for reads/writes.
+    const liveToken = await fetchSFToken({ client, userId });
+    // Org-only probe for Hub "intégration plateforme" (shared SF_REFRESH_TOKEN).
+    const orgToken = await fetchSFToken();
+    const orgConnected = Boolean(orgToken.accessToken && !orgToken.error);
+    const connected = Boolean(liveToken.accessToken && !liveToken.error);
+
+    if (!connected) {
+      return { ...empty, orgConnected };
+    }
+
     const response = await fetch(`${instanceUrl()}/services/data/v67.0/limits`, {
-      headers: { Authorization: `Bearer ${token.accessToken}` },
+      headers: { Authorization: `Bearer ${liveToken.accessToken}` },
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) return { connected: false, dailyApiRequests: null };
+    if (!response.ok) {
+      return { connected: false, orgConnected, dailyApiRequests: null };
+    }
     const limits = await response.json();
     const daily = limits.DailyApiRequests;
     return {
       connected: true,
+      orgConnected,
       dailyApiRequests: daily ? { max: daily.Max, remaining: daily.Remaining } : null,
     };
   } catch {
-    return { connected: false, dailyApiRequests: null };
+    return empty;
   }
 }
 
@@ -74,7 +87,7 @@ export async function GET(request) {
   if (profile.error) return respond(500, { error: profile.error });
 
   const [salesforce, cleaner, settings, profiles] = await Promise.all([
-    fetchSalesforceStatus(),
+    fetchSalesforceStatus({ client, userId: user.id }),
     fetchCleanerCache(request),
     canManageSettings(profile.role) ? listSettings(client) : Promise.resolve(undefined),
     canManageSettings(profile.role) ? listProfiles(client) : Promise.resolve(undefined),
@@ -85,8 +98,16 @@ export async function GET(request) {
       manageSettings: canManageSettings(profile.role),
       manageRoles: canManageRoles(profile.role),
     },
-    profile: { email: user.email || null, fullName: profile.fullName, sfUserId: profile.sfUserId },
-    salesforce,
+    profile: {
+      email: user.email || null,
+      fullName: profile.fullName,
+      sfUserId: profile.sfUserId,
+      sfLinked: Boolean(profile.userLinked),
+    },
+    salesforce: {
+      ...salesforce,
+      userLinked: Boolean(profile.userLinked),
+    },
     cache: { cleaner },
     version: process.env.VERCEL_GIT_COMMIT_SHA || "dev",
     ...(settings !== undefined ? { settings: settings || [] } : {}),

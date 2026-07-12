@@ -70,13 +70,56 @@ describe("GET /api/status", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       role: "manager",
-      profile: { email: "ada@xos-learning.fr", fullName: "Ada Lovelace", sfUserId: "005xx" },
-      salesforce: { connected: true, dailyApiRequests: { max: 15000, remaining: 14900 } },
+      profile: {
+        email: "ada@xos-learning.fr",
+        fullName: "Ada Lovelace",
+        sfUserId: "005xx",
+        sfLinked: false,
+      },
+      salesforce: {
+        connected: true,
+        orgConnected: true,
+        userLinked: false,
+        dailyApiRequests: { max: 15000, remaining: 14900 },
+      },
       cache: { cleaner: { version: "history/2026-07-11.json" } },
       version: "abc123",
       capabilities: { manageSettings: true, manageRoles: false },
       settings: [],
       profiles: [],
+    });
+  });
+
+  it("reports orgConnected false when only the user OAuth token works", async () => {
+    mockGetProfile.mockResolvedValue({
+      fullName: "Ada Lovelace",
+      sfUserId: "005xx",
+      role: "manager",
+      userLinked: true,
+      sfAuthConnectedAt: "2026-07-01T00:00:00Z",
+    });
+    mockFetchSFToken.mockImplementation(async (opts = {}) => {
+      if (opts.userId) return { accessToken: "user-token", credential: "user" };
+      return { error: "sf_auth_error" };
+    });
+
+    const response = await GET(request("GET"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      salesforce: {
+        connected: true,
+        orgConnected: false,
+        userLinked: true,
+      },
+    });
+  });
+
+  it("reports disconnected when neither credential works", async () => {
+    mockFetchSFToken.mockResolvedValue({ error: "sf_auth_error" });
+    const response = await GET(request("GET"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      salesforce: { connected: false, orgConnected: false, dailyApiRequests: null },
     });
   });
 });

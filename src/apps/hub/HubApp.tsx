@@ -7,8 +7,13 @@ import "./hub.css";
 type Status = {
   role: string;
   capabilities: { manageSettings: boolean; manageRoles: boolean };
-  profile: { email: string | null; fullName: string | null; sfUserId: string | null };
-  salesforce: { connected: boolean; dailyApiRequests: { max: number; remaining: number } | null };
+  profile: { email: string | null; fullName: string | null; sfUserId: string | null; sfLinked?: boolean };
+  salesforce: {
+    connected: boolean;
+    orgConnected?: boolean;
+    userLinked?: boolean;
+    dailyApiRequests: { max: number; remaining: number } | null;
+  };
   cache: { cleaner: { version: string | null } };
   version: string;
   settings?: Array<{ id: number; key: string; value: unknown }>;
@@ -67,7 +72,42 @@ export default function HubApp() {
           <dl className="hub-details"><div><dt>Email</dt><dd>{status.profile.email || "—"}</dd></div><div><dt>Rôle</dt><dd><Tag>{status.role}</Tag></dd></div><div><dt>Salesforce</dt><dd>{status.profile.sfUserId ? `Mappé · ${status.profile.sfUserId}` : "Non mappé"}</dd></div></dl>
         </GlassCard>
         <GlassCard className="hub-panel"><p className="hub-eyebrow">Statut</p><h3>Services</h3>
-          <div className="hub-status"><span>Salesforce <Tag variant={status.salesforce.connected ? "success" : "warning"}>{status.salesforce.connected ? "OK" : "KO"}</Tag></span><span>API SF (24 h glissantes) <strong>{quota ? `${(quota.max - quota.remaining).toLocaleString("fr-FR")} utilisés / ${quota.max.toLocaleString("fr-FR")} — ${quota.remaining.toLocaleString("fr-FR")} restants` : "Indisponible"}</strong></span><span>Cache Labo <strong>{status.cache.cleaner.version || "Non disponible"}</strong></span><span>Déploiement <strong>{status.version}</strong></span></div>
+          <div className="hub-status">
+            <span>
+              Intégration SF plateforme{" "}
+              <Tag variant={(status.salesforce.orgConnected ?? status.salesforce.connected) ? "success" : "warning"}>
+                {(status.salesforce.orgConnected ?? status.salesforce.connected) ? "OK" : "KO"}
+              </Tag>
+            </span>
+            <span>
+              API utilisable{" "}
+              <Tag variant={status.salesforce.connected ? "success" : "warning"}>
+                {status.salesforce.connected ? "OK" : "KO"}
+              </Tag>
+            </span>
+            <span>
+              Compte utilisateur{" "}
+              <Tag variant={status.salesforce.userLinked ? "success" : "warning"}>
+                {status.salesforce.userLinked ? "Lié" : "Non lié"}
+              </Tag>
+            </span>
+            <span>
+              API SF (24 h glissantes){" "}
+              <strong>
+                {quota
+                  ? `${(quota.max - quota.remaining).toLocaleString("fr-FR")} utilisés / ${quota.max.toLocaleString("fr-FR")} — ${quota.remaining.toLocaleString("fr-FR")} restants`
+                  : "Indisponible"}
+              </strong>
+            </span>
+            {!(status.salesforce.orgConnected ?? status.salesforce.connected) && (
+              <span className="hub-status__hint">
+                Token d’intégration org expiré ou révoqué — renouveler `SF_REFRESH_TOKEN` côté déploiement.
+                Les utilisateurs peuvent se reconnecter via le bandeau menubar pour débloquer Combo avec leur OAuth.
+              </span>
+            )}
+            <span>Cache Labo <strong>{status.cache.cleaner.version || "Non disponible"}</strong></span>
+            <span>Déploiement <strong>{status.version}</strong></span>
+          </div>
         </GlassCard>
       </section>
       {status.capabilities.manageSettings && <GlassCard className="hub-panel"><p className="hub-eyebrow">Objectifs</p><h3>Trimestre en cours</h3>{token && <TargetsEditor token={token} />}</GlassCard>}
