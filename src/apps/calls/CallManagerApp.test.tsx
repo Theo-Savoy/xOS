@@ -96,16 +96,16 @@ beforeEach(() => {
   );
 });
 
-describe("Call Manager app manifest", () => {
+describe("Combo app manifest", () => {
   it("is registered with id 'calls'", () => {
     const manifest = getAppManifest("calls");
     expect(manifest).toBeDefined();
     expect(manifest?.id).toBe("calls");
   });
 
-  it("has title 'Call Manager'", () => {
+  it("has title 'Combo'", () => {
     const manifest = getAppManifest("calls");
-    expect(manifest?.title).toBe("Call Manager");
+    expect(manifest?.title).toBe("Combo");
   });
 
   it("exposes the CallsIcon as a React element", () => {
