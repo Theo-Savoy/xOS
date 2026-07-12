@@ -8,6 +8,7 @@ import {
   type ResultatCall,
 } from "../../crm";
 import { EventPanel, type EventPanelHandle } from "./EventPanel";
+import { ShareSessionPanel } from "./ShareSessionPanel";
 import { EmptyState } from "./EmptyState";
 import { CommandBar, ShortcutHelp } from "./CommandBar";
 import { ComboOnboardingDemo } from "./ComboOnboardingDemo";
@@ -100,6 +101,7 @@ type RunnerViewProps = {
   contextLoading: boolean;
   onBack: () => void;
   onPin?: () => Promise<void>;
+  onShareSession?: (memberUserIds: string[]) => Promise<void>;
   onFocusContact: (contactId: number) => void;
   onLogAndNext: (contactId: number, payload: LogPayload) => void;
   onLogRdvAndNext: (
@@ -123,6 +125,7 @@ type RunnerViewProps = {
   onUpdateRecall: (contactIds: number[], recallAt: string | null) => void;
   team?: TeamMember[];
   currentSfUserId?: string | null;
+  currentUserId?: string | null;
 };
 
 function addDaysIso(days: number): string {
@@ -179,6 +182,9 @@ function listStatusDisplay(contact: SessionContact): {
   label: string;
   variant: "success" | "warning" | "accent" | "muted" | "default";
 } {
+  if (contact.status === "pending" && contact.claim_active && contact.claimed_by_label) {
+    return { label: `Pris · ${contact.claimed_by_label}`, variant: "warning" };
+  }
   if (contact.status === "pending") return { label: "À faire", variant: "accent" };
   if (contact.status === "skipped") return { label: "Non contacté", variant: "warning" };
   if (contact.outcome === "RDV planifié") return { label: contact.outcome, variant: "success" };
@@ -353,6 +359,7 @@ export function RunnerView({
   contextLoading: _contextLoading,
   onBack,
   onPin,
+  onShareSession,
   onFocusContact,
   onLogAndNext,
   onLogRdvAndNext,
@@ -363,8 +370,11 @@ export function RunnerView({
   onUpdateRecall,
   team = [],
   currentSfUserId = null,
+  currentUserId = null,
 }: RunnerViewProps) {
   const isRecallQueue = variant === "recalls";
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareSaving, setShareSaving] = useState(false);
   const today = todayParisIso();
   const [mode, setMode] = useState<RunnerMode>("list");
   const [focusedId, setFocusedId] = useState<number | null>(null);
@@ -1173,6 +1183,11 @@ export function RunnerView({
           <div className="calls-view__titleblock">
             <Tag variant="accent">{isRecallQueue ? "File de rappels" : "Cockpit"}</Tag>
             <h2>{isRecallQueue ? "Rappels" : session.name}</h2>
+            {!isRecallQueue && (session.members?.length ?? 0) > 0 && (
+              <p className="calls-muted calls-share-hint">
+                Partagée avec {session.members!.map((m) => m.label).join(", ")}
+              </p>
+            )}
           </div>
         </div>
         <div className="calls-view__actions">
@@ -1218,6 +1233,11 @@ export function RunnerView({
           >
             ?
           </Button>
+          {!isRecallQueue && onShareSession && (
+            <Button variant="secondary" onClick={() => setShareOpen(true)}>
+              Partager
+            </Button>
+          )}
           {!isRecallQueue && onPin && (
             <Button
               variant="secondary"
@@ -1233,6 +1253,25 @@ export function RunnerView({
           )}
         </div>
       </header>
+
+      {shareOpen && onShareSession && currentUserId && (
+        <ShareSessionPanel
+          members={session.members ?? []}
+          team={team}
+          currentUserId={currentUserId}
+          saving={shareSaving}
+          onClose={() => setShareOpen(false)}
+          onSave={async (ids) => {
+            setShareSaving(true);
+            try {
+              await onShareSession(ids);
+              setShareOpen(false);
+            } finally {
+              setShareSaving(false);
+            }
+          }}
+        />
+      )}
 
       {!isRecallQueue && (
         <>
@@ -1750,6 +1789,9 @@ export function RunnerView({
             <div className="calls-contact-card__main">
               <div className="calls-contact-card__who">
                 <div className="calls-contact-card__chips">
+                  {focusedContact.claim_active && focusedContact.claimed_by_label && (
+                    <Tag variant="alert">Pris par {focusedContact.claimed_by_label}</Tag>
+                  )}
                   {isRecallQueue && focusedContact.origin_session_name && (
                     <Tag variant="accent">{focusedContact.origin_session_name}</Tag>
                   )}

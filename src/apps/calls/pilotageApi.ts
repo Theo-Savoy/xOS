@@ -1,5 +1,7 @@
 import type { PeriodKpis } from "./types";
 
+export type CockpitPeriod = "day" | "week" | "month";
+
 export type CockpitPerson = {
   user_id: string | null;
   sf_user_id: string | null;
@@ -15,6 +17,20 @@ export type CockpitCallerRow = {
   sessions_active: number;
   sessions_completed: number;
   kpis: PeriodKpis;
+};
+
+/** Slim caller row used inside by_day. */
+export type CockpitDayCallerRow = {
+  user_id: string;
+  label: string;
+  kpis: PeriodKpis;
+};
+
+export type CockpitDayRow = {
+  date: string;
+  label: string;
+  kpis: PeriodKpis;
+  by_caller: CockpitDayCallerRow[];
 };
 
 export type CockpitRdvOwnerRow = {
@@ -35,6 +51,9 @@ export type CockpitSessionRow = {
   owner: CockpitPerson;
   counts: { total: number; called: number; skipped: number; pending: number };
   kpis: PeriodKpis;
+  /** Shared / multi-member session (optional until backend ships). */
+  shared?: boolean;
+  member_count?: number;
 };
 
 export type CockpitRdvAttribution = {
@@ -52,9 +71,11 @@ export type CockpitRdvAttribution = {
 
 export type ProspectionCockpit = {
   view: "team";
-  period: "week" | "month";
+  period: CockpitPeriod;
   team_kpis: PeriodKpis;
   by_caller: CockpitCallerRow[];
+  /** Present once backend ships day breakdown; client treats missing as []. */
+  by_day?: CockpitDayRow[];
   by_rdv_owner: CockpitRdvOwnerRow[];
   sessions: CockpitSessionRow[];
   rdv_attributions: CockpitRdvAttribution[];
@@ -72,7 +93,7 @@ export class PilotageApiError extends Error {
 
 export async function fetchProspectionCockpit(
   token: string,
-  period: "week" | "month",
+  period: CockpitPeriod,
 ): Promise<ProspectionCockpit> {
   const res = await fetch(`/api/calls?resource=prospection_cockpit&period=${period}`, {
     headers: {

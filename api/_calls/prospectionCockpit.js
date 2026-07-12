@@ -43,10 +43,11 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers });
   }
 
-  const periodParam = url.searchParams.get("period") === "month" ? "month" : "week";
-  const { todayStart, weekStart, monthStart } = getParisDateRange();
-  const rangeStart = periodParam === "month" ? monthStart : weekStart;
-  const rangeEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const rawPeriod = url.searchParams.get("period");
+  const periodParam = rawPeriod === "month" || rawPeriod === "day" ? rawPeriod : "week";
+  const { todayStart, tomorrowStart, weekStart, monthStart } = getParisDateRange();
+  const rangeStart = periodParam === "month" ? monthStart : periodParam === "day" ? todayStart : weekStart;
+  const rangeEnd = tomorrowStart;
 
   const { data: profiles, error: profilesError } = await client
     .from("profiles")
@@ -87,6 +88,7 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
         period: periodParam,
         team_kpis: emptyKpis(),
         by_caller: [],
+        by_day: [],
         by_rdv_owner: [],
         sessions: [],
         rdv_attributions: [],
@@ -115,7 +117,7 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
     const { data: contactRows, error: contactsError } = await client
       .from("call_session_contacts")
       .select(
-        "id, session_id, contact_name, account_name, status, outcome, called_at, marked_npa, sf_event_id, rdv_owner_sf_user_id",
+        "id, session_id, contact_name, account_name, status, outcome, called_at, marked_npa, sf_event_id, rdv_owner_sf_user_id, logged_by",
       )
       .in("session_id", sessionIds);
 
@@ -135,6 +137,14 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
     (row) => row.status === "called" && inPeriod(row.called_at),
   );
   const team_kpis = computeHubKpis(calledInPeriod);
+
+  const memberResult = sessionIds.length
+    ? await client.from("call_session_members").select("session_id, user_id").in("session_id", sessionIds)
+    : { data: [] };
+  const memberCountBySession = new Map();
+  for (const row of memberResult?.data || []) {
+    memberCountBySession.set(row.session_id, (memberCountBySession.get(row.session_id) || 0) + 1);
+  }
 
   // Sessions touched in period (at least one call) OR still active.
   const sessionIdsWithCalls = new Set(calledInPeriod.map((row) => row.session_id));
@@ -168,8 +178,33 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
       owner: person(profileById, session.owner),
       counts,
       kpis: computeHubKpis(periodRows),
+      shared: (memberCountBySession.get(session.id) || 0) > 0,
+      member_count: memberCountBySession.get(session.id) || 0,
     };
   });
+
+  function creditUserId(row) {
+    if (row.logged_by) return row.logged_by;
+    return sessionById.get(row.session_id)?.owner || null;
+  }
+
+  function parisDayKey(iso) {
+    return new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Paris",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  }
+
+  function dayLabel(dateKey) {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString("fr-FR", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  }
 
   const byCallerMap = new Map();
   for (const profile of profileList) {
@@ -192,9 +227,9 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
     if (session.status === "completed") bucket.sessions_completed++;
   }
   for (const row of calledInPeriod) {
-    const session = sessionById.get(row.session_id);
-    if (!session) continue;
-    const bucket = byCallerMap.get(session.owner);
+    const credited = creditUserId(row);
+    if (!credited) continue;
+    const bucket = byCallerMap.get(credited);
     if (!bucket) continue;
     bucket._rows.push(row);
   }
@@ -205,6 +240,43 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
     })
     .filter((row) => row.kpis.calls > 0 || row.sessions_active > 0)
     .sort((a, b) => b.kpis.rdv - a.kpis.rdv || b.kpis.calls - a.kpis.calls);
+
+  // Agrégat par jour Paris (appels + relances du jour, toutes séances).
+  const byDayMap = new Map();
+  for (const row of calledInPeriod) {
+    if (!row.called_at) continue;
+    const key = parisDayKey(row.called_at);
+    if (!byDayMap.has(key)) {
+      byDayMap.set(key, { date: key, label: dayLabel(key), _rows: [], _byCaller: new Map() });
+    }
+    const day = byDayMap.get(key);
+    day._rows.push(row);
+    const credited = creditUserId(row);
+    if (!credited) continue;
+    if (!day._byCaller.has(credited)) {
+      const profile = profileById.get(credited);
+      day._byCaller.set(credited, {
+        user_id: credited,
+        label: profile ? labelFromProfile(profile) : credited,
+        _rows: [],
+      });
+    }
+    day._byCaller.get(credited)._rows.push(row);
+  }
+  const by_day = [...byDayMap.values()]
+    .map((day) => ({
+      date: day.date,
+      label: day.label,
+      kpis: computeHubKpis(day._rows),
+      by_caller: [...day._byCaller.values()]
+        .map((bucket) => ({
+          user_id: bucket.user_id,
+          label: bucket.label,
+          kpis: computeHubKpis(bucket._rows),
+        }))
+        .sort((a, b) => b.kpis.rdv - a.kpis.rdv || b.kpis.calls - a.kpis.calls),
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const rdvRows = calledInPeriod.filter((row) => row.outcome === "RDV planifié");
 
@@ -242,7 +314,12 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
         account_name: row.account_name || null,
         called_at: row.called_at,
         sf_event_id: row.sf_event_id || null,
-        caller: session ? person(profileById, session.owner) : { user_id: null, sf_user_id: null, label: "—" },
+        caller: (() => {
+          const credited = creditUserId(row);
+          return credited
+            ? person(profileById, credited)
+            : (session ? person(profileById, session.owner) : { user_id: null, sf_user_id: null, label: "—" });
+        })(),
         rdv_owner_sf_user_id: ownerSf,
         rdv_owner_label: assignee.label,
       };
@@ -278,6 +355,7 @@ export async function handleProspectionCockpit({ url, user, client, headers }) {
       period: periodParam,
       team_kpis,
       by_caller,
+      by_day,
       by_rdv_owner,
       sessions: sessionsPayload,
       rdv_attributions,
