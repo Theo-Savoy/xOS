@@ -131,6 +131,7 @@ export function SessionsView({
   const [editDate, setEditDate] = useState("");
   const [editType, setEditType] = useState<SessionType>("prospection");
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SessionSummary | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [dayOverflow, setDayOverflow] = useState<{ key: string; sessions: SessionSummary[] } | null>(
     null,
@@ -201,12 +202,18 @@ export function SessionsView({
     }
   };
 
-  const confirmDelete = async (session: SessionSummary, e: MouseEvent) => {
+  const requestDelete = (session: SessionSummary, e: MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Supprimer la séance « ${session.name} » ?`)) return;
+    setPendingDelete(session);
+  };
+
+  const executeDelete = async () => {
+    if (!pendingDelete) return;
+    const session = pendingDelete;
     setDeletingId(session.id);
     try {
       await onDeleteSession(session.id);
+      setPendingDelete(null);
     } finally {
       setDeletingId(null);
     }
@@ -490,7 +497,7 @@ export function SessionsView({
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={(e) => void confirmDelete(session, e)}
+                        onClick={(e) => requestDelete(session, e)}
                         disabled={deletingId === session.id}
                       >
                         {deletingId === session.id ? "Suppression…" : "Supprimer"}
@@ -663,6 +670,38 @@ export function SessionsView({
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </Button>
               <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving}>
+                Annuler
+              </Button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          className="calls-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-session-title"
+          onClick={() => deletingId == null && setPendingDelete(null)}
+        >
+          <GlassCard className="calls-modal__panel" onClick={(e: MouseEvent) => e.stopPropagation()}>
+            <h3 id="delete-session-title">Supprimer la séance</h3>
+            <p className="calls-muted">
+              Supprimer « <strong>{pendingDelete.name}</strong> » ? Cette action est irréversible.
+            </p>
+            <div className="calls-runner-actions">
+              <Button
+                onClick={() => void executeDelete()}
+                disabled={deletingId === pendingDelete.id}
+              >
+                {deletingId === pendingDelete.id ? "Suppression…" : "Supprimer"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setPendingDelete(null)}
+                disabled={deletingId === pendingDelete.id}
+              >
                 Annuler
               </Button>
             </div>

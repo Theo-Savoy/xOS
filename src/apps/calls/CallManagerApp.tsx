@@ -57,6 +57,42 @@ const CONTEXT_CACHE_MAX = 32;
 
 type View = "sessions" | "new" | "runner" | "recap" | "recalls" | "pilotage" | "loading-params";
 
+function viewFromParams(params?: Record<string, string>): View {
+  if (params?.session_id) return "loading-params";
+  switch (params?.view) {
+    case "pilotage":
+      return "pilotage";
+    case "new":
+      return "new";
+    case "recalls":
+      return "recalls";
+    case "runner":
+    case "recap":
+      return params.session_id ? "loading-params" : "sessions";
+    default:
+      return "sessions";
+  }
+}
+
+function navigationParamsForView(view: View, sessionId?: number | null): Record<string, string> | undefined {
+  switch (view) {
+    case "pilotage":
+      return { view: "pilotage" };
+    case "new":
+      return { view: "new" };
+    case "recalls":
+      return { view: "recalls" };
+    case "runner":
+      return sessionId ? { view: "runner", session_id: String(sessionId) } : undefined;
+    case "recap":
+      return sessionId ? { view: "recap", session_id: String(sessionId) } : undefined;
+    case "sessions":
+    case "loading-params":
+    default:
+      return undefined;
+  }
+}
+
 function findNextPending(contacts: SessionContact[], userId?: string): SessionContact | null {
   return contacts.find((c) => {
     if (c.status !== "pending") return false;
@@ -67,6 +103,7 @@ function findNextPending(contacts: SessionContact[], userId?: string): SessionCo
 
 type CallManagerAppProps = {
   params?: Record<string, string>;
+  onParamsChange?: (params?: Record<string, string>) => void;
 };
 
 function errorMessage(err: unknown): string {
@@ -93,7 +130,7 @@ function errorMessage(err: unknown): string {
   return "Une erreur est survenue.";
 }
 
-export default function CallManagerApp({ params }: CallManagerAppProps) {
+export default function CallManagerApp({ params, onParamsChange }: CallManagerAppProps) {
   const { session } = useSession();
   const token = session?.access_token ?? "";
 
@@ -101,11 +138,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   // saute la page d'accueil "sessions" et on affiche un loader le temps du
   // fetch. La view bascule ensuite vers runner/recap via openSession().
   // params.view=pilotage ouvre le cockpit manager.
-  const [view, setView] = useState<View>(() => {
-    if (params?.session_id) return "loading-params";
-    if (params?.view === "pilotage") return "pilotage";
-    return "sessions";
-  });
+  const [view, setView] = useState<View>(() => viewFromParams(params));
   const [appRole, setAppRole] = useState<AppRole>("commercial");
   const canPilotage = appRole === "manager" || appRole === "admin";
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -302,10 +335,20 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   }, [params?.session_id, token, openSession]);
 
   useEffect(() => {
-    if (params?.view === "pilotage" && !params?.session_id) {
-      setView("pilotage");
+    if (params?.session_id) return;
+    const next = viewFromParams(params);
+    if (next !== "loading-params") {
+      setView(next);
     }
   }, [params?.view, params?.session_id]);
+
+  const onParamsChangeRef = useRef(onParamsChange);
+  onParamsChangeRef.current = onParamsChange;
+
+  useEffect(() => {
+    if (view === "loading-params") return;
+    onParamsChangeRef.current?.(navigationParamsForView(view, activeSession?.id));
+  }, [view, activeSession?.id]);
 
   const invalidatePreview = () => {
     previewRequest.current += 1;

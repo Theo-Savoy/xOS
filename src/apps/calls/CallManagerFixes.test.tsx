@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventPanel } from "./EventPanel";
@@ -980,6 +980,54 @@ describe("SessionsView hub filters", () => {
     await user.click(screen.getByRole("button", { name: /^Toutes$/i }));
     expect(screen.getByText("À faire demain")).toBeTruthy();
     expect(screen.getByText("Déjà faite")).toBeTruthy();
+  });
+
+  it("confirms session deletion in a custom modal", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm");
+    const onDeleteSession = vi.fn().mockResolvedValue(undefined);
+    const sessions = [
+      {
+        id: 1,
+        name: "Secteur public",
+        status: "active" as const,
+        created_at: "2026-07-10T10:00:00Z",
+        scheduled_for: "2026-07-12",
+        session_type: "prospection" as const,
+        total: 10,
+        called: 2,
+        skipped: 0,
+        pending: 8,
+      },
+    ];
+
+    render(
+      <SessionsView
+        sessions={sessions}
+        stats={null}
+        recallCount={0}
+        recallsLoading={false}
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        onNewSession={vi.fn()}
+        onOpenSession={vi.fn()}
+        onOpenRecalls={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onDeleteSession={onDeleteSession}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("dialog", { name: "Supprimer la séance" });
+    expect(within(dialog).getByText(/Secteur public/i)).toBeTruthy();
+
+    await user.click(within(dialog).getByRole("button", { name: "Supprimer" }));
+    await waitFor(() => expect(onDeleteSession).toHaveBeenCalledWith(1));
+    expect(screen.queryByRole("dialog", { name: "Supprimer la séance" })).toBeNull();
+
+    confirmSpy.mockRestore();
   });
 
   it("opens the recalls queue from the hub", async () => {
