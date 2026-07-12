@@ -1,67 +1,112 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { cleanup } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { getSession } = vi.hoisted(() => ({
-  getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: "cleaner-jwt" } } }),
+  getSession: vi.fn().mockResolvedValue({
+    data: {
+      session: {
+        access_token: 'cleaner-jwt',
+        user: { email: 'commercial@xos.test', user_metadata: {} },
+      },
+    },
+  }),
 }));
-vi.mock("../../lib/supabase", () => ({ supabase: { auth: { getSession } } }));
-import { appRegistry, getAppManifest } from "../../os/registry";
-import CleanerApp from "./CleanerApp";
 
-afterEach(cleanup);
+vi.mock('../../lib/supabase', () => ({
+  supabase: { auth: { getSession } },
+}));
 
-describe("Cleaner app manifest", () => {
+import { appRegistry, getAppManifest } from '../../os/registry';
+import CleanerApp from './CleanerApp';
+
+afterEach(() => {
+  cleanup();
+  getSession.mockClear();
+  vi.unstubAllGlobals();
+});
+
+describe('Cleaner app manifest', () => {
   it("is registered with id 'cleaner'", () => {
-    const manifest = getAppManifest("cleaner");
+    const manifest = getAppManifest('cleaner');
     expect(manifest).toBeDefined();
-    expect(manifest?.id).toBe("cleaner");
+    expect(manifest?.id).toBe('cleaner');
   });
 
   it("has title 'Labo'", () => {
-    const manifest = getAppManifest("cleaner");
-    expect(manifest?.title).toBe("Labo");
+    const manifest = getAppManifest('cleaner');
+    expect(manifest?.title).toBe('Labo');
   });
 
-  it("has a desktop-appropriate default size (fits 1366×768 viewport)", () => {
-    const manifest = getAppManifest("cleaner");
+  it('keeps the desktop default size without changing the OS registry', () => {
+    const manifest = getAppManifest('cleaner');
     expect(manifest?.defaultSize.w).toBeGreaterThanOrEqual(1000);
     expect(manifest?.defaultSize.h).toBeGreaterThanOrEqual(500);
     expect(manifest?.defaultSize.h).toBeLessThanOrEqual(600);
   });
 
-  it("has a unique id among all registered apps", () => {
+  it('has a unique id among all registered apps', () => {
     const ids = appRegistry.map((app) => app.id);
-    expect(ids.filter((id) => id === "cleaner")).toHaveLength(1);
+    expect(ids.filter((id) => id === 'cleaner')).toHaveLength(1);
   });
 });
 
-describe("CleanerApp component", () => {
-  it("renders an iframe with src='/dashboard.html'", () => {
-    render(<CleanerApp />);
-    const iframe = screen.getByTitle("Labo");
-    expect(iframe).toBeTruthy();
-    expect(iframe.tagName).toBe("IFRAME");
-    expect(iframe.getAttribute("src")).toBe("/dashboard.html");
+describe('CleanerApp component', () => {
+  it('boots the native Labo shell instead of the legacy iframe boundary', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'opp-1',
+                name: 'stale',
+                account: '',
+                owner: '',
+                stage: '',
+                anomalies: [],
+              },
+            ],
+            total: 1,
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    render(<CleanerApp params={{ q: 'stale' }} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('searchbox', { name: 'Rechercher' }),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByTitle('Labo')).toBeNull();
+    expect(
+      screen
+        .getByRole('tab', { name: 'Opportunités' })
+        .getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(
+      (
+        screen.getByRole('searchbox', {
+          name: 'Rechercher',
+        }) as HTMLInputElement
+      ).value,
+    ).toBe('stale');
+    expect(document.querySelector('iframe')).toBeNull();
   });
 
-  it("has an accessible title attribute on the iframe", () => {
+  it('keeps the session token in the native module context', async () => {
     render(<CleanerApp />);
-    const iframe = screen.getByTitle("Labo");
-    expect(iframe.getAttribute("title")).toBe("Labo");
-  });
 
-  it("passes the authenticated session to the same-origin legacy dashboard", async () => {
-    render(<CleanerApp />);
-    const iframe = screen.getByTitle("Labo") as HTMLIFrameElement;
-    const postMessage = vi.spyOn(iframe.contentWindow!, "postMessage");
-    fireEvent.load(iframe);
-
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
-      { type: "xos:auth", accessToken: "cleaner-jwt" },
-      window.location.origin,
-    ));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId('cleaner-session-state')
+          .getAttribute('data-access-token'),
+      ).toBe('cleaner-jwt'),
+    );
   });
 });

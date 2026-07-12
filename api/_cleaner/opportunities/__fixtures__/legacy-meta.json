@@ -1,0 +1,70 @@
+{
+  "fixtureVersion": "10.0",
+  "anonymization": "Synthetic identifiers and labels only. Values model metadata shape, not an organization describe response.",
+  "stages": [
+    { "name": "Qualification", "closed": false, "won": false },
+    { "name": "Suspect enlisé", "closed": false, "won": false },
+    { "name": "Closed Lost", "closed": true, "won": false },
+    { "name": "Closed Won", "closed": true, "won": true }
+  ],
+  "users": [
+    { "id": "USR-ANON-01", "name": "Owner Active One" },
+    { "id": "USR-ANON-02", "name": "Owner Active Two" }
+  ],
+  "type_vente_values": ["Type A", "Type B"],
+  "loss_controller": "Type_de_vente__c",
+  "loss_reasons": ["Cleanup", "Type A only", "Type B only"],
+  "loss_valid_for": {
+    "Cleanup": null,
+    "Type A only": ["Type A"],
+    "Type B only": ["Type B"]
+  },
+  "legacyBulkActions": [
+    { "id": "reassign_owner", "changes": { "owner_id": "USR-ANON-02" } },
+    {
+      "id": "reassign_account_owner",
+      "changes": { "owner_id": "ACCOUNT_OWNER" },
+      "requires": ["account_owner_id"]
+    },
+    { "id": "update_close_date", "changes": { "close_date": "2026-08-31" } },
+    { "id": "update_stage", "changes": { "stage": "Qualification" } },
+    { "id": "update_sale_type", "changes": { "type_vente": "Type B" } },
+    {
+      "id": "update_multiple_fields",
+      "changes": {
+        "owner_id": "USR-ANON-02",
+        "close_date": "2026-08-31",
+        "stage": "Qualification",
+        "type_vente": "Type B"
+      }
+    },
+    {
+      "id": "close_lost_with_compatible_reason",
+      "changes": { "stage": "Closed Lost", "loss_reason": "Type A only" },
+      "requires": ["dependent_picklist_compatibility"]
+    },
+    {
+      "id": "close_lost_with_incompatible_reason_excluded",
+      "changes": { "stage": "Closed Lost", "loss_reason": "Type B only" },
+      "requires": ["dependent_picklist_compatibility", "partial_results"]
+    }
+  ],
+  "parityMatrix": [
+    "kpis",
+    "owner_stage_overdue_reasons_summary",
+    "score_and_help",
+    "sort_pagination_search",
+    "owner_category_type_filters",
+    "reason_filter_or_within_and_between_families",
+    "persistent_selection",
+    "select_all_filtered_results",
+    "owner_close_date_stage_sale_type_actions",
+    "account_owner_reassignment",
+    "close_lost",
+    "partial_results",
+    "history",
+    "prefiltered_clean_query",
+    "refresh_and_cache",
+    "xos_auth_and_salesforce_identity"
+  ]
+}

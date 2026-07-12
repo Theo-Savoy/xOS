@@ -196,4 +196,3 @@ export async function fetchProspectionCockpit(
     throw err;
   }
 }
-
