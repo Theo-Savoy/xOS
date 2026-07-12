@@ -374,6 +374,8 @@ describe("Weekly Perf", () => {
     const table = await screen.findByRole("table", { name: "Suivi hebdomadaire de Yanis Agharbi" });
     expect(within(table).getByRole("row", { name: /Appels/ })).toBeTruthy();
     expect(within(table).getByRole("row", { name: /RDV pris/ })).toBeTruthy();
+    expect(screen.getByText("Amont")).toBeTruthy();
+    expect(screen.getByText("Volume détecté")).toBeTruthy();
   });
 
   it("keeps the week selector after choosing a past week", async () => {

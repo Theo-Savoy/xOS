@@ -17,8 +17,21 @@
   gap: var(--weekly-gap);
 }
 
-.weekly-app--loading { opacity: .84; transition: opacity .2s ease; }
+.weekly-app--loading { opacity: .9; transition: opacity .25s var(--weekly-ease); }
 .weekly-app__state { place-items: center; }
+
+.weekly-body {
+  display: grid;
+  align-content: start;
+  gap: var(--weekly-gap);
+  transition: opacity .28s var(--weekly-ease), filter .28s var(--weekly-ease);
+}
+
+.weekly-body--refreshing {
+  opacity: .42;
+  filter: saturate(.85);
+  pointer-events: none;
+}
 
 /* —— Header & toolbar —— */
 .weekly-header {
@@ -54,7 +67,39 @@
   flex-wrap: wrap;
   gap: .65rem .85rem;
   margin: 0;
-  padding: .45rem 0 .55rem;
+  padding: .45rem 0 .7rem;
+  background:
+    linear-gradient(180deg, var(--xos-window-content-bg) 55%, color-mix(in srgb, var(--xos-window-content-bg) 70%, transparent));
+}
+
+.weekly-controls--refreshing {
+  padding-bottom: .85rem;
+}
+
+.weekly-refresh-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
+}
+
+.weekly-refresh-bar::after {
+  content: "";
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--xos-accent);
+  animation: weekly-refresh-slide 1s var(--weekly-ease) infinite;
+}
+
+@keyframes weekly-refresh-slide {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(280%); }
 }
 
 .weekly-controls .xos-select { align-self: center; }
@@ -151,7 +196,7 @@
   font-weight: 800;
   font-style: normal;
   line-height: 1;
-  cursor: help;
+  cursor: pointer;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 35%, transparent);
   transition: transform .12s ease, filter .12s ease;
 }
@@ -193,9 +238,17 @@
   animation: weekly-tip-in .14s ease-out;
 }
 
+.weekly-tip__panel--top {
+  transform-origin: bottom left;
+}
+
+.weekly-tip__panel--bottom {
+  transform-origin: top left;
+}
+
 @keyframes weekly-tip-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(4px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .weekly-chart-tooltip,
@@ -1139,6 +1192,7 @@
 
 /* —— Charts —— */
 .weekly-chart-card { display: grid; gap: .85rem; }
+.weekly-chart-card--empty { opacity: .72; }
 .weekly-chart { height: 190px; min-width: 0; }
 .weekly-chart--forecast { height: 220px; }
 .weekly-chart--activity { height: 220px; }

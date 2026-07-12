@@ -126,6 +126,43 @@ function Tip({
   const [resolvedSide, setResolvedSide] = useState(side);
   const rootRef = useRef<HTMLSpanElement>(null);
   const panelRef = useRef<HTMLSpanElement>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  const placePanel = useCallback(() => {
+    const panel = panelRef.current?.getBoundingClientRect();
+    if (!panel) return;
+    const trigger = rootRef.current?.getBoundingClientRect();
+    const pointer = pointerRef.current || (trigger
+      ? { x: trigger.left + trigger.width / 2, y: trigger.top }
+      : null);
+    if (!pointer) return;
+    const margin = 10;
+    const gap = 12;
+    const maxWidth = Math.min(280, window.innerWidth - margin * 2);
+    const width = Math.min(Math.max(panel.width || 180, 160), maxWidth);
+    // Curseur en bas à gauche du hint : tip au-dessus, légèrement à droite.
+    let left = pointer.x + 10;
+    let top = pointer.y - panel.height - gap;
+    let nextSide: "top" | "bottom" = "top";
+    if (side === "bottom" || top < margin) {
+      top = pointer.y + gap;
+      nextSide = "bottom";
+    }
+    if (top + panel.height > window.innerHeight - margin) {
+      top = Math.max(margin, pointer.y - panel.height - gap);
+      nextSide = "top";
+    }
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+    top = Math.max(margin, Math.min(top, window.innerHeight - panel.height - margin));
+    setResolvedSide(nextSide);
+    setPanelStyle({
+      top,
+      left,
+      width,
+      maxWidth,
+      visibility: "visible",
+    });
+  }, [side]);
 
   useEffect(() => {
     if (!open) return;
@@ -148,45 +185,35 @@ function Tip({
       setPanelStyle({ visibility: "hidden" });
       return;
     }
-    const place = () => {
-      const trigger = rootRef.current?.getBoundingClientRect();
-      const panel = panelRef.current?.getBoundingClientRect();
-      if (!trigger || !panel) return;
-      const margin = 10;
-      let nextSide = side;
-      if (nextSide === "top" && trigger.top < panel.height + margin + 8) nextSide = "bottom";
-      if (nextSide === "bottom" && trigger.bottom + panel.height + margin + 8 > window.innerHeight) nextSide = "top";
-      const maxWidth = Math.min(280, window.innerWidth - margin * 2);
-      const width = Math.min(Math.max(panel.width, 160), maxWidth);
-      let left = trigger.left + trigger.width / 2 - width / 2;
-      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-      const top = nextSide === "top" ? trigger.top - panel.height - 8 : trigger.bottom + 8;
-      setResolvedSide(nextSide);
-      setPanelStyle({
-        top: Math.max(margin, top),
-        left,
-        width,
-        maxWidth,
-        visibility: "visible",
-      });
-    };
-    place();
-    const onResize = () => place();
+    placePanel();
+    const onResize = () => placePanel();
     window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onResize, true);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onResize, true);
     };
-  }, [open, side, text]);
+  }, [open, placePanel, text]);
+
+  const trackPointer = (event: React.MouseEvent) => {
+    pointerRef.current = { x: event.clientX, y: event.clientY };
+    if (open) placePanel();
+  };
 
   return (
     <span
       ref={rootRef}
       className={["weekly-tip", `weekly-tip--${resolvedSide}`, children ? "weekly-tip--anchor" : "weekly-tip--help", className].filter(Boolean).join(" ")}
       style={style}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={(event) => {
+        trackPointer(event);
+        setOpen(true);
+      }}
+      onMouseMove={trackPointer}
+      onMouseLeave={() => {
+        pointerRef.current = null;
+        setOpen(false);
+      }}
     >
       {children ? (
         <span
@@ -214,7 +241,7 @@ function Tip({
       {open && createPortal(
         <span
           ref={panelRef}
-          className="weekly-tip__panel"
+          className={`weekly-tip__panel weekly-tip__panel--${resolvedSide}`}
           role="tooltip"
           style={{ position: "fixed", top: 0, left: 0, ...panelStyle }}
         >
@@ -1077,7 +1104,9 @@ function CallFunnelChart({
     return indexes.some((index) => (pulse[index]?.calls || 0) > 0 || Object.values(pulse[index]?.call_results || {}).some((value) => value > 0));
   });
   const isIndividualView = owners.length === 1;
-  if (!max && !isIndividualView && !callActivity) return null;
+  const keepEmptyShell = isIndividualView || owners.some((owner) => trackingOf(owner) === "sdr");
+  if (!owners.length) return null;
+  if (!max && !keepEmptyShell && !callActivity) return null;
   return <section className="weekly-section">
     <SectionHeading kicker={COPY.line.kicker} title={COPY.line.title} hint={COPY.line.hint} />
     <GlassCard className="weekly-call-funnel-card">
@@ -1138,7 +1167,7 @@ function LeadingFunnel({
       }
     }
   }
-  if (!rdv && !opps && !created) return null;
+  if (!owners.length) return null;
   const detectRate = rdv > 0 ? opps / rdv : null;
   const avgCreated = opps > 0 ? created / opps : null;
   return <section className="weekly-section">
@@ -1446,11 +1475,10 @@ function ActivityTrendChart({
     };
   });
   const hasData = data.some((point) => (point.rdv || 0) > 0 || (point.detections || 0) > 0 || (point.calls || 0) > 0);
-  if (!hasData) return null;
   return (
     <section className="weekly-section">
       <SectionHeading kicker={COPY.volume.kicker} title={COPY.volume.title} hint={COPY.volume.hint} />
-      <GlassCard className="weekly-chart-card weekly-activity-card">
+      <GlassCard className={`weekly-chart-card weekly-activity-card${!hasData ? " weekly-chart-card--empty" : ""}`}>
         <div className="weekly-chart weekly-chart--activity">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 8, bottom: 4, left: 0 }}>
@@ -1524,6 +1552,7 @@ export default function WeeklyApp() {
   const [cache, setCache] = useState<Partial<Record<PeriodMode, { payload: PerfResponse; email: string | null }>>>({});
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [mode, setMode] = useState<"self" | "team">("self");
   const [displayMode, setDisplayMode] = useState<"cards" | "table">("cards");
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
@@ -1536,7 +1565,8 @@ export default function WeeklyApp() {
 
   const loadPeriod = useCallback(async (nextPeriod: PeriodMode, { background = false, signal, weekStart = anchorWeekStart }: { background?: boolean; signal?: AbortSignal; weekStart?: string | null } = {}) => {
     const seq = ++requestSeq.current;
-    if (!background) setLoading(true);
+    if (background) setRefreshing(true);
+    else setLoading(true);
     setError(false);
     try {
       const next = await perfRequest(nextPeriod, weekStart, signal);
@@ -1550,7 +1580,10 @@ export default function WeeklyApp() {
       if (seq !== requestSeq.current) return;
       setError(true);
     } finally {
-      if (seq === requestSeq.current && !background) setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [anchorWeekStart]);
 
@@ -1641,10 +1674,6 @@ export default function WeeklyApp() {
   if (!model) return <Skeleton />;
   const { payload, currentIndex, visibleOwners, roster, pulseFor, pipelineFor, priorPulseFor, priorPipelineFor, quarterFor, sellerIds, forecastHistory, customPipe, pace, target, followUps, stagnant, quarterBounds, compareLabel, priorQuarterLabel, context, periodHistory } = model;
   const weekMode = period === "week";
-  const currentWeekShort = shortWeekLabel(context?.iso_week);
-  const periodBadge = weekMode
-    ? (currentWeekShort ? `Semaine ${currentWeekShort}` : "Semaine en cours")
-    : (context?.quarter_label ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}` : "Trimestre en cours");
   const liveWeekStart = context?.live_week_start || context?.anchor_week_start || addDays(payload.range.to, -6);
   const selectedWeekStart = anchorWeekStart || context?.anchor_week_start || liveWeekStart;
   const historySource = (periodHistory.weeks?.length ? periodHistory : historyCacheRef.current);
@@ -1678,6 +1707,13 @@ export default function WeeklyApp() {
         label: shortWeekLabel(entry.iso_week) || entry.iso_week,
       }));
   })();
+  const selectedWeekLabel = historyOptions.find((entry) => entry.value === selectedWeekStart)?.label || shortWeekLabel(context?.iso_week);
+  const currentWeekShort = selectedWeekLabel || shortWeekLabel(context?.iso_week);
+  const periodBadge = weekMode
+    ? (selectedWeekLabel ? `Semaine ${selectedWeekLabel}` : "Semaine en cours")
+    : (context?.quarter_label ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}` : "Trimestre en cours");
+  const contentKey = `${period}-${context?.anchor_week_start || selectedWeekStart}`;
+  const contentRefreshing = refreshing || (weekMode && Boolean(anchorWeekStart) && context?.anchor_week_start !== selectedWeekStart);
   const visibleHasActivity = visibleOwners.some((owner) => {
     const pulse = pulseFor(owner);
     const pipe = pipelineFor(owner);
@@ -1708,7 +1744,7 @@ export default function WeeklyApp() {
     </header>
     {payload.warning === "sf_user_unmapped" && <div className="weekly-warning" role="status">Compte Salesforce non relié — connectez-vous via le Hub.</div>}
     {error && <div className="weekly-warning" role="status">Impossible de rafraîchir ces données — dernière vue conservée.</div>}
-    <div className="weekly-controls">
+    <div className={`weekly-controls${contentRefreshing ? " weekly-controls--refreshing" : ""}`}>
       {payload.view === "team" && <div className="weekly-toggle weekly-seg" aria-label="Vue">
         <Button variant={mode === "self" ? "primary" : "secondary"} onClick={() => { setMode("self"); setSelectedOwnerId("all"); }}>Moi</Button>
         <Button variant={mode === "team" ? "primary" : "secondary"} onClick={() => setMode("team")}>Équipe</Button>
@@ -1732,7 +1768,9 @@ export default function WeeklyApp() {
         <Button variant={displayMode === "cards" ? "primary" : "secondary"} onClick={() => setDisplayMode("cards")}>Cards</Button>
         <Button variant={displayMode === "table" ? "primary" : "secondary"} onClick={() => setDisplayMode("table")}>Tableau</Button>
       </div>
+      {(contentRefreshing || loading) && <div className="weekly-refresh-bar" aria-hidden="true" />}
     </div>
+    <div className={`weekly-body${contentRefreshing ? " weekly-body--refreshing" : ""}`} aria-busy={contentRefreshing || loading}>
     {showSoftEmpty && (
       <div className="weekly-soft-empty" role="status">
         Pas encore d’activité sur cette vue — le détail reste disponible ci-dessous.
@@ -1748,7 +1786,7 @@ export default function WeeklyApp() {
             <Button variant="secondary" onClick={() => setSelectedOwnerId("all")}>Toute l’équipe</Button>
           ) : undefined}
         />
-        <div className="weekly-pulse-grid weekly-view-transition" key={`cards-${period}-${mode}-${selectedOwnerId}`}>
+        <div className="weekly-pulse-grid weekly-view-transition" key={`cards-${contentKey}-${mode}-${selectedOwnerId}`}>
           {visibleOwners.map((owner, ownerIndex) => (
             <PersonCard
               key={owner.sf_user_id}
@@ -1775,7 +1813,7 @@ export default function WeeklyApp() {
             <Button variant="secondary" onClick={() => setSelectedOwnerId("all")}>Toute l’équipe</Button>
           ) : undefined}
         />
-        <div className="weekly-tables weekly-view-transition" key={`table-${period}-${mode}-${selectedOwnerId}`}>
+        <div className="weekly-tables weekly-view-transition" key={`table-${contentKey}-${mode}-${selectedOwnerId}`}>
           {showTeamRollup && <TeamMetricTable owners={visibleOwners} weeks={model.weeks} pulseFor={pulseFor} pipelineFor={pipelineFor} priorPulseFor={priorPulseFor} priorPipelineFor={priorPipelineFor} quarterFor={quarterFor} currentIndex={currentIndex} weekMode={weekMode} compareLabel={compareLabel} priorQuarterLabel={priorQuarterLabel} />}
           {visibleOwners.map((owner) => (
             <MetricTable key={owner.sf_user_id} owner={owner} weeks={model.weeks} pulse={pulseFor(owner)} pipeline={pipelineFor(owner)} priorPulse={priorPulseFor(owner)} priorPipeline={priorPipelineFor(owner)} quarter={quarterFor(owner)} currentIndex={currentIndex} weekMode={weekMode} compareLabel={compareLabel} priorQuarterLabel={priorQuarterLabel} />
@@ -1802,5 +1840,6 @@ export default function WeeklyApp() {
       {displayMode === "cards" && showForecast && <section className="weekly-section"><SectionHeading kicker={COPY.trajectoire.kicker} title={COPY.trajectoire.title} hint={COPY.trajectoire.hint} /><ForecastChart weeks={model.weeks} history={forecastHistory} ownerIds={sellerIds} target={target} currentIndex={currentIndex} /></section>}
       <CallFunnelChart weeks={model.weeks} owners={visibleOwners} pulseFor={pulseFor} currentIndex={currentIndex} weekMode={weekMode} />
       {showCustomPipe && <CustomPipeSection pipe={customPipe} owners={visibleOwners} sellerIds={sellerIds} />}
+    </div>
   </main>;
 }
