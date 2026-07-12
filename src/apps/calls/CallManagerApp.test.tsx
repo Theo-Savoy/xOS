@@ -19,6 +19,11 @@ vi.mock("../../auth/useSession", () => ({
   })),
 }));
 
+// Évite de tirer lib/supabase (qui exige les env VITE_*) via os/shortcuts.
+vi.mock("../../os/shortcuts", () => ({
+  addShortcut: vi.fn().mockResolvedValue(undefined),
+}));
+
 import CallManagerApp from "./CallManagerApp";
 
 const mockSessions = {

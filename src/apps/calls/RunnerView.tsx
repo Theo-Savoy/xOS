@@ -54,6 +54,7 @@ type RunnerViewProps = {
   contextContactId: number | null;
   contextLoading: boolean;
   onBack: () => void;
+  onPin?: () => Promise<void>;
   onFocusContact: (contactId: number) => void;
   onLogAndNext: (contactId: number, payload: LogPayload) => void;
   onLogRdvAndNext: (
@@ -245,6 +246,7 @@ export function RunnerView({
   contextContactId,
   contextLoading,
   onBack,
+  onPin,
   onFocusContact,
   onLogAndNext,
   onLogRdvAndNext,
@@ -275,6 +277,11 @@ export function RunnerView({
   const [deferIds, setDeferIds] = useState<number[] | null>(null);
   const [deferDate, setDeferDate] = useState(() => addDaysIso(readDefaultRecallDays()));
   const [deferTargetId, setDeferTargetId] = useState<number | null>(null);
+  const [pinned, setPinned] = useState(false);
+
+  useEffect(() => {
+    setPinned(false);
+  }, [session.id]);
 
   const kpis = useMemo(() => computeKpis(contacts), [contacts]);
   const canRecall = RECALL_ELIGIBLE_RESULTATS.includes(resultat) && !doNotCall;
@@ -576,6 +583,19 @@ export function RunnerView({
               Fiche
             </button>
           </div>
+          {!isRecallQueue && onPin && (
+            <Button
+              variant="secondary"
+              disabled={pinned}
+              onClick={() => {
+                void onPin()
+                  .then(() => setPinned(true))
+                  .catch(() => {});
+              }}
+            >
+              {pinned ? "Épinglé ✓" : "Épingler au bureau"}
+            </Button>
+          )}
           <Button variant="secondary" onClick={onBack}>
             Quitter
           </Button>

@@ -23,6 +23,7 @@ import {
   updateSession,
   CallsApiError,
 } from "./api";
+import { addShortcut } from "../../os/shortcuts";
 import { resolveContextContactId } from "./runnerContext";
 import { NewSessionView } from "./NewSessionView";
 import { RecapView } from "./RecapView";
@@ -701,6 +702,11 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     }
   };
 
+  const handlePin = async () => {
+    if (!activeSession || activeSession.id === RECALL_QUEUE_SESSION.id) return;
+    await addShortcut("calls", { session_id: String(activeSession.id) }, activeSession.name);
+  };
+
   const goToSessions = () => {
     setView("sessions");
     setActiveSession(null);
@@ -800,6 +806,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           contextLoading={contextLoading}
           team={team}
           onBack={goToSessions}
+          onPin={handlePin}
           onFocusContact={setFocusedContactId}
           onLogAndNext={(contactId, payload) => void handleLogAndNext(contactId, payload)}
           onLogRdvAndNext={(contactId, payload, event) =>

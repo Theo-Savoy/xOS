@@ -10,6 +10,13 @@ import {
   windowReducer,
 } from "./windowState";
 import { Launcher } from "./Launcher";
+import {
+  fetchShortcuts,
+  removeShortcut,
+  SHORTCUTS_CHANGED_EVENT,
+  type DesktopShortcut,
+} from "./shortcuts";
+import { initSleekplan, sleekplanEnabled } from "./sleekplan";
 import { startSalesforceLink } from "./salesforceLink";
 import "./theme.css";
 import "./desktop.css";
@@ -33,6 +40,28 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
   const [sfLinking, setSfLinking] = useState(false);
   const [sfLinkChecked, setSfLinkChecked] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [shortcuts, setShortcuts] = useState<DesktopShortcut[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchShortcuts()
+        .then((rows) => {
+          if (!cancelled) setShortcuts(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener(SHORTCUTS_CHANGED_EVENT, load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(SHORTCUTS_CHANGED_EVENT, load);
+    };
+  }, []);
+
+  useEffect(() => {
+    initSleekplan();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,14 +137,53 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
             <span className="xos-menubar__sf-text">{sfLinked ? "Salesforce connecté" : "Salesforce non lié"}</span>
           </span>
         </div>
-        <button
-          type="button"
-          className="xos-menubar__logout"
-          onClick={() => void supabase.auth.signOut()}
-        >
-          Déconnexion
-        </button>
+        <div>
+          {sleekplanEnabled && (
+            <button type="button" className="xos-menubar__feedback" data-sleek>
+              Feedback
+            </button>
+          )}
+          <button
+            type="button"
+            className="xos-menubar__logout"
+            onClick={() => void supabase.auth.signOut()}
+          >
+            Déconnexion
+          </button>
+        </div>
       </header>
+
+      {shortcuts.length > 0 && (
+        <nav className="xos-shortcuts" aria-label="Raccourcis du bureau">
+          {shortcuts.map((shortcut) => {
+            const app = visibleApps.find((a) => a.id === shortcut.app_id);
+            if (!app) return null;
+            return (
+              <div key={shortcut.id} className="xos-shortcut">
+                <button
+                  type="button"
+                  className="xos-shortcut__open"
+                  title={shortcut.label}
+                  onClick={() => openApp(app, shortcut.params)}
+                >
+                  <span className="xos-shortcut__icon" aria-hidden="true">
+                    {app.icon}
+                  </span>
+                  <span className="xos-shortcut__label">{shortcut.label}</span>
+                </button>
+                <button
+                  type="button"
+                  className="xos-shortcut__remove"
+                  aria-label={`Supprimer le raccourci ${shortcut.label}`}
+                  onClick={() => void removeShortcut(shortcut.id).catch(() => {})}
+                >
+                  &times;
+                </button>
+              </div>
+            );
+          })}
+        </nav>
+      )}
 
       <WindowManager windows={state.windows} dispatch={dispatch} />
       <Dock apps={visibleApps} windows={state.windows} onOpen={openApp} />

@@ -60,6 +60,7 @@ textarea {
 }
 
 .xos-menubar__logout,
+.xos-menubar__feedback,
 .xos-menubar__sf-link {
   margin-left: 12px;
   padding: 4px 12px;
@@ -73,6 +74,7 @@ textarea {
 }
 
 .xos-menubar__logout:hover,
+.xos-menubar__feedback:hover,
 .xos-menubar__sf-link:hover {
   background: rgba(255, 255, 255, 0.12);
 }
@@ -587,3 +589,95 @@ textarea {
 
 
 
+
+.xos-shortcuts {
+  position: absolute;
+  top: 64px;
+  left: 18px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.xos-shortcut {
+  position: relative;
+  width: 88px;
+}
+
+.xos-shortcut__open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.2rem;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.xos-shortcut__open:hover,
+.xos-shortcut__open:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.xos-shortcut__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.98);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.34), transparent 36%),
+    linear-gradient(145deg, rgba(139, 91, 250, 0.95), rgba(53, 30, 117, 0.92));
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.22),
+    0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+.xos-shortcut__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.xos-shortcut__label {
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--xos-text);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  overflow-wrap: anywhere;
+}
+
+.xos-shortcut__remove {
+  position: absolute;
+  top: -2px;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(7, 12, 39, 0.85);
+  color: var(--xos-text);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.xos-shortcut:hover .xos-shortcut__remove,
+.xos-shortcut__remove:focus-visible {
+  opacity: 1;
+}

@@ -15,19 +15,33 @@ globalThis.ResizeObserver = class {
 
 // Mock supabase — Launcher no longer imports it, but the import chain may
 // pull in supabase.ts which throws if env vars are missing.
+const { shortcutRows, shortcutDeleteEq } = vi.hoisted(() => ({
+  shortcutRows: [] as { id: number; app_id: string; params: Record<string, string>; label: string }[],
+  shortcutDeleteEq: vi.fn().mockResolvedValue({ error: null }),
+}));
+
 vi.mock("../lib/supabase", () => ({
   supabase: {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
     },
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({ data: { role: "admin" }, error: null }),
-        }),
-      }),
-    }),
+    from: vi.fn((table: string) =>
+      table === "desktop_shortcuts"
+        ? {
+            select: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: shortcutRows, error: null }),
+            }),
+            delete: vi.fn().mockReturnValue({ eq: shortcutDeleteEq }),
+          }
+        : {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: { role: "admin" }, error: null }),
+              }),
+            }),
+          },
+    ),
   },
 }));
 
@@ -48,7 +62,11 @@ describe("Desktop", () => {
       },
     });
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    shortcutRows.length = 0;
+    shortcutDeleteEq.mockClear();
+  });
 
   it("opens two dock applications in simultaneous windows", async () => {
     const user = userEvent.setup();
@@ -102,6 +120,26 @@ describe("Desktop", () => {
 
     await user.click(screen.getByRole("button", { name: "Fermer Aperçu commercial" }));
     expect(screen.queryByRole("dialog", { name: "Aperçu commercial" })).toBeNull();
+  });
+
+  it("renders a desktop shortcut and opens its app on click", async () => {
+    shortcutRows.push({ id: 1, app_id: "notes-demo", params: { note: "42" }, label: "Mes notes" });
+    const user = userEvent.setup();
+    render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
+
+    await user.click(await screen.findByRole("button", { name: "Mes notes" }));
+    expect(await screen.findByRole("dialog", { name: "Notes d’équipe" })).toBeTruthy();
+  });
+
+  it("removes a desktop shortcut", async () => {
+    shortcutRows.push({ id: 7, app_id: "notes-demo", params: {}, label: "Mes notes" });
+    const user = userEvent.setup();
+    render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Supprimer le raccourci Mes notes" }),
+    );
+    expect(shortcutDeleteEq).toHaveBeenCalledWith("id", 7);
   });
 
   it("starts the authenticated Salesforce account-link flow", async () => {

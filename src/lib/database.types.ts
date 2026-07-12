@@ -241,6 +241,40 @@ export interface Database {
           },
         ];
       };
+      desktop_shortcuts: {
+        Row: {
+          id: number;
+          owner: string;
+          app_id: string;
+          params: Json;
+          label: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          owner?: string;
+          app_id: string;
+          params?: Json;
+          label: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          owner?: string;
+          app_id?: string;
+          params?: Json;
+          label?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "desktop_shortcuts_owner_fkey";
+            columns: ["owner"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
