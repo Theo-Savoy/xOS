@@ -89,6 +89,8 @@ export function DatePicker({
   id,
   compact = false,
   triggerClassName,
+  triggerLabel,
+  defaultOpen = false,
 }: {
   label?: string;
   value: string;
@@ -98,11 +100,15 @@ export function DatePicker({
   compact?: boolean;
   /** Classes CSS du bouton trigger (ex. même style que les chips rappel). */
   triggerClassName?: string;
+  /** Remplace l’affichage de la date sur le trigger (ex. « Reporter »). */
+  triggerLabel?: string;
+  /** Ouvre le popover au montage (ex. action « Reporter »). */
+  defaultOpen?: boolean;
 }) {
   const autoId = useId();
   const fieldId = id ?? autoId;
   const rootRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const initial = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date();
   const [cursor, setCursor] = useState({ year: initial.getFullYear(), month: initial.getMonth() });
 
@@ -140,6 +146,7 @@ export function DatePicker({
     compact ? "calls-datepicker__trigger--compact" : null,
     triggerClassName,
   ].filter(Boolean).join(" ");
+  const displayed = triggerLabel ?? (value ? formatIsoDateFr(value) : "Choisir une date");
 
   return (
     <div className={`calls-field calls-datepicker${compact ? " calls-datepicker--compact" : ""}`} ref={rootRef}>
@@ -154,7 +161,7 @@ export function DatePicker({
         aria-labelledby={compact ? undefined : `${fieldId}-label`}
         onClick={() => setOpen((v) => !v)}
       >
-        {value ? formatIsoDateFr(value) : "Choisir une date"}
+        {displayed}
       </button>
       {open && (
         <div className="calls-datepicker__popover" role="dialog" aria-label={label}>

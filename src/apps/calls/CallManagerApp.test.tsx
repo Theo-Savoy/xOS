@@ -444,7 +444,7 @@ describe("CallManagerApp component", () => {
     render(<CallManagerApp params={{ session_id: "1" }} />);
     await screen.findByRole("heading", { name: "Vagues" });
     await user.click(screen.getByRole("button", { name: "Liste" }));
-    await user.click(screen.getByRole("button", { name: "Sélectionner les à faire (7)" }));
+    await user.click(screen.getByRole("button", { name: "Sélectionner (7)" }));
     await user.click(screen.getByRole("button", { name: "Consigner pour 7" }));
 
     await waitFor(() => expect(resolvers).toHaveLength(4));

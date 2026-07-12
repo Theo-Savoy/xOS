@@ -403,7 +403,7 @@ describe("RunnerView", () => {
   it("allows skipping recall on unanswered without NPA", async () => {
     const user = userEvent.setup();
     const onLogAndNext = vi.fn();
-    const current = { ...bob, status: "pending" as const, outcome: null, attempt_count: 2 };
+    const current = { ...bob, status: "pending" as const, outcome: null, attempt_count: 1 };
     render(
       <RunnerView
         {...runnerProps}
@@ -474,15 +474,123 @@ describe("RunnerView", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Fiche" }));
-    await user.click(screen.getByRole("button", { name: "Reporter" }));
-    const panel = screen.getByRole("region", { name: "Reporter le rappel" });
-    expect(panel).toBeTruthy();
-    await user.click(within(panel).getByRole("button", { name: "+7 j" }));
-    await user.click(within(panel).getByRole("button", { name: "Enregistrer la date" }));
+    await user.click(screen.getByRole("button", { name: "Modifier la date de rappel" }));
+    const dialog = screen.getByRole("dialog", { name: "Modifier la date de rappel" });
+    await user.click(within(dialog).getByRole("button", { name: "20" }));
+    expect(onUpdateRecall).toHaveBeenCalledWith([current.id], "2026-07-20");
+  });
+
+  it("bulk-reschedules multiple recalls from the list selection", async () => {
+    const user = userEvent.setup();
+    const onUpdateRecall = vi.fn();
+    const a = {
+      ...bob,
+      id: 11,
+      status: "pending" as const,
+      outcome: "Appel non décroché" as const,
+      recall_at: "2026-07-12",
+      origin_session_id: 9,
+      origin_session_name: "Séance A",
+    };
+    const b = {
+      ...a,
+      id: 12,
+      contact_name: "Claire",
+      recall_at: "2026-07-12",
+    };
+    render(
+      <RunnerView
+        {...runnerProps}
+        variant="recalls"
+        onUpdateRecall={onUpdateRecall}
+        contacts={[a, b]}
+        currentContact={a}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Liste" }));
+    await user.click(screen.getByLabelText("Sélectionner Bob Durand"));
+    await user.click(screen.getByLabelText("Sélectionner Claire"));
+    await user.click(screen.getByRole("button", { name: /Reporter \(2\)/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Reporter les rappels" });
+    await user.click(within(dialog).getByRole("button", { name: "Aujourd'hui" }));
     expect(onUpdateRecall).toHaveBeenCalledWith(
-      current.id,
+      [11, 12],
       expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     );
+  });
+
+  it("bulk-reschedules called contacts with a recall inside a classic session", async () => {
+    const user = userEvent.setup();
+    const onUpdateRecall = vi.fn();
+    const calledA = {
+      ...bob,
+      id: 21,
+      status: "called" as const,
+      outcome: "Appel non décroché" as const,
+      recall_at: "2026-07-12",
+    };
+    const calledB = {
+      ...calledA,
+      id: 22,
+      contact_name: "Claire",
+      recall_at: "2026-07-14",
+    };
+    render(
+      <RunnerView
+        {...runnerProps}
+        onUpdateRecall={onUpdateRecall}
+        contacts={[calledA, calledB]}
+        currentContact={null}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Sélectionner Bob Durand"));
+    await user.click(screen.getByLabelText("Sélectionner Claire"));
+    await user.click(screen.getByRole("button", { name: /Reporter \(2\)/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Reporter les rappels" });
+    await user.click(within(dialog).getByRole("button", { name: "Aujourd'hui" }));
+    expect(onUpdateRecall).toHaveBeenCalledWith([21, 22], expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+  });
+
+  it("filters the recall queue by origin session", async () => {
+    const user = userEvent.setup();
+    const a = {
+      ...bob,
+      id: 31,
+      status: "pending" as const,
+      outcome: "Appel non décroché" as const,
+      recall_at: "2026-07-12",
+      origin_session_id: 3,
+      origin_session_name: "Prospection Lyon",
+      attempt_count: 1,
+    };
+    const b = {
+      ...a,
+      id: 32,
+      contact_name: "Claire",
+      origin_session_id: 4,
+      origin_session_name: "Relance Paris",
+    };
+    render(
+      <RunnerView
+        {...runnerProps}
+        variant="recalls"
+        contacts={[a, b]}
+        currentContact={a}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Liste" }));
+    expect(screen.getByText("Bob Durand")).toBeTruthy();
+    expect(screen.getByText("Claire")).toBeTruthy();
+    expect(screen.getAllByText("2e tentative").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /Prospection Lyon/i }));
+    expect(screen.getByText("Bob Durand")).toBeTruthy();
+    expect(screen.queryByText("Claire")).toBeNull();
   });
 
   it("keeps the in-progress result and comments when changing the default recall delay", async () => {
@@ -527,7 +635,7 @@ describe("RunnerView", () => {
 
     await user.click(screen.getByRole("button", { name: "Liste" }));
     expect(screen.queryByRole("button", { name: /Créer séance #2/i })).toBeNull();
-    await user.click(screen.getByRole("button", { name: /Sélectionner les à faire/i }));
+    await user.click(screen.getByRole("button", { name: /Sélectionner \(2\)/i }));
     await user.click(screen.getByRole("button", { name: "Non contacté" }));
     expect(screen.getByText(/Non contacté → Prospection Lyon #2/i)).toBeTruthy();
     expect(screen.getByLabelText("Date de la séance")).toBeTruthy();

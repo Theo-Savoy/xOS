@@ -689,15 +689,19 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     }
   };
 
-  const handleUpdateRecall = async (contactId: number, recallAt: string | null) => {
-    if (!token) return;
-    const target = resolveLogTarget(contactId);
-    if (!target) return;
+  const handleUpdateRecall = async (contactIds: number[], recallAt: string | null) => {
+    if (!token || contactIds.length === 0) return;
     setRunnerLoading(true);
     setRunnerError(null);
+    const targets = contactIds
+      .map((contactId) => resolveLogTarget(contactId))
+      .filter((target): target is { sessionId: number; contactId: number } => target !== null);
+    const results = await Promise.allSettled(
+      targets.map((target) => updateRecall(token, target.sessionId, target.contactId, recallAt)),
+    );
+    const failures = results.filter((result) => result.status === "rejected");
     try {
-      await updateRecall(token, target.sessionId, target.contactId, recallAt);
-      if (recallAt === null && focusedContactId === contactId) {
+      if (recallAt === null && focusedContactId && contactIds.includes(focusedContactId)) {
         setFocusedContactId(null);
       }
       if (view === "recalls") {
@@ -705,6 +709,11 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
       } else if (activeSession) {
         const refreshed = await fetchSession(token, activeSession.id);
         setContacts(refreshed.contacts);
+      }
+      if (failures.length) {
+        setRunnerError(
+          `${results.length - failures.length} mis à jour, ${failures.length} en échec — liste actualisée`,
+        );
       }
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -900,7 +909,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           }
           onDeferContacts={(ids, payload) => void handleDeferContacts(ids, payload)}
           onRemoveContacts={(ids) => void handleRemoveContacts(ids)}
-          onUpdateRecall={(contactId, recallAt) => void handleUpdateRecall(contactId, recallAt)}
+          onUpdateRecall={(contactIds, recallAt) => void handleUpdateRecall(contactIds, recallAt)}
           onLogMany={(ids, payload) => void handleLogMany(ids, payload)}
         />
       )}

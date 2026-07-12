@@ -14,8 +14,11 @@ import { LinkedInRecordLink, SalesforceRecordLink } from "./BrandLinks";
 import { ProgressBar } from "./ProgressBar";
 import {
   countRecallDateFilters,
+  listRecallOriginSessions,
   matchesRecallDateFilter,
+  matchesRecallSessionFilter,
   type RecallDateFilter,
+  type RecallSessionFilter,
 } from "./recallQueue";
 import { nextContinuationName } from "./sessionNaming";
 import type {
@@ -74,7 +77,7 @@ type RunnerViewProps = {
   onLogEvent: (start: string, durationMin: number, invitees: string[]) => void;
   onDeferContacts: (contactIds: number[], payload: DeferPayload) => void;
   onRemoveContacts: (contactIds: number[]) => void;
-  onUpdateRecall: (contactId: number, recallAt: string | null) => void;
+  onUpdateRecall: (contactIds: number[], recallAt: string | null) => void;
   team?: TeamMember[];
 };
 
@@ -94,10 +97,11 @@ function readDefaultRecallDays(): number {
   }
 }
 
-function formatAttemptLabel(count: number): string {
-  if (count <= 0) return "";
-  if (count === 1) return "1re tentative";
-  return `${count}e tentative`;
+/** `completedAttempts` = appels déjà journalisés ; on affiche le n° de la prochaine tentative. */
+function formatAttemptLabel(completedAttempts: number): string {
+  const next = Math.max(1, completedAttempts + 1);
+  if (next === 1) return "1re tentative";
+  return `${next}e tentative`;
 }
 
 function formatRelativeDaysFr(iso: string | null | undefined, today = todayParisIso()): string {
@@ -281,6 +285,7 @@ export function RunnerView({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [listStatusFilter, setListStatusFilter] = useState<ListStatusFilter>("all");
   const [recallDateFilter, setRecallDateFilter] = useState<RecallDateFilter>("today");
+  const [recallSessionFilter, setRecallSessionFilter] = useState<RecallSessionFilter>("all");
   const [listQuery, setListQuery] = useState("");
   const [resultat, setResultat] = useState<ResultatCall>(RESULTAT_OPTIONS[0].value);
   const [bulkResultat, setBulkResultat] = useState<ResultatCall>(RESULTAT_OPTIONS[0].value);
@@ -296,8 +301,7 @@ export function RunnerView({
   const [deferIds, setDeferIds] = useState<number[] | null>(null);
   const [deferDate, setDeferDate] = useState(() => addDaysIso(readDefaultRecallDays()));
   const [deferTargetId, setDeferTargetId] = useState<number | null>(null);
-  const [rescheduleId, setRescheduleId] = useState<number | null>(null);
-  const [rescheduleAt, setRescheduleAt] = useState(() => addDaysIso(readDefaultRecallDays()));
+  const [bulkRecallPicker, setBulkRecallPicker] = useState<{ ids: number[]; seed: string } | null>(null);
   const [pinned, setPinned] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const bootstrappedDetail = useRef(false);
@@ -336,29 +340,36 @@ export function RunnerView({
     }),
     [contacts],
   );
+  const recallOriginSessions = useMemo(
+    () => listRecallOriginSessions(contacts),
+    [contacts],
+  );
   const recallDateCounts = useMemo(
     () =>
       countRecallDateFilters(
-        contacts.map((c) => ({
-          id: c.id,
-          session_id: c.origin_session_id ?? 0,
-          session_name: c.origin_session_name ?? "",
-          session_status: "active" as const,
-          contact_name: c.contact_name,
-          account_name: c.account_name,
-          phone: c.phone,
-          recall_at: c.recall_at ?? "",
-          outcome: c.outcome,
-        })),
+        contacts
+          .filter((c) => matchesRecallSessionFilter(c.origin_session_id, recallSessionFilter))
+          .map((c) => ({
+            id: c.id,
+            session_id: c.origin_session_id ?? 0,
+            session_name: c.origin_session_name ?? "",
+            session_status: "active" as const,
+            contact_name: c.contact_name,
+            account_name: c.account_name,
+            phone: c.phone,
+            recall_at: c.recall_at ?? "",
+            outcome: c.outcome,
+          })),
         today,
       ),
-    [contacts, today],
+    [contacts, today, recallSessionFilter],
   );
   const filteredContacts = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
     return contacts.filter((contact) => {
       if (isRecallQueue) {
         if (!matchesRecallDateFilter(contact.recall_at, recallDateFilter, today)) return false;
+        if (!matchesRecallSessionFilter(contact.origin_session_id, recallSessionFilter)) return false;
       } else if (listStatusFilter !== "all" && contact.status !== listStatusFilter) {
         return false;
       }
@@ -376,17 +387,32 @@ export function RunnerView({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [contacts, listStatusFilter, listQuery, isRecallQueue, recallDateFilter, today]);
+  }, [contacts, listStatusFilter, listQuery, isRecallQueue, recallDateFilter, recallSessionFilter, today]);
   const pendingSelected = useMemo(
     () => [...selectedIds].filter((id) => pendingContacts.some((c) => c.id === id)),
     [selectedIds, pendingContacts],
   );
-  const visiblePending = useMemo(
-    () => filteredContacts.filter((c) => c.status === "pending"),
-    [filteredContacts],
+  const recallManageSelected = useMemo(
+    () =>
+      contacts
+        .filter((contact) => {
+          if (!selectedIds.has(contact.id) || !contact.recall_at) return false;
+          return isRecallQueue || contact.status === "called";
+        })
+        .map((contact) => contact.id),
+    [contacts, selectedIds, isRecallQueue],
   );
-  const allPendingSelected =
-    visiblePending.length > 0 && visiblePending.every((c) => selectedIds.has(c.id));
+  const selectableContacts = useMemo(
+    () =>
+      filteredContacts.filter(
+        (contact) =>
+          contact.status === "pending"
+          || (Boolean(contact.recall_at) && (isRecallQueue || contact.status === "called")),
+      ),
+    [filteredContacts, isRecallQueue],
+  );
+  const allSelectableSelected =
+    selectableContacts.length > 0 && selectableContacts.every((c) => selectedIds.has(c.id));
   const singleSelectedId = pendingSelected.length === 1 ? pendingSelected[0] : null;
   const singleSelectedContact = singleSelectedId
     ? contacts.find((c) => c.id === singleSelectedId) ?? null
@@ -442,6 +468,14 @@ export function RunnerView({
   }, [isRecallQueue, recallDateFilter, recallDateCounts.today, recallDateCounts.overdue]);
 
   useEffect(() => {
+    if (!isRecallQueue) return;
+    if (recallSessionFilter === "all") return;
+    if (!recallOriginSessions.some((session) => session.id === recallSessionFilter)) {
+      setRecallSessionFilter("all");
+    }
+  }, [isRecallQueue, recallSessionFilter, recallOriginSessions]);
+
+  useEffect(() => {
     if (awaitingEvent) setMode("detail");
   }, [awaitingEvent?.id]);
 
@@ -485,12 +519,19 @@ export function RunnerView({
   }, [bulkResultat]);
 
   useEffect(() => {
-    // Drop selections that are no longer pending after a bulk action.
+    // Drop selections that are no longer actionable after a bulk action.
     setSelectedIds((current) => {
-      const next = new Set([...current].filter((id) => pendingContacts.some((c) => c.id === id)));
+      const next = new Set(
+        [...current].filter((id) => {
+          const contact = contacts.find((row) => row.id === id);
+          if (!contact) return false;
+          if (contact.status === "pending") return true;
+          return Boolean(contact.recall_at) && (isRecallQueue || contact.status === "called");
+        }),
+      );
       return next.size === current.size ? current : next;
     });
-  }, [pendingContacts]);
+  }, [contacts, isRecallQueue]);
 
   const openDetail = (contactId: number) => {
     setFocusedId(contactId);
@@ -507,12 +548,12 @@ export function RunnerView({
     });
   };
 
-  const toggleSelectAllPending = () => {
-    if (allPendingSelected) {
+  const toggleSelectAllSelectable = () => {
+    if (allSelectableSelected) {
       setSelectedIds(new Set());
       return;
     }
-    setSelectedIds(new Set(visiblePending.map((c) => c.id)));
+    setSelectedIds(new Set(selectableContacts.map((c) => c.id)));
   };
 
   const handleDefaultRecallDays = (days: number) => {
@@ -611,21 +652,30 @@ export function RunnerView({
     setSelectedIds(new Set());
   };
 
-  const openReschedule = (contact: SessionContact) => {
-    setRescheduleId(contact.id);
-    setRescheduleAt(contact.recall_at || addDaysIso(defaultRecallDays));
+  const openBulkRecallPicker = (ids: number[]) => {
+    if (ids.length === 0) return;
+    const seed =
+      contacts.find((contact) => contact.id === ids[0])?.recall_at
+      || addDaysIso(defaultRecallDays);
+    setBulkRecallPicker({ ids, seed });
     setDeferIds(null);
   };
 
-  const confirmReschedule = () => {
-    if (rescheduleId == null) return;
-    onUpdateRecall(rescheduleId, rescheduleAt);
-    setRescheduleId(null);
+  const applyRecallDate = (ids: number[], next: string) => {
+    if (ids.length === 0) return;
+    onUpdateRecall(ids, next);
+    setSelectedIds(new Set());
+    setBulkRecallPicker(null);
   };
 
   const confirmRemove = (ids: number[], label: string) => {
     if (ids.length === 0) return;
-    const message = isRecallQueue
+    const clearingRecall = isRecallQueue
+      || ids.every((id) => {
+        const contact = contacts.find((row) => row.id === id);
+        return contact?.status === "called" && Boolean(contact.recall_at);
+      });
+    const message = clearingRecall
       ? ids.length === 1
         ? `Retirer ${label} des rappels ? L'historique d'appel est conservé.`
         : `Retirer ${ids.length} contacts des rappels ? L'historique d'appel est conservé.`
@@ -633,9 +683,23 @@ export function RunnerView({
         ? `Retirer ${label} de la séance ?`
         : `Retirer ${ids.length} contacts de la séance ?`;
     if (!window.confirm(message)) return;
-    onRemoveContacts(ids);
+
+    if (isRecallQueue) {
+      onRemoveContacts(ids);
+    } else {
+      const toDelete: number[] = [];
+      const toClearRecall: number[] = [];
+      for (const id of ids) {
+        const contact = contacts.find((row) => row.id === id);
+        if (!contact) continue;
+        if (contact.status === "called" && contact.recall_at) toClearRecall.push(id);
+        else if (contact.status === "pending" || contact.status === "skipped") toDelete.push(id);
+      }
+      if (toDelete.length) onRemoveContacts(toDelete);
+      if (toClearRecall.length) onUpdateRecall(toClearRecall, null);
+    }
     setSelectedIds(new Set());
-    setRescheduleId(null);
+    setBulkRecallPicker(null);
   };
 
   const continuationLabel = nextContinuationName(session.name);
@@ -739,26 +803,54 @@ export function RunnerView({
       )}
 
       {isRecallQueue && (
-        <div className="calls-recall-queue__filters" role="group" aria-label="Filtrer les rappels">
-          {(
-            [
-              ["today", "Aujourd'hui", recallDateCounts.today],
-              ["overdue", "En retard", recallDateCounts.overdue],
-              ["upcoming", "À venir", recallDateCounts.upcoming],
-              ["all", "Tous", recallDateCounts.all],
-            ] as const
-          ).map(([value, label, count]) => (
-            <button
-              key={value}
-              type="button"
-              className={`calls-list-filter-chip${recallDateFilter === value ? " calls-list-filter-chip--active" : ""}`}
-              aria-pressed={recallDateFilter === value}
-              onClick={() => setRecallDateFilter(value)}
-            >
-              {label}
-              <span className="xos-numeric">{count}</span>
-            </button>
-          ))}
+        <div className="calls-recall-queue__filters-wrap">
+          <div className="calls-recall-queue__filters" role="group" aria-label="Filtrer les rappels par date">
+            {(
+              [
+                ["today", "Aujourd'hui", recallDateCounts.today],
+                ["overdue", "En retard", recallDateCounts.overdue],
+                ["upcoming", "À venir", recallDateCounts.upcoming],
+                ["all", "Tous", recallDateCounts.all],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                className={`calls-list-filter-chip${recallDateFilter === value ? " calls-list-filter-chip--active" : ""}`}
+                aria-pressed={recallDateFilter === value}
+                onClick={() => setRecallDateFilter(value)}
+              >
+                {label}
+                <span className="xos-numeric">{count}</span>
+              </button>
+            ))}
+          </div>
+          {recallOriginSessions.length > 1 && (
+            <div className="calls-recall-queue__filters" role="group" aria-label="Filtrer les rappels par séance">
+              <button
+                type="button"
+                className={`calls-list-filter-chip${recallSessionFilter === "all" ? " calls-list-filter-chip--active" : ""}`}
+                aria-pressed={recallSessionFilter === "all"}
+                onClick={() => setRecallSessionFilter("all")}
+              >
+                Toutes les séances
+                <span className="xos-numeric">{contacts.length}</span>
+              </button>
+              {recallOriginSessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  className={`calls-list-filter-chip${recallSessionFilter === session.id ? " calls-list-filter-chip--active" : ""}`}
+                  aria-pressed={recallSessionFilter === session.id}
+                  onClick={() => setRecallSessionFilter(session.id)}
+                  title={session.name}
+                >
+                  {session.name}
+                  <span className="xos-numeric">{session.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -782,19 +874,24 @@ export function RunnerView({
         </GlassCard>
       ) : mode === "list" ? (
         <div className="calls-cockpit-list-wrap">
-          {pendingSelected.length > 0 && (
+          {(pendingSelected.length > 0 || recallManageSelected.length > 0) && (
             <GlassCard className="calls-bulk-bar">
               <div className="calls-bulk-bar__head">
                 <strong>
-                  {pendingSelected.length} contact{pendingSelected.length > 1 ? "s" : ""} sélectionné
-                  {pendingSelected.length > 1 ? "s" : ""}
+                  {(pendingSelected.length || recallManageSelected.length)} contact
+                  {(pendingSelected.length || recallManageSelected.length) > 1 ? "s" : ""} sélectionné
+                  {(pendingSelected.length || recallManageSelected.length) > 1 ? "s" : ""}
                 </strong>
                 <span className="calls-muted">
-                  {singleSelectedId
-                    ? "Consigner, planifier un RDV, ou reporter en follow-up"
-                    : "Même résultat pour toute la sélection"}
+                  {pendingSelected.length > 0
+                    ? singleSelectedId
+                      ? "Consigner, planifier un RDV, ou reporter"
+                      : "Même action pour toute la sélection"
+                    : "Reporter ou retirer les rappels sélectionnés"}
                 </span>
               </div>
+              {pendingSelected.length > 0 && (
+                <>
               <div className="calls-fb-control">
                 <div className="calls-fb-control__label">
                   <span>Résultat</span>
@@ -863,20 +960,38 @@ export function RunnerView({
                       Non contacté
                     </Button>
                   )}
-                  {isRecallQueue && singleSelectedContact && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => openReschedule(singleSelectedContact)}
-                      disabled={loading}
-                    >
-                      Reporter
-                    </Button>
+                  {recallManageSelected.length > 0 && (
+                    bulkRecallPicker
+                      && bulkRecallPicker.ids.length === recallManageSelected.length
+                      && bulkRecallPicker.ids.every((id) => recallManageSelected.includes(id)) ? (
+                      <DatePicker
+                        compact
+                        defaultOpen
+                        label="Reporter les rappels"
+                        triggerLabel={
+                          recallManageSelected.length > 1
+                            ? `Reporter (${recallManageSelected.length})`
+                            : "Reporter"
+                        }
+                        value={bulkRecallPicker.seed}
+                        onChange={(next) => applyRecallDate(bulkRecallPicker.ids, next)}
+                        triggerClassName="xos-btn xos-btn--secondary"
+                      />
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        onClick={() => openBulkRecallPicker(recallManageSelected)}
+                        disabled={loading}
+                      >
+                        Reporter{recallManageSelected.length > 1 ? ` (${recallManageSelected.length})` : ""}
+                      </Button>
+                    )
                   )}
                   <Button
                     variant="secondary"
                     onClick={() =>
                       confirmRemove(
-                        pendingSelected,
+                        isRecallQueue ? recallManageSelected : pendingSelected,
                         singleSelectedContact?.contact_name ?? "ces contacts",
                       )
                     }
@@ -886,41 +1001,50 @@ export function RunnerView({
                   </Button>
                 </div>
               )}
-            </GlassCard>
-          )}
-
-          {rescheduleId != null && mode === "list" && (
-            <div className="calls-defer-panel" role="region" aria-label="Reporter le rappel">
-              <strong>Reporter le rappel</strong>
-              <p className="calls-defer-panel__empty">Choisissez la nouvelle date de rappel.</p>
-              <div className="calls-recall__presets" role="group" aria-label="Délai rapide">
-                {RECALL_PRESETS.map((preset) => (
-                  <button
-                    key={preset.days}
-                    type="button"
-                    className={`calls-recall__chip${addDaysIso(preset.days) === rescheduleAt ? " calls-recall__chip--active" : ""}`}
-                    aria-pressed={addDaysIso(preset.days) === rescheduleAt}
-                    onClick={() => setRescheduleAt(addDaysIso(preset.days))}
+                </>
+              )}
+              {pendingSelected.length === 0 && recallManageSelected.length > 0 && (
+                <div className="calls-runner-actions">
+                  {bulkRecallPicker
+                    && bulkRecallPicker.ids.length === recallManageSelected.length
+                    && bulkRecallPicker.ids.every((id) => recallManageSelected.includes(id)) ? (
+                    <DatePicker
+                      compact
+                      defaultOpen
+                      label="Reporter les rappels"
+                      triggerLabel={
+                        recallManageSelected.length > 1
+                          ? `Reporter (${recallManageSelected.length})`
+                          : "Reporter"
+                      }
+                      value={bulkRecallPicker.seed}
+                      onChange={(next) => applyRecallDate(bulkRecallPicker.ids, next)}
+                      triggerClassName="xos-btn xos-btn--secondary"
+                    />
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      onClick={() => openBulkRecallPicker(recallManageSelected)}
+                      disabled={loading}
+                    >
+                      Reporter{recallManageSelected.length > 1 ? ` (${recallManageSelected.length})` : ""}
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      confirmRemove(
+                        recallManageSelected,
+                        contacts.find((c) => c.id === recallManageSelected[0])?.contact_name ?? "ces contacts",
+                      )
+                    }
+                    disabled={loading}
                   >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-              <DatePicker
-                compact
-                label="Date de rappel"
-                value={rescheduleAt}
-                onChange={setRescheduleAt}
-              />
-              <div className="calls-runner-actions">
-                <Button onClick={confirmReschedule} disabled={loading}>
-                  {loading ? "Enregistrement…" : "Enregistrer la date"}
-                </Button>
-                <Button variant="secondary" onClick={() => setRescheduleId(null)} disabled={loading}>
-                  Annuler
-                </Button>
-              </div>
-            </div>
+                    Retirer des rappels
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
           )}
 
           {deferIds && !isRecallQueue && (
@@ -985,12 +1109,12 @@ export function RunnerView({
               <div className="calls-preview__actions">
                 <Button
                   variant="secondary"
-                  disabled={loading || visiblePending.length === 0}
-                  onClick={toggleSelectAllPending}
+                  disabled={loading || selectableContacts.length === 0}
+                  onClick={toggleSelectAllSelectable}
                 >
-                  {allPendingSelected
+                  {allSelectableSelected
                     ? "Tout désélectionner"
-                    : `Sélectionner les à faire (${visiblePending.length})`}
+                    : `Sélectionner (${selectableContacts.length})`}
                 </Button>
               </div>
             </div>
@@ -1059,7 +1183,10 @@ export function RunnerView({
                     <input
                       type="checkbox"
                       checked={selectedIds.has(contact.id)}
-                      disabled={contact.status !== "pending"}
+                      disabled={
+                        contact.status !== "pending"
+                        && !(contact.recall_at && (isRecallQueue || contact.status === "called"))
+                      }
                       onChange={() => toggleSelected(contact.id)}
                       aria-label={`Sélectionner ${contact.contact_name}`}
                     />
@@ -1165,29 +1292,21 @@ export function RunnerView({
                 <p className="calls-contact-card__role">
                   {[displayTitle, focusedContact.account_name || "Compte inconnu"].filter(Boolean).join(" · ")}
                 </p>
-                {focusedContact.status !== "pending" && focusedContact.recall_at && (
-                  <p className="calls-contact-card__recall-meta">
-                    Rappel {formatIsoDateFr(focusedContact.recall_at)}
-                    <button
-                      type="button"
-                      className="calls-inline-link"
-                      onClick={() => openReschedule(focusedContact)}
-                    >
-                      modifier
-                    </button>
-                  </p>
-                )}
-                {isRecallQueue && focusedContact.recall_at && (
-                  <p className="calls-contact-card__recall-meta">
-                    Rappel {formatIsoDateFr(focusedContact.recall_at)}
-                    <button
-                      type="button"
-                      className="calls-inline-link"
-                      onClick={() => openReschedule(focusedContact)}
-                    >
-                      modifier
-                    </button>
-                  </p>
+                {(isRecallQueue || focusedContact.status !== "pending") && focusedContact.recall_at && (
+                  <div className="calls-contact-card__recall-meta">
+                    <span>Rappel</span>
+                    <DatePicker
+                      compact
+                      label="Modifier la date de rappel"
+                      value={focusedContact.recall_at}
+                      onChange={(next) => {
+                        if (next !== focusedContact.recall_at) {
+                          onUpdateRecall([focusedContact.id], next);
+                        }
+                      }}
+                      triggerClassName="calls-inline-link"
+                    />
+                  </div>
                 )}
               </div>
               <div className="calls-contact-card__links">
@@ -1355,15 +1474,6 @@ export function RunnerView({
                         Non contacté
                       </Button>
                     )}
-                    {isRecallQueue && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => openReschedule(focusedContact)}
-                        disabled={loading}
-                      >
-                        Reporter
-                      </Button>
-                    )}
                     <Button
                       variant="secondary"
                       onClick={() => confirmRemove([focusedContact.id], focusedContact.contact_name)}
@@ -1392,51 +1502,6 @@ export function RunnerView({
                   >
                     Retirer
                   </Button>
-                </div>
-              )}
-
-              {rescheduleId === focusedContact.id && (
-                <div className="calls-defer-panel" role="region" aria-label="Reporter le rappel">
-                  <strong>Reporter le rappel</strong>
-                  <p className="calls-defer-panel__empty">
-                    Actuellement le {formatIsoDateFr(focusedContact.recall_at ?? rescheduleAt)}.
-                  </p>
-                  <div className="calls-recall__presets" role="group" aria-label="Délai rapide">
-                    {RECALL_PRESETS.map((preset) => (
-                      <button
-                        key={preset.days}
-                        type="button"
-                        className={`calls-recall__chip${addDaysIso(preset.days) === rescheduleAt ? " calls-recall__chip--active" : ""}`}
-                        aria-pressed={addDaysIso(preset.days) === rescheduleAt}
-                        onClick={() => setRescheduleAt(addDaysIso(preset.days))}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                  <DatePicker
-                    compact
-                    label="Date de rappel"
-                    value={rescheduleAt}
-                    onChange={setRescheduleAt}
-                  />
-                  <div className="calls-runner-actions">
-                    <Button onClick={confirmReschedule} disabled={loading}>
-                      {loading ? "Enregistrement…" : "Enregistrer la date"}
-                    </Button>
-                    <Button variant="secondary" onClick={() => setRescheduleId(null)} disabled={loading}>
-                      Annuler
-                    </Button>
-                    {isRecallQueue && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => confirmRemove([focusedContact.id], focusedContact.contact_name)}
-                        disabled={loading}
-                      >
-                        Retirer des rappels
-                      </Button>
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -1486,46 +1551,16 @@ export function RunnerView({
               <p>Contact déjà traité — choisissez le suivant dans la liste.</p>
               {focusedContact.recall_at && (
                 <div className="calls-runner-actions">
-                  <Button variant="secondary" onClick={() => openReschedule(focusedContact)} disabled={loading}>
-                    Reporter le rappel
-                  </Button>
                   <Button
                     variant="secondary"
                     onClick={() => {
                       if (!window.confirm("Retirer ce rappel ? L'historique d'appel est conservé.")) return;
-                      onUpdateRecall(focusedContact.id, null);
+                      onUpdateRecall([focusedContact.id], null);
                     }}
                     disabled={loading}
                   >
                     Retirer le rappel
                   </Button>
-                </div>
-              )}
-              {rescheduleId === focusedContact.id && focusedContact.recall_at && (
-                <div className="calls-defer-panel" role="region" aria-label="Reporter le rappel">
-                  <strong>Reporter le rappel</strong>
-                  <div className="calls-recall__presets" role="group" aria-label="Délai rapide">
-                    {RECALL_PRESETS.map((preset) => (
-                      <button
-                        key={preset.days}
-                        type="button"
-                        className={`calls-recall__chip${addDaysIso(preset.days) === rescheduleAt ? " calls-recall__chip--active" : ""}`}
-                        aria-pressed={addDaysIso(preset.days) === rescheduleAt}
-                        onClick={() => setRescheduleAt(addDaysIso(preset.days))}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                  <DatePicker compact label="Date de rappel" value={rescheduleAt} onChange={setRescheduleAt} />
-                  <div className="calls-runner-actions">
-                    <Button onClick={confirmReschedule} disabled={loading}>
-                      Enregistrer la date
-                    </Button>
-                    <Button variant="secondary" onClick={() => setRescheduleId(null)} disabled={loading}>
-                      Annuler
-                    </Button>
-                  </div>
                 </div>
               )}
               <Button variant="secondary" onClick={() => setMode("list")}>
