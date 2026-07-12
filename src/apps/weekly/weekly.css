@@ -175,7 +175,8 @@
 }
 
 .weekly-tip__panel {
-  z-index: 80;
+  z-index: 30050;
+  box-sizing: border-box;
   width: max-content;
   padding: .7rem .85rem;
   border-radius: .65rem;
@@ -1162,6 +1163,17 @@
   display: grid;
   gap: .75rem;
   justify-items: start;
+}
+
+.weekly-soft-empty {
+  margin: 0;
+  padding: .65rem .85rem;
+  border-radius: .65rem;
+  border: 1px solid color-mix(in srgb, var(--xos-border) 85%, transparent);
+  background: color-mix(in srgb, var(--xos-text) 4%, transparent);
+  color: var(--xos-text-muted);
+  font-size: .84rem;
+  line-height: 1.4;
 }
 
 .weekly-empty h3,

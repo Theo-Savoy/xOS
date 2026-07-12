@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { Button, GlassCard, Select, Tag } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
@@ -155,18 +156,17 @@ function Tip({
       let nextSide = side;
       if (nextSide === "top" && trigger.top < panel.height + margin + 8) nextSide = "bottom";
       if (nextSide === "bottom" && trigger.bottom + panel.height + margin + 8 > window.innerHeight) nextSide = "top";
-      const width = Math.min(panel.width || 240, window.innerWidth - margin * 2);
+      const maxWidth = Math.min(280, window.innerWidth - margin * 2);
+      const width = Math.min(Math.max(panel.width, 160), maxWidth);
       let left = trigger.left + trigger.width / 2 - width / 2;
       left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
       const top = nextSide === "top" ? trigger.top - panel.height - 8 : trigger.bottom + 8;
       setResolvedSide(nextSide);
       setPanelStyle({
-        position: "fixed",
         top: Math.max(margin, top),
         left,
         width,
-        maxWidth: Math.min(280, window.innerWidth - margin * 2),
-        transform: "none",
+        maxWidth,
         visibility: "visible",
       });
     };
@@ -194,7 +194,7 @@ function Tip({
           tabIndex={0}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setOpen(true)}
         >
           {children}
         </span>
@@ -204,14 +204,14 @@ function Tip({
           className="weekly-tip__btn"
           aria-label={text}
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
+          onClick={() => setOpen(true)}
         >
           <span className="weekly-tip__glyph" aria-hidden="true">?</span>
         </button>
       )}
-      {open && (
+      {open && createPortal(
         <span
           ref={panelRef}
           className="weekly-tip__panel"
@@ -219,7 +219,8 @@ function Tip({
           style={{ position: "fixed", top: 0, left: 0, ...panelStyle }}
         >
           {text}
-        </span>
+        </span>,
+        document.body,
       )}
     </span>
   );
@@ -300,6 +301,8 @@ type PerfContext = {
   compare_week: string | null;
   prior_quarter_label: string;
   anchor_week_start: string;
+  live_week_start?: string;
+  live_iso_week?: string;
 };
 type PeriodHistory = { weeks: Array<{ week_start: string; iso_week: string; quarter: string }>; quarters: string[] };
 type PerfResponse = {
@@ -1527,6 +1530,9 @@ export default function WeeklyApp() {
   const [anchorWeekStart, setAnchorWeekStart] = useState<string | null>(null);
   const prefetchDone = useRef(false);
   const requestSeq = useRef(0);
+  const historyCacheRef = useRef<PeriodHistory>({ weeks: [], quarters: [] });
+  const cacheRef = useRef(cache);
+  cacheRef.current = cache;
 
   const loadPeriod = useCallback(async (nextPeriod: PeriodMode, { background = false, signal, weekStart = anchorWeekStart }: { background?: boolean; signal?: AbortSignal; weekStart?: string | null } = {}) => {
     const seq = ++requestSeq.current;
@@ -1535,11 +1541,14 @@ export default function WeeklyApp() {
     try {
       const next = await perfRequest(nextPeriod, weekStart, signal);
       if (seq !== requestSeq.current) return;
+      if ((next.payload.period_history?.weeks?.length || 0) > 0) {
+        historyCacheRef.current = next.payload.period_history!;
+      }
       setCache((current) => ({ ...current, [nextPeriod]: next }));
     } catch (err) {
       if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
       if (seq !== requestSeq.current) return;
-      if (!background) setError(true);
+      setError(true);
     } finally {
       if (seq === requestSeq.current && !background) setLoading(false);
     }
@@ -1547,7 +1556,8 @@ export default function WeeklyApp() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadPeriod(period, { signal: controller.signal, weekStart: anchorWeekStart });
+    const soft = Boolean(cacheRef.current[period]);
+    void loadPeriod(period, { background: soft, signal: controller.signal, weekStart: anchorWeekStart });
     return () => {
       controller.abort();
       requestSeq.current += 1;
@@ -1635,10 +1645,27 @@ export default function WeeklyApp() {
   const periodBadge = weekMode
     ? (currentWeekShort ? `Semaine ${currentWeekShort}` : "Semaine en cours")
     : (context?.quarter_label ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}` : "Trimestre en cours");
-  const liveWeekStart = context?.anchor_week_start || addDays(payload.range.to, -6);
+  const liveWeekStart = context?.live_week_start || context?.anchor_week_start || addDays(payload.range.to, -6);
+  const selectedWeekStart = anchorWeekStart || context?.anchor_week_start || liveWeekStart;
+  const historySource = (periodHistory.weeks?.length ? periodHistory : historyCacheRef.current);
   const historyOptions = (() => {
     const seen = new Set<string>();
-    return (periodHistory.weeks || [])
+    const rows = [...(historySource.weeks || [])];
+    if (liveWeekStart) {
+      rows.unshift({
+        week_start: liveWeekStart,
+        iso_week: context?.live_iso_week || context?.iso_week || liveWeekStart,
+        quarter: context?.quarter_label || "",
+      });
+    }
+    if (selectedWeekStart) {
+      rows.push({
+        week_start: selectedWeekStart,
+        iso_week: context?.iso_week || selectedWeekStart,
+        quarter: context?.quarter_label || "",
+      });
+    }
+    return rows
       .filter((entry) => entry.week_start <= liveWeekStart)
       .filter((entry) => {
         if (seen.has(entry.week_start)) return false;
@@ -1651,7 +1678,12 @@ export default function WeeklyApp() {
         label: shortWeekLabel(entry.iso_week) || entry.iso_week,
       }));
   })();
-  const hasActivity = payload.pulse.some((point) => point.calls || point.meetings || point.proposals) || payload.pipeline.some((point) => point.generated_amount || point.won_amount) || payload.effort.some((point) => point.progressions) || customPipe.count > 0 || followUps.length > 0 || stagnant.length > 0 || (pace?.signed_to_date || 0) > 0;
+  const visibleHasActivity = visibleOwners.some((owner) => {
+    const pulse = pulseFor(owner);
+    const pipe = pipelineFor(owner);
+    return pulse.some((row) => row.calls || row.meetings || row.proposals)
+      || pipe.some((row) => row.generated_amount || row.won_amount || row.generated_count);
+  }) || followUps.length > 0 || stagnant.length > 0 || customPipe.count > 0 || (pace?.signed_to_date || 0) > 0;
   const showForecast = !weekMode && visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
   const showActivityTrend = !weekMode;
   const includeCalls = visibleOwners.some((owner) => trackingOf(owner) === "sdr" || pulseFor(owner).some((row) => row.calls > 0));
@@ -1659,6 +1691,8 @@ export default function WeeklyApp() {
   const showTeamRollup = mode === "team" && selectedOwnerId === "all" && visibleOwners.length > 1;
   const showPace = Boolean(pace) && visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
   const ownerOptions = [{ value: "all", label: "Toute l’équipe" }, ...roster.map((owner) => ({ value: owner.sf_user_id, label: owner.name }))];
+  const showWeekSelector = weekMode && (historyOptions.length > 1 || selectedWeekStart !== liveWeekStart);
+  const showSoftEmpty = !visibleHasActivity && selectedWeekStart === liveWeekStart;
 
   return <main className={`weekly-app ${loading ? "weekly-app--loading" : ""}`}>
     <header className="weekly-header">
@@ -1673,6 +1707,7 @@ export default function WeeklyApp() {
       </div>
     </header>
     {payload.warning === "sf_user_unmapped" && <div className="weekly-warning" role="status">Compte Salesforce non relié — connectez-vous via le Hub.</div>}
+    {error && <div className="weekly-warning" role="status">Impossible de rafraîchir ces données — dernière vue conservée.</div>}
     <div className="weekly-controls">
       {payload.view === "team" && <div className="weekly-toggle weekly-seg" aria-label="Vue">
         <Button variant={mode === "self" ? "primary" : "secondary"} onClick={() => { setMode("self"); setSelectedOwnerId("all"); }}>Moi</Button>
@@ -1681,21 +1716,28 @@ export default function WeeklyApp() {
       {payload.view === "team" && mode === "team" && (
         <Select label="Commercial" aria-label="Filtrer un commercial" value={selectedOwnerId} options={ownerOptions} onChange={setSelectedOwnerId} />
       )}
-      {historyOptions.length > 1 && weekMode && (
+      {showWeekSelector && (
         <Select
           label="Semaine"
           aria-label="Choisir une semaine"
-          value={anchorWeekStart || context?.anchor_week_start || historyOptions[0]?.value || ""}
+          value={selectedWeekStart}
           options={historyOptions}
           onChange={(value) => setAnchorWeekStart(value)}
         />
+      )}
+      {showWeekSelector && selectedWeekStart !== liveWeekStart && (
+        <Button variant="secondary" onClick={() => setAnchorWeekStart(liveWeekStart)}>Semaine en cours</Button>
       )}
       <div className="weekly-toggle weekly-seg weekly-display-toggle" aria-label="Affichage">
         <Button variant={displayMode === "cards" ? "primary" : "secondary"} onClick={() => setDisplayMode("cards")}>Cards</Button>
         <Button variant={displayMode === "table" ? "primary" : "secondary"} onClick={() => setDisplayMode("table")}>Tableau</Button>
       </div>
     </div>
-    {!hasActivity ? <GlassCard className="weekly-empty"><h3>Rien à signaler cette semaine</h3><p>Dès que les activités remontent de Salesforce, elles apparaîtront ici.</p><span>Pensez à loguer vos appels dans Call Manager.</span></GlassCard> : <>
+    {showSoftEmpty && (
+      <div className="weekly-soft-empty" role="status">
+        Pas encore d’activité sur cette vue — le détail reste disponible ci-dessous.
+      </div>
+    )}
       {showTeamRollup && displayMode === "cards" && <TeamRollup owners={visibleOwners} pulseFor={pulseFor} pipelineFor={pipelineFor} quarterFor={quarterFor} weekMode={weekMode} currentIndex={currentIndex} compareLabel={compareLabel} />}
       {displayMode === "cards" && <section className="weekly-section">
         <SectionHeading
@@ -1760,6 +1802,5 @@ export default function WeeklyApp() {
       {displayMode === "cards" && showForecast && <section className="weekly-section"><SectionHeading kicker={COPY.trajectoire.kicker} title={COPY.trajectoire.title} hint={COPY.trajectoire.hint} /><ForecastChart weeks={model.weeks} history={forecastHistory} ownerIds={sellerIds} target={target} currentIndex={currentIndex} /></section>}
       <CallFunnelChart weeks={model.weeks} owners={visibleOwners} pulseFor={pulseFor} currentIndex={currentIndex} weekMode={weekMode} />
       {showCustomPipe && <CustomPipeSection pipe={customPipe} owners={visibleOwners} sellerIds={sellerIds} />}
-    </>}
   </main>;
 }

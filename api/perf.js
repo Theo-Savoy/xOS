@@ -914,8 +914,9 @@ export async function GET(request) {
       monthly_indicative: paceTarget ? quarterlyToMonthlyIndicative(paceTarget, quarter.label, seasonality) : [],
     };
 
-    const periodHistory = isLive ? await loadPeriodHistory(client) : { weeks: [], quarters: [] };
+    const periodHistory = await loadPeriodHistory(client);
     const compareWeekStart = window.starts.length > 1 ? window.starts[window.starts.length - 2] : null;
+    const liveMonday = mondayFor(today);
     const context = {
       iso_week: isoWeek(currentMonday),
       quarter_label: quarter.label,
@@ -923,7 +924,9 @@ export async function GET(request) {
       weeks_in_quarter: Math.max(quarterStarts.length, weekIndex + 1),
       compare_week: compareWeekStart ? isoWeek(compareWeekStart) : null,
       prior_quarter_label: priorQuarter.label,
-      anchor_week_start: anchorWeekStart || currentMonday,
+      anchor_week_start: currentMonday,
+      live_week_start: liveMonday,
+      live_iso_week: isoWeek(liveMonday),
     };
 
     return json(200, {

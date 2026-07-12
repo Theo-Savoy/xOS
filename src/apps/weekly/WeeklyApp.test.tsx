@@ -34,6 +34,8 @@ const baseContext = {
   compare_week: "2026-W27",
   prior_quarter_label: "FY26-Q4",
   anchor_week_start: "2026-07-06",
+  live_week_start: "2026-07-06",
+  live_iso_week: "2026-W28",
 };
 
 const selfPayload = {
@@ -335,5 +337,77 @@ describe("Weekly Perf", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(8);
     expect(within(table).queryByRole("row", { name: /Target/ })).toBeNull();
     expect(within(table.closest(".weekly-table-card") as HTMLElement).getByText("Objectif")).toBeTruthy();
+  });
+
+  it("keeps the SDR ledger visible with zeros instead of a hard empty state", async () => {
+    const emptySdrPayload = {
+      ...teamPayload,
+      pulse: [
+        { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", calls: 0, meetings: 0, proposals: 0 },
+        { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", calls: 0, meetings: 0, proposals: 0 },
+        { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", calls: 0, meetings: 0, proposals: 0 },
+        { sf_user_id: "sdr", week: "2026-W28", week_start: "2026-07-06", calls: 0, meetings: 0, proposals: 0 },
+        { sf_user_id: "dg", week: "2026-W28", week_start: "2026-07-06", calls: 0, meetings: 0, proposals: 0 },
+      ],
+      pipeline: [
+        { sf_user_id: "self", week: "2026-W27", week_start: "2026-06-29", generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+        { sf_user_id: "self", week: "2026-W28", week_start: "2026-07-06", generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+        { sf_user_id: "manager", week: "2026-W28", week_start: "2026-07-06", generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+        { sf_user_id: "sdr", week: "2026-W28", week_start: "2026-07-06", generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+        { sf_user_id: "dg", week: "2026-W28", week_start: "2026-07-06", generated_count: 0, generated_amount: 0, won_count: 0, won_amount: 0, won_by_type: { catalogue: 0, sur_mesure: 0, conseil: 0 }, won_arr_amount: 0, closing_rate_count: null, closing_rate_amount: null },
+      ],
+      effort: [],
+      follow_up_opps: [],
+      stagnant_opps: [],
+      custom_pipe: { horizon_days: 180, total_amount: 0, total_expected: 0, count: 0, months: [], by_owner: [], opps: [] },
+      pace: { ...teamPayload.pace, signed_to_date: 0, forecast: 0, won_count: 0 },
+      quarter: teamPayload.quarter.map((row) => ({ ...row, signed_to_date: 0, forecast: 0, custom_pipe: 0 })),
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(emptySdrPayload), { status: 200 })));
+    render(<WeeklyApp />);
+    fireEvent.click(await screen.findByRole("button", { name: "Équipe" }));
+    fireEvent.click(screen.getByLabelText("Filtrer un commercial"));
+    fireEvent.click(screen.getByRole("option", { name: "Yanis Agharbi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
+    expect(screen.queryByText(/Rien à signaler/i)).toBeNull();
+    expect(screen.getByText(/Pas encore d’activité/)).toBeTruthy();
+    const table = await screen.findByRole("table", { name: "Suivi hebdomadaire de Yanis Agharbi" });
+    expect(within(table).getByRole("row", { name: /Appels/ })).toBeTruthy();
+    expect(within(table).getByRole("row", { name: /RDV pris/ })).toBeTruthy();
+  });
+
+  it("keeps the week selector after choosing a past week", async () => {
+    const pastPayload = {
+      ...selfPayload,
+      context: {
+        ...baseContext,
+        iso_week: "2026-W27",
+        compare_week: "2026-W26",
+        anchor_week_start: "2026-06-29",
+        live_week_start: "2026-07-06",
+        live_iso_week: "2026-W28",
+      },
+      period_history: { weeks: [], quarters: [] },
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(selfPayload), { status: 200 }))
+      .mockResolvedValue(new Response(JSON.stringify(pastPayload), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<WeeklyApp />);
+    await screen.findByText("Ada Lovelace");
+    fireEvent.click(screen.getByLabelText("Choisir une semaine"));
+    fireEvent.click(screen.getByRole("option", { name: "S27" }));
+    expect(await screen.findByText("Semaine en cours")).toBeTruthy();
+    expect(screen.getByLabelText("Choisir une semaine")).toBeTruthy();
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("week_start=2026-06-29"))).toBe(true);
+  });
+
+  it("shows section hints via portal on hover", async () => {
+    render(<WeeklyApp />);
+    const tip = await screen.findByRole("button", { name: /snapshot de la période/i });
+    fireEvent.mouseEnter(tip.closest(".weekly-tip") as HTMLElement);
+    expect(await screen.findByRole("tooltip")).toBeTruthy();
+    expect(screen.getByRole("tooltip").textContent).toMatch(/snapshot de la période/i);
+    expect(document.body.contains(screen.getByRole("tooltip"))).toBe(true);
   });
 });
