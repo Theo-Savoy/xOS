@@ -36,40 +36,41 @@ function request(query = "") {
 }
 
 function recordSet() {
-  return [
-    [{ OwnerId: "005A", ActivityDate: "2026-07-07", TaskSubtype: "Call" }, { OwnerId: "005A", ActivityDate: "2026-07-07", TaskSubtype: "Email" }],
-    [{ OwnerId: "005A", ActivityDate: "2026-07-08" }],
-    [
+  return {
+    tasks: [{ OwnerId: "005A", ActivityDate: "2026-07-07", TaskSubtype: "Call" }, { OwnerId: "005A", ActivityDate: "2026-07-07", TaskSubtype: "Email" }],
+    events: [{ OwnerId: "005A", ActivityDate: "2026-07-08" }],
+    histories: [
       { OpportunityId: "opp-1", StageName: "Projet identifié", CreatedDate: "2026-06-30T09:00:00.000Z", CreatedById: "005A" },
       { OpportunityId: "opp-1", StageName: "Proposition envoyée", CreatedDate: "2026-07-07T09:00:00.000Z", CreatedById: "005A" },
       { OpportunityId: "opp-1", StageName: "XOS short-listé", CreatedDate: "2026-07-08T09:00:00.000Z", CreatedById: "005A" },
     ],
-    [{ OwnerId: "005A", CreatedDate: "2026-07-09T09:00:00.000Z", CloseDate: "2026-07-10", IsWon: true, IsClosed: true, StageName: "Fermée / Gagnée", Amount: 100 }],
-    [
+    generated: [{ OwnerId: "005A", CreatedDate: "2026-07-09T09:00:00.000Z", CloseDate: "2026-07-10", IsWon: true, IsClosed: true, StageName: "Fermée / Gagnée", Amount: 100 }],
+    won: [
       { OwnerId: "005A", CreatedDate: "2026-06-01T09:00:00.000Z", CloseDate: "2026-07-10", IsWon: true, IsClosed: true, StageName: "Fermée / Gagnée", Amount: 50, Type_de_vente__c: "Catalogue", Type_de_commission__c: "Abonnement 3 ans" },
       { OwnerId: "005A", CreatedDate: "2026-06-01T09:00:00.000Z", CloseDate: "2026-07-11", IsWon: true, IsClosed: true, StageName: "Fermée / Gagnée", Amount: 30, Type_de_vente__c: "LMS", Type_de_commission__c: null },
       { OwnerId: "005A", CreatedDate: "2026-06-01T09:00:00.000Z", CloseDate: "2026-07-12", IsWon: true, IsClosed: true, StageName: "Fermée / Gagnée", Amount: 20, Type_de_vente__c: "XOS+", Type_de_commission__c: null },
     ],
-    [{ OwnerId: "005A", CloseDate: "2026-07-10", Amount: 50 }],
-    [
-      { Id: "006OPEN", Name: "Deal froid", OwnerId: "005A", IsClosed: false, StageName: "Proposition envoyée", Amount: 12000, Probability: 40, ExpectedRevenue: 4800, CloseDate: "2026-08-20", CreatedDate: "2026-04-01", LastActivityDate: null, LastStageChangeDate: "2026-04-15" },
+    openOpps: [
+      { Id: "006OPEN", Name: "Deal froid", OwnerId: "005A", IsClosed: false, StageName: "Proposition envoyée", Amount: 12000, Probability: 40, ExpectedRevenue: 4800, CloseDate: "2026-08-20", CreatedDate: "2026-04-01", LastActivityDate: null, LastStageChangeDate: "2026-04-15", "Account.Name": "Acme" },
       { OwnerId: "005A", IsClosed: false, StageName: "Suspect enlisé", Amount: 5000, Probability: 10 },
+      { Id: "006Q1", Name: "Deal TQ", OwnerId: "005A", IsClosed: false, CloseDate: "2026-08-10", Amount: 200, Probability: 50, ExpectedRevenue: 100, StageName: "XOS recommandé", "Account.Name": "TQ" },
+      { Id: "006Q2", Name: "Deal TQ 2", OwnerId: "005A", IsClosed: false, CloseDate: "2026-09-10", Amount: 100, Probability: 25, ExpectedRevenue: 25, StageName: "Projet identifié", "Account.Name": "TQ2" },
     ],
-    [{ OwnerId: "005A", CloseDate: "2026-07-10", Amount: 100 }],
-    [
+    quarterWon: [{ OwnerId: "005A", CloseDate: "2026-07-10", Amount: 100 }],
+    quarterOpen: [
       { Id: "006Q1", Name: "Deal TQ", OwnerId: "005A", CloseDate: "2026-08-10", Amount: 200, Probability: 50, ExpectedRevenue: 100, StageName: "XOS recommandé" },
       { Id: "006Q2", Name: "Deal TQ 2", OwnerId: "005A", CloseDate: "2026-09-10", Amount: 100, Probability: 25, ExpectedRevenue: 25, StageName: "Projet identifié" },
     ],
-    [{ OwnerId: "005A", CloseDate: "2026-10-15", Amount: 300, Type_de_vente__c: "Sur-mesure", ExpectedRevenue: 150, Probability: 50, Id: "006SM", Name: "Deal SM" }],
-    [{ OwnerId: "005A", CloseDate: "2025-07-10", Amount: 80 }],
-  ];
+    customOpen: [{ OwnerId: "005A", CloseDate: "2026-10-15", Amount: 300, Type_de_vente__c: "Sur-mesure", ExpectedRevenue: 150, Probability: 50, Id: "006SM", Name: "Deal SM" }],
+    priorWon: [{ OwnerId: "005A", CloseDate: "2025-07-10", Amount: 80 }],
+  };
 }
 
 function queueSalesforce(records = recordSet(), baseline = []) {
   mockSearchContacts.mockReset();
-  let index = 0;
   mockSearchContacts.mockImplementation(async (_token, soql) => {
     if (soql.includes("FROM OpportunityHistory") && soql.includes("OpportunityId IN")) return { records: baseline };
+    if (soql.includes("FROM OpportunityHistory")) return { records: records.histories };
     if (soql.includes("FROM User")) {
       return {
         records: [
@@ -78,7 +79,17 @@ function queueSalesforce(records = recordSet(), baseline = []) {
         ],
       };
     }
-    return { records: records[index++] || [] };
+    if (soql.includes("CALENDAR_YEAR") || soql.includes("CALENDAR_MONTH")) return { records: [] };
+    if (soql.includes("TaskSubtype") || /\bFROM Task\b/.test(soql)) return { records: records.tasks };
+    if (/\bFROM Event\b/.test(soql)) return { records: records.events };
+    if (soql.includes("LastActivityDate") || soql.includes("LastStageChangeDate")) return { records: records.openOpps };
+    if (soql.includes("Sur-mesure") || soql.includes("sur_mesure")) return { records: records.customOpen };
+    if (soql.includes("IsWon = true") && soql.includes("2025-07-01")) return { records: records.priorWon };
+    if (soql.includes("IsWon = true") && soql.includes("2026-07-01") && !soql.includes("CreatedDate")) return { records: records.quarterWon };
+    if (soql.includes("IsWon = true")) return { records: records.won };
+    if (soql.includes("IsClosed = false") && soql.includes("CloseDate >=") && soql.includes("2026-07-01")) return { records: records.quarterOpen };
+    if (soql.includes("CreatedDate >=")) return { records: records.generated };
+    return { records: [] };
   });
 }
 
@@ -121,6 +132,16 @@ beforeEach(() => {
             limit: () => Promise.resolve({ data: [], error: null }),
           }),
           in: () => Promise.resolve({ data: [], error: null }),
+        }),
+        upsert: () => Promise.resolve({ error: null }),
+      };
+    }
+    if (table === "perf_seasonality_cache") {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          }),
         }),
         upsert: () => Promise.resolve({ error: null }),
       };
@@ -215,12 +236,12 @@ describe("GET /api/perf", () => {
     expect(body.view).toBe("self");
     expect(body.pulse.find((row) => row.week === week)).toMatchObject({ sf_user_id: "005A", calls: 1, meetings: 1, proposals: 1 });
     expect(body.pipeline.find((row) => row.week === week)).toMatchObject({ generated_count: 1, generated_amount: 100, won_count: 3, won_amount: 100, closing_rate_count: 3, closing_rate_amount: 1 });
-    expect(body.effort.find((row) => row.week === week)).toMatchObject({ progressions: 1, open_opps_at_start: 1, effort_rate: 1 });
+    expect(body.effort.find((row) => row.week === week)).toMatchObject({ progressions: 1, open_opps_at_start: 3, effort_rate: 1 / 3 });
   });
 
   it("limits a commercial to their own Salesforce owner series", async () => {
     const records = recordSet();
-    records[0].push({ OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" });
+    records.tasks.push({ OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" });
     queueSalesforce(records);
     const body = await (await GET(request())).json();
     expect(body.owners.map((owner) => owner.sf_user_id)).toEqual(["005A"]);
@@ -230,7 +251,7 @@ describe("GET /api/perf", () => {
   it("returns the team series to a manager", async () => {
     mockGetProfile.mockResolvedValue({ sfUserId: "005B", fullName: "Béa", role: "manager" });
     const records = recordSet();
-    records[0].push({ OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" });
+    records.tasks.push({ OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" });
     queueSalesforce(records);
     const body = await (await GET(request())).json();
     expect(body.view).toBe("team");
@@ -248,13 +269,14 @@ describe("GET /api/perf", () => {
     expect(historyQuery).toContain("CreatedDate >= 2026-05-18T00:00:00Z");
   });
 
-  it("builds ARR SOQL from the mapped field and four mapped commission values", async () => {
+  it("loads won deals once and derives ARR in JS from mapped commission types", async () => {
     await GET(request());
     const queries = mockSearchContacts.mock.calls.map(([, soql]) => soql);
-    const arrQuery = queries.find((soql) => mapping.objects.opportunity.arrCommissionTypes.every((value) => soql.includes(`'${value}'`)));
-    expect(arrQuery).toContain(mapping.objects.opportunity.saleTypeField);
-    expect(arrQuery).toContain(mapping.objects.opportunity.commissionTypeField);
-    expect(arrQuery).toContain(`'${mapping.objects.opportunity.saleTypes.catalogue[0]}'`);
+    const wonQueries = queries.filter((soql) => soql.includes("IsWon = true") && soql.includes(mapping.objects.opportunity.commissionTypeField));
+    expect(wonQueries.length).toBeGreaterThan(0);
+    expect(wonQueries.some((soql) => mapping.objects.opportunity.arrCommissionTypes.every((value) => soql.includes(`'${value}'`)))).toBe(false);
+    expect(wonQueries[0]).toContain(mapping.objects.opportunity.saleTypeField);
+    expect(wonQueries[0]).toContain(mapping.objects.opportunity.commissionTypeField);
   });
 
   it("aggregates tracked sale types without bucketing LMS or XOS+, plus ARR and quarter metrics", async () => {
@@ -269,15 +291,15 @@ describe("GET /api/perf", () => {
       sf_user_id: "005A",
       quarter: "FY27-Q1",
       signed_to_date: 100,
-      weighted_open: 125,
-      forecast: 225,
+      weighted_open: 4925,
+      forecast: 5025,
       custom_pipe: 300,
       target: 60000,
       signed_n1: 80,
       expected_to_date: expect.any(Number),
       pace_ratio: expect.any(Number),
     });
-    expect(body.follow_up_opps[0]).toMatchObject({ id: "006Q1", expected: 100 });
+    expect(body.follow_up_opps[0]).toMatchObject({ id: "006OPEN", expected: 4800 });
     expect(body.stagnant_opps.some((row) => row.id === "006OPEN")).toBe(true);
     expect(body.pace).toMatchObject({ week_of_quarter: 1, signed_to_date: 100, signed_n1: 80, target: 60000 });
     // Vue semaine : pas d’agrégat saisonnalité 3 ans (gain live) — pace linéaire.
@@ -333,7 +355,7 @@ describe("GET /api/perf", () => {
   it("counts the first in-window transition thanks to the pre-window baseline", async () => {
     const records = recordSet();
     // Fenêtre : une seule ligne d'historique (Proposition envoyée) — sans baseline, aucune progression.
-    records[2] = [
+    records.histories = [
       { OpportunityId: "opp-9", StageName: "Proposition envoyée", CreatedDate: "2026-07-07T09:00:00.000Z", CreatedById: "005A" },
     ];
     queueSalesforce(records, [{ OpportunityId: "opp-9", StageName: "Projet identifié" }]);
@@ -349,7 +371,7 @@ describe("GET /api/perf", () => {
     expect(body.forecast_history.length).toBeGreaterThan(0);
     expect(body.forecast_history.at(-1)).toMatchObject({
       sf_user_id: "005A",
-      forecast: 225,
+      forecast: 5025,
       signed_to_date: 100,
     });
   });
@@ -375,7 +397,7 @@ describe("GET /api/perf", () => {
   it("excludes inactive former commercials from the team roster", async () => {
     mockGetProfile.mockResolvedValue({ sfUserId: "005B", fullName: "Béa", role: "manager" });
     const records = recordSet();
-    records[0].push(
+    records.tasks.push(
       { OwnerId: "005B", ActivityDate: "2026-07-07", TaskSubtype: "Call" },
       { OwnerId: "005R", ActivityDate: "2026-07-07", TaskSubtype: "Call" },
     );
@@ -418,5 +440,22 @@ describe("GET /api/perf", () => {
     expect(soql.some((q) => /LastActivityDate|LastStageChangeDate/.test(q))).toBe(false);
     expect(body.follow_up_opps).toEqual([]);
     expect(body.stagnant_opps).toEqual([]);
+  });
+
+  it("enrich returns board payload without replaying the week pulse queries", async () => {
+    const soql = [];
+    const original = mockSearchContacts.getMockImplementation();
+    mockSearchContacts.mockImplementation(async (token, queryText) => {
+      soql.push(queryText);
+      return original(token, queryText);
+    });
+    const body = await (await GET(request("?enrich=1"))).json();
+    expect(body.context.enrich).toBe(true);
+    expect(body.stagnant_opps.some((row) => row.id === "006OPEN")).toBe(true);
+    expect(body.follow_up_opps.some((row) => row.id === "006Q1")).toBe(true);
+    expect(body.follow_up_opps[0]).toMatchObject({ id: "006OPEN" });
+    expect(body.custom_pipe.count).toBeGreaterThan(0);
+    expect(soql.some((q) => q.includes("TaskSubtype"))).toBe(false);
+    expect(soql.some((q) => q.includes("OpportunityHistory") && q.includes("CreatedDate >="))).toBe(false);
   });
 });

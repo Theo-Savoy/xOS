@@ -367,6 +367,7 @@ type PerfContext = {
   live_iso_week?: string;
   source?: "live" | "snapshot";
   lite?: boolean;
+  enrich?: boolean;
   timing_ms?: number | null;
 };
 type PeriodHistory = { weeks: Array<{ week_start: string; iso_week: string; quarter: string }>; quarters: string[] };
@@ -381,12 +382,14 @@ type PerfResponse = {
   prior_pulse?: Pulse[];
   prior_pipeline?: Pipeline[];
   effort: Effort[];
+  effort_open?: Record<string, number>;
   quarter: Quarter[];
   forecast_history?: ForecastPoint[];
   custom_pipe?: CustomPipe;
   follow_up_opps?: RitualOpp[];
   stagnant_opps?: RitualOpp[];
   pace?: Pace | null;
+  seasonality?: unknown;
   quarter_bounds?: { from: string; to: string; label: string };
   context?: PerfContext | null;
   period_history?: PeriodHistory;
@@ -632,12 +635,13 @@ function ConversionRates({
   );
 }
 
-async function perfRequest(period: PeriodMode, anchorWeekStart?: string | null, signal?: AbortSignal, options?: { lite?: boolean }) {
+async function perfRequest(period: PeriodMode, anchorWeekStart?: string | null, signal?: AbortSignal, options?: { lite?: boolean; enrich?: boolean }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("missing_session");
   const params = new URLSearchParams({ period });
   if (anchorWeekStart) params.set("week_start", anchorWeekStart);
   if (options?.lite) params.set("lite", "1");
+  if (options?.enrich) params.set("enrich", "1");
   const response = await fetch(`/api/perf?${params}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
     signal,
@@ -1678,7 +1682,7 @@ export default function WeeklyApp() {
       setError(false);
     }
     try {
-      // Cold load: lite d’abord (sans openOpps/board lourds), puis hydrate full en fond.
+      // Cold load: lite d’abord, puis enrich board (pas un 2e full SF).
       const cold = !revalidate && !cacheRef.current[key];
       const next = await perfRequest(nextPeriod, weekStart, signal, { lite: cold });
       if (!revalidate && seq !== requestSeq.current) return;
@@ -1687,9 +1691,40 @@ export default function WeeklyApp() {
       if (cold && next.payload.context?.lite) {
         void (async () => {
           try {
-            const full = await perfRequest(nextPeriod, weekStart, undefined, { lite: false });
+            const board = await perfRequest(nextPeriod, weekStart, undefined, { enrich: true });
             if (seq !== requestSeq.current) return;
-            storeEntry(key, nextPeriod, full);
+            const base = next.payload;
+            const patch = board.payload;
+            const effortOpen = patch.effort_open || {};
+            const merged: PerfCacheEntry = {
+              email: board.email || next.email,
+              payload: {
+                ...base,
+                custom_pipe: patch.custom_pipe ?? base.custom_pipe,
+                follow_up_opps: patch.follow_up_opps ?? base.follow_up_opps,
+                stagnant_opps: patch.stagnant_opps ?? base.stagnant_opps,
+                seasonality: patch.seasonality ?? base.seasonality,
+                prior_pulse: patch.prior_pulse?.length ? patch.prior_pulse : base.prior_pulse,
+                prior_pipeline: patch.prior_pipeline?.length ? patch.prior_pipeline : base.prior_pipeline,
+                quarter: patch.quarter?.length ? patch.quarter : base.quarter,
+                pace: patch.pace ?? base.pace,
+                effort: (base.effort || []).map((row) => {
+                  const open = effortOpen[row.sf_user_id] ?? row.open_opps_at_start;
+                  return {
+                    ...row,
+                    open_opps_at_start: open,
+                    effort_rate: open ? row.progressions / open : null,
+                  };
+                }),
+                context: {
+                  ...base.context!,
+                  ...(patch.context || {}),
+                  lite: false,
+                  enrich: true,
+                },
+              },
+            };
+            storeEntry(key, nextPeriod, merged);
           } catch {
             // Hydrate silencieuse — la vue lite reste utilisable.
           }

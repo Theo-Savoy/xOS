@@ -304,7 +304,7 @@ async function sfFetchWithRetry(token, makeRequest) {
   return { response, token: refreshed.accessToken };
 }
 
-export async function searchContacts(token, soql) {
+export async function searchContacts(token, soql, options = {}) {
   const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/query?${new URLSearchParams({ q: soql })}`, {
     headers: { Authorization: `Bearer ${requestToken}` },
     signal: AbortSignal.timeout(30_000),
@@ -319,7 +319,12 @@ export async function searchContacts(token, soql) {
   let page = await response.json();
   let currentToken = result.token;
   const records = [...(page.records || [])];
-  while (page.done === false && page.nextRecordsUrl && records.length < SOQL_FETCH_CAP) {
+  while (
+    page.done === false
+    && page.nextRecordsUrl
+    && records.length < SOQL_FETCH_CAP
+    && !(typeof options.stopWhen === "function" && options.stopWhen(records))
+  ) {
     const nextRequest = (requestToken) => fetch(`${instanceUrl()}${page.nextRecordsUrl}`, {
       headers: { Authorization: `Bearer ${requestToken}` },
       signal: AbortSignal.timeout(30_000),
