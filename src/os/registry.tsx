@@ -23,28 +23,28 @@ export interface AppManifest {
 export const appRegistry: AppManifest[] = [
   {
     id: "cleaner",
-    title: "CRM Cleaner",
+    title: "Labo",
     icon: <CleanerIcon />,
     component: lazy(() => import("../apps/cleaner/CleanerApp")),
     defaultSize: { w: 1100, h: 540 },
   },
   {
     id: "calls",
-    title: "Call Manager",
+    title: "Combo",
     icon: <CallsIcon />,
     component: lazy(() => import("../apps/calls/CallManagerApp")),
     defaultSize: { w: 960, h: 620 },
   },
   {
     id: "weekly",
-    title: "Weekly Perf",
+    title: "Lundi",
     icon: <WeeklyIcon />,
     component: lazy(() => import("../apps/weekly/WeeklyApp")),
     defaultSize: { w: 1100, h: 720 },
   },
   {
     id: "hub",
-    title: "Hub",
+    title: "Coulisses",
     icon: <HubIcon />,
     component: lazy(() => import("../apps/hub/HubApp")),
     defaultSize: { w: 820, h: 620 },

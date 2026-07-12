@@ -17,7 +17,7 @@ function IconShell({ className, children }: IconProps & { children: ReactNode })
   );
 }
 
-/** CRM Cleaner — diamant de déduplication + éclat de donnée propre */
+/** Labo — diamant de déduplication + éclat de donnée propre */
 export function CleanerIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
@@ -30,7 +30,7 @@ export function CleanerIcon({ className }: IconProps) {
   );
 }
 
-/** Call Manager — combiné + onde d'action */
+/** Combo — combiné + onde d'action */
 export function CallsIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
@@ -44,7 +44,7 @@ export function CallsIcon({ className }: IconProps) {
   );
 }
 
-/** Weekly Perf — histogramme premium + trajectoire */
+/** Lundi — histogramme premium + trajectoire */
 export function WeeklyIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
@@ -58,7 +58,7 @@ export function WeeklyIcon({ className }: IconProps) {
   );
 }
 
-/** Hub — réseau de pilotage */
+/** Coulisses — réseau de pilotage */
 export function HubIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>

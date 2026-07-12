@@ -219,8 +219,8 @@ export function SessionsView({
     <div className="calls-view calls-hub">
       <header className="calls-view__header">
         <div>
-          <Tag variant="accent">Call Manager</Tag>
-          <h2>Hub prospection</h2>
+          <Tag variant="accent">Combo</Tag>
+          <h2>Prospection</h2>
         </div>
         <div className="calls-view__actions">
           <Button variant="secondary" onClick={onRefresh} disabled={loading}>

@@ -34,7 +34,7 @@ describe("appRegistry", () => {
   });
 
   it("finds a manifest by id", () => {
-    expect(getAppManifest("cleaner")?.title).toBe("CRM Cleaner");
+    expect(getAppManifest("cleaner")?.title).toBe("Labo");
     expect(getAppManifest("unknown")).toBeUndefined();
   });
 });

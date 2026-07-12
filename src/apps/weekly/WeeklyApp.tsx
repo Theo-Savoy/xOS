@@ -52,7 +52,7 @@ const CALL_FUNNEL_STAGES = [
   { key: "meeting", label: "RDV planifié", hint: null, sources: ["RDV planifié"], color: "var(--xos-alert)" },
 ] as const;
 
-/** Identité texte Weekly Perf — pack hybride : kickers brandés, titres concrets. */
+/** Identité texte Lundi — pack hybride : kickers brandés, titres concrets. */
 const COPY = {
   pulse: {
     kicker: "Pulse",
@@ -1927,8 +1927,8 @@ export default function WeeklyApp() {
   <main className={`weekly-app ${loading ? "weekly-app--loading" : ""}`}>
     <header className="weekly-header">
       <div className="weekly-header__brand">
-        <Tag variant="accent">Performance</Tag>
-        <h2>Weekly Perf</h2>
+        <Tag variant="accent">Rituel</Tag>
+        <h2>Lundi</h2>
         <p className="weekly-period-hint">{periodBadge}{weekMode && compareLabel ? ` · vs ${compareLabel}` : !weekMode && priorQuarterLabel ? ` · vs ${priorQuarterLabel}` : ""}</p>
       </div>
       <div className="weekly-period weekly-seg" aria-label="Période">
