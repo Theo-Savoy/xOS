@@ -1,5 +1,6 @@
 import { Suspense, type Dispatch } from "react";
 import { Rnd } from "react-rnd";
+import { WindowBootScreen } from "../components/WindowBootScreen";
 import { getAppManifest } from "./registry";
 import type { AppWindow, WindowAction } from "./windowState";
 
@@ -92,7 +93,7 @@ export function WindowManager({ windows, dispatch }: WindowManagerProps) {
                 <span className="xos-window__spacer" aria-hidden="true" />
               </header>
               <div className="xos-window__content">
-                <Suspense fallback={<div className="xos-window__loading">Ouverture…</div>}>
+                <Suspense fallback={<WindowBootScreen label="Ouverture…" />}>
                   <AppComponent params={window.params} />
                 </Suspense>
               </div>
