@@ -125,7 +125,7 @@ function errorMessage(err: unknown): string {
         : err.code === "sf_query_error"
           ? "Salesforce a refusé la requête (filtres trop complexes ou champ invalide)."
           : err.code === "sf_auth_error"
-            ? "Salesforce a refusé l'authentification."
+            ? "Salesforce a refusé l'authentification — reconnectez-vous via le bandeau en haut à droite."
             : "Salesforce a refusé l'enregistrement.";
     }
     return `Erreur API (${err.code})`;

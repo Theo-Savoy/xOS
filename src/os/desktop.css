@@ -568,11 +568,36 @@ textarea {
   box-shadow: 0 0 8px rgba(110, 255, 187, 0.15);
 }
 
+.xos-menubar__sf-status--degraded {
+  background: rgba(255, 184, 77, 0.1);
+  border: 1px solid rgba(255, 184, 77, 0.28);
+  color: #ffb84d;
+  box-shadow: 0 0 8px rgba(255, 184, 77, 0.12);
+  cursor: pointer;
+}
+
+.xos-menubar__sf-status--degraded:hover:not(:disabled),
+.xos-menubar__sf-status--unlinked:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 .xos-menubar__sf-status--unlinked {
   background: rgba(255, 94, 87, 0.08);
   border: 1px solid rgba(255, 94, 87, 0.2);
   color: #ff5e57;
   box-shadow: 0 0 8px rgba(255, 94, 87, 0.15);
+  cursor: pointer;
+}
+
+.xos-menubar__sf-status--checking {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--xos-text-muted);
+}
+
+button.xos-menubar__sf-status {
+  font: inherit;
+  appearance: none;
 }
 
 .xos-menubar__sf-icon {
