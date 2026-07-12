@@ -167,7 +167,7 @@ describe("RunnerView", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Fiche" }));
-    expect(screen.getByText("RF")).toBeTruthy();
+    expect(screen.getByText("RF · Acme")).toBeTruthy();
     expect(screen.getByRole("link", { name: "LinkedIn" }).getAttribute("href")).toBe(
       "https://linkedin.com/in/bob",
     );

@@ -75,11 +75,14 @@ export function DatePicker({
   value,
   onChange,
   id,
+  compact = false,
 }: {
   label?: string;
   value: string;
   onChange: (next: string) => void;
   id?: string;
+  /** Trigger seul, sans label — pour s’aligner dans une rangée de chips. */
+  compact?: boolean;
 }) {
   const autoId = useId();
   const fieldId = id ?? autoId;
@@ -118,15 +121,16 @@ export function DatePicker({
   const today = todayParisIso();
 
   return (
-    <div className="calls-field calls-datepicker" ref={rootRef}>
-      <span id={`${fieldId}-label`}>{label}</span>
+    <div className={`calls-field calls-datepicker${compact ? " calls-datepicker--compact" : ""}`} ref={rootRef}>
+      {!compact && <span id={`${fieldId}-label`}>{label}</span>}
       <button
         type="button"
         id={fieldId}
-        className="calls-input calls-datepicker__trigger"
+        className={`calls-input calls-datepicker__trigger${compact ? " calls-datepicker__trigger--compact" : ""}`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-labelledby={`${fieldId}-label`}
+        aria-label={label}
+        aria-labelledby={compact ? undefined : `${fieldId}-label`}
         onClick={() => setOpen((v) => !v)}
       >
         {value ? formatIsoDateFr(value) : "Choisir une date"}

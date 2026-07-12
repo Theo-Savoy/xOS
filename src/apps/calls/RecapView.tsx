@@ -30,9 +30,14 @@ export function RecapView({
   return (
     <div className="calls-view">
       <header className="calls-view__header">
-        <div>
-          <Tag variant="alert">Terminée</Tag>
-          <h2>{session.name}</h2>
+        <div className="calls-view__header-start">
+          <Button variant="secondary" onClick={onBack}>
+            Retour au hub
+          </Button>
+          <div>
+            <Tag variant="alert">Terminée</Tag>
+            <h2>{session.name}</h2>
+          </div>
         </div>
         <div className="calls-view__actions">
           <Button variant="secondary" onClick={onCreateFollowUp} disabled={followUpLoading || followUpCount === 0}>
@@ -42,7 +47,6 @@ export function RecapView({
                 ? `Créer séance #2 (${followUpCount})`
                 : "Aucune relance nécessaire"}
           </Button>
-          <Button onClick={onBack}>Retour au hub</Button>
         </div>
       </header>
 

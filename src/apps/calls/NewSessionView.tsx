@@ -169,13 +169,15 @@ export function NewSessionView({
   return (
     <div className="calls-view">
       <header className="calls-view__header">
-        <div>
-          <Tag variant="accent">Nouvelle séance</Tag>
-          <h2>Composer une liste</h2>
+        <div className="calls-view__header-start">
+          <Button variant="secondary" onClick={onBack}>
+            Retour
+          </Button>
+          <div>
+            <Tag variant="accent">Nouvelle séance</Tag>
+            <h2>Composer une liste</h2>
+          </div>
         </div>
-        <Button variant="secondary" onClick={onBack}>
-          Retour
-        </Button>
       </header>
 
       <FilterBuilder

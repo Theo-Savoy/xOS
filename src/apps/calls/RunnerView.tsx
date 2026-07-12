@@ -162,15 +162,12 @@ function RecallFields({
   onRecallAtChange: (value: string) => void;
   onDefaultRecallDaysChange: (days: number) => void;
 }) {
-  const [customOpen, setCustomOpen] = useState(false);
   const autoRecall = RELANCE_DEFAULT_RESULTATS.includes(resultat);
   if (!RECALL_ELIGIBLE_RESULTATS.includes(resultat)) return null;
 
   const activePreset = RECALL_PRESETS.find((preset) => addDaysIso(preset.days) === recallAt)?.days;
-  const showPicker = customOpen || activePreset == null;
 
   const pickPreset = (days: number) => {
-    setCustomOpen(false);
     onDefaultRecallDaysChange(days);
     onRecallAtChange(addDaysIso(days));
   };
@@ -179,9 +176,6 @@ function RecallFields({
     <div className="calls-recall" role="group" aria-label="Rappel">
       <div className="calls-recall__head">
         <p className="calls-recall__title">Rappel</p>
-        {(autoRecall || scheduleRecall) && (
-          <span className="calls-recall__summary">{formatIsoDateFr(recallAt)}</span>
-        )}
       </div>
       {!autoRecall && (
         <label className="calls-checkbox calls-checkbox--tight">
@@ -207,25 +201,13 @@ function RecallFields({
                 {preset.label}
               </button>
             ))}
-            <button
-              type="button"
-              className={`calls-recall__chip${showPicker && activePreset == null ? " calls-recall__chip--active" : ""}`}
-              aria-pressed={showPicker && activePreset == null}
-              onClick={() => setCustomOpen(true)}
-            >
-              Date…
-            </button>
-          </div>
-          {showPicker && (
             <DatePicker
+              compact
               label="Date de rappel"
               value={recallAt}
-              onChange={(next) => {
-                setCustomOpen(true);
-                onRecallAtChange(next);
-              }}
+              onChange={onRecallAtChange}
             />
-          )}
+          </div>
         </div>
       )}
     </div>
@@ -560,9 +542,14 @@ export function RunnerView({
   return (
     <div className={`calls-view calls-view--runner${isRecallQueue ? " calls-view--recalls" : ""}`}>
       <header className="calls-view__header">
-        <div>
-          <Tag variant="accent">{isRecallQueue ? "File de rappels" : "Cockpit"}</Tag>
-          <h2>{isRecallQueue ? "Rappels" : session.name}</h2>
+        <div className="calls-view__header-start">
+          <Button variant="secondary" onClick={onBack}>
+            Quitter
+          </Button>
+          <div>
+            <Tag variant="accent">{isRecallQueue ? "File de rappels" : "Cockpit"}</Tag>
+            <h2>{isRecallQueue ? "Rappels" : session.name}</h2>
+          </div>
         </div>
         <div className="calls-view__actions">
           <div className="calls-mode-toggle" role="group" aria-label="Mode d'affichage">
@@ -596,9 +583,6 @@ export function RunnerView({
               {pinned ? "Épinglé ✓" : "Épingler au bureau"}
             </Button>
           )}
-          <Button variant="secondary" onClick={onBack}>
-            Quitter
-          </Button>
         </div>
       </header>
 
@@ -974,21 +958,22 @@ export function RunnerView({
       ) : focusedContact ? (
         <div className="calls-cockpit-detail">
           <GlassCard className="calls-contact-card">
-            <div className="calls-contact-card__top">
-              <div>
+            <div className="calls-contact-card__bar">
+              <div className="calls-contact-card__chips">
                 {isRecallQueue && focusedContact.origin_session_name && (
                   <Tag variant="accent">{focusedContact.origin_session_name}</Tag>
                 )}
-                <h3>{focusedContact.contact_name}</h3>
                 {(focusedContact.attempt_count ?? 0) > 0 && (
                   <Tag variant="muted">Tentative {focusedContact.attempt_count}</Tag>
                 )}
-                {displayTitle && (
-                  <p className="calls-contact-card__title">{displayTitle}</p>
+                {focusedContact.status !== "pending" && (
+                  <Tag variant={listStatusDisplay(focusedContact).variant}>
+                    {listStatusDisplay(focusedContact).label}
+                  </Tag>
                 )}
-                <p className="calls-contact-card__account">
-                  {focusedContact.account_name ?? "Compte inconnu"}
-                </p>
+                {!contextLoading && contextApplies && contactContext?.npa && (
+                  <Tag variant="alert">Ne pas rappeler (NPA)</Tag>
+                )}
               </div>
               <div className="calls-contact-card__links">
                 {sfContactUrl && (
@@ -1009,42 +994,41 @@ export function RunnerView({
               </div>
             </div>
 
-            {focusedContact.phone ? (
-              <div className="calls-contact-card__phone">
-                <a href={`tel:${focusedContact.phone}`} className="calls-phone-link xos-numeric">
-                  {focusedContact.phone}
-                </a>
-                <Button onClick={() => window.open(`tel:${focusedContact.phone}`, "_self")}>
-                  Appeler
-                </Button>
+            <div className="calls-contact-card__body">
+              <div className="calls-contact-card__identity">
+                <h3>{focusedContact.contact_name}</h3>
+                <p className="calls-contact-card__role">
+                  {[displayTitle, focusedContact.account_name || "Compte inconnu"].filter(Boolean).join(" · ")}
+                </p>
+                {focusedContact.status !== "pending" && focusedContact.recall_at && (
+                  <p className="calls-contact-card__recall-meta">
+                    Rappel {formatIsoDateFr(focusedContact.recall_at)}
+                  </p>
+                )}
               </div>
-            ) : (
-              <p className="calls-contact-card__no-phone">Aucun numéro</p>
-            )}
 
-            {displayEmail ? (
-              <div className="calls-contact-card__email">
-                <a href={`mailto:${displayEmail}`} className="calls-email-link">
-                  {displayEmail}
-                </a>
+              <div className="calls-contact-card__reach">
+                {focusedContact.phone ? (
+                  <div className="calls-contact-card__phone">
+                    <a href={`tel:${focusedContact.phone}`} className="calls-phone-link xos-numeric">
+                      {focusedContact.phone}
+                    </a>
+                    <Button onClick={() => window.open(`tel:${focusedContact.phone}`, "_self")}>
+                      Appeler
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="calls-contact-card__no-phone">Aucun numéro</p>
+                )}
+                {displayEmail ? (
+                  <a href={`mailto:${displayEmail}`} className="calls-email-link">
+                    {displayEmail}
+                  </a>
+                ) : (
+                  <p className="calls-contact-card__no-email">Aucun email</p>
+                )}
               </div>
-            ) : (
-              <p className="calls-contact-card__no-email">Aucun email</p>
-            )}
-
-            {focusedContact.status !== "pending" && (
-              <div className="calls-contact-card__meta">
-                <Tag variant={listStatusDisplay(focusedContact).variant}>
-                  {listStatusDisplay(focusedContact).label}
-                </Tag>
-                {focusedContact.recall_at && <span>Rappel {focusedContact.recall_at}</span>}
-              </div>
-            )}
-            {!contextLoading && contextApplies && contactContext?.npa && (
-              <Tag variant="alert" className="calls-contact-card__npa">
-                Ne pas rappeler (NPA)
-              </Tag>
-            )}
+            </div>
           </GlassCard>
 
           <div className={`calls-cockpit-side${contextLoading ? " calls-cockpit-side--loading" : ""}`}>
