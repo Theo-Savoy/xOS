@@ -1,5 +1,7 @@
 # Plan d'implémentation — Actions en lot sur les opportunités
 
+> **Archive historique — comportement legacy retiré au cutover Labo Task 10.** Ce document décrit l’ancien dashboard et ses endpoints Blob/Salesforce ; le runtime actuel utilise le module natif Opportunités et `/api/cleaner`.
+
 ## Contexte
 
 Dashboard XOS déchet (Vercel) : `dashboard.html` (front vanilla JS, dark theme) +
@@ -27,12 +29,16 @@ bouge que pour ajouter `meta`.
 ## Recettes validées (ne pas improviser)
 
 ### Blob (testé, fonctionne)
+
 ```js
 import { put, get } from '@vercel/blob';
 // token = process.env.BLOB_READ_WRITE_TOKEN (déjà configuré sur le projet, tous envs)
 await put('history.json', jsonString, {
-  access: 'private', token, allowOverwrite: true,
-  addRandomSuffix: false, contentType: 'application/json',
+  access: 'private',
+  token,
+  allowOverwrite: true,
+  addRandomSuffix: false,
+  contentType: 'application/json',
 });
 const res = await get('history.json', { access: 'private', token });
 // res === null si le blob n'existe pas encore (404) → traiter comme journal vide
@@ -40,6 +46,7 @@ const res = await get('history.json', { access: 'private', token });
 ```
 
 ### OAuth Salesforce (identique à api/refresh.py, en fetch)
+
 POST `${SF_LOGIN_URL||'https://login.salesforce.com'}/services/oauth2/token`,
 body urlencoded `grant_type=refresh_token&client_id=...&client_secret=...&refresh_token=...`
 → `access_token`. Env : `SF_CLIENT_ID`, `SF_CLIENT_SECRET`, `SF_REFRESH_TOKEN`,
@@ -47,22 +54,43 @@ body urlencoded `grant_type=refresh_token&client_id=...&client_secret=...&refres
 Attention : les vars peuvent être présentes mais vides → `process.env.X || fallback`.
 
 ### Update en lot Salesforce
+
 PATCH `${SF_INSTANCE_URL}/services/data/v67.0/composite/sobjects`
+
 ```json
-{ "allOrNone": false,
-  "records": [ { "attributes": {"type": "Opportunity"}, "id": "006...",
-                 "OwnerId": "...", "CloseDate": "2026-08-01", "StageName": "..." } ] }
+{
+  "allOrNone": false,
+  "records": [
+    {
+      "attributes": { "type": "Opportunity" },
+      "id": "006...",
+      "OwnerId": "...",
+      "CloseDate": "2026-08-01",
+      "StageName": "..."
+    }
+  ]
+}
 ```
+
 Réponse : tableau `[{id, success, errors:[{statusCode, message}]}]` dans l'ordre.
 
 ## Contrats d'API
 
 ### POST /api/update
+
 Requête :
+
 ```json
-{ "opps": [ {"id": "006...", "name": "...", "account": "...", "owner": "..."} ],
-  "changes": { "owner_id": "005...?", "close_date": "YYYY-MM-DD?", "stage": "...?" } }
+{
+  "opps": [{ "id": "006...", "name": "...", "account": "...", "owner": "..." }],
+  "changes": {
+    "owner_id": "005...?",
+    "close_date": "YYYY-MM-DD?",
+    "stage": "...?"
+  }
+}
 ```
+
 - `opps` : 1 à 200 éléments, `id` matchant `/^[a-zA-Z0-9]{15,18}$/`. Seul `id`
   est envoyé à Salesforce ; name/account/owner ne servent qu'au journal.
 - `changes` : au moins une clé parmi owner_id / close_date / stage. Mapping :
@@ -75,10 +103,15 @@ Requête :
   bouton la renseigne automatiquement à « Nettoyage ».
 
 Réponse 200 :
+
 ```json
-{ "updated": 3, "failed": 1,
-  "results": [ {"id": "006...", "success": true, "errors": []} ] }
+{
+  "updated": 3,
+  "failed": 1,
+  "results": [{ "id": "006...", "success": true, "errors": [] }]
+}
 ```
+
 Erreurs : 400 (payload invalide, message explicite), 500/502 (SF ou Blob,
 `{"error": "...", "message": "..."}`). Timeout fetch SF : 30s.
 Headers réponse : `Cache-Control: no-store`.
@@ -87,22 +120,28 @@ Après un lot où au moins une opp a réussi, écrire UNE entrée dans UN blob
 immuable `history/<Date.now()>-<rand>.json` (pathname unique — jamais de
 read-modify-write : la relecture d'un blob réécrit est servie par un cache
 ~60s et perdrait des entrées entre deux actions rapprochées) :
+
 ```json
 { "at": "ISO-8601 Europe/Paris", "changes": {...},
   "opps": [{"id", "name", "account", "owner", "success", "error": "msg|null"}] }
 ```
+
 Si le PATCH SF a échoué globalement, ne rien journaliser.
 
 ### GET /api/history
+
 `list({prefix: 'history/'})` + lecture des blobs, tri par pathname décroissant
 (= chronologique inverse), plafond 200 entrées. Retourne `{"entries": [...]}`.
 `Cache-Control: no-store`. Méthode GET uniquement.
 
 ### api/refresh.py — ajout "meta"
+
 Deux SOQL en plus (mêmes helpers existants) :
+
 - `SELECT MasterLabel, IsClosed, IsWon, SortOrder FROM OpportunityStage WHERE IsActive = true ORDER BY SortOrder`
 - `SELECT Id, Name FROM User WHERE IsActive = true AND UserType = 'Standard' ORDER BY Name`
-Ajouter à `dashboard_data` :
+  Ajouter à `dashboard_data` :
+
 ```json
 "meta": { "stages": [{"name", "closed", "won"}], "users": [{"id", "name"}] }
 ```
@@ -159,7 +198,7 @@ variables CSS `--accent` etc., textes en français).
 ## Découpage
 
 - **Lot A (backend)** : `api/update.js`, `api/history.js`, `package.json`,
-  modification `api/refresh.py` (meta). 
+  modification `api/refresh.py` (meta).
 - **Lot B (front)** : `dashboard.html` uniquement.
-Les deux lots ne partagent aucun fichier et se développent en parallèle sur la
-base des contrats ci-dessus.
+  Les deux lots ne partagent aucun fichier et se développent en parallèle sur la
+  base des contrats ci-dessus.

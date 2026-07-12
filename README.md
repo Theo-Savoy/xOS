@@ -1,13 +1,12 @@
-# XOS — Portail & Dashboard Déchet
+# XOS — Portail & Labo CRM
 
-Monorepo Vercel : portail **X OS** (React/Vite) + dashboard déchet legacy (`dashboard.html`) + API serverless.
+Monorepo Vercel : portail **X OS** (React/Vite) + **Labo Cleaner natif** (React/TypeScript) + API serverless Node.
 
 ## Structure
 
 ```
-├── api/                  # Fonctions serverless Vercel (Node + Python)
+├── api/                  # Fonctions serverless Vercel (Node)
 ├── public/
-│   ├── dashboard.html    # Dashboard déchet (vanilla JS, préservé tel quel)
 │   ├── fonts/            # Polices web (woff2) servies en prod
 │   └── logo-xos.png
 ├── scripts/
@@ -21,7 +20,7 @@ Monorepo Vercel : portail **X OS** (React/Vite) + dashboard déchet legacy (`das
 │   ├── lib/              # Clients partagés (Supabase, types)
 │   └── os/               # Bureau virtuel (dock, fenêtres, launcher)
 ├── supabase/migrations/
-└── middleware.js         # Auth hybride (JWT Supabase + Basic Auth legacy)
+└── middleware.js         # Protection edge des fonctions API
 ```
 
 ## Développement
@@ -35,17 +34,22 @@ npm run build    # Build production
 
 En dev, le registry expose aussi des apps de démo (aperçu, notes, design system).
 
-## Dashboard déchet
+## Labo Cleaner natif
 
-Le front legacy charge ses données via `GET /api/refresh` (Python/Salesforce). Il est temporairement embarqué dans X OS via l'app **Labo** (`iframe` → `/dashboard.html`), en attente de sa reconstruction native.
+Labo est une application native du bureau X OS. Sa V1 expose le module **Opportunités**, avec cockpit, Nettoyage, Synthèse et Historique. Le deep link `/clean?q=texte` ouvre directement le module Opportunités et conserve le filtre de recherche.
 
-- Refresh automatique : cache CDN 24h
-- Bouton Actualiser : bypass cache + `localStorage`
+Routes natives :
+
+- `GET /api/cleaner?module=opportunities&resource=workspace|analytics|history` — lecture JWT-scopée.
+- `POST /api/cleaner` avec `action: "preview"` puis `action: "execute"` — corrections Salesforce avec validation, idempotence et journal Supabase.
+- `GET/POST /api/status` — état Hub et réglages `cleaner_v2`.
+
+Le script `scripts/migrate-cleaner-history.js --dry-run` prépare l’import de l’historique Blob vers Supabase et imprime les comptes source/cible. L’import réel, les écritures Salesforce live et toute suppression Blob restent bloqués sans approbation explicite et credentials dédiés ; aucun volume réel n’est supposé ici.
 
 ## Authentification
 
-- **X OS** : écran de login dual-option — **Salesforce OAuth** (Phase 8.1 à brancher ; UI prête) **ou** magic link Supabase (`@xos-learning.fr`), puis bridge SSO vers cookie `xos_auth`
-- **Legacy** : Basic Auth (`xos` / `DASHBOARD_PASSWORD`) pour accès direct au dashboard et API
+- **X OS** : écran de login dual-option — **Salesforce OAuth** ou magic link Supabase (`@xos-learning.fr`), puis bridge SSO vers cookie `xos_auth`
+- **API natives** : JWT Supabase vérifié par chaque handler ; le middleware protège les fonctions `/api/*` et laisse le bridge d’authentification public.
 
 Variables Vercel : `SF_*`, `DASHBOARD_PASSWORD`, `SUPABASE_*`, `VITE_SUPABASE_*`.
 

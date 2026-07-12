@@ -1,4 +1,4 @@
-// Auth par cookie xos_auth sur les routes legacy (dashboard.html et /api/*).
+// Auth par cookie xos_auth sur les fonctions API protégées.
 // Route / (racine exacte) et /assets/* /fonts/* /favicon* sont publiques :
 //   la SPA charge et LoginScreen gère le magic link email avec PKCE.
 // Le cookie xos_auth est posé soit par POST /login (Basic Auth),
@@ -6,7 +6,7 @@
 // /api/auth est public : il porte son propre JWT en Authorization header
 //   (et gère aussi le callback OAuth Salesforce).
 
-export const config = { matcher: "/(.*)" };
+export const config = { matcher: '/(.*)' };
 
 const LOGIN_HTML = `<!doctype html><html lang="fr"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -29,29 +29,31 @@ const LOGIN_HTML = `<!doctype html><html lang="fr"><meta charset="utf-8">
 function loginPage(status) {
   return new Response(LOGIN_HTML, {
     status,
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
   });
 }
 
 // Routes publiques (SPA statique, pas de données protégées)
 function isPublic(pathname) {
-  if (pathname === "/") return true;
-  if (pathname.startsWith("/assets/")) return true;
-  if (pathname.startsWith("/fonts/")) return true;
-  if (pathname.startsWith("/favicon")) return true;
+  if (pathname === '/') return true;
+  if (pathname.startsWith('/assets/')) return true;
+  if (pathname.startsWith('/fonts/')) return true;
+  if (pathname.startsWith('/favicon')) return true;
   if (/\.(png|webp|svg|ico|jpe?g|gif)$/i.test(pathname)) return true;
   return false;
 }
 
 /** Auth bridge + SF OAuth — JWT/callback handled inside the route, not via cookie. */
 function isAuthBridge(pathname) {
-  return pathname === "/api/auth" || pathname === "/api/sso-bridge";
+  return pathname === '/api/auth' || pathname === '/api/sso-bridge';
 }
 
 // Routes protégées par le cookie xos_auth
 function isProtected(pathname) {
-  if (pathname === "/dashboard.html") return true;
-  if (pathname.startsWith("/api/")) return true;
+  if (pathname.startsWith('/api/')) return true;
   return false;
 }
 
@@ -61,14 +63,14 @@ export default async function middleware(request) {
   const pathname = url.pathname;
 
   // POST /login → Basic Auth form submission
-  if (pathname === "/login" && request.method === "POST") {
+  if (pathname === '/login' && request.method === 'POST') {
     const form = await request.formData();
-    if (password && form.get("password") === password) {
+    if (password && form.get('password') === password) {
       return new Response(null, {
         status: 302,
         headers: {
-          Location: "/",
-          "Set-Cookie": `xos_auth=${password}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
+          Location: '/',
+          'Set-Cookie': `xos_auth=${password}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
         },
       });
     }
@@ -87,8 +89,11 @@ export default async function middleware(request) {
 
   // Routes protégées : vérifier le cookie xos_auth
   if (isProtected(pathname)) {
-    const cookieHeader = request.headers.get("cookie") || "";
-    if (password && cookieHeader.split(/;\s*/).includes("xos_auth=" + password)) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    if (
+      password &&
+      cookieHeader.split(/;\s*/).includes('xos_auth=' + password)
+    ) {
       return;
     }
     return loginPage(401);

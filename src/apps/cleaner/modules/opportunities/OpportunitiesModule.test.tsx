@@ -1,0 +1,232 @@
+// @vitest-environment jsdom
+
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OpportunitiesModule } from './OpportunitiesModule';
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const item = (id: string, overrides: Record<string, unknown> = {}) => ({
+  id,
+  name: id === 'opp-1' ? 'Alpha' : id === 'opp-2' ? 'Beta' : 'Gamma',
+  account: id === 'opp-1' ? 'Acme' : 'Globex',
+  owner: id === 'opp-3' ? 'Bob' : 'Alice',
+  stage: id === 'opp-2' ? 'Proposal' : 'Qualification',
+  amount: id === 'opp-1' ? 100 : id === 'opp-2' ? 300 : 200,
+  probability: 50,
+  close_date: '2026-08-15',
+  last_activity: '2026-07-10',
+  type_vente: id === 'opp-3' ? 'Renewal' : 'New business',
+  category: id === 'opp-3' ? 'owner' : 'amount',
+  score: id === 'opp-2' ? 20 : 10,
+  anomalies: [
+    {
+      ruleId:
+        id === 'opp-3'
+          ? 'opportunity.owner.inactive'
+          : 'opportunity.amount.missing',
+      severity: 'critical',
+      score: 10,
+      label: id === 'opp-3' ? 'Propriétaire inactif' : 'Montant manquant',
+      evidence: [
+        { field: 'amount', actual: null, expected: 'Un montant est requis' },
+      ],
+    },
+  ],
+  salesforce_url: `https://example.my.salesforce.com/${id}`,
+  history: [
+    {
+      date: '2026-07-01',
+      action: 'Diagnostic',
+      detail: 'Détecté',
+      before: '—',
+      after: 'À corriger',
+    },
+  ],
+  ...overrides,
+});
+
+function mockWorkspace(items = [item('opp-1'), item('opp-2'), item('opp-3')]) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items,
+          total: items.length,
+          nextCursor: null,
+          metadata: { fetchedAt: '2026-07-13T09:00:00.000Z' },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    ),
+  );
+}
+
+describe('OpportunitiesModule', () => {
+  it('renders the dominant table with all required columns and factual KPIs', async () => {
+    mockWorkspace();
+    render(<OpportunitiesModule accessToken="token" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('columnheader', { name: 'Nom' })).toBeTruthy(),
+    );
+    for (const label of [
+      'Compte',
+      'Owner',
+      'Étape',
+      'Montant',
+      'Probabilité',
+      'Close date',
+      'Dernière activité',
+      'Type de vente',
+      'Catégorie',
+      'Score',
+      'Raisons',
+      'Actions',
+      'Evidence',
+    ]) {
+      expect(screen.getByRole('columnheader', { name: label })).toBeTruthy();
+    }
+    expect(
+      screen.getByRole('button', { name: /opportunités à nettoyer/i }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/score global|santé globale/i)).toBeNull();
+  });
+
+  it('supports search, deterministic sort, pagination and owner/category/type filters', async () => {
+    mockWorkspace();
+    render(<OpportunitiesModule accessToken="token" />);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Rechercher' }), {
+      target: { value: 'Beta' },
+    });
+    expect(screen.queryByText('Alpha')).toBeNull();
+    expect(screen.getByText('Beta')).toBeTruthy();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Rechercher' }), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Trier par Montant/i }));
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('Alpha');
+    fireEvent.click(screen.getByRole('button', { name: /Trier par Montant/i }));
+    expect(screen.getAllByRole('row').slice(1)[0].textContent).toContain(
+      'Beta',
+    );
+
+    fireEvent.change(screen.getByLabelText('Owner'), {
+      target: { value: 'Bob' },
+    });
+    expect(screen.getByText('Gamma')).toBeTruthy();
+    expect(screen.queryByText('Alpha')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Catégorie'), {
+      target: { value: 'amount' },
+    });
+    expect(screen.queryByText('Gamma')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Catégorie'), {
+      target: { value: '' },
+    });
+    fireEvent.change(screen.getByLabelText('Type de vente'), {
+      target: { value: 'Renewal' },
+    });
+    expect(screen.getByText('Gamma')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Owner'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Type de vente'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Page suivante' }));
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Gamma')).toBeNull();
+  });
+
+  it('selects one row, the current page and all filtered rows, preserving selection across views', async () => {
+    mockWorkspace();
+    render(<OpportunitiesModule accessToken="token" />);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner Alpha' }),
+    );
+    expect(screen.getByText('1 sélectionnée')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Synthèse' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nettoyage' }));
+    expect(screen.getByText('1 sélectionnée')).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner la page' }),
+    );
+    expect(screen.getByText('2 sélectionnées')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Sélectionner les 3 résultats filtrés/i,
+      }),
+    );
+    expect(screen.getByText('3 sélectionnées')).toBeTruthy();
+  });
+
+  it('opens detail from row content but not from a checkbox', async () => {
+    mockWorkspace([item('opp-1')]);
+    render(<OpportunitiesModule accessToken="token" />);
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
+
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner Alpha' }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ouvrir Alpha' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('Un montant est requis')).toBeTruthy();
+    expect(screen.getByText('Valeur actuelle')).toBeTruthy();
+    expect(screen.getByText('Valeur attendue')).toBeTruthy();
+    expect(screen.getByText(/Avant : — · Après : À corriger/)).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: /Salesforce/i }).getAttribute('href'),
+    ).toContain('opp-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer le détail' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('shows loading, empty and error states and exposes internal view tabs', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ items: [] }), { status: 200 }),
+        ),
+    );
+    render(<OpportunitiesModule accessToken="token" />);
+    expect(screen.getByRole('status')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByText('Aucune opportunité à nettoyer.')).toBeTruthy(),
+    );
+    expect(screen.getByRole('button', { name: 'Historique' })).toBeTruthy();
+
+    cleanup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('Service indisponible')),
+    );
+    render(<OpportunitiesModule accessToken="token" />);
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Service indisponible',
+      ),
+    );
+  });
+});
