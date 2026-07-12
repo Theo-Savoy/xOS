@@ -28,6 +28,10 @@ export type SessionSummary = {
   called: number;
   skipped: number;
   pending: number;
+  is_owner?: boolean;
+  shared?: boolean;
+  member_count?: number;
+  members?: TeamMember[];
 };
 
 export type RecallInboxItem = {
@@ -73,6 +77,11 @@ export type SessionContact = {
   /** Present when the contact is shown in the infinite recall queue. */
   origin_session_id?: number;
   origin_session_name?: string;
+  logged_by?: string | null;
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  claim_active?: boolean;
+  claimed_by_label?: string | null;
 };
 
 export type ContactTaskHistoryItem = {
@@ -134,6 +143,9 @@ export type SessionDetail = {
   created_at: string;
   scheduled_for?: string | null;
   session_type?: SessionType;
+  is_owner?: boolean;
+  owner_id?: string;
+  members?: TeamMember[];
 };
 
 export type ContactPreview = {

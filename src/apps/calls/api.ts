@@ -168,6 +168,37 @@ export async function deleteSession(token: string, sessionId: number): Promise<v
   });
 }
 
+export async function setSessionMembers(
+  token: string,
+  sessionId: number,
+  memberUserIds: string[],
+): Promise<TeamMember[]> {
+  const data = await apiFetch<{ members: TeamMember[] }>(token, "/api/calls", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "set_session_members",
+      session_id: sessionId,
+      member_user_ids: memberUserIds,
+    }),
+  });
+  return data.members;
+}
+
+export async function claimContact(
+  token: string,
+  sessionId: number,
+  contactId: number,
+): Promise<{ claimed_by: string; claimed_at: string }> {
+  return apiFetch(token, "/api/calls", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "claim_contact",
+      session_id: sessionId,
+      contact_id: contactId,
+    }),
+  });
+}
+
 export type LogCallOptions = {
   comments?: string;
   recallAt?: string | null;

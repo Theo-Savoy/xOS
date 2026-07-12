@@ -139,7 +139,9 @@ describe("prospection_cockpit", () => {
           },
         ],
         error: null,
-      });
+      })
+      // call_session_members
+      .mockResolvedValueOnce({ data: [], error: null });
 
     const res = await GET(makeReq("http://localhost/api/calls?resource=prospection_cockpit&period=week"));
     expect(res.status).toBe(200);
@@ -147,6 +149,7 @@ describe("prospection_cockpit", () => {
     expect(body.view).toBe("team");
     expect(body.team_kpis.calls).toBe(2);
     expect(body.team_kpis.rdv).toBe(1);
+    expect(body.by_day?.length).toBeGreaterThan(0);
     expect(body.by_caller[0].label).toBe("Yanis");
     expect(body.by_rdv_owner[0]).toMatchObject({ label: "Christophe", rdv: 1, from_sdr: 1 });
     expect(body.rdv_attributions).toHaveLength(1);

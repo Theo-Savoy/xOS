@@ -1,13 +1,68 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "../../auth/useSession";
 import { WindowBootScreen } from "../../components/WindowBootScreen";
 import { Button, GlassCard, Tag } from "../../components/ui";
+import type { PeriodKpis } from "./types";
 import {
   fetchProspectionCockpit,
   PilotageApiError,
+  type CockpitCallerRow,
+  type CockpitDayCallerRow,
+  type CockpitPeriod,
+  type CockpitSessionRow,
   type ProspectionCockpit,
 } from "./pilotageApi";
 import "./pilotage.css";
+
+type DetailMode = "days" | "sessions";
+
+type CallerCard = {
+  user_id: string;
+  label: string;
+  tracking?: string;
+  sessions_active?: number;
+  sessions_completed?: number;
+  kpis: PeriodKpis;
+};
+
+function emptyKpis(): PeriodKpis {
+  return {
+    calls: 0,
+    decroche: 0,
+    argumente: 0,
+    rdv: 0,
+    npa: 0,
+    rate_decroche: 0,
+    rate_argumente: 0,
+    rate_rdv_per_decroche: 0,
+    rate_rdv_per_argumente: 0,
+  };
+}
+
+function rate(num: number, den: number): number {
+  return den > 0 ? Math.round((num / den) * 1000) / 10 : 0;
+}
+
+/** Sum absolute counts across KPI rows and recompute rates. */
+export function mergeKpis(list: PeriodKpis[]): PeriodKpis {
+  if (list.length === 0) return emptyKpis();
+  const calls = list.reduce((s, k) => s + k.calls, 0);
+  const decroche = list.reduce((s, k) => s + k.decroche, 0);
+  const argumente = list.reduce((s, k) => s + k.argumente, 0);
+  const rdv = list.reduce((s, k) => s + k.rdv, 0);
+  const npa = list.reduce((s, k) => s + k.npa, 0);
+  return {
+    calls,
+    decroche,
+    argumente,
+    rdv,
+    npa,
+    rate_decroche: rate(decroche, calls),
+    rate_argumente: rate(argumente, calls),
+    rate_rdv_per_decroche: rate(rdv, decroche),
+    rate_rdv_per_argumente: rate(rdv, argumente),
+  };
+}
 
 function pct(value: number): string {
   return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}%`;
@@ -30,6 +85,116 @@ const SESSION_TYPE_LABEL: Record<string, string> = {
   relance: "Relance",
 };
 
+function callersFromSessions(
+  sessions: CockpitSessionRow[],
+  baseCallers: CockpitCallerRow[],
+): CallerCard[] {
+  const baseById = new Map(baseCallers.map((c) => [c.user_id, c]));
+  const grouped = new Map<string, { label: string; kpis: PeriodKpis[] }>();
+
+  for (const session of sessions) {
+    const uid = session.owner.user_id ?? `sf:${session.owner.sf_user_id ?? session.owner.label}`;
+    const existing = grouped.get(uid);
+    if (existing) {
+      existing.kpis.push(session.kpis);
+    } else {
+      grouped.set(uid, {
+        label: baseById.get(uid)?.label ?? session.owner.label,
+        kpis: [session.kpis],
+      });
+    }
+  }
+
+  return Array.from(grouped.entries())
+    .map(([user_id, row]) => {
+      const base = baseById.get(user_id);
+      return {
+        user_id,
+        label: row.label,
+        tracking: base?.tracking,
+        sessions_active: base?.sessions_active,
+        sessions_completed: base?.sessions_completed,
+        kpis: mergeKpis(row.kpis),
+      };
+    })
+    .sort((a, b) => b.kpis.calls - a.kpis.calls || a.label.localeCompare(b.label, "fr"));
+}
+
+function dayCallersToCards(rows: CockpitDayCallerRow[]): CallerCard[] {
+  return rows
+    .map((row) => ({
+      user_id: row.user_id,
+      label: row.label,
+      kpis: row.kpis,
+    }))
+    .sort((a, b) => b.kpis.calls - a.kpis.calls || a.label.localeCompare(b.label, "fr"));
+}
+
+function FunnelStrip({ kpis }: { kpis: PeriodKpis }) {
+  return (
+    <section className="pilotage-kpis" aria-label="Funnel">
+      <GlassCard className="pilotage-stat">
+        <span>Appels</span>
+        <strong className="xos-numeric">{kpis.calls}</strong>
+      </GlassCard>
+      <GlassCard className="pilotage-stat">
+        <span>Taux décroché</span>
+        <strong className="xos-numeric">{pct(kpis.rate_decroche)}</strong>
+      </GlassCard>
+      <GlassCard className="pilotage-stat">
+        <span>Taux argumenté</span>
+        <strong className="xos-numeric">{pct(kpis.rate_argumente)}</strong>
+      </GlassCard>
+      <GlassCard className="pilotage-stat">
+        <span>RDV / décroché</span>
+        <strong className="xos-numeric">{pct(kpis.rate_rdv_per_decroche)}</strong>
+      </GlassCard>
+      <GlassCard className="pilotage-stat pilotage-stat--accent">
+        <span>RDV pris</span>
+        <strong className="xos-numeric">{kpis.rdv}</strong>
+      </GlassCard>
+    </section>
+  );
+}
+
+function CommercialCard({
+  caller,
+  selected,
+  onSelect,
+}: {
+  caller: CallerCard;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`pilotage-caller-card${selected ? " pilotage-caller-card--selected" : ""}`}
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
+      <div className="pilotage-caller-card__head">
+        <strong>{caller.label}</strong>
+        {caller.tracking === "sdr" && <Tag variant="muted">SDR</Tag>}
+      </div>
+      <div className="pilotage-caller-card__funnel" aria-label={`Funnel ${caller.label}`}>
+        <div>
+          <span>Appels</span>
+          <strong className="xos-numeric">{caller.kpis.calls}</strong>
+        </div>
+        <div>
+          <span>Décroché</span>
+          <strong className="xos-numeric">{pct(caller.kpis.rate_decroche)}</strong>
+        </div>
+        <div>
+          <span>RDV</span>
+          <strong className="xos-numeric">{caller.kpis.rdv}</strong>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function PilotageView({
   onBack,
   onPin,
@@ -39,18 +204,29 @@ export function PilotageView({
 }) {
   const { session, loading: sessionLoading } = useSession();
   const token = session?.access_token ?? null;
-  const [period, setPeriod] = useState<"week" | "month">("week");
+  const [period, setPeriod] = useState<CockpitPeriod>("day");
+  const [detailMode, setDetailMode] = useState<DetailMode>("sessions");
   const [data, setData] = useState<ProspectionCockpit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<number>>(new Set());
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [selectedCallerId, setSelectedCallerId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      setData(await fetchProspectionCockpit(token, period));
+      const next = await fetchProspectionCockpit(token, period);
+      setData(next);
+      setSelectedSessionIds(new Set((next.sessions ?? []).map((s) => s.id)));
+      setExpandedDay(null);
+      setSelectedCallerId(null);
+      if (period === "day") {
+        setDetailMode("sessions");
+      }
     } catch (err) {
       if (err instanceof PilotageApiError && err.code === "forbidden") {
         setError("Réservé aux managers.");
@@ -66,6 +242,75 @@ export function PilotageView({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const sessions = data?.sessions ?? [];
+  const byDay = data?.by_day ?? [];
+
+  const selectedSessions = useMemo(
+    () => sessions.filter((s) => selectedSessionIds.has(s.id)),
+    [sessions, selectedSessionIds],
+  );
+
+  const filtered = useMemo(() => {
+    if (!data) {
+      return { kpis: emptyKpis(), callers: [] as CallerCard[] };
+    }
+
+    if (detailMode === "sessions") {
+      if (sessions.length === 0) {
+        return { kpis: data.team_kpis, callers: data.by_caller as CallerCard[] };
+      }
+      if (selectedSessions.length === 0) {
+        return { kpis: emptyKpis(), callers: [] as CallerCard[] };
+      }
+      const allSelected = selectedSessions.length === sessions.length;
+      if (allSelected) {
+        return { kpis: data.team_kpis, callers: data.by_caller as CallerCard[] };
+      }
+      return {
+        kpis: mergeKpis(selectedSessions.map((s) => s.kpis)),
+        callers: callersFromSessions(selectedSessions, data.by_caller),
+      };
+    }
+
+    // Vue Jours
+    if (expandedDay) {
+      const day = byDay.find((d) => d.date === expandedDay);
+      if (day) {
+        return {
+          kpis: day.kpis,
+          callers: dayCallersToCards(day.by_caller),
+        };
+      }
+    }
+
+    return {
+      kpis: data.team_kpis,
+      callers: data.by_caller as CallerCard[],
+    };
+  }, [data, detailMode, sessions, selectedSessions, expandedDay, byDay]);
+
+  const selectedCaller = useMemo(
+    () => filtered.callers.find((c) => c.user_id === selectedCallerId) ?? null,
+    [filtered.callers, selectedCallerId],
+  );
+
+  const selectAllSessions = () => {
+    setSelectedSessionIds(new Set(sessions.map((s) => s.id)));
+  };
+
+  const selectNoSessions = () => {
+    setSelectedSessionIds(new Set());
+  };
+
+  const toggleSession = (id: number) => {
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (sessionLoading || (loading && !data && !error)) {
     return <WindowBootScreen label="Pilotage" />;
@@ -84,7 +329,9 @@ export function PilotageView({
     );
   }
 
-  const kpis = data?.team_kpis;
+  const kpis = filtered.kpis;
+  const periodLabel =
+    period === "day" ? "aujourd’hui (Paris)" : period === "week" ? "cette semaine" : "ce mois";
 
   return (
     <div className="calls-view pilotage-app">
@@ -92,10 +339,20 @@ export function PilotageView({
         <div>
           <Tag variant="accent">Combo</Tag>
           <h2>Pilotage</h2>
-          <p className="pilotage-header__sub">Cockpit équipe · funnel, séances et attribution RDV</p>
+          <p className="pilotage-header__sub">
+            Cockpit équipe · funnel, séances et attribution RDV · {periodLabel}
+          </p>
         </div>
         <div className="calls-view__actions pilotage-header__actions">
           <div className="calls-seg" role="group" aria-label="Période">
+            <button
+              type="button"
+              className={`calls-seg__btn${period === "day" ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={period === "day"}
+              onClick={() => setPeriod("day")}
+            >
+              Jour
+            </button>
             <button
               type="button"
               className={`calls-seg__btn${period === "week" ? " calls-seg__btn--active" : ""}`}
@@ -111,6 +368,37 @@ export function PilotageView({
               onClick={() => setPeriod("month")}
             >
               Mois
+            </button>
+          </div>
+          <div className="calls-seg" role="group" aria-label="Mode de détail">
+            <button
+              type="button"
+              className={`calls-seg__btn${detailMode === "days" ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={detailMode === "days"}
+              disabled={period === "day" && byDay.length <= 1}
+              title={
+                period === "day" && byDay.length <= 1
+                  ? "Un seul jour — basculez en Vue Séances"
+                  : undefined
+              }
+              onClick={() => {
+                setDetailMode("days");
+                setSelectedCallerId(null);
+              }}
+            >
+              Vue Jours
+            </button>
+            <button
+              type="button"
+              className={`calls-seg__btn${detailMode === "sessions" ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={detailMode === "sessions"}
+              onClick={() => {
+                setDetailMode("sessions");
+                setExpandedDay(null);
+                setSelectedCallerId(null);
+              }}
+            >
+              Vue Séances
             </button>
           </div>
           <Button variant="secondary" onClick={() => void load()} disabled={loading}>
@@ -137,79 +425,235 @@ export function PilotageView({
 
       {error && <p className="pilotage-error" role="alert">{error}</p>}
 
-      <section className="pilotage-kpis" aria-label="Funnel équipe">
-        <GlassCard className="pilotage-stat">
-          <span>Appels</span>
-          <strong className="xos-numeric">{kpis?.calls ?? 0}</strong>
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
-          <span>Taux décroché</span>
-          <strong className="xos-numeric">{pct(kpis?.rate_decroche ?? 0)}</strong>
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
-          <span>Taux argumenté</span>
-          <strong className="xos-numeric">{pct(kpis?.rate_argumente ?? 0)}</strong>
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
-          <span>RDV / décroché</span>
-          <strong className="xos-numeric">{pct(kpis?.rate_rdv_per_decroche ?? 0)}</strong>
-        </GlassCard>
-        <GlassCard className="pilotage-stat pilotage-stat--accent">
-          <span>RDV pris</span>
-          <strong className="xos-numeric">{kpis?.rdv ?? 0}</strong>
-        </GlassCard>
-      </section>
+      <FunnelStrip kpis={kpis} />
 
       <p className="pilotage-secondary">
-        RDV / argumenté <strong className="xos-numeric">{pct(kpis?.rate_rdv_per_argumente ?? 0)}</strong>
+        RDV / argumenté <strong className="xos-numeric">{pct(kpis.rate_rdv_per_argumente)}</strong>
         <span aria-hidden="true"> · </span>
-        NPA <strong className="xos-numeric">{kpis?.npa ?? 0}</strong>
+        NPA <strong className="xos-numeric">{kpis.npa}</strong>
         <span aria-hidden="true"> · </span>
-        Décrochés <strong className="xos-numeric">{kpis?.decroche ?? 0}</strong>
+        Décrochés <strong className="xos-numeric">{kpis.decroche}</strong>
         <span aria-hidden="true"> · </span>
-        Argumentés <strong className="xos-numeric">{kpis?.argumente ?? 0}</strong>
+        Argumentés <strong className="xos-numeric">{kpis.argumente}</strong>
+        {detailMode === "sessions" && sessions.length > 0 && (
+          <>
+            <span aria-hidden="true"> · </span>
+            {selectedSessions.length}/{sessions.length} séance
+            {sessions.length > 1 ? "s" : ""}
+          </>
+        )}
+        {detailMode === "days" && expandedDay && (
+          <>
+            <span aria-hidden="true"> · </span>
+            Jour sélectionné&nbsp;:{" "}
+            <strong>{byDay.find((d) => d.date === expandedDay)?.label ?? expandedDay}</strong>
+          </>
+        )}
       </p>
 
-      <div className="pilotage-grid">
-        <GlassCard className="pilotage-panel">
-          <h3>Par appelant</h3>
-          <p className="pilotage-panel__hint">Qui a passé les appels (owner de la séance Combo).</p>
-          {(data?.by_caller.length ?? 0) === 0 ? (
-            <p className="pilotage-empty">Aucune activité sur la période.</p>
+      {detailMode === "sessions" && (
+        <GlassCard className="pilotage-panel pilotage-sessions-panel">
+          <div className="pilotage-panel__toolbar">
+            <div>
+              <h3>Séances</h3>
+              <p className="pilotage-panel__hint">
+                Cochez les séances pour recalculer le funnel et les commerciaux.
+              </p>
+            </div>
+            <div className="calls-seg" role="group" aria-label="Sélection séances">
+              <button
+                type="button"
+                className="calls-seg__btn"
+                onClick={selectAllSessions}
+                disabled={sessions.length === 0 || selectedSessionIds.size === sessions.length}
+              >
+                Tout
+              </button>
+              <button
+                type="button"
+                className="calls-seg__btn"
+                onClick={selectNoSessions}
+                disabled={sessions.length === 0 || selectedSessionIds.size === 0}
+              >
+                Aucun
+              </button>
+            </div>
+          </div>
+
+          {sessions.length === 0 ? (
+            <p className="pilotage-empty">Aucune séance active ou touchée sur la période.</p>
           ) : (
-            <table className="pilotage-table">
-              <thead>
-                <tr>
-                  <th>Commercial</th>
-                  <th>Appels</th>
-                  <th>Décroché</th>
-                  <th>RDV</th>
-                  <th>RDV/déc.</th>
-                  <th>Séances</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.by_caller.map((row) => (
-                  <tr key={row.user_id}>
-                    <td>
-                      <strong>{row.label}</strong>
-                      {row.tracking === "sdr" && <Tag variant="muted">SDR</Tag>}
-                    </td>
-                    <td className="xos-numeric">{row.kpis.calls}</td>
-                    <td className="xos-numeric">{pct(row.kpis.rate_decroche)}</td>
-                    <td className="xos-numeric">{row.kpis.rdv}</td>
-                    <td className="xos-numeric">{pct(row.kpis.rate_rdv_per_decroche)}</td>
-                    <td className="xos-numeric">
-                      {row.sessions_active}
-                      <span className="pilotage-muted"> act.</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="pilotage-session-list">
+              {sessions.map((session) => {
+                const checked = selectedSessionIds.has(session.id);
+                return (
+                  <li key={session.id}>
+                    <label
+                      className={`pilotage-session-chip${checked ? " pilotage-session-chip--checked" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSession(session.id)}
+                      />
+                      <span className="pilotage-session-chip__body">
+                        <span className="pilotage-session-chip__title">
+                          <strong>{session.name}</strong>
+                          {session.shared && <Tag variant="accent">Partagée</Tag>}
+                          <span className="pilotage-muted">
+                            {session.status === "active" ? " · active" : " · terminée"}
+                            {typeof session.member_count === "number" && session.member_count > 1
+                              ? ` · ${session.member_count} membres`
+                              : ""}
+                          </span>
+                        </span>
+                        <span className="pilotage-session-chip__meta">
+                          <span>{session.owner.label}</span>
+                          <span className="pilotage-muted">
+                            {SESSION_TYPE_LABEL[session.session_type] || session.session_type}
+                          </span>
+                          <span className="xos-numeric">
+                            {session.kpis.calls} appels · {pct(session.kpis.rate_decroche)} déc. ·{" "}
+                            {session.kpis.rdv} RDV
+                          </span>
+                          <span className="pilotage-muted xos-numeric">
+                            {session.counts.called}/{session.counts.total}
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </GlassCard>
+      )}
 
+      {detailMode === "days" && (
+        <GlassCard className="pilotage-panel">
+          <div className="pilotage-panel__toolbar">
+            <div>
+              <h3>Par jour</h3>
+              <p className="pilotage-panel__hint">
+                Cliquez un jour pour filtrer le funnel et les commerciaux.
+              </p>
+            </div>
+            {expandedDay && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setExpandedDay(null);
+                  setSelectedCallerId(null);
+                }}
+              >
+                Toute la période
+              </Button>
+            )}
+          </div>
+
+          {byDay.length === 0 ? (
+            <p className="pilotage-empty">Aucune activité journalière sur la période.</p>
+          ) : (
+            <ul className="pilotage-day-list">
+              {byDay.map((day) => {
+                const open = expandedDay === day.date;
+                return (
+                  <li key={day.date} className={`pilotage-day-row${open ? " pilotage-day-row--open" : ""}`}>
+                    <button
+                      type="button"
+                      className="pilotage-day-row__btn"
+                      aria-expanded={open}
+                      onClick={() => {
+                        setExpandedDay((prev) => (prev === day.date ? null : day.date));
+                        setSelectedCallerId(null);
+                      }}
+                    >
+                      <span className="pilotage-day-row__label">
+                        <strong>{day.label}</strong>
+                        <span className="pilotage-muted xos-numeric">{day.date}</span>
+                      </span>
+                      <span className="pilotage-day-row__kpis xos-numeric">
+                        <span>{day.kpis.calls} appels</span>
+                        <span>{pct(day.kpis.rate_decroche)} déc.</span>
+                        <span>{day.kpis.rdv} RDV</span>
+                      </span>
+                    </button>
+                    {open && day.by_caller.length > 0 && (
+                      <div className="pilotage-day-row__callers">
+                        {day.by_caller.map((c) => (
+                          <span key={c.user_id} className="pilotage-day-caller-pill">
+                            <strong>{c.label}</strong>
+                            <span className="xos-numeric">
+                              {c.kpis.calls} · {pct(c.kpis.rate_decroche)} · {c.kpis.rdv} RDV
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </GlassCard>
+      )}
+
+      <GlassCard className="pilotage-panel">
+        <h3>Commerciaux</h3>
+        <p className="pilotage-panel__hint">
+          Qui a passé les appels (crédité via logged_by). Cliquez une carte pour le détail.
+        </p>
+
+        {filtered.callers.length === 0 ? (
+          <p className="pilotage-empty">Aucune activité sur la période.</p>
+        ) : (
+          <div className="pilotage-caller-grid">
+            {filtered.callers.map((caller) => (
+              <CommercialCard
+                key={caller.user_id}
+                caller={caller}
+                selected={selectedCallerId === caller.user_id}
+                onSelect={() =>
+                  setSelectedCallerId((prev) => (prev === caller.user_id ? null : caller.user_id))
+                }
+              />
+            ))}
+          </div>
+        )}
+
+        {selectedCaller && (
+          <div className="pilotage-caller-detail" role="region" aria-label={`Détail ${selectedCaller.label}`}>
+            <div className="pilotage-caller-detail__head">
+              <strong>{selectedCaller.label}</strong>
+              {selectedCaller.tracking === "sdr" && <Tag variant="muted">SDR</Tag>}
+              <Button variant="secondary" onClick={() => setSelectedCallerId(null)}>
+                Fermer
+              </Button>
+            </div>
+            <FunnelStrip kpis={selectedCaller.kpis} />
+            <p className="pilotage-secondary">
+              RDV / argumenté{" "}
+              <strong className="xos-numeric">{pct(selectedCaller.kpis.rate_rdv_per_argumente)}</strong>
+              <span aria-hidden="true"> · </span>
+              NPA <strong className="xos-numeric">{selectedCaller.kpis.npa}</strong>
+              <span aria-hidden="true"> · </span>
+              Décrochés <strong className="xos-numeric">{selectedCaller.kpis.decroche}</strong>
+              <span aria-hidden="true"> · </span>
+              Argumentés <strong className="xos-numeric">{selectedCaller.kpis.argumente}</strong>
+              {typeof selectedCaller.sessions_active === "number" && (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  Séances actives{" "}
+                  <strong className="xos-numeric">{selectedCaller.sessions_active}</strong>
+                </>
+              )}
+            </p>
+          </div>
+        )}
+      </GlassCard>
+
+      <div className="pilotage-grid">
         <GlassCard className="pilotage-panel">
           <h3>RDV attribués</h3>
           <p className="pilotage-panel__hint">Chez qui le RDV est propriétaire dans Salesforce.</p>
@@ -236,91 +680,50 @@ export function PilotageView({
             </table>
           )}
         </GlassCard>
+
+        <GlassCard className="pilotage-panel">
+          <h3>Détail des RDV</h3>
+          <p className="pilotage-panel__hint">Qui a pris l’appel → à qui le RDV est attribué.</p>
+          {(data?.rdv_attributions.length ?? 0) === 0 ? (
+            <p className="pilotage-empty">Aucun RDV journalisé sur la période.</p>
+          ) : (
+            <table className="pilotage-table">
+              <thead>
+                <tr>
+                  <th>Quand</th>
+                  <th>Contact</th>
+                  <th>Appelant</th>
+                  <th>Attribué à</th>
+                  <th>Séance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.rdv_attributions.map((row) => (
+                  <tr key={row.session_contact_id}>
+                    <td className="xos-numeric">{formatWhen(row.called_at)}</td>
+                    <td>
+                      <strong>{row.contact_name}</strong>
+                      {row.account_name && (
+                        <span className="pilotage-muted"> · {row.account_name}</span>
+                      )}
+                    </td>
+                    <td>{row.caller.label}</td>
+                    <td>
+                      <strong>{row.rdv_owner_label}</strong>
+                      {row.caller.sf_user_id
+                        && row.rdv_owner_sf_user_id
+                        && row.caller.sf_user_id !== row.rdv_owner_sf_user_id && (
+                          <Tag variant="accent">SDR</Tag>
+                      )}
+                    </td>
+                    <td className="pilotage-muted">{row.session_name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </GlassCard>
       </div>
-
-      <GlassCard className="pilotage-panel">
-        <h3>Séances</h3>
-        {(data?.sessions.length ?? 0) === 0 ? (
-          <p className="pilotage-empty">Aucune séance active ou touchée sur la période.</p>
-        ) : (
-          <table className="pilotage-table pilotage-table--sessions">
-            <thead>
-              <tr>
-                <th>Séance</th>
-                <th>Appelant</th>
-                <th>Type</th>
-                <th>Appels</th>
-                <th>Décroché</th>
-                <th>RDV</th>
-                <th>Progression</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.sessions.map((session) => (
-                <tr key={session.id}>
-                  <td>
-                    <strong>{session.name}</strong>
-                    <span className="pilotage-muted">
-                      {session.status === "active" ? " · active" : " · terminée"}
-                    </span>
-                  </td>
-                  <td>{session.owner.label}</td>
-                  <td>{SESSION_TYPE_LABEL[session.session_type] || session.session_type}</td>
-                  <td className="xos-numeric">{session.kpis.calls}</td>
-                  <td className="xos-numeric">{pct(session.kpis.rate_decroche)}</td>
-                  <td className="xos-numeric">{session.kpis.rdv}</td>
-                  <td className="xos-numeric">
-                    {session.counts.called}/{session.counts.total}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </GlassCard>
-
-      <GlassCard className="pilotage-panel">
-        <h3>Détail des RDV</h3>
-        <p className="pilotage-panel__hint">Qui a pris l’appel → à qui le RDV est attribué.</p>
-        {(data?.rdv_attributions.length ?? 0) === 0 ? (
-          <p className="pilotage-empty">Aucun RDV journalisé sur la période.</p>
-        ) : (
-          <table className="pilotage-table">
-            <thead>
-              <tr>
-                <th>Quand</th>
-                <th>Contact</th>
-                <th>Appelant</th>
-                <th>Attribué à</th>
-                <th>Séance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.rdv_attributions.map((row) => (
-                <tr key={row.session_contact_id}>
-                  <td className="xos-numeric">{formatWhen(row.called_at)}</td>
-                  <td>
-                    <strong>{row.contact_name}</strong>
-                    {row.account_name && (
-                      <span className="pilotage-muted"> · {row.account_name}</span>
-                    )}
-                  </td>
-                  <td>{row.caller.label}</td>
-                  <td>
-                    <strong>{row.rdv_owner_label}</strong>
-                    {row.caller.sf_user_id
-                      && row.rdv_owner_sf_user_id
-                      && row.caller.sf_user_id !== row.rdv_owner_sf_user_id && (
-                        <Tag variant="accent">SDR</Tag>
-                    )}
-                  </td>
-                  <td className="pilotage-muted">{row.session_name}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </GlassCard>
     </div>
   );
 }

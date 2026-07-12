@@ -156,14 +156,103 @@ export function actorName(user, profile) {
 }
 
 export async function assertSessionOwner(client, sessionId, userId) {
+  return assertSessionAccess(client, sessionId, userId, { requireOwner: true });
+}
+
+/** Soft-claim TTL : laisse le temps d'appeler sans bloquer indéfiniment. */
+export const CONTACT_CLAIM_TTL_MS = 4 * 60 * 1000;
+
+export function isClaimActive(claimedAt, now = Date.now()) {
+  if (!claimedAt) return false;
+  const ts = new Date(claimedAt).getTime();
+  if (!Number.isFinite(ts)) return false;
+  return now - ts < CONTACT_CLAIM_TTL_MS;
+}
+
+export async function assertSessionAccess(client, sessionId, userId, { requireOwner = false } = {}) {
   const { data: session, error } = await client
     .from("call_sessions")
     .select("id, owner, name, status")
     .eq("id", sessionId)
     .maybeSingle();
   if (error && !isNotFoundError(error)) return { error: "session_lookup_failed", status: 500 };
-  if (!session || session.owner !== userId) return { error: "not_found", status: 404 };
-  return { session };
+  if (!session) return { error: "not_found", status: 404 };
+  if (session.owner === userId) return { session, isOwner: true };
+  if (requireOwner) return { error: "not_found", status: 404 };
+
+  const { data: membership, error: memberError } = await client
+    .from("call_session_members")
+    .select("user_id")
+    .eq("session_id", sessionId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (memberError && !isNotFoundError(memberError)) {
+    return { error: "session_lookup_failed", status: 500 };
+  }
+  if (!membership) return { error: "not_found", status: 404 };
+  return { session, isOwner: false };
+}
+
+export async function listAccessibleSessionIds(client, userId) {
+  const [{ data: owned, error: ownedError }, { data: shared, error: sharedError }] = await Promise.all([
+    client.from("call_sessions").select("id").eq("owner", userId),
+    client.from("call_session_members").select("session_id").eq("user_id", userId),
+  ]);
+  if (ownedError) return { error: "sessions_lookup_failed" };
+  if (sharedError) return { error: "sessions_lookup_failed" };
+  const ids = new Set([
+    ...(owned || []).map((row) => row.id),
+    ...(shared || []).map((row) => row.session_id),
+  ]);
+  return { ids: [...ids] };
+}
+
+/**
+ * Réserve un contact pending pour l'appelant.
+ * - Si déjà claimé par un autre et claim frais → 409 contact_claimed
+ * - Sinon upsert claim pour userId
+ */
+export async function claimSessionContact(client, contact, userId) {
+  const now = Date.now();
+  const claimedByOther =
+    contact.claimed_by
+    && contact.claimed_by !== userId
+    && isClaimActive(contact.claimed_at, now);
+
+  if (claimedByOther) {
+    return {
+      error: "contact_claimed",
+      status: 409,
+      claimed_by: contact.claimed_by,
+    };
+  }
+
+  const claimedAt = new Date().toISOString();
+  const { data: updated, error } = await client
+    .from("call_session_contacts")
+    .update({ claimed_by: userId, claimed_at: claimedAt })
+    .eq("id", contact.id)
+    .eq("status", "pending")
+    .select("id, claimed_by, claimed_at, status")
+    .maybeSingle();
+
+  if (error) return { error: "contact_claim_failed", status: 500 };
+  if (!updated) {
+    // Re-lire pour distinguer already processed vs race claim
+    const { data: fresh } = await client
+      .from("call_session_contacts")
+      .select("id, status, claimed_by, claimed_at")
+      .eq("id", contact.id)
+      .maybeSingle();
+    if (!fresh || fresh.status !== "pending") {
+      return { error: "contact_already_processed", status: 409 };
+    }
+    if (fresh.claimed_by && fresh.claimed_by !== userId && isClaimActive(fresh.claimed_at)) {
+      return { error: "contact_claimed", status: 409, claimed_by: fresh.claimed_by };
+    }
+    return { error: "contact_claim_failed", status: 500 };
+  }
+  return { contact: { ...contact, claimed_by: userId, claimed_at: claimedAt } };
 }
 
 export async function assertSessionContact(client, sessionId, contactId) {

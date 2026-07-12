@@ -1,7 +1,7 @@
 import { getProfile } from "./profileCache.js";
 import mapping from "../_crm/mapping.js";
 import { createEvent, fetchSFToken, logCall, updateContactDoNotCall } from "../_crm/salesforce.js";
-import { SF_ID, actorName, assertSessionContact, assertSessionOwner, isValidEventStart, journalAction } from "./http.js";
+import { SF_ID, actorName, assertSessionAccess, assertSessionContact, claimSessionContact, isValidEventStart, journalAction } from "./http.js";
 
 const VALID_RESULTS = mapping.objects.task.results;
 const TASK_SEMANTIC = mapping.objects.task.resultSemantic;
@@ -34,7 +34,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_do_not_call" }), { status: 400, headers });
     }
 
-    const sessionCheck = await assertSessionOwner(client, session_id, user.id);
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
     if (sessionCheck.error) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
@@ -46,8 +46,23 @@ export async function handleLogging({ action, body, user, client, headers }) {
     const contact = contactCheck.contact;
     // The recalls queue targets its original persisted row, already called but
     // still carrying its scheduled recall. It is the only valid second log.
-    if (contact.status && contact.status !== "pending" && !(contact.status === "called" && contact.recall_at)) {
+    const isRecallRelog = contact.status === "called" && contact.recall_at;
+    if (contact.status && contact.status !== "pending" && !isRecallRelog) {
       return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
+    }
+
+    // Soft-claim avant l'écriture SF pour éviter le double log concurrent.
+    if (!isRecallRelog) {
+      const claim = await claimSessionContact(client, contact, user.id);
+      if (claim.error) {
+        return new Response(
+          JSON.stringify({
+            error: claim.error,
+            ...(claim.claimed_by ? { claimed_by: claim.claimed_by } : {}),
+          }),
+          { status: claim.status, headers },
+        );
+      }
     }
 
     const profileResult = await getProfile(client, user.id);
@@ -106,6 +121,9 @@ export async function handleLogging({ action, body, user, client, headers }) {
         recall_at: wantsRecall && do_not_call !== true ? recall_at : null,
         attempt_count: (Number.isInteger(contact.attempt_count) ? contact.attempt_count : 0) + 1,
         marked_npa: do_not_call === true,
+        logged_by: user.id,
+        claimed_by: null,
+        claimed_at: null,
       })
       .eq("id", contact_id);
 
@@ -175,7 +193,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_owner_sf_user_id" }), { status: 400, headers });
     }
 
-    const sessionCheck = await assertSessionOwner(client, session_id, user.id);
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
     if (sessionCheck.error) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
@@ -297,7 +315,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_contact_id" }), { status: 400, headers });
     }
 
-    const sessionCheck = await assertSessionOwner(client, session_id, user.id);
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
     if (sessionCheck.error) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
@@ -310,10 +328,24 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
     }
 
+    const claim = await claimSessionContact(client, contactCheck.contact, user.id);
+    if (claim.error) {
+      return new Response(
+        JSON.stringify({
+          error: claim.error,
+          ...(claim.claimed_by ? { claimed_by: claim.claimed_by } : {}),
+        }),
+        { status: claim.status, headers },
+      );
+    }
+
     const { error: updateError } = await client
       .from("call_session_contacts")
       .update({
         status: "skipped",
+        logged_by: user.id,
+        claimed_by: null,
+        claimed_at: null,
         // Non contacté = pas d'essai dans cette séance → pas d'incrément
       })
       .eq("id", contact_id);
@@ -335,7 +367,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_contact_id" }), { status: 400, headers });
     }
 
-    const sessionCheck = await assertSessionOwner(client, session_id, user.id);
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
     if (sessionCheck.error) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
@@ -376,7 +408,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
       return new Response(JSON.stringify({ error: "invalid_recall_at" }), { status: 400, headers });
     }
 
-    const sessionCheck = await assertSessionOwner(client, session_id, user.id);
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
     if (sessionCheck.error) {
       return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
     }
@@ -405,6 +437,49 @@ export async function handleLogging({ action, body, user, client, headers }) {
     }
 
     return new Response(JSON.stringify({ ok: true, recall_at: recallAtInput }), { status: 200, headers });
+  }
+
+  if (action === "claim_contact") {
+    const { session_id, contact_id } = body;
+    if (typeof session_id !== "number" || !Number.isInteger(session_id) || session_id < 1) {
+      return new Response(JSON.stringify({ error: "invalid_session_id" }), { status: 400, headers });
+    }
+    if (typeof contact_id !== "number" || !Number.isInteger(contact_id) || contact_id < 1) {
+      return new Response(JSON.stringify({ error: "invalid_contact_id" }), { status: 400, headers });
+    }
+
+    const sessionCheck = await assertSessionAccess(client, session_id, user.id);
+    if (sessionCheck.error) {
+      return new Response(JSON.stringify({ error: sessionCheck.error }), { status: sessionCheck.status, headers });
+    }
+    const contactCheck = await assertSessionContact(client, session_id, contact_id);
+    if (contactCheck.error) {
+      return new Response(JSON.stringify({ error: contactCheck.error }), { status: contactCheck.status, headers });
+    }
+    if (contactCheck.contact.status !== "pending") {
+      return new Response(JSON.stringify({ error: "contact_already_processed" }), { status: 409, headers });
+    }
+
+    const claim = await claimSessionContact(client, contactCheck.contact, user.id);
+    if (claim.error) {
+      return new Response(
+        JSON.stringify({
+          error: claim.error,
+          ...(claim.claimed_by ? { claimed_by: claim.claimed_by } : {}),
+        }),
+        { status: claim.status, headers },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        contact_id,
+        claimed_by: user.id,
+        claimed_at: claim.contact.claimed_at,
+      }),
+      { status: 200, headers },
+    );
   }
 
   return null;

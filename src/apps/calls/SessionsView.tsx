@@ -443,6 +443,12 @@ export function SessionsView({
                           <Tag variant={session.status === "active" ? "accent" : "default"}>
                             {session.status === "active" ? "En cours" : "Terminée"}
                           </Tag>
+                          {session.shared && (
+                            <Tag variant="accent">
+                              Partagée{session.member_count ? ` · ${session.member_count}` : ""}
+                            </Tag>
+                          )}
+                          {session.is_owner === false && <Tag variant="muted">Invité</Tag>}
                         </div>
                       </div>
                       <span className="calls-session-card__date">

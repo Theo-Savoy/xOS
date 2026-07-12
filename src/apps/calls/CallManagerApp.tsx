@@ -7,6 +7,7 @@ import {
   createFollowUpSession,
   createPreset,
   createSession,
+  claimContact,
   deferContacts,
   deletePreset,
   deleteSession,
@@ -22,6 +23,7 @@ import {
   logCall,
   logEvent,
   removeContact,
+  setSessionMembers,
   updateRecall,
   updateSession,
   CallsApiError,
@@ -55,8 +57,12 @@ const CONTEXT_CACHE_MAX = 32;
 
 type View = "sessions" | "new" | "runner" | "recap" | "recalls" | "pilotage" | "loading-params";
 
-function findNextPending(contacts: SessionContact[]): SessionContact | null {
-  return contacts.find((c) => c.status === "pending") ?? null;
+function findNextPending(contacts: SessionContact[], userId?: string): SessionContact | null {
+  return contacts.find((c) => {
+    if (c.status !== "pending") return false;
+    if (c.claim_active && c.claimed_by && userId && c.claimed_by !== userId) return false;
+    return true;
+  }) ?? null;
 }
 
 type CallManagerAppProps = {
@@ -1063,6 +1069,60 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     }
   };
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (view !== "runner" || !token || !activeSession || !focusedContactId || !userId) return;
+    if (activeSession.id === RECALL_QUEUE_SESSION.id) return;
+    const contact = contacts.find((c) => c.id === focusedContactId);
+    if (!contact || contact.status !== "pending") return;
+    if (contact.claim_active && contact.claimed_by && contact.claimed_by !== userId) return;
+    if (contact.claimed_by === userId && contact.claim_active) return;
+
+    let cancelled = false;
+    void claimContact(token, activeSession.id, focusedContactId)
+      .then((result) => {
+        if (cancelled) return;
+        setContacts((prev) =>
+          prev.map((row) =>
+            row.id === focusedContactId
+              ? {
+                  ...row,
+                  claimed_by: result.claimed_by,
+                  claimed_at: result.claimed_at,
+                  claim_active: true,
+                  claimed_by_label: null,
+                }
+              : row,
+          ),
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof CallsApiError && err.code === "contact_claimed") {
+          void openSession(activeSession.id, focusedContactId);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally omit `contacts` — only claim when focus/session changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, token, activeSession?.id, focusedContactId, session?.user?.id]);
+
+  const handleShareSession = async (memberUserIds: string[]) => {
+    if (!token || !activeSession || activeSession.id === RECALL_QUEUE_SESSION.id) return;
+    const members = await setSessionMembers(token, activeSession.id, memberUserIds);
+    setActiveSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            members,
+            is_owner: prev.is_owner ?? true,
+          }
+        : prev,
+    );
+  };
+
   const handlePin = async () => {
     if (!activeSession || activeSession.id === RECALL_QUEUE_SESSION.id) return;
     const dateLabel = activeSession.scheduled_for
@@ -1176,7 +1236,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           session={activeSession}
           contacts={contacts}
           hubSessions={sessions}
-          currentContact={findNextPending(contacts)}
+          currentContact={findNextPending(contacts, session.user.id)}
           focusedContactId={focusedContactId}
           variant={view === "recalls" ? "recalls" : "session"}
           loading={runnerLoading || (view === "recalls" && recallsLoading)}
@@ -1188,8 +1248,14 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
           contextLoading={contextLoading}
           team={team}
           currentSfUserId={currentSfUserId}
+          currentUserId={session.user.id}
           onBack={goToSessions}
           onPin={handlePin}
+          onShareSession={
+            activeSession.is_owner !== false && view === "runner"
+              ? handleShareSession
+              : undefined
+          }
           onFocusContact={setFocusedContactId}
           onLogAndNext={(contactId, payload) => void handleLogAndNext(contactId, payload)}
           onLogRdvAndNext={(contactId, payload, event) =>
