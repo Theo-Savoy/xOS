@@ -1978,6 +1978,10 @@
   text-align: center;
   white-space: nowrap;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .calls-result-seg__btn:hover {
@@ -2605,3 +2609,283 @@
     align-items: stretch;
   }
 }
+
+/* ---------------------------------------------------------------------- */
+/* Combo keyboard — kbd, command bar, aide, démo                           */
+/* ---------------------------------------------------------------------- */
+
+.calls-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--xos-border) 80%, transparent);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--xos-text-muted);
+  font-family: var(--xos-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.calls-kbd--inline {
+  margin-left: 0.35rem;
+  opacity: 0.72;
+}
+
+.calls-cmdk,
+.calls-help,
+.calls-demo {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: start center;
+  padding: clamp(1rem, 4vh, 2.5rem) 1rem;
+}
+
+.calls-cmdk__backdrop,
+.calls-help__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(4, 8, 28, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.calls-cmdk__panel,
+.calls-help__panel {
+  position: relative;
+  z-index: 1;
+  width: min(36rem, 100%);
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.9rem;
+}
+
+.calls-cmdk__head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.calls-cmdk__input {
+  flex: 1;
+  border: 1px solid var(--xos-border);
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--xos-text);
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+}
+
+.calls-cmdk__list {
+  max-height: min(24rem, 55vh);
+  overflow: auto;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.calls-cmdk__group-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--xos-text-muted);
+}
+
+.calls-cmdk__group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.calls-cmdk__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--xos-text);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.calls-cmdk__item--active,
+.calls-cmdk__item:hover {
+  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
+}
+
+.calls-cmdk__empty,
+.calls-cmdk__hint,
+.calls-demo__hint {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.calls-help__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.calls-help__head h3 {
+  margin: 0.2rem 0 0.25rem;
+}
+
+.calls-help__eyebrow {
+  font-family: var(--xos-font-display);
+  color: var(--xos-accent);
+  font-size: 0.85rem;
+}
+
+.calls-help__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.calls-help__cols {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.calls-help__cols li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.calls-help__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.calls-demo {
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--xos-accent) 28%, transparent), transparent 55%),
+    rgba(4, 8, 28, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.calls-demo__stage {
+  width: min(28rem, 100%);
+}
+
+.calls-demo__card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.25rem 1.35rem 1.1rem;
+  text-align: center;
+}
+
+.calls-demo__brand {
+  margin: 0;
+  font-family: var(--xos-font-display);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  letter-spacing: -0.03em;
+}
+
+.calls-demo__key {
+  font-family: var(--xos-font-display);
+  font-size: 1.6rem;
+  color: var(--xos-accent);
+}
+
+.calls-demo__card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.calls-demo__chip {
+  justify-self: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--xos-accent) 40%, var(--xos-border));
+  color: var(--xos-accent);
+  font-size: 0.82rem;
+}
+
+.calls-demo__mock {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.calls-demo__mock-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.calls-demo__mock-row span,
+.calls-demo__toast {
+  opacity: 0.35;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.calls-demo__mock-row span.is-on,
+.calls-demo__toast.is-on {
+  opacity: 1;
+}
+
+.calls-demo__mock-row span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--xos-border);
+  font-size: 0.78rem;
+}
+
+.calls-demo__mock-row span.is-on {
+  border-color: color-mix(in srgb, var(--xos-accent) 50%, var(--xos-border));
+  color: var(--xos-accent);
+}
+
+.calls-demo__toast {
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-demo__progress {
+  height: 0.25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.calls-demo__progress span {
+  display: block;
+  height: 100%;
+  background: var(--xos-accent);
+}
+
+.calls-demo__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+@media (max-width: 640px) {
+  .calls-help__grid {
+    grid-template-columns: 1fr;
+  }
+}
+

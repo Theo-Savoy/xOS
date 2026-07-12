@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventPanel } from "./EventPanel";
 import { DedupBanner } from "./DedupBanner";
 import { FilterBuilder } from "./FilterBuilder";
@@ -17,6 +17,15 @@ import { emptyFilterTree, normalizeFilterTree } from "../../crm";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+beforeEach(() => {
+  try {
+    window.localStorage?.setItem("xos-combo-demo-seen", "1");
+    window.localStorage?.setItem("xos-combo-sounds", "0");
+  } catch {
+    /* jsdom without localStorage */
+  }
 });
 
 const session: SessionDetail = {
@@ -591,6 +600,41 @@ describe("RunnerView", () => {
     await user.click(screen.getByRole("button", { name: /Prospection Lyon/i }));
     expect(screen.getByText("Bob Durand")).toBeTruthy();
     expect(screen.queryByText("Claire")).toBeNull();
+  });
+
+  it("opens the command bar with ⌘K and runs a resultat action", async () => {
+    const user = userEvent.setup();
+    const current = { ...bob, status: "pending" as const, outcome: null };
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        awaitingEvent={null}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Fiche" }));
+    await user.keyboard("{Meta>}k{/Meta}");
+    expect(screen.getByRole("dialog", { name: "Command bar Combo" })).toBeTruthy();
+    await user.click(screen.getByRole("option", { name: /Appel décroché/i }));
+    expect(screen.getByRole("button", { name: /Appel décroché/i }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("selects a resultat with digit shortcuts", async () => {
+    const current = { ...bob, status: "pending" as const, outcome: null };
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        awaitingEvent={null}
+      />,
+    );
+
+    fireEvent.keyDown(document, { key: "F" });
+    fireEvent.keyDown(document, { key: "3" });
+    expect(screen.getByRole("button", { name: /Appel décroché/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("keeps the in-progress result and comments when changing the default recall delay", async () => {
