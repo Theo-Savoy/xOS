@@ -2,7 +2,7 @@ import { useMemo, useState, type MouseEvent } from "react";
 import { Button, GlassCard, Tag } from "../../components/ui";
 import { ProgressBar } from "./ProgressBar";
 import { DatePicker, SessionTypePicker, todayParisIso } from "./formControls";
-import type { CallStats, PeriodKpis, RecallInboxItem, SessionSummary, SessionType } from "./types";
+import type { CallStats, PeriodKpis, SessionSummary, SessionType } from "./types";
 import { SESSION_TYPE_OPTIONS, sessionTypeLabel } from "./types";
 
 type HubViewMode = "list" | "calendar";
@@ -12,7 +12,7 @@ type ScheduleFilter = "upcoming" | "done" | "all";
 type SessionsViewProps = {
   sessions: SessionSummary[];
   stats: CallStats | null;
-  recalls: RecallInboxItem[];
+  recallCount: number;
   recallsLoading: boolean;
   loading: boolean;
   error: string | null;
@@ -103,7 +103,7 @@ function sortSessions(list: SessionSummary[], filter: ScheduleFilter): SessionSu
 export function SessionsView({
   sessions,
   stats,
-  recalls,
+  recallCount,
   recallsLoading,
   loading,
   error,
@@ -324,8 +324,8 @@ export function SessionsView({
                 Rappels
                 {recallsLoading ? (
                   <span className="calls-seg__count">…</span>
-                ) : recalls.length > 0 ? (
-                  <span className="calls-seg__count xos-numeric">{recalls.length}</span>
+                ) : recallCount > 0 ? (
+                  <span className="calls-seg__count xos-numeric">{recallCount}</span>
                 ) : null}
               </button>
             </div>
@@ -381,7 +381,7 @@ export function SessionsView({
           </div>
         </div>
 
-        {loading && <p className="calls-state">Chargement des séances…</p>}
+        {loading && sessions.length === 0 && <p className="calls-state">Chargement des séances…</p>}
         {error && (
           <GlassCard className="calls-error">
             <p>{error}</p>
@@ -425,7 +425,7 @@ export function SessionsView({
           </GlassCard>
         )}
 
-        {!loading && !error && viewMode === "list" && filteredSessions.length > 0 && (
+        {!error && viewMode === "list" && filteredSessions.length > 0 && (
           <ul className="calls-session-list">
             {filteredSessions.map((session) => (
               <li key={session.id}>
@@ -503,7 +503,7 @@ export function SessionsView({
           </ul>
         )}
 
-        {!loading && !error && viewMode === "calendar" && !trulyEmpty && (
+        {!error && viewMode === "calendar" && !trulyEmpty && (
           <GlassCard className="calls-calendar">
             <div className="calls-calendar__nav">
               <Button

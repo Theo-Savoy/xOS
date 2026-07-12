@@ -19,8 +19,7 @@ import {
   fetchTeam,
   fetchRecalls,
   fetchSession,
-  fetchSessions,
-  fetchStats,
+  fetchComboHub,
   logCall,
   logEvent,
   removeContact,
@@ -45,7 +44,6 @@ import type {
   CallStats,
   ContactContext,
   ContactPreview,
-  RecallInboxItem,
   SessionContact,
   SessionDetail,
   SessionSummary,
@@ -54,7 +52,7 @@ import type {
 } from "./types";
 import "./calls.css";
 
-const CONTEXT_PREFETCH_AHEAD = 8;
+const CONTEXT_PREFETCH_AHEAD = 3;
 const CONTEXT_CACHE_MAX = 32;
 
 type View = "sessions" | "new" | "runner" | "recap" | "recalls" | "pilotage" | "loading-params";
@@ -111,9 +109,10 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const [appRole, setAppRole] = useState<AppRole>("commercial");
   const canPilotage = appRole === "manager" || appRole === "admin";
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const sessionsRef = useRef<SessionSummary[]>([]);
   const [stats, setStats] = useState<CallStats | null>(null);
-  const [recalls, setRecalls] = useState<RecallInboxItem[]>([]);
-  const [recallsLoading, setRecallsLoading] = useState(false);
+  const [recallCount, setRecallCount] = useState(0);
+  const [recallsLoading, setRecallsLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
@@ -186,25 +185,28 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
   const loadSessions = useCallback(async () => {
     if (!token) return;
-    setSessionsLoading(true);
-    setRecallsLoading(true);
+    const hasSessions = sessionsRef.current.length > 0;
+    if (!hasSessions) setSessionsLoading(true);
     setSessionsError(null);
+
     try {
-      const [sessionList, statsData, recallList] = await Promise.all([
-        fetchSessions(token),
-        fetchStats(token).catch(() => null),
-        fetchRecalls(token).catch(() => []),
-      ]);
-      setSessions(sessionList);
-      setStats(statsData);
-      setRecalls(recallList);
+      const hub = await fetchComboHub(token, { force: hasSessions });
+      sessionsRef.current = hub.sessions;
+      setSessions(hub.sessions);
+      setStats(hub.stats);
+      setRecallCount(hub.recall_count);
+      setRecallsLoading(false);
+      setSessionsLoading(false);
     } catch (err) {
       setSessionsError(errorMessage(err));
-    } finally {
       setSessionsLoading(false);
       setRecallsLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   const loadPresets = useCallback(async () => {
     if (!token) return;
@@ -229,7 +231,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   }, [token]);
 
   useEffect(() => {
-    if (view === "runner" || view === "recalls" || view === "new" || view === "sessions" || shareSessionId != null) {
+    if (view === "runner" || view === "recalls" || view === "new" || shareSessionId != null) {
       void loadTeam();
     }
   }, [view, loadTeam, shareSessionId]);
@@ -512,7 +514,9 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
 
       let pending = contextInflightRef.current.get(cacheKey);
       if (!pending) {
-        pending = fetchContactContext(token, sessionId, contactId)
+        pending = fetchContactContext(token, sessionId, contactId, {
+          lite: Boolean(options?.silent),
+        })
           .then((context) => {
             contextCacheRef.current.set(cacheKey, context);
             while (contextCacheRef.current.size > CONTEXT_CACHE_MAX) {
@@ -646,7 +650,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
     setView("recalls");
     try {
       const list = await fetchRecalls(token);
-      setRecalls(list);
+      setRecallCount(list.length);
       setContacts(recallsToSessionContacts(list));
     } catch (err) {
       setRunnerError(errorMessage(err));
@@ -659,7 +663,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
   const refreshRecallsQueue = async () => {
     if (!token) return [];
     const list = await fetchRecalls(token);
-    setRecalls(list);
+    setRecallCount(list.length);
     setContacts(recallsToSessionContacts(list));
     return list;
   };
@@ -1208,7 +1212,7 @@ export default function CallManagerApp({ params }: CallManagerAppProps) {
         <SessionsView
           sessions={sessions}
           stats={stats}
-          recalls={recalls}
+          recallCount={recallCount}
           recallsLoading={recallsLoading}
           loading={sessionsLoading}
           error={sessionsError}
