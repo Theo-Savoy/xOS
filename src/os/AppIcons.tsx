@@ -17,7 +17,7 @@ function IconShell({ className, children }: IconProps & { children: ReactNode })
   );
 }
 
-/** CRM Cleaner — diamant de déduplication + éclat de donnée propre */
+/** Labo — diamant de déduplication + éclat de donnée propre */
 export function CleanerIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>

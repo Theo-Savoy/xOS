@@ -9,7 +9,7 @@ export default function CleanerApp({ params }: CleanerAppProps) {
   return (
     <iframe
       src={`/dashboard.html${query}`}
-      title="CRM Cleaner"
+      title="Labo"
       onLoad={(event) => {
         const target = event.currentTarget;
         void supabase.auth.getSession().then(({ data: { session } }) => {

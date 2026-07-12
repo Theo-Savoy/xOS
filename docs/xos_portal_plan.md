@@ -1,6 +1,6 @@
 # 🌌 Projet X OS — Portail Intranet de Pilotage Commercial
 
-**Version 2 — plan affiné du 2026-07-10** (v1 conservée dans l'historique git).
+**Version 3 — actualisée le 2026-07-12** (reconstruction modulaire de Labo, anciennement CRM Cleaner ; versions précédentes conservées dans l'historique git).
 
 Le projet **X OS** (jeu de mots avec XOS et Operating System) est un portail intranet conçu sous la forme d'un **système d'exploitation virtuel (Virtual Desktop)** s'exécutant dans le navigateur.
 
@@ -15,7 +15,7 @@ L'objectif est double :
 | Sujet | Décision | Motivation |
 |---|---|---|
 | **Stack front** | **Vite + React + TypeScript**, SPA statique. Pas de Next.js. | Composants réutilisables entre apps, état réactif partagé, et garde-fous mécaniques (tsc, ESLint) pour le contrôle qualité du travail des agents d'implémentation. L'API existe déjà en serverless, un framework fullstack n'apporte rien. |
-| **Dashboard déchet actuel** | **Préservé tel quel** (`dashboard.html` + `api/refresh.py` + `api/update.js` intouchés), embarqué en **iframe** dans la fenêtre "CRM Cleaner". Migration React ultérieure, app par app, jamais big-bang. | Zéro risque de régression sur la seule app en production. La préservation ne contraint pas la stack du reste du portail. |
+| **Labo** | L'iframe de l'ancien CRM Cleaner reste disponible uniquement pendant le chantier, puis est remplacée par un **monolithe modulaire React/TypeScript**. La V1 recode toutes les capacités legacy dans le premier module `Opportunités` et ajoute un cockpit + des onglets entre modules. Contrat : `docs/specs/labo.md`. | Le rapport opportunités devient un module d'un outil de santé CRM extensible. La parité legacy est un gate de retrait, pas une raison de conserver durablement le code vanilla/Python. |
 | **Authentification** | **Supabase Auth + magic link email**, restreint au domaine `xos-learning.fr` par trigger SQL à l'inscription. Comptes individuels, sessions JWT persistantes par device, révocation immédiate. **En plus** (Phase 8) : bouton **« Se connecter avec Salesforce »** (OAuth) sur l'écran de login — deux options coexistent, le lien magique reste. *(Google SSO abandonné le 2026-07-10 : Théo n'est pas admin Workspace du client.)* | Un mot de passe partagé est inacceptable pour une app qui écrit dans Salesforce, affiche la perf individuelle et gamifie l'équipe. Le login SF est le chemin naturel pour les commerciaux déjà dans Salesforce et prépare l'attribution niveau 2. |
 | **Persistance** | **Supabase Postgres** : profils (mapping ↔ user Salesforce), challenges/scores Arena, configuration, journal d'actions. | Le journal actuel en Blob immuable est déjà un contournement des limites de Vercel Blob (pas de read-modify-write sûr). Arena et la config exigent requêtes, transactions et concurrence propres. |
 | **Écritures Salesforce** | Via l'**utilisateur d'intégration** côté serveur, chaque action attribuée à la personne connectée dans le journal Postgres **et dans SF via `OwnerId` = son User Salesforce** (auto-mappé par email — migration 013, en place sur tous les chemins d'écriture depuis le 2026-07-11). Limite connue : `CreatedById` reste l'utilisateur d'intégration. | L'attribution **niveau 2** (`CreatedById` correct : écritures sous l'identité de chacun) arrive avec l'OAuth SF par user — lots 8.1/8.1b, sans rien casser (fallback intégration). |
@@ -64,7 +64,7 @@ Le portail adoptera une esthétique **Dark Mode Premium & Glassmorphism** inspir
 ├── src/
 │   ├── os/              shell : Desktop, Dock, WindowManager, Launcher, thème
 │   ├── apps/            une app = un dossier, contrat AppManifest
-│   │   ├── cleaner/     iframe → /dashboard.html (préservé)
+│   │   ├── cleaner/     cockpit + onglets + modules verticaux ; V1 = Opportunités
 │   │   ├── weekly/      Weekly Perf
 │   │   ├── calls/       Call Manager (séances de prospection)
 │   │   ├── arena/       Gamification
@@ -76,10 +76,11 @@ Le portail adoptera une esthétique **Dark Mode Premium & Glassmorphism** inspir
 │   ├── components/ui/   design system partagé
 │   ├── lib/             client Supabase, types
 │   └── main.tsx
-├── public/dashboard.html   ← dashboard déchet actuel, servi tel quel sur /dashboard.html
-├── api/                 serverless Vercel — 7 fonctions / plafond Hobby 12 (voir docs/ops/vercel-functions.md)
-│   ├── refresh.py       ✅ inchangé        ├── update.js    ✅ inchangé
-│   ├── history.js       journal Cleaner    ├── version.js   clé cache Cleaner
+├── public/dashboard.html   ← legacy temporaire, retiré après gate de parité Labo
+├── api/                 serverless Vercel — inventaire dans docs/ops/vercel-functions.md
+│   ├── cleaner.js       Labo : workspace, analytics, history, preview, execute
+│   ├── _cleaner/        règles, autorisation, journal, idempotence, modules métier
+│   ├── refresh.py / update.js / history.js / version.js  legacy temporaire jusqu'à la bascule
 │   ├── launcher.js      Cmd+K : SOSL + /log + /create (ex search.js + log.js)
 │   ├── auth.js          pont cookie legacy + OAuth SF (?flow=salesforce)
 │   ├── calls.js         routeur Call Manager → api/_calls/* (sessions, ciblage, presets, rappels, team)
@@ -114,18 +115,25 @@ Chaque app est enregistrée dans `src/os/registry.ts`. Une app ne touche jamais 
 **Auth de bout en bout** :
 1. SPA : Supabase Auth (lien magique email, domaine restreint) ; pas de session → écran de login.
 2. Endpoints Node : vérification du JWT Supabase (header Authorization) avant toute action ; l'identité vérifiée alimente `action_journal.actor`.
-3. `middleware.js` : accepte **soit** une session Supabase valide (cookie) **soit** le Basic Auth legacy — l'iframe Cleaner et l'accès direct historique à `/dashboard.html` continuent de fonctionner pendant toute la transition.
+3. `middleware.js` : accepte **soit** une session Supabase valide (cookie) **soit** le Basic Auth legacy — l'iframe legacy de Labo et l'accès direct historique à `/dashboard.html` continuent de fonctionner pendant toute la transition.
 
-**Cache des données** : `refresh.py` garde son cache CDN 24 h (+ bouton refresh). Les nouveaux endpoints analytics (`perf`, `calls`, `arena`) utilisent `s-maxage=900` (15 min) — la perf hebdo doit être plus fraîche que l'hygiène CRM. `search` : pas de cache.
+**Cache des données** : les réponses personnalisées de Labo ne vont jamais dans un cache CDN partagé. Le backend peut conserver brièvement les données Salesforce brutes, puis applique le scope utilisateur avant de répondre. `perf`, `calls` et les futurs endpoints analytics gardent leurs politiques propres ; `search` reste sans cache.
 
 ---
 
 ## 🚀 Les Applications du Dock (Le Hub X OS)
 
-### 1. 🗑️ CRM Cleaner (Hygiène CRM) — *Actuel, préservé*
-L'application actuelle de détection et traitement en lot des opportunités défectueuses.
-*   **Fonctionnalités** : Filtrage croisé par types de vente, familles de raisons (ET/OU), réassignation en lot au propriétaire du compte, fermeture assistée avec contrôle Picklist Salesforce.
-*   **Intégration** : fenêtre X OS contenant une **iframe** vers `/dashboard.html`, servi et fonctionnant exactement comme aujourd'hui (mêmes endpoints, même comportement). Accès direct à l'URL conservé. Migration React ultérieure hors périmètre.
+### 1. 🧪 Labo (Santé & correction du CRM) — *Reconstruction modulaire prioritaire*
+Labo devient un **atelier modulaire**. Le rapport legacy sur les opportunités est recodé et redesigné comme premier module ; les futurs modules Doublons, Contacts et Comptes pourront s'ajouter sans réécrire le shell.
+*   **Navigation** : cockpit hybride (santé factuelle + orientation vers l'action), onglet `Accueil` fixe, un onglet unique par module, état de travail conservé.
+*   **V1 — Opportunités** : trois vues internes `Nettoyage` / `Synthèse` / `Historique`. Le bandeau KPI compact B1 précède une file de nettoyage dominante ; les analyses legacy (owner, étape, retard, raisons) vivent dans Synthèse.
+*   **Parité legacy obligatoire** : KPIs, score expliqué, filtres croisés ET/OU, tri, pagination, recherche, sélection de tout le résultat filtré, réassignation, CloseDate, étape, type de vente, fermeture en perdue avec picklists dépendantes, résultats partiels, historique et deep link `/clean?q=`.
+*   **Écritures** : sélection → preview serveur → confirmation → exécution idempotente → journal Supabase. Les échecs restent sélectionnés et visibles.
+*   **Rôles** : commercial = ses opportunités ; manager/admin = équipe et actions globales, imposé côté serveur.
+*   **Frontière Copilot** : Labo corrige les anomalies objectives ; Copilot recommande les actions commerciales. L'inactivité seule n'est jamais un critère d'entrée Labo.
+*   **Architecture** : monolithe modulaire en tranches verticales, `api/cleaner.js` mince + `api/_cleaner/`, champs SF dans `api/_crm/mapping.js`.
+*   **Migration** : import idempotent complet du journal Blob vers `action_journal`, puis retrait du legacy après gate de parité. Suppression des blobs uniquement sur accord explicite.
+*   **Contrats** : `docs/specs/labo.md` · `docs/plans/labo-implementation.md`.
 
 ### 2. 📈 Weekly Perf (Cockpit Hebdomadaire) — *Nouveau*
 Suivi hebdomadaire de la performance commerciale pour piloter le rythme de vente. *(Décision 2026-07-11 : Weekly reste **micro/hebdo** — le macro multi-périodes vit dans **Business Review**, deux apps distinctes.)*
@@ -150,7 +158,7 @@ Un centre de commande rapide inspiré de Spotlight (macOS), accessible via `Cmd 
 *   **Actions instantanées** :
     *   `/log` : saisie d'une note d'appel rapide → crée une Task Salesforce rattachée au compte/contact/opp, attribuée dans le journal à l'utilisateur connecté (mention "via X OS par {nom}" dans la description SF).
     *   `/create` : création express d'un **Contact** (pas d'objet Lead dans cet org).
-    *   `/clean` : ouvre le CRM Cleaner pré-filtré sur un compte donné.
+    *   `/clean` : ouvre Labo pré-filtré sur un compte donné.
 *   *Bénéfice* : gain de temps massif par rapport aux temps de chargement de Salesforce.
 
 ### 5. 🏆 XOS Arena (Gamification & Challenges) — *Nouveau*
@@ -176,13 +184,13 @@ Assistant conversationnel : **go-to quotidien** de l'équipe. X OS est l'interfa
 *   **Architecture** :
     *   **Front** (`src/apps/agent/`) : UI messagerie.
     *   **Vercel** (`api/chat`, `api/slack/`) : auth JWT + **transport Slack uniquement** (poster/lire les DM, webhook events) ; jamais d'appel direct à Hermes.
-    *   **Hermes (app Slack)** : agent multi-user — **mémoire par commercial** + **skills** (Salesforce, log d'appel, Cleaner, recherche, etc.) configurés côté Hermes ; reçoit les DM via sa propre intégration Slack.
+    *   **Hermes (app Slack)** : agent multi-user — **mémoire par commercial** + **skills** (Salesforce, log d'appel, Labo, recherche, etc.) configurés côté Hermes ; reçoit les DM via sa propre intégration Slack.
     *   **Slack** : persistance et sync du fil ; reprise dans l'app Slack native.
 *   **Bénéfice** : un seul assistant qui connaît le contexte de chaque commercial et agit sur les vrais outils, sans quitter X OS.
 
 ### 8. 🧭 Copilot (Pilotage du pipeline & assistant d'action) — *Nouveau — Phase 9 (priorité produit : avant Arena)*
 Le cockpit **prescriptif** du commercial : là où Weekly Perf regarde en arrière (ce qui s'est passé) et Call Manager exécute (les appels du jour), Copilot répond à la question quotidienne *« comment piloter mon activité commerciale aujourd'hui ? »*. **Vue strictement personnelle** — pas de vue équipe ni de sélecteur de commercial (sinon illisible ; le pilotage d'équipe reste dans Weekly Perf). Moteur de **règles déterministes** (pas de LLM dans le repo — le volet conversationnel reste Hermes, Phase 7). Périmètre validé le 2026-07-11 :
-*   **Pipeline de travail** : les opportunités ouvertes du commercial triées par urgence (CloseDate proche/dépassée, montant, étape), « à clôturer sous 30 jours » en avant, signal d'hygiène (CloseDate passée → pont Cleaner).
+*   **Pipeline de travail** : les opportunités ouvertes du commercial triées par urgence (CloseDate proche/dépassée, montant, étape), « à clôturer sous 30 jours » en avant, signal d'hygiène (CloseDate passée → pont Labo).
 *   **Alertes & prochaines actions** : détection d'opps dormantes (aucune activité depuis N jours), bloquées (pas de progression d'étape — réutilise la logique `OpportunityHistory` de 3.1), propositions sans suite, RDV passés sans next step. Chaque alerte porte une **action en 1 clic** (Task de relance avec `OwnerId` = le commercial, Event, `/log`, séance Call Manager pré-ciblée) — via les endpoints existants, Copilot n'introduit pas de nouveau chemin d'écriture SF.
 *   **Stratégies de prospection** : analyse du portefeuille (segments à meilleur taux de gain, comptes à opp perdue ré-attaquables) → suggestions concrètes sous forme de **presets de séance Call Manager pré-remplis**.
 *   **Adoption & qualité CRM** : mon usage du CRM — appels loggés, Events, contacts et comptes créés sur fenêtre glissante (mêmes définitions que Weekly Perf, pas de deuxième vérité), comparés à ma propre période précédente — et **complétude des champs critiques** de mes enregistrements (opps, contacts, comptes ; liste des champs dans le mapping CRM, jamais en dur). La lecture équipe de ces indicateurs reste hors Copilot (Weekly Perf, et challenges Arena qui les consommeront — lot 5.1).
@@ -201,28 +209,30 @@ Le cockpit **macro** du pilotage, complément deux-apps de Weekly Perf (décisio
 
 ```mermaid
 graph TD
-    Z[Phase 0: Socle technique — Vite/React/TS + Supabase Auth/DB] --> A[Phase 1: Bureau virtuel & Cleaner iframé]
+    Z[Phase 0: Socle technique — Vite/React/TS + Supabase Auth/DB] --> A[Phase 1: Bureau virtuel & Labo legacy iframé]
     A --> B[Phase 2: XOS Launcher Cmd+K + Hub]
     B --> C[Phase 3: Weekly Perf]
     C --> D[Phase 4: Call Manager]
-    D --> H[Phase 9: Copilot — pipeline, alertes, adoption CRM]
+    D --> J[Phase 10: Labo — reconstruction modulaire]
+    J --> H[Phase 9: Copilot — pipeline, alertes, adoption CRM]
     H --> E[Phase 5: Arena]
     E --> F[Phase 6: Business Review]
     F --> G[Phase 7: Agent XOS — chat Slack + Hermes app Slack]
 ```
 
-*Les numéros de phase sont des identifiants stables (la Phase 9 s'exécute avant la 5 : priorité produit actée le 2026-07-11 — valeur métier directe de Copilot > gamification).*
+*Les numéros de phase sont des identifiants stables. La Phase 10 Labo est le chantier prioritaire courant ; elle précède la Phase 9 Copilot, qui reste prioritaire sur Arena.*
 
 Le détail des lots, l'assignation aux agents (via Orca) et les critères de vérification par lot sont dans **`docs/xos_implementation_plan.md`**.
 
-**Invariant de non-régression, vérifié à chaque phase** : `GET /dashboard.html` (direct et via Basic Auth legacy), `GET /api/refresh` et `POST /api/update` se comportent exactement comme avant le chantier.
+**Invariant de transition Labo** : avant la bascule native, `GET /dashboard.html`, `GET /api/refresh` et `POST /api/update` restent fonctionnels. Le retrait n'est autorisé qu'après passage de la matrice de parité, migration contrôlée de l'historique et preuve qu'aucun appel runtime ne cible encore ces routes.
 
 ### Risques identifiés
 1. **Config Vercel hybride** (SPA Vite + `dashboard.html` statique + fonctions Node/Python + middleware) : traité en tout premier (lot 0.1) pour dérisquer le déploiement.
 2. **Définitions des métriques** (Pulse, entonnoir) dépendantes de la discipline de saisie réelle : audits SOQL préalables + validation Théo avant chaque UI de dashboard.
 3. **Polices** : Brockmann (webfont) + Neue Montreal (OTF→woff2) livrées ; ⚠️ Aeonik en version TRIAL seulement → exclue de la prod.
-4. **Quotas API Salesforce** : les nouveaux endpoints sont cachés (15 min) et le Hub affiche la consommation.
+4. **Quotas API Salesforce** : `perf`/`calls` gardent leurs caches adaptés ; Labo cache brièvement les données org brutes et ne partage jamais une réponse personnalisée. Le Hub affiche la consommation.
 5. **Slack + Hermes** : workspace unique ; rate limits Slack ; **Hermes = app Slack** (skills et mémoire gérés côté Hermes, pas dans le repo X OS) ; X OS ne parle qu'à Slack.
+6. **Bascule Labo** : régression fonctionnelle masquée par le redesign. Traitement : matrice de parité exécutable, preview/execute idempotent, migration à blanc puis contrôlée, legacy conservé jusqu'au gate final.
 
 ---
 

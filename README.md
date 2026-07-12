@@ -37,7 +37,7 @@ En dev, le registry expose aussi des apps de démo (aperçu, notes, design syste
 
 ## Dashboard déchet
 
-Le front legacy charge ses données via `GET /api/refresh` (Python/Salesforce). Il est embarqué dans X OS via l'app **CRM Cleaner** (`iframe` → `/dashboard.html`).
+Le front legacy charge ses données via `GET /api/refresh` (Python/Salesforce). Il est temporairement embarqué dans X OS via l'app **Labo** (`iframe` → `/dashboard.html`), en attente de sa reconstruction native.
 
 - Refresh automatique : cache CDN 24h
 - Bouton Actualiser : bypass cache + `localStorage`

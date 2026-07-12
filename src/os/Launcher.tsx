@@ -641,7 +641,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                     <span className="xos-launcher__item-icon" aria-hidden="true">◈</span>
                     <span className="xos-launcher__item-name">/clean</span>
                     <span className="xos-launcher__item-detail">
-                      Ouvrir le CRM Cleaner{cleanArg ? ` filtré sur "${cleanArg}"` : ""}
+                      Ouvrir Labo{cleanArg ? ` filtré sur "${cleanArg}"` : ""}
                     </span>
                   </Command.Item>
                 )}

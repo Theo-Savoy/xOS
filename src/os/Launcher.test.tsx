@@ -226,11 +226,11 @@ describe("Launcher", () => {
     render(<Launcher accessToken="tok" onOpenApp={noop} />);
 
     await user.keyboard("{Meta>}k{/Meta}");
-    await user.type(screen.getByRole("combobox"), "Cleaner");
+    await user.type(screen.getByRole("combobox"), "Labo");
 
     await waitFor(() => {
       expect(screen.getByText("Apps")).toBeTruthy();
-      expect(screen.getByText("CRM Cleaner")).toBeTruthy();
+      expect(screen.getByText("Labo")).toBeTruthy();
     });
   });
 
@@ -240,14 +240,14 @@ describe("Launcher", () => {
     render(<Launcher accessToken="tok" onOpenApp={onOpenApp} />);
 
     await user.keyboard("{Meta>}k{/Meta}");
-    await user.type(screen.getByRole("combobox"), "Cleaner");
+    await user.type(screen.getByRole("combobox"), "Labo");
 
     await waitFor(() => {
-      expect(screen.getByText("CRM Cleaner")).toBeTruthy();
+      expect(screen.getByText("Labo")).toBeTruthy();
     });
 
-    const item = screen.getByText("CRM Cleaner").closest("[cmdk-item]") ||
-      screen.getByText("CRM Cleaner").closest("[role='option']");
+    const item = screen.getByText("Labo").closest("[cmdk-item]") ||
+      screen.getByText("Labo").closest("[role='option']");
     if (item) await user.click(item);
 
     await waitFor(() => {
@@ -496,7 +496,7 @@ describe("Launcher", () => {
       expect(screen.getByText("/clean")).toBeTruthy();
     });
 
-    it("opens CRM Cleaner when /clean command is selected", async () => {
+    it("opens Labo when /clean command is selected", async () => {
       const user = userEvent.setup();
       const openAppMock = vi.fn();
       render(<Launcher accessToken="tok" onOpenApp={openAppMock} />);
@@ -505,8 +505,8 @@ describe("Launcher", () => {
       const input = screen.getByRole("combobox");
       await user.type(input, "/clean Acme");
 
-      const cleanItem = screen.getByText(/Ouvrir le CRM Cleaner/).closest("[cmdk-item]") ||
-        screen.getByText(/Ouvrir le CRM Cleaner/).closest("[role='option']");
+      const cleanItem = screen.getByText(/Ouvrir Labo/).closest("[cmdk-item]") ||
+        screen.getByText(/Ouvrir Labo/).closest("[role='option']");
       if (cleanItem) await user.click(cleanItem);
 
       expect(openAppMock).toHaveBeenCalledTimes(1);

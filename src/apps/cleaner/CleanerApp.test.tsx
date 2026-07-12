@@ -20,9 +20,9 @@ describe("Cleaner app manifest", () => {
     expect(manifest?.id).toBe("cleaner");
   });
 
-  it("has title 'CRM Cleaner'", () => {
+  it("has title 'Labo'", () => {
     const manifest = getAppManifest("cleaner");
-    expect(manifest?.title).toBe("CRM Cleaner");
+    expect(manifest?.title).toBe("Labo");
   });
 
   it("has a desktop-appropriate default size (fits 1366×768 viewport)", () => {
@@ -41,7 +41,7 @@ describe("Cleaner app manifest", () => {
 describe("CleanerApp component", () => {
   it("renders an iframe with src='/dashboard.html'", () => {
     render(<CleanerApp />);
-    const iframe = screen.getByTitle("CRM Cleaner");
+    const iframe = screen.getByTitle("Labo");
     expect(iframe).toBeTruthy();
     expect(iframe.tagName).toBe("IFRAME");
     expect(iframe.getAttribute("src")).toBe("/dashboard.html");
@@ -49,13 +49,13 @@ describe("CleanerApp component", () => {
 
   it("has an accessible title attribute on the iframe", () => {
     render(<CleanerApp />);
-    const iframe = screen.getByTitle("CRM Cleaner");
-    expect(iframe.getAttribute("title")).toBe("CRM Cleaner");
+    const iframe = screen.getByTitle("Labo");
+    expect(iframe.getAttribute("title")).toBe("Labo");
   });
 
   it("passes the authenticated session to the same-origin legacy dashboard", async () => {
     render(<CleanerApp />);
-    const iframe = screen.getByTitle("CRM Cleaner") as HTMLIFrameElement;
+    const iframe = screen.getByTitle("Labo") as HTMLIFrameElement;
     const postMessage = vi.spyOn(iframe.contentWindow!, "postMessage");
     fireEvent.load(iframe);
 
