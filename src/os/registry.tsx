@@ -5,9 +5,11 @@ import {
   DemoNotesIcon,
   DemoOverviewIcon,
   DemoUiIcon,
+  FeedbackIcon,
   HubIcon,
   WeeklyIcon,
 } from "./AppIcons";
+import { sleekplanEnabled } from "./sleekplan";
 
 export type AppRole = "admin" | "manager" | "commercial";
 
@@ -51,6 +53,17 @@ export const appRegistry: AppManifest[] = [
     // Panneau système : bruit pour un commercial, réservé au pilotage.
     roles: ["manager", "admin"],
   },
+  ...(sleekplanEnabled
+    ? [
+        {
+          id: "feedback",
+          title: "Feedback",
+          icon: <FeedbackIcon />,
+          component: lazy(() => import("../apps/feedback/FeedbackApp")),
+          defaultSize: { w: 960, h: 680 },
+        },
+      ]
+    : []),
   ...(import.meta.env.DEV
     ? [
         {

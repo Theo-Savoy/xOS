@@ -16,7 +16,6 @@ import {
   SHORTCUTS_CHANGED_EVENT,
   type DesktopShortcut,
 } from "./shortcuts";
-import { initSleekplan, sleekplanEnabled } from "./sleekplan";
 import { startSalesforceLink } from "./salesforceLink";
 import "./theme.css";
 import "./desktop.css";
@@ -59,9 +58,6 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
     };
   }, []);
 
-  useEffect(() => {
-    initSleekplan();
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,20 +133,13 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
             <span className="xos-menubar__sf-text">{sfLinked ? "Salesforce connecté" : "Salesforce non lié"}</span>
           </span>
         </div>
-        <div>
-          {sleekplanEnabled && (
-            <button type="button" className="xos-menubar__feedback" data-sleek>
-              Feedback
-            </button>
-          )}
-          <button
-            type="button"
-            className="xos-menubar__logout"
-            onClick={() => void supabase.auth.signOut()}
-          >
-            Déconnexion
-          </button>
-        </div>
+        <button
+          type="button"
+          className="xos-menubar__logout"
+          onClick={() => void supabase.auth.signOut()}
+        >
+          Déconnexion
+        </button>
       </header>
 
       {shortcuts.length > 0 && (

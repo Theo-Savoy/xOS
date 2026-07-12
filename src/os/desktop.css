@@ -60,7 +60,6 @@ textarea {
 }
 
 .xos-menubar__logout,
-.xos-menubar__feedback,
 .xos-menubar__sf-link {
   margin-left: 12px;
   padding: 4px 12px;
@@ -74,7 +73,6 @@ textarea {
 }
 
 .xos-menubar__logout:hover,
-.xos-menubar__feedback:hover,
 .xos-menubar__sf-link:hover {
   background: rgba(255, 255, 255, 0.12);
 }
