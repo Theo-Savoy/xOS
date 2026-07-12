@@ -106,32 +106,94 @@ export class PilotageApiError extends Error {
   }
 }
 
+type CockpitCacheEntry = {
+  token: string;
+  at: number;
+  data?: ProspectionCockpit;
+  promise?: Promise<ProspectionCockpit>;
+};
+
+const COCKPIT_CACHE_TTL_MS = 60_000;
+const cockpitCache = new Map<string, CockpitCacheEntry>();
+
+function cockpitCacheKey(period: CockpitPeriod, anchor?: string | null): string {
+  return `${period}:${anchor ?? "default"}`;
+}
+
+export function invalidateProspectionCockpitCache(): void {
+  cockpitCache.clear();
+}
+
+export function prefetchProspectionCockpit(
+  token: string,
+  period: CockpitPeriod,
+  anchor?: string | null,
+): void {
+  if (!token) return;
+  void fetchProspectionCockpit(token, period, anchor).catch(() => {
+    /* ignore */
+  });
+}
+
 export async function fetchProspectionCockpit(
   token: string,
   period: CockpitPeriod,
   anchor?: string | null,
+  opts?: { force?: boolean },
 ): Promise<ProspectionCockpit> {
+  const force = opts?.force === true;
+  const key = cockpitCacheKey(period, anchor);
+  const now = Date.now();
+  const cached = cockpitCache.get(key);
+
+  if (
+    !force
+    && cached
+    && cached.token === token
+    && cached.data
+    && now - cached.at < COCKPIT_CACHE_TTL_MS
+  ) {
+    return cached.data;
+  }
+  if (!force && cached && cached.token === token && cached.promise) {
+    return cached.promise;
+  }
+
   const params = new URLSearchParams({
     resource: "prospection_cockpit",
     period,
   });
   if (anchor) params.set("anchor", anchor);
 
-  const res = await fetch(`/api/calls?${params}`, {
+  const promise = fetch(`/api/calls?${params}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-  });
-  if (!res.ok) {
-    let code = `http_${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) code = body.error;
-    } catch {
-      /* ignore */
+  }).then(async (res) => {
+    if (!res.ok) {
+      let code = `http_${res.status}`;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) code = body.error;
+      } catch {
+        /* ignore */
+      }
+      throw new PilotageApiError(res.status, code);
     }
-    throw new PilotageApiError(res.status, code);
+    return res.json() as Promise<ProspectionCockpit>;
+  }).then((data) => {
+    cockpitCache.set(key, { token, at: Date.now(), data });
+    return data;
+  });
+
+  cockpitCache.set(key, { token, at: now, promise });
+  try {
+    return await promise;
+  } catch (err) {
+    const current = cockpitCache.get(key);
+    if (current?.promise === promise) cockpitCache.delete(key);
+    throw err;
   }
-  return res.json() as Promise<ProspectionCockpit>;
 }
+

@@ -1323,12 +1323,14 @@ export function RunnerView({
             </GlassCard>
             <GlassCard className="calls-stat">
               <span>Décrochés</span>
-              <strong className="xos-numeric">{kpis.decroches}</strong>
-              {kpis.called > 0 && (
-                <em className="calls-stat__rate xos-numeric">
-                  {Math.round((kpis.decroches / kpis.called) * 1000) / 10}%
-                </em>
-              )}
+              <strong className="xos-numeric calls-stat__value">
+                {kpis.decroches}
+                {kpis.called > 0 && (
+                  <span className="calls-stat__rate">
+                    {Math.round((kpis.decroches / kpis.called) * 1000) / 10}&nbsp;%
+                  </span>
+                )}
+              </strong>
             </GlassCard>
             <GlassCard className="calls-stat">
               <span>Argumentés</span>
@@ -1427,7 +1429,7 @@ export function RunnerView({
         <GlassCard className="calls-empty calls-empty--hero">
           <EmptyState
             title="Rien à rappeler"
-            description="Inbox zero — dès qu'un appel planifie un rappel, il atterrit ici, prêt à être traité comme une séance."
+            description="Aucun rappel en attente — dès qu'un appel planifie un rappel, il atterrit ici."
             action={
               <Button variant="secondary" onClick={onBack}>
                 Retour au hub
@@ -1501,7 +1503,7 @@ export function RunnerView({
                   contactName={singleSelectedContact.contact_name}
                   loading={loading}
                   onSubmit={handleBulkRdvSubmit}
-                  submitLabel="Logguer appel + RDV & suivant"
+                  submitLabel="Consigner appel + RDV & suivant"
                   heading={`Détails du RDV — ${singleSelectedContact.contact_name}`}
                   className="calls-event-panel--inline"
                   team={team}
@@ -1527,7 +1529,7 @@ export function RunnerView({
                       disabled={loading}
                       title={`Reporter vers « ${continuationLabel} » · D`}
                     >
-                      Non contacté
+                      Reporter
                       <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
                         D
                       </kbd>
@@ -1623,7 +1625,7 @@ export function RunnerView({
           {deferIds && !isRecallQueue && (
             <div className="calls-defer-panel" role="region" aria-label="Créer la séance suivante">
               <strong>
-                Non contacté → {continuationLabel}
+                Reporter → {continuationLabel}
               </strong>
               <p className="calls-defer-panel__empty">
                 Choisissez la date de la séance suivante
@@ -2058,7 +2060,7 @@ export function RunnerView({
             />
           ) : focusedContact.status === "pending" ? (
             <GlassCard className="calls-log-form">
-              <h3>Journaliser l&apos;appel</h3>
+              <h3>Consigner l&apos;appel</h3>
               <div className="calls-fb-control">
                 <div className="calls-fb-control__label">
                   <span>Résultat</span>
@@ -2110,7 +2112,7 @@ export function RunnerView({
                   contactName={focusedContact.contact_name}
                   loading={loading}
                   onSubmit={handleRdvSubmit}
-                  submitLabel="Logguer appel + RDV & suivant"
+                  submitLabel="Consigner appel + RDV & suivant"
                   heading="Détails du RDV"
                   className="calls-event-panel--inline"
                   team={team}
@@ -2134,7 +2136,7 @@ export function RunnerView({
                         "Enregistrement…"
                       ) : (
                         <>
-                          Logguer & suivant
+                          Consigner & suivant
                           <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
                             ⌘↵
                           </kbd>
@@ -2148,7 +2150,7 @@ export function RunnerView({
                         disabled={loading}
                         title={`Reporter vers « ${continuationLabel} » · D`}
                       >
-                        Non contacté
+                        Reporter
                         <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
                           D
                         </kbd>
@@ -2177,7 +2179,7 @@ export function RunnerView({
                     disabled={loading}
                     title={`Reporter vers « ${continuationLabel} » · D`}
                   >
-                    Non contacté
+                    Reporter
                     <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
                       D
                     </kbd>
@@ -2198,7 +2200,7 @@ export function RunnerView({
 
               {deferIds && mode === "detail" && !isRecallQueue && (
                 <div className="calls-defer-panel" role="region" aria-label="Créer la séance suivante">
-                  <strong>Non contacté → {continuationLabel}</strong>
+                  <strong>Reporter → {continuationLabel}</strong>
                   <p className="calls-defer-panel__empty">
                     Choisissez la date de la séance suivante.
                   </p>

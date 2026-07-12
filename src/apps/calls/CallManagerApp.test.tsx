@@ -347,9 +347,9 @@ describe("CallManagerApp component", () => {
 
     expect(await screen.findByRole("heading", { name: "Détails du RDV" })).toBeTruthy();
     expect(contextFetches).toBe(1);
-    expect(screen.queryByRole("button", { name: "Logguer & suivant" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Consigner & suivant" })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Logguer appel + RDV & suivant" }));
+    await user.click(screen.getByRole("button", { name: "Consigner appel + RDV & suivant" }));
     await screen.findByText("Terminée");
     expect(postedActions).toEqual(["claim_contact", "log_call", "log_event", "complete_session"]);
   });
@@ -391,7 +391,7 @@ describe("CallManagerApp component", () => {
     await screen.findByRole("heading", { name: "NPA" });
     await user.click(screen.getByRole("button", { name: "Fiche" }));
     await user.click(screen.getByLabelText(/Ne pas rappeler \(NPA\)/));
-    await user.click(screen.getByRole("button", { name: "Logguer & suivant" }));
+    await user.click(screen.getByRole("button", { name: "Consigner & suivant" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Appel consigné, mais le marquage NPA a échoué dans Salesforce — vérifie la fiche.",

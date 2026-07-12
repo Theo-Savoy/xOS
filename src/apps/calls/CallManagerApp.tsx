@@ -20,6 +20,7 @@ import {
   fetchRecalls,
   fetchSession,
   fetchComboHub,
+  invalidateComboHubCache,
   logCall,
   logEvent,
   removeContact,
@@ -216,14 +217,14 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     lastContextKey.current = null;
   }, [activeSession?.id]);
 
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (opts?: { force?: boolean }) => {
     if (!token) return;
     const hasSessions = sessionsRef.current.length > 0;
     if (!hasSessions) setSessionsLoading(true);
     setSessionsError(null);
 
     try {
-      const hub = await fetchComboHub(token, { force: hasSessions });
+      const hub = await fetchComboHub(token, { force: opts?.force === true });
       sessionsRef.current = hub.sessions;
       setSessions(hub.sessions);
       setStats(hub.stats);
@@ -474,6 +475,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       setActiveSession(data.session);
       setContacts(data.contacts);
       setAwaitingEvent(null);
+      invalidateComboHubCache();
       setView("runner");
     } catch (err) {
       setNewError(errorMessage(err));
@@ -489,7 +491,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     if (!token) return;
     try {
       await updateSession(token, sessionId, patch);
-      await loadSessions();
+      invalidateComboHubCache();
+      await loadSessions({ force: true });
     } catch (err) {
       setSessionsError(errorMessage(err));
       throw err;
@@ -500,7 +503,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     if (!token) return;
     try {
       await deleteSession(token, sessionId);
-      await loadSessions();
+      invalidateComboHubCache();
+      await loadSessions({ force: true });
     } catch (err) {
       setSessionsError(errorMessage(err));
       throw err;
@@ -967,7 +971,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         payload.targetSessionId,
         payload.name,
       );
-      await loadSessions();
+      invalidateComboHubCache();
+      await loadSessions({ force: true });
       if (result.target_session) {
         setFocusedContactId(null);
         setAwaitingEvent(null);
@@ -1260,7 +1265,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           loading={sessionsLoading}
           error={sessionsError}
           canPilotage={canPilotage}
-          onRefresh={() => void loadSessions()}
+          onRefresh={() => void loadSessions({ force: true })}
           onNewSession={() => {
             setView("new");
             setFilters(emptyFilterTree());

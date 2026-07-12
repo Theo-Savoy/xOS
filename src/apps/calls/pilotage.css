@@ -128,8 +128,6 @@
 }
 
 .pilotage-compact-row {
-  --heatmap-gap: 0.12rem;
-  --heatmap-cell: min(1.28rem, calc((100% - 6 * var(--heatmap-gap)) / 7));
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 1rem 1.25rem;
@@ -215,13 +213,12 @@
 }
 
 .pilotage-heatmap {
-  --heatmap-gap: 0.12rem;
-  --heatmap-cell: min(1.28rem, calc((100% - 6 * var(--heatmap-gap)) / 7));
+  --heatmap-gap: 0.2rem;
+  --heatmap-cell-h: 1.7rem;
   display: grid;
-  justify-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   width: 100%;
-  max-width: none;
+  min-width: 0;
   justify-self: stretch;
   margin-inline: 0;
   padding: 0.85rem 1rem 0.95rem;
@@ -230,25 +227,11 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
-.pilotage-compact-row .pilotage-heatmap {
-  margin-inline: 0;
-  justify-self: stretch;
-}
-
-.pilotage-heatmap__inner {
-  display: grid;
-  gap: 0.42rem;
-  width: min(100%, calc(7 * var(--heatmap-cell) + 6 * var(--heatmap-gap)));
-  justify-items: stretch;
-  margin-inline: auto;
-}
-
 .pilotage-heatmap__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  text-align: left;
   gap: 0.45rem 0.85rem;
   width: 100%;
 }
@@ -276,19 +259,20 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
   width: 100%;
 }
 
 .pilotage-heatmap__scale-bound {
   font-size: 0.68rem;
   color: var(--xos-text-muted);
-  min-width: 0.9rem;
+  min-width: 1rem;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .pilotage-heatmap__gradient {
-  height: 0.4rem;
+  height: 0.45rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--xos-border) 70%, transparent);
 }
@@ -297,7 +281,7 @@
   background: linear-gradient(
     to right,
     rgba(255, 255, 255, 0.04),
-    color-mix(in srgb, #6b8cae 55%, transparent),
+    color-mix(in srgb, #6b8cae 40%, transparent),
     #6b8cae
   );
 }
@@ -307,21 +291,19 @@
     to right,
     rgba(255, 255, 255, 0.04),
     color-mix(in srgb, var(--xos-accent) 35%, transparent),
-    color-mix(in srgb, var(--xos-accent) 85%, #d4af37)
+    color-mix(in srgb, var(--xos-accent) 80%, #d4af37)
   );
 }
 
 .pilotage-heatmap__weekdays {
   display: grid;
-  grid-template-columns: repeat(7, var(--heatmap-cell));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--heatmap-gap);
-  font-size: 0.64rem;
+  width: 100%;
+  font-size: 0.68rem;
   color: var(--xos-text-muted);
   text-align: center;
-  text-transform: uppercase;
   letter-spacing: 0.02em;
-  justify-content: center;
-  width: 100%;
 }
 
 .pilotage-heatmap__grid {
@@ -332,33 +314,34 @@
 
 .pilotage-heatmap__week {
   display: grid;
-  grid-template-columns: repeat(7, var(--heatmap-cell));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--heatmap-gap);
-  justify-content: center;
+  width: 100%;
 }
 
 .pilotage-heatmap__cell {
   position: relative;
-  width: var(--heatmap-cell);
-  height: var(--heatmap-cell);
+  width: 100%;
+  height: var(--heatmap-cell-h);
   min-width: 0;
-  min-height: 0;
-  flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--xos-border) 80%, transparent);
-  border-radius: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--xos-border) 75%, transparent);
+  border-radius: 0.35rem;
   color: var(--xos-text);
   font: inherit;
   cursor: pointer;
-  padding: 0;
+  padding: 0.12rem 0.15rem;
   display: grid;
-  place-items: center;
-  transition: border-color 0.12s ease, transform 0.1s ease;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  justify-items: start;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
 }
 
 .pilotage-heatmap__cell--calls {
   background: color-mix(
     in srgb,
-    #6b8cae calc(var(--heat-t, 0) * 58%),
+    #6b8cae calc(var(--heat-t, 0) * 72%),
     rgba(255, 255, 255, 0.03)
   );
 }
@@ -366,20 +349,26 @@
 .pilotage-heatmap__cell--rdv {
   background: color-mix(
     in srgb,
-    var(--xos-accent) calc(var(--heat-t, 0) * 62%),
+    var(--xos-accent) calc(var(--heat-t, 0) * 78%),
     rgba(255, 255, 255, 0.03)
   );
 }
 
+.pilotage-heatmap__cell--active {
+  color: #fff;
+}
+
 .pilotage-heatmap__cell:hover {
-  border-color: color-mix(in srgb, var(--xos-accent) 45%, var(--xos-border));
-  transform: scale(1.08);
+  border-color: color-mix(in srgb, var(--xos-accent) 50%, var(--xos-border));
+  transform: translateY(-1px);
   z-index: 1;
 }
 
 .pilotage-heatmap__cell--selected {
-  border-color: color-mix(in srgb, var(--xos-accent) 70%, var(--xos-border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 40%, transparent);
+  border-color: color-mix(in srgb, var(--xos-accent) 80%, #fff);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--xos-accent) 45%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, #fff 18%, transparent);
 }
 
 .pilotage-heatmap__cell--empty {
@@ -390,10 +379,24 @@
 }
 
 .pilotage-heatmap__day {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  opacity: 0.95;
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.pilotage-heatmap__cell--active .pilotage-heatmap__day {
+  opacity: 0.92;
+}
+
+.pilotage-heatmap__value {
+  align-self: end;
+  justify-self: end;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   pointer-events: none;
 }
 
@@ -838,8 +841,8 @@
 
   .pilotage-compact-row .pilotage-heatmap__head,
   .pilotage-compact-card__head {
-    justify-content: center;
-    text-align: center;
+    justify-content: space-between;
+    text-align: left;
   }
 
   .pilotage-table--sessions {

@@ -2252,6 +2252,13 @@
   gap: 0.2rem;
 }
 
+.calls-stat__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
 .calls-stat__goal {
   margin-left: 0.1rem;
   font-size: 0.72em;
@@ -2260,11 +2267,10 @@
 }
 
 .calls-stat__rate {
-  display: block;
-  margin-top: 0.05rem;
   font-style: normal;
   font-size: 0.72rem;
   font-weight: 500;
+  line-height: 1;
   color: var(--xos-text-muted);
   font-variant-numeric: tabular-nums;
 }

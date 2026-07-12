@@ -15,9 +15,11 @@ import {
 import type { PeriodKpis } from "./types";
 import {
   fetchProspectionCockpit,
+  prefetchProspectionCockpit,
   PilotageApiError,
   type CockpitCallerRow,
   type CockpitDayCallerRow,
+  type CockpitDayRow,
   type CockpitPeriod,
   type CockpitRange,
   type CockpitSessionRow,
@@ -27,13 +29,16 @@ import "./pilotage.css";
 
 type DetailMode = "days" | "sessions";
 
+const EMPTY_DAYS: CockpitDayRow[] = [];
+const EMPTY_SESSIONS: CockpitSessionRow[] = [];
+
 type CockpitSlice = {
   data: ProspectionCockpit | null;
   selectedSessionIds: Set<number>;
 };
 
 type CockpitSliceAction =
-  | { type: "apply"; cockpit: ProspectionCockpit }
+  | { type: "apply"; cockpit: ProspectionCockpit; resetSelection?: boolean }
   | { type: "selectAll"; sessionIds: number[] }
   | { type: "selectNone" }
   | { type: "toggle"; id: number }
@@ -41,13 +46,20 @@ type CockpitSliceAction =
 
 function cockpitSliceReducer(state: CockpitSlice, action: CockpitSliceAction): CockpitSlice {
   switch (action.type) {
-    case "apply":
-      return {
-        data: action.cockpit,
-        selectedSessionIds: new Set(
-          (action.cockpit.sessions ?? []).map((s) => normalizeSessionId(s.id)),
-        ),
-      };
+    case "apply": {
+      const nextIds = (action.cockpit.sessions ?? []).map((s) => normalizeSessionId(s.id));
+      const nextSet = new Set(nextIds);
+      let selectedSessionIds: Set<number>;
+      if (action.resetSelection || !state.data) {
+        selectedSessionIds = nextSet;
+      } else {
+        selectedSessionIds = new Set(
+          [...state.selectedSessionIds].filter((id) => nextSet.has(id)),
+        );
+        if (selectedSessionIds.size === 0) selectedSessionIds = nextSet;
+      }
+      return { data: action.cockpit, selectedSessionIds };
+    }
     case "selectAll":
       return {
         ...state,
@@ -184,7 +196,7 @@ function KpiFootnote({
     <p className="pilotage-secondary">
       RDV / décroché <strong className="xos-numeric">{pct(kpis.rate_rdv_per_decroche)}</strong>
       <span aria-hidden="true"> · </span>
-      Hors liste <strong className="xos-numeric">{kpis.npa}</strong>
+      NPA <strong className="xos-numeric">{kpis.npa}</strong>
       {extras}
     </p>
   );
@@ -348,10 +360,9 @@ export function PilotageView({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const cockpitCache = useRef<Map<string, ProspectionCockpit>>(new Map());
-  const prefetching = useRef<Set<string>>(new Set());
   const loadSeq = useRef(0);
   const dataRef = useRef<ProspectionCockpit | null>(null);
+  const selectionScopeRef = useRef<string | null>(null);
   const stableKpisRef = useRef<PeriodKpis>(emptyKpis());
   const [pinned, setPinned] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -363,48 +374,47 @@ export function PilotageView({
 
   const RDV_PREVIEW_LIMIT = 5;
 
-  const applyCockpit = useCallback((next: ProspectionCockpit, activePeriod: CockpitPeriod) => {
-    dispatchCockpit({ type: "apply", cockpit: next });
+  const applyCockpit = useCallback((next: ProspectionCockpit, activePeriod: CockpitPeriod, scopeKey: string) => {
+    const resetSelection = selectionScopeRef.current !== scopeKey;
+    selectionScopeRef.current = scopeKey;
+    dispatchCockpit({ type: "apply", cockpit: next, resetSelection });
     dataRef.current = next;
-    setExpandedDay(null);
-    setSelectedCallerId(null);
-    setShowAllRdv(false);
-    if (activePeriod === "day") {
-      setDetailMode("sessions");
+    if (resetSelection) {
+      setExpandedDay(null);
+      setSelectedCallerId(null);
+      setShowAllRdv(false);
+      if (activePeriod === "day") {
+        setDetailMode("sessions");
+      }
     }
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!token) return;
     const seq = ++loadSeq.current;
     const key = cockpitCacheKey(period, anchor);
-    const cached = cockpitCache.current.get(key);
+    const force = opts?.force === true;
 
-    if (cached) {
-      if (seq === loadSeq.current) {
-        applyCockpit(cached, period);
-        setLoading(false);
-      }
-    } else if (!dataRef.current) {
+    if (!dataRef.current) {
       setLoading(true);
     }
     setError(null);
 
     try {
-      const next = await fetchProspectionCockpit(token, period, anchor);
+      const next = await fetchProspectionCockpit(token, period, anchor, { force });
       if (seq !== loadSeq.current) return;
-      cockpitCache.current.set(key, next);
-      applyCockpit(next, period);
+      applyCockpit(next, period, key);
     } catch (err) {
       if (seq !== loadSeq.current) return;
-      if (!cached && !dataRef.current) {
+      if (!dataRef.current) {
         if (err instanceof PilotageApiError && err.code === "forbidden") {
           setError("Réservé aux managers.");
         } else {
-          setError("Impossible de charger Pilotage.");
+          setError("Impossible de charger le pilotage.");
         }
         dispatchCockpit({ type: "clear" });
         dataRef.current = null;
+        selectionScopeRef.current = null;
       }
     } finally {
       if (seq === loadSeq.current) {
@@ -418,19 +428,7 @@ export function PilotageView({
       if (!token) return;
       const today = todayParisDate();
       if (nextAnchor > today) return;
-      const key = cockpitCacheKey(nextPeriod, nextAnchor);
-      if (cockpitCache.current.has(key) || prefetching.current.has(key)) return;
-      prefetching.current.add(key);
-      void fetchProspectionCockpit(token, nextPeriod, nextAnchor)
-        .then((next) => {
-          cockpitCache.current.set(key, next);
-        })
-        .catch(() => {
-          /* ignore prefetch errors */
-        })
-        .finally(() => {
-          prefetching.current.delete(key);
-        });
+      prefetchProspectionCockpit(token, nextPeriod, nextAnchor);
     },
     [token],
   );
@@ -459,8 +457,8 @@ export function PilotageView({
     }
   }, [token, data, period, anchor, prefetchCockpit]);
 
-  const sessions = data?.sessions ?? [];
-  const byDay = data?.by_day ?? [];
+  const sessions = data?.sessions ?? EMPTY_SESSIONS;
+  const byDay = data?.by_day ?? EMPTY_DAYS;
 
   const selectedSessions = useMemo(() => {
     const picked = sessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
@@ -543,7 +541,7 @@ export function PilotageView({
     return (
       <div className="pilotage-app pilotage-app__state">
         <p>{error}</p>
-        <Button variant="secondary" onClick={() => void load()}>Réessayer</Button>
+        <Button variant="secondary" onClick={() => void load({ force: true })}>Réessayer</Button>
       </div>
     );
   }
@@ -680,7 +678,7 @@ export function PilotageView({
               Séances
             </button>
           </div>
-          <Button variant="secondary" onClick={() => void load()} disabled={loading && !data}>
+          <Button variant="secondary" onClick={() => void load({ force: true })} disabled={loading && !data}>
             Actualiser
           </Button>
           {onPin && (
@@ -874,7 +872,8 @@ export function PilotageView({
       </div>
 
       <GlassCard className="pilotage-panel">
-        <h3>Équipe</h3>        <p className="pilotage-panel__hint">Qui a passé les appels. Cliquez pour le détail.</p>
+        <h3>Équipe</h3>
+        <p className="pilotage-panel__hint">Répartition par commercial — cliquez pour le détail.</p>
 
         {filtered.callers.length === 0 ? (
           <p className="pilotage-empty">Aucune activité sur la période.</p>
