@@ -550,15 +550,18 @@ textarea {
 }
 
 .xos-menubar__sf-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-sizing: border-box;
   font-size: 11px;
   font-weight: 500;
+  line-height: 1.2;
   padding: 3px 10px;
   border-radius: 999px;
   transition: all 0.25s ease;
   font-family: var(--xos-font-display);
+  vertical-align: middle;
 }
 
 .xos-menubar__sf-status--linked {
@@ -596,8 +599,13 @@ textarea {
 }
 
 button.xos-menubar__sf-status {
-  font: inherit;
   appearance: none;
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  background-clip: padding-box;
+  color: inherit;
+  cursor: pointer;
 }
 
 .xos-menubar__sf-icon {

@@ -199,7 +199,7 @@ describe("Desktop", () => {
 
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    expect(await screen.findByText("Salesforce à reconnecter")).toBeTruthy();
+    expect(await screen.findByText("SF à reconnecter")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reconnecter Salesforce" })).toBeTruthy();
   });
 });

@@ -17,6 +17,7 @@ import { FONCTION_PRESETS } from "../src/crm/index.ts";
 import { parseListContactsBody } from "./_calls/listContacts.js";
 import { buildPreviewContactList } from "./_calls/selection.js";
 import { __resetProfileCache } from "./_calls/profileCache.js";
+import { encryptRefreshToken } from "./_crm/tokenEncryption.js";
 import { POST } from "./calls.js";
 
 const { mockVerifyJWT } = vi.hoisted(() => ({
@@ -333,7 +334,7 @@ describe("adapter exports", () => {
 });
 
 describe("POST /api/calls action=list_contacts", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     __resetProfileCache();
     vi.restoreAllMocks();
     __resetSFTokenCache();
@@ -348,9 +349,19 @@ describe("POST /api/calls action=list_contacts", () => {
     vi.stubEnv("SF_INSTANCE_URL", "https://test.my.salesforce.com");
     vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
+    vi.stubEnv("SF_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 3).toString("base64"));
 
     mockVerifyJWT.mockResolvedValue({ id: "user-123", email: "test@xos-learning.fr" });
-    mockMaybeSingle.mockResolvedValue({ data: { sf_user_id: "005000000000001AAA" }, error: null });
+    const ciphertext = await encryptRefreshToken("user-refresh-token");
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        sf_user_id: "005000000000001AAA",
+        role: "commercial",
+        sf_refresh_token_encrypted: ciphertext,
+        sf_auth_connected_at: "2026-07-01T00:00:00.000Z",
+      },
+      error: null,
+    });
   });
 
   it("returns 401 when unauthorized", async () => {

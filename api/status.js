@@ -15,31 +15,22 @@ function instanceUrl() {
 }
 
 async function fetchSalesforceStatus({ client, userId }) {
-  const empty = { connected: false, orgConnected: false, dailyApiRequests: null };
+  const empty = { connected: false, dailyApiRequests: null };
   try {
-    // Prefer user OAuth, then org integration — what Combo actually uses for reads/writes.
+    // Single credential model: the signed-in user's Salesforce OAuth token.
     const liveToken = await fetchSFToken({ client, userId });
-    // Org-only probe for Hub "intégration plateforme" (shared SF_REFRESH_TOKEN).
-    const orgToken = await fetchSFToken();
-    const orgConnected = Boolean(orgToken.accessToken && !orgToken.error);
     const connected = Boolean(liveToken.accessToken && !liveToken.error);
-
-    if (!connected) {
-      return { ...empty, orgConnected };
-    }
+    if (!connected) return empty;
 
     const response = await fetch(`${instanceUrl()}/services/data/v67.0/limits`, {
       headers: { Authorization: `Bearer ${liveToken.accessToken}` },
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) {
-      return { connected: false, orgConnected, dailyApiRequests: null };
-    }
+    if (!response.ok) return empty;
     const limits = await response.json();
     const daily = limits.DailyApiRequests;
     return {
       connected: true,
-      orgConnected,
       dailyApiRequests: daily ? { max: daily.Max, remaining: daily.Remaining } : null,
     };
   } catch {

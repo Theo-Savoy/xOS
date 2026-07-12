@@ -40,9 +40,9 @@ function sfStatusLabel(kind: SfStatusKind): string {
     case "ok":
       return "Salesforce connecté";
     case "needs_reconnect":
-      return "Salesforce à reconnecter";
+      return "SF à reconnecter";
     case "needs_link":
-      return "Salesforce non lié";
+      return "SF non lié";
     default:
       return "Salesforce…";
   }
@@ -294,7 +294,7 @@ export function Desktop({ userEmail, accessToken }: DesktopProps) {
             </h3>
             <p className="xos-notification__message">
               {sfStatus === "needs_reconnect"
-                ? "La connexion Salesforce plateforme est coupée. Reconnectez votre compte pour continuer à utiliser Combo."
+                ? "Votre connexion Salesforce a expiré. Reconnectez votre compte pour continuer à utiliser Combo."
                 : "Votre compte Salesforce n'est pas lié. Connectez-le pour synchroniser vos appels."}
             </p>
           </div>

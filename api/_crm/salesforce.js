@@ -364,6 +364,10 @@ export async function fetchSFToken(options = {}) {
   if (options.client && options.userId) {
     const userToken = await fetchUserSFToken(options);
     if (userToken) return userToken;
+    // Product path is user-OAuth only — do not silently fall back to SF_REFRESH_TOKEN.
+    if (options.allowOrgFallback !== true) {
+      return { error: "sf_auth_error" };
+    }
   }
   if (!options.forceRefresh && sfTokenCache.accessToken && Date.now() - sfTokenCache.fetchedAt < SF_TOKEN_TTL_MS) {
     return { accessToken: sfTokenCache.accessToken };

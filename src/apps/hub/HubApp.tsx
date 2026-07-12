@@ -10,7 +10,6 @@ type Status = {
   profile: { email: string | null; fullName: string | null; sfUserId: string | null; sfLinked?: boolean };
   salesforce: {
     connected: boolean;
-    orgConnected?: boolean;
     userLinked?: boolean;
     dailyApiRequests: { max: number; remaining: number } | null;
   };
@@ -74,21 +73,15 @@ export default function HubApp() {
         <GlassCard className="hub-panel"><p className="hub-eyebrow">Statut</p><h3>Services</h3>
           <div className="hub-status">
             <span>
-              Intégration SF plateforme{" "}
-              <Tag variant={(status.salesforce.orgConnected ?? status.salesforce.connected) ? "success" : "warning"}>
-                {(status.salesforce.orgConnected ?? status.salesforce.connected) ? "OK" : "KO"}
-              </Tag>
-            </span>
-            <span>
-              API utilisable{" "}
+              Salesforce{" "}
               <Tag variant={status.salesforce.connected ? "success" : "warning"}>
                 {status.salesforce.connected ? "OK" : "KO"}
               </Tag>
             </span>
             <span>
-              Compte utilisateur{" "}
+              Compte lié{" "}
               <Tag variant={status.salesforce.userLinked ? "success" : "warning"}>
-                {status.salesforce.userLinked ? "Lié" : "Non lié"}
+                {status.salesforce.userLinked ? "Oui" : "Non"}
               </Tag>
             </span>
             <span>
@@ -99,10 +92,11 @@ export default function HubApp() {
                   : "Indisponible"}
               </strong>
             </span>
-            {!(status.salesforce.orgConnected ?? status.salesforce.connected) && (
+            {!status.salesforce.connected && (
               <span className="hub-status__hint">
-                Token d’intégration org expiré ou révoqué — renouveler `SF_REFRESH_TOKEN` côté déploiement.
-                Les utilisateurs peuvent se reconnecter via le bandeau menubar pour débloquer Combo avec leur OAuth.
+                {status.salesforce.userLinked
+                  ? "Token Salesforce expiré ou révoqué — reconnectez-vous via le bandeau menubar."
+                  : "Aucun compte Salesforce lié — utilisez « Lier Salesforce » dans le bandeau menubar."}
               </span>
             )}
             <span>Cache Labo <strong>{status.cache.cleaner.version || "Non disponible"}</strong></span>
