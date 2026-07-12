@@ -24,7 +24,7 @@ vi.mock("recharts", () => ({
   ZAxis: () => null,
 }));
 
-import WeeklyApp from "./WeeklyApp";
+import WeeklyApp, { scopePace } from "./WeeklyApp";
 
 const baseContext = {
   iso_week: "2026-W28",
@@ -411,5 +411,76 @@ describe("Weekly Perf", () => {
     expect(await screen.findByRole("tooltip")).toBeTruthy();
     expect(screen.getByRole("tooltip").textContent).toMatch(/snapshot de la période/i);
     expect(document.body.contains(screen.getByRole("tooltip"))).toBe(true);
+  });
+});
+
+describe("scopePace", () => {
+  const scopedQuarterRow = {
+    sf_user_id: "005A",
+    quarter: "FY27-Q1",
+    signed_to_date: 90,
+    weighted_open: 0,
+    forecast: 0,
+    custom_pipe: 0,
+    target: 400,
+    signed_n1: 0,
+  } as const;
+
+  it("prefers the per-row expected_to_date over the team-level pace meta", () => {
+    const pace = scopePace(
+      [{ ...scopedQuarterRow, expected_to_date: 100 }],
+      {
+        week_of_quarter: 1,
+        weeks_in_quarter: 13,
+        signed_to_date: 200,
+        forecast: 0,
+        target: 400,
+        signed_n1: 0,
+        expected_to_date: 300,
+        run_rate: 2600,
+        pace_ratio: 0,
+        won_count: 4,
+      },
+      true,
+    );
+    expect(pace?.expected_to_date).toBe(100);
+    expect(pace?.pace_ratio).toBeCloseTo(0.9);
+  });
+
+  it("hides won_count when the visible scope is narrower than the team", () => {
+    const narrow = scopePace(
+      [scopedQuarterRow],
+      {
+        week_of_quarter: 1,
+        weeks_in_quarter: 13,
+        signed_to_date: 0,
+        forecast: 0,
+        target: 400,
+        signed_n1: 0,
+        expected_to_date: 31,
+        run_rate: 0,
+        pace_ratio: null,
+        won_count: 7,
+      },
+      false,
+    );
+    const full = scopePace(
+      [scopedQuarterRow],
+      {
+        week_of_quarter: 1,
+        weeks_in_quarter: 13,
+        signed_to_date: 0,
+        forecast: 0,
+        target: 400,
+        signed_n1: 0,
+        expected_to_date: 31,
+        run_rate: 0,
+        pace_ratio: null,
+        won_count: 7,
+      },
+      true,
+    );
+    expect(narrow?.won_count).toBeUndefined();
+    expect(full?.won_count).toBe(7);
   });
 });

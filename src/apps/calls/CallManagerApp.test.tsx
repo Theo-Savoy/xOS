@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { isValidElement } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -102,9 +103,9 @@ describe("Call Manager app manifest", () => {
     expect(manifest?.title).toBe("Call Manager");
   });
 
-  it("has icon '☎'", () => {
+  it("exposes the CallsIcon as a React element", () => {
     const manifest = getAppManifest("calls");
-    expect(manifest?.icon).toBe("☎");
+    expect(isValidElement(manifest?.icon)).toBe(true);
   });
 
   it("has defaultSize { w: 960, h: 620 }", () => {

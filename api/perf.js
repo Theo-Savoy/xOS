@@ -188,19 +188,20 @@ export function buildCustomPipe(records, fields, today = dateKey(), ownerIds = n
     const close = dateKey(record[fields.closeDate]);
     if (close < today || close >= toExclusive) continue;
     const key = monthKey(close);
+    // Hors des 6 buckets mensuels affichés : on ignore le record pour que les KPI
+    // (count/by_owner/opps) restent cohérents avec la somme des barres du graphe.
+    if (!monthIndex.has(key)) continue;
     const amount = number(record[fields.amount]);
     const expected = expectedRevenue(record, fields);
-    const bucket = monthIndex.has(key) ? months[monthIndex.get(key)] : null;
-    if (bucket) {
-      bucket.amount += amount;
-      bucket.expected += expected;
-      bucket.count += 1;
-      const ownerBucket = bucket.by_owner[owner] || { amount: 0, expected: 0, count: 0 };
-      ownerBucket.amount += amount;
-      ownerBucket.expected += expected;
-      ownerBucket.count += 1;
-      bucket.by_owner[owner] = ownerBucket;
-    }
+    const bucket = months[monthIndex.get(key)];
+    bucket.amount += amount;
+    bucket.expected += expected;
+    bucket.count += 1;
+    const ownerBucket = bucket.by_owner[owner] || { amount: 0, expected: 0, count: 0 };
+    ownerBucket.amount += amount;
+    ownerBucket.expected += expected;
+    ownerBucket.count += 1;
+    bucket.by_owner[owner] = ownerBucket;
     const ownerRow = byOwner.get(owner) || { sf_user_id: owner, amount: 0, expected: 0, count: 0 };
     ownerRow.amount += amount;
     ownerRow.expected += expected;
@@ -537,7 +538,7 @@ function quarterOpenFromOpenOpps(openOpps, fields, quarter) {
   });
 }
 
-async function priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds) {
+async function priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds, alignedStarts = priorWeekStarts) {
   if (!priorWeekStarts.length || !ownerIds.length) return null;
   const rows = await loadWeekSnapshotRows(client, priorWeekStarts);
   if (!rows || !rows.length) return null;
@@ -550,13 +551,17 @@ async function priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds) {
   const priorPipeline = [];
   for (const owner of ownerIds) {
     if (!ownerSet.has(sfIdKey(owner))) continue;
-    for (const start of priorWeekStarts) {
+    for (let index = 0; index < priorWeekStarts.length; index += 1) {
+      const start = priorWeekStarts[index];
+      // week_start émis = semaine i du TQ courant (front indexe sur les starts courants) ;
+      // week (iso) reste la vraie semaine N−1.
+      const alignedStart = alignedStarts[index] || start;
       const snap = byKey.get(`${sfIdKey(owner)}:${start}`);
       const week = snap?.iso_week || isoWeek(start);
       priorPulse.push({
         sf_user_id: owner,
         week,
-        week_start: start,
+        week_start: alignedStart,
         calls: number(snap?.calls),
         meetings: number(snap?.meetings),
         proposals: number(snap?.proposals),
@@ -569,7 +574,7 @@ async function priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds) {
       priorPipeline.push({
         sf_user_id: owner,
         week,
-        week_start: start,
+        week_start: alignedStart,
         generated_count: generatedCount,
         generated_amount: generatedAmount,
         won_count: wonCount,
@@ -799,8 +804,11 @@ async function tryHistoricalSnapshotResponse({
 
   const quarterRows = ownerIds.map((owner) => {
     const snap = byKey.get(`${sfIdKey(owner)}:${currentMonday}`);
+    // targets sont stockés en { ownerId: { "<label TQ>": montant } } (cf. weekly-targets.js) ;
+    // Number(targetEntry) renverrait NaN si on passe l’objet entier — comme dans le chemin live.
     const targetEntry = Object.entries(targets || {}).find(([id]) => sfIdKey(id) === sfIdKey(owner))?.[1];
-    const target = targetEntry == null || targetEntry === "" ? null : number(targetEntry);
+    const targetValue = targetEntry?.[quarter.label];
+    const target = targetValue !== null && targetValue !== undefined && Number.isFinite(Number(targetValue)) ? Number(targetValue) : null;
     const signedToDate = number(snap?.signed_to_date);
     const forecast = number(snap?.forecast);
     const expected = target === null ? null : target * ((weekIndex + 1) / Math.max(quarterStarts.length, weekIndex + 1));
@@ -970,10 +978,14 @@ export async function GET(request) {
   const effectiveDate = anchorWeekStart && /^\d{4}-\d{2}-\d{2}$/.test(anchorWeekStart)
     ? addDays(mondayFor(anchorWeekStart), 6)
     : today;
-  const quarter = fiscalQuarter(effectiveDate);
+  // Le rattachement fiscal suit le LUNDI de la semaine (sinon une semaine à cheval bascule
+  // dans le TQ du dimanche au lieu du TQ du lundi). effectiveDate (le dimanche) reste
+  // utilisé partout ailleurs pour l’as-of des données.
+  const quarterAnchor = anchorWeekStart && /^\d{4}-\d{2}-\d{2}$/.test(anchorWeekStart) ? mondayFor(anchorWeekStart) : today;
+  const quarter = fiscalQuarter(quarterAnchor);
   const resolvedPeriod = period || (rawWeeks !== null ? "weeks" : "week");
   const window = resolvedPeriod === "quarter"
-    ? quarterWeekWindow(effectiveDate)
+    ? quarterWeekWindow(quarterAnchor)
     : anchorWeekStart
       ? weekWindowAnchored(anchorWeekStart, resolvedPeriod === "week" ? 2 : weeks)
       : weekWindow(resolvedPeriod === "week" ? 2 : weeks);
@@ -1003,7 +1015,7 @@ export async function GET(request) {
   };
   if (!teamView && !profile.sfUserId) return json(200, { ...empty, warning: "sf_user_unmapped" });
 
-  const priorQuarter = priorFiscalQuarter(effectiveDate);
+  const priorQuarter = priorFiscalQuarter(quarterAnchor);
   const quarterStarts = fiscalQuarterWeekStarts(quarter);
   const priorStarts = fiscalQuarterWeekStarts(priorQuarter);
   const weekIndex = weekOfQuarterIndex(quarterStarts, effectiveDate);
@@ -1095,7 +1107,9 @@ export async function GET(request) {
           opportunity,
           seasonalityFrom,
           today,
-          need: resolvedPeriod === "quarter",
+          // Toujours charger la saisonnalité (cache 7 j) pour que le strip Pace affiche
+          // un attendu cohérent entre les onglets Semaine et Trimestre.
+          need: true,
         }),
         crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount], `${opportunity.fields.isWon} = true AND ${opportunity.fields.closeDate} >= ${quarter.from} AND ${opportunity.fields.closeDate} < ${quarter.toExclusive}${byOwner(opportunity.fields.ownerId)}`)),
         crmRecords(tokenResult.accessToken, query(opportunity.name, [opportunity.fields.ownerId, opportunity.fields.closeDate, opportunity.fields.amount], `${opportunity.fields.isWon} = true AND ${opportunity.fields.closeDate} >= ${priorQuarter.from} AND ${opportunity.fields.closeDate} < ${priorQuarter.toExclusive}${byOwner(opportunity.fields.ownerId)}`)),
@@ -1139,7 +1153,9 @@ export async function GET(request) {
       let priorPipeline = [];
       if (resolvedPeriod === "quarter" && priorStarts.length) {
         const priorWeekStarts = priorStarts.slice(0, Math.min(weekIndex + 1, priorStarts.length));
-        const fromSnaps = await priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds);
+        // Aligner les week_start N−1 sur les starts du TQ courant pour matcher l’indexation front.
+        const alignedStarts = quarterStarts.slice(0, priorWeekStarts.length);
+        const fromSnaps = await priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds, alignedStarts);
         if (fromSnaps) {
           priorPulse = fromSnaps.priorPulse;
           priorPipeline = fromSnaps.priorPipeline;
@@ -1365,15 +1381,19 @@ export async function GET(request) {
       opportunity,
       seasonalityFrom,
       today,
-      need: !lite && resolvedPeriod === "quarter",
+      // Toujours charger la saisonnalité (cache 7 j) pour que le strip Pace affiche
+      // un attendu cohérent entre les onglets Semaine et Trimestre.
+      need: !lite,
     });
 
     let priorPulse = [];
     let priorPipeline = [];
     if (!lite && resolvedPeriod === "quarter" && priorStarts.length) {
       const priorWeekStarts = priorStarts.slice(0, Math.min(weekIndex + 1, priorStarts.length));
+      // Aligner les week_start N−1 sur les starts du TQ courant pour matcher l’indexation front.
+      const alignedStarts = quarterStarts.slice(0, priorWeekStarts.length);
       if (priorWeekStarts.length) {
-        const fromSnaps = await priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds);
+        const fromSnaps = await priorSeriesFromSnapshots(client, priorWeekStarts, ownerIds, alignedStarts);
         if (fromSnaps) {
           priorPulse = fromSnaps.priorPulse;
           priorPipeline = fromSnaps.priorPipeline;
@@ -1407,20 +1427,41 @@ export async function GET(request) {
             saleTypeValues,
             baselineStages: new Map(),
           });
-          priorPulse = priorRows.map(({ sf_user_id, week, week_start, calls, meetings, proposals, call_results }) => ({ sf_user_id, week, week_start, calls, meetings, proposals, call_results: call_results || emptyCallResults() }));
-          priorPipeline = priorRows.map((entry) => ({
-            sf_user_id: entry.sf_user_id,
-            week: entry.week,
-            week_start: entry.week_start,
-            generated_count: entry.generated_count,
-            generated_amount: entry.generated_amount,
-            won_count: entry.won_count,
-            won_amount: entry.won_amount,
-            won_by_type: entry.won_by_type,
-            won_arr_amount: entry.won_arr_amount,
-            closing_rate_count: entry.generated_count ? entry.won_count / entry.generated_count : null,
-            closing_rate_amount: entry.generated_amount ? entry.won_amount / entry.generated_amount : null,
-          }));
+          // Remapper week_start par valeur (indexOf) plutôt que par index positionnel : si SF renvoie
+          // un OwnerId sous une variante de longueur différente (18 vs 15 chars) qui passe le
+          // allowed() sfIdKey mais crée une row supplémentaire hors ownerIds, le modulo
+          // désalignerait silencieusement les week_start. Ici on cherche la vraie position
+          // dans priorWeekStarts pour retomber sur le starts[i] correspondant du TQ courant.
+          priorPulse = priorRows.map((entry) => {
+            const startIndex = priorWeekStarts.indexOf(entry.week_start);
+            const alignedStart = startIndex >= 0 ? alignedStarts[startIndex] : entry.week_start;
+            return {
+              sf_user_id: entry.sf_user_id,
+              week: entry.week,
+              week_start: alignedStart,
+              calls: entry.calls,
+              meetings: entry.meetings,
+              proposals: entry.proposals,
+              call_results: entry.call_results || emptyCallResults(),
+            };
+          });
+          priorPipeline = priorRows.map((entry) => {
+            const startIndex = priorWeekStarts.indexOf(entry.week_start);
+            const alignedStart = startIndex >= 0 ? alignedStarts[startIndex] : entry.week_start;
+            return {
+              sf_user_id: entry.sf_user_id,
+              week: entry.week,
+              week_start: alignedStart,
+              generated_count: entry.generated_count,
+              generated_amount: entry.generated_amount,
+              won_count: entry.won_count,
+              won_amount: entry.won_amount,
+              won_by_type: entry.won_by_type,
+              won_arr_amount: entry.won_arr_amount,
+              closing_rate_count: entry.generated_count ? entry.won_count / entry.generated_count : null,
+              closing_rate_amount: entry.generated_amount ? entry.won_amount / entry.generated_amount : null,
+            };
+          });
         }
       }
     }

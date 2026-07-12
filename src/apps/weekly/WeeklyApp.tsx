@@ -1123,7 +1123,7 @@ function CustomPipeSection({ pipe, owners, sellerIds }: { pipe: CustomPipe; owne
   </section>;
 }
 
-function scopePace(rows: Quarter[], meta: Pace | null | undefined): Pace | null {
+export function scopePace(rows: Quarter[], meta: Pace | null | undefined, fullScope: boolean): Pace | null {
   if (!rows.length) return null;
   const targets = rows.map((row) => row.target).filter((value): value is number => value !== null);
   const signed = rows.reduce((sum, row) => sum + row.signed_to_date, 0);
@@ -1135,7 +1135,7 @@ function scopePace(rows: Quarter[], meta: Pace | null | undefined): Pace | null 
   const expectedFromRows = rows.every((row) => row.expected_to_date != null)
     ? rows.reduce((sum, row) => sum + (row.expected_to_date || 0), 0)
     : null;
-  const expectedToDate = meta?.expected_to_date ?? expectedFromRows ?? (target === null ? null : target * (weekOfQuarter / Math.max(weekOfQuarter, weeksInQuarter)));
+  const expectedToDate = expectedFromRows ?? meta?.expected_to_date ?? (target === null ? null : target * (weekOfQuarter / Math.max(weekOfQuarter, weeksInQuarter)));
   return {
       week_of_quarter: weekOfQuarter,
       weeks_in_quarter: Math.max(weekOfQuarter, weeksInQuarter),
@@ -1146,7 +1146,7 @@ function scopePace(rows: Quarter[], meta: Pace | null | undefined): Pace | null 
       expected_to_date: expectedToDate,
       run_rate: signed * (Math.max(weekOfQuarter, weeksInQuarter) / weekOfQuarter),
       pace_ratio: expectedToDate && expectedToDate > 0 ? signed / expectedToDate : null,
-      won_count: meta?.won_count || 0,
+      won_count: fullScope ? (meta?.won_count || 0) : undefined,
       expected_mode: meta?.expected_mode || (expectedFromRows !== null ? "seasonal" : "linear"),
       monthly_indicative: aggregateMonthlyIndicative(rows),
     };
@@ -1292,7 +1292,7 @@ function PaceStrip({ pace }: { pace: Pace }) {
         <div>
           <small>Objectif · S{pace.week_of_quarter}/{pace.weeks_in_quarter}</small>
           <strong className="xos-numeric">{pace.target === null ? "—" : money.format(pace.target)}</strong>
-          <span>{pace.won_count ?? 0} signature{(pace.won_count || 0) > 1 ? "s" : ""}</span>
+          {pace.won_count != null && <span>{pace.won_count} signature{(pace.won_count || 0) > 1 ? "s" : ""}</span>}
         </div>
       </div>
       <div className="weekly-pace-track" aria-label="Progression vers l’objectif trimestre">
@@ -1850,7 +1850,7 @@ export default function WeeklyApp() {
     };
     const visibleIds = new Set(visibleOwners.map((owner) => owner.sf_user_id));
     const quarterRows = (payload.quarter || []).filter((row) => sellerIds.has(row.sf_user_id));
-    const pace = scopePace(quarterRows, payload.pace);
+    const pace = scopePace(quarterRows, payload.pace, visibleOwners.length === owners.length);
     const target = pace?.target ?? null;
     const followUps = (payload.follow_up_opps || []).filter((opp) => visibleIds.has(opp.sf_user_id));
     const stagnant = (payload.stagnant_opps || []).filter((opp) => visibleIds.has(opp.sf_user_id));

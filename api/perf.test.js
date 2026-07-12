@@ -302,8 +302,9 @@ describe("GET /api/perf", () => {
     expect(body.follow_up_opps[0]).toMatchObject({ id: "006OPEN", expected: 4800 });
     expect(body.stagnant_opps.some((row) => row.id === "006OPEN")).toBe(true);
     expect(body.pace).toMatchObject({ week_of_quarter: 1, signed_to_date: 100, signed_n1: 80, target: 60000 });
-    // Vue semaine : pas d’agrégat saisonnalité 3 ans (gain live) — pace linéaire.
-    expect(body.seasonality).toBeNull();
+    // Saisonnalité calculée même en vue semaine (Bug 5) pour que le strip Pace affiche
+    // un attendu cohérent entre les onglets Semaine et Trimestre.
+    expect(body.seasonality).toMatchObject({ month_of_year: expect.any(Object), month_in_quarter: expect.any(Object) });
     expect(body.pulse.find((row) => row.week === "2026-W28")?.call_results).toEqual(expect.any(Object));
 
     const quarterBody = await (await GET(request("?period=quarter"))).json();
@@ -542,5 +543,189 @@ describe("GET /api/perf", () => {
     expect(body.custom_pipe.count).toBeGreaterThan(0);
     expect(soql.some((q) => q.includes("TaskSubtype"))).toBe(false);
     expect(soql.some((q) => q.includes("OpportunityHistory") && q.includes("CreatedDate >="))).toBe(false);
+  });
+
+  // Bug 1 — les rows N−1 doivent partager les week_start du TQ courant pour matcher l’indexation front (`sf_user_id:week_start`).
+  it("aligns prior_pulse and prior_pipeline week_start on the current quarter", async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table === "profiles") return { select: () => Promise.resolve({ data: teamProfiles, error: null }) };
+      if (table === "settings") {
+        return {
+          select: () => ({
+            eq: (_col, key) => ({
+              maybeSingle: () => Promise.resolve({
+                data: key === "weekly_targets" ? { value: { "005A": { "FY27-Q1": 60000 } } } : { value: {} },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "perf_forecast_snapshots") {
+        return { select: () => ({ eq: () => ({ in: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }), upsert: () => Promise.resolve({ error: null }) };
+      }
+      if (table === "perf_week_snapshots") {
+        const priorSnapshot = {
+          week_start: "2025-07-06",
+          sf_user_id: "005A",
+          iso_week: "2025-W28",
+          quarter: "FY26-Q1",
+          calls: 5,
+          meetings: 2,
+          proposals: 1,
+          progressions: 0,
+          call_results: {},
+          generated_count: 1,
+          generated_amount: 1000,
+          won_count: 1,
+          won_amount: 500,
+          won_catalogue: 500,
+          won_sur_mesure: 0,
+          won_conseil: 0,
+          won_arr_amount: 0,
+          signed_to_date: 0,
+          forecast: 0,
+        };
+        return {
+          select: () => ({
+            order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
+            in: () => Promise.resolve({ data: [priorSnapshot], error: null }),
+          }),
+          upsert: () => Promise.resolve({ error: null }),
+        };
+      }
+      if (table === "perf_seasonality_cache") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }), upsert: () => Promise.resolve({ error: null }) };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+    const body = await (await GET(request("?period=quarter"))).json();
+    const quarterStarts = perf.quarterWeekWindow("2026-07-11").starts;
+    expect(body.prior_pulse.length).toBeGreaterThan(0);
+    expect(body.prior_pipeline.length).toBeGreaterThan(0);
+    expect(body.prior_pulse[0]).toMatchObject({ sf_user_id: "005A", week_start: "2026-07-06" });
+    expect(body.prior_pipeline[0]).toMatchObject({ sf_user_id: "005A", week_start: "2026-07-06" });
+    expect(body.prior_pulse.every((row) => quarterStarts.includes(row.week_start))).toBe(true);
+    expect(body.prior_pipeline.every((row) => quarterStarts.includes(row.week_start))).toBe(true);
+    // Le champ `week` (iso) doit rester la vraie semaine N−1.
+    expect(body.prior_pulse[0].week).toBe("2025-W28");
+  });
+
+  // Bug 2 — chemin snapshot : le target doit lire l’entrée `{ ownerId: { quarterLabel: amount } }` et non Number(targetEntry).
+  it("reads the per-quarter target from weekly_targets in the snapshot path", async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table === "profiles") return { select: () => Promise.resolve({ data: teamProfiles, error: null }) };
+      if (table === "settings") {
+        return {
+          select: () => ({
+            eq: (_col, key) => ({
+              maybeSingle: () => Promise.resolve({
+                data: key === "weekly_targets" ? { value: { "005A": { "FY26-Q4": 60000 } } } : { value: {} },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "perf_week_snapshots") {
+        const snapshot = {
+          week_start: "2026-06-29",
+          sf_user_id: "005A",
+          iso_week: "2026-W27",
+          quarter: "FY26-Q4",
+          calls: 0,
+          meetings: 0,
+          proposals: 0,
+          progressions: 0,
+          call_results: {},
+          generated_count: 0,
+          generated_amount: 0,
+          won_count: 0,
+          won_amount: 0,
+          won_catalogue: 0,
+          won_sur_mesure: 0,
+          won_conseil: 0,
+          won_arr_amount: 0,
+          signed_to_date: 0,
+          forecast: 0,
+        };
+        return {
+          select: () => ({
+            order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
+            in: () => Promise.resolve({ data: [snapshot], error: null }),
+          }),
+          upsert: () => Promise.resolve({ error: null }),
+        };
+      }
+      if (table === "perf_forecast_snapshots") {
+        return { select: () => ({ eq: () => ({ in: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }), upsert: () => Promise.resolve({ error: null }) };
+      }
+      if (table === "perf_seasonality_cache") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }), upsert: () => Promise.resolve({ error: null }) };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+    const body = await (await GET(request("?week_start=2026-06-29"))).json();
+    expect(body.context.source).toBe("snapshot");
+    expect(body.context.quarter_label).toBe("FY26-Q4");
+    expect(body.quarter[0]).toMatchObject({ sf_user_id: "005A", quarter: "FY26-Q4", target: 60000 });
+  });
+
+  // Bug 3 — semaine à cheval : le rattachement fiscal suit le LUNDI, pas le dimanche.
+  it("anchors the fiscal quarter on the week’s Monday, not its Sunday", async () => {
+    const body = await (await GET(request("?week_start=2026-06-29"))).json();
+    expect(body.context.quarter_label).toBe("FY26-Q4");
+    expect(body.context.anchor_week_start).toBe("2026-06-29");
+  });
+
+  // Bug 4 — buildCustomPipe : cohérence KPI ↔ graphe (un record hors buckets ne doit pas polluer count/by_owner/opps).
+  it("ignores sur-mesure records that fall outside the 6 monthly buckets", () => {
+    const fields = {
+      ownerId: "OwnerId",
+      closeDate: "CloseDate",
+      amount: "Amount",
+      probability: "Probability",
+      expectedRevenue: "ExpectedRevenue",
+      id: "Id",
+      name: "Name",
+    };
+    const result = perf.buildCustomPipe(
+      [
+        { Id: "006SM", OwnerId: "005A", CloseDate: "2026-10-15", Amount: 300, ExpectedRevenue: 150, Probability: 50, Name: "Deal SM" },
+        // Dans l'horizon 181 j (customToExclusive = 2027-01-08) mais hors des 6 buckets (7e mois).
+        { Id: "006SM2", OwnerId: "005A", CloseDate: "2027-01-05", Amount: 999, ExpectedRevenue: 500, Probability: 50, Name: "Deal H+7" },
+      ],
+      fields,
+      "2026-07-11",
+    );
+    expect(result.count).toBe(1);
+    expect(result.total_amount).toBe(300);
+    expect(result.total_expected).toBe(150);
+    expect(result.by_owner).toEqual([{ sf_user_id: "005A", amount: 300, expected: 150, count: 1 }]);
+    expect(result.opps).toHaveLength(1);
+    const monthsFlat = result.months.flatMap((m) => [m.amount, m.expected, m.count]);
+    expect(monthsFlat).not.toContain(999);
+    expect(monthsFlat).not.toContain(500);
+  });
+
+  // Bug 5 — le strip Pace doit afficher un attendu saisonnier en onglet Semaine comme en Trimestre.
+  it("computes a seasonal expected pace in week mode (consistent with quarter tab)", async () => {
+    const body = await (await GET(request())).json();
+    expect(body.pace).toMatchObject({ expected_mode: "seasonal" });
+    expect(body.seasonality).toMatchObject({ month_in_quarter: expect.any(Object) });
+  });
+
+  // Bug 1 (fallback SF) — avec perf_week_snapshots vide, priorSeriesFromSnapshots retourne
+  // null et le fallback SF prend le relais. Le remap doit rester correct même si SF renvoie
+  // des OwnerId sous une variante de longueur différente (18 chars) qui crée des rows
+  // supplémentaires via row() hors ownerIds ; le test couvre l’alignement sur les starts du TQ courant.
+  it("aligns prior_pulse and prior_pipeline week_start on the SF-fallback path (empty snapshots)", async () => {
+    // Mocks par défaut : perf_week_snapshots → data: [] → priorSeriesFromSnapshots → null → fallback SF.
+    const body = await (await GET(request("?period=quarter"))).json();
+    const quarterStarts = perf.quarterWeekWindow("2026-07-11").starts;
+    expect(body.prior_pulse.length).toBeGreaterThan(0);
+    expect(body.prior_pipeline.length).toBeGreaterThan(0);
+    expect(body.prior_pulse.every((row) => quarterStarts.includes(row.week_start))).toBe(true);
+    expect(body.prior_pipeline.every((row) => quarterStarts.includes(row.week_start))).toBe(true);
   });
 });
