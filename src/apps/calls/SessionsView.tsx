@@ -402,7 +402,7 @@ export function SessionsView({
           <GlassCard className="calls-empty calls-empty--hero">
             <Tag variant="accent">Prêt à prospecter</Tag>
             <h3>Aucune séance pour le moment</h3>
-            <p>Composez une liste ciblée, planifiez une séance et suivez vos KPIs ici.</p>
+            <p>Composez une liste ciblée, planifiez une séance et suivez vos indicateurs ici.</p>
             <Button onClick={onNewSession}>Créer une première séance</Button>
           </GlassCard>
         )}
