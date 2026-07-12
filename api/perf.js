@@ -34,7 +34,7 @@ function dateParts(value = new Date()) {
   return { year: Number(get("year")), month: Number(get("month")), day: Number(get("day")) };
 }
 
-function dateKey(value = new Date()) {
+export function dateKey(value = new Date()) {
   const { year, month, day } = dateParts(value instanceof Date ? value : new Date(value));
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
