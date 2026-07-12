@@ -23,15 +23,26 @@
   flex-wrap: wrap;
 }
 
-.calls-view__header-start {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.85rem;
+.calls-view__header--runner {
+  align-items: start;
+}
+
+.calls-view__nav {
+  display: grid;
+  gap: 0.65rem;
   min-width: 0;
 }
 
-.calls-view__header-start > div {
+.calls-view__back {
+  justify-self: start;
+}
+
+.calls-view__titleblock {
   min-width: 0;
+}
+
+.calls-view__titleblock h2 {
+  margin: 0.35rem 0 0;
 }
 
 .calls-view__header h2 {
@@ -44,6 +55,7 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .calls-stats,
@@ -498,6 +510,8 @@
 
 .calls-datepicker--compact {
   margin: 0;
+  display: inline-flex;
+  align-items: stretch;
   min-width: 0;
 }
 
@@ -511,21 +525,8 @@
 }
 
 .calls-datepicker__trigger--compact {
+  /* Overridden when triggerClassName provides chip styles */
   width: auto;
-  min-width: 9.5rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 0.45rem;
-  font-size: 0.8rem;
-  line-height: 1.2;
-  border: 1px solid color-mix(in srgb, var(--xos-border) 90%, transparent);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--xos-text);
-}
-
-.calls-datepicker__trigger--compact:hover,
-.calls-datepicker__trigger--compact[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--xos-accent) 55%, var(--xos-border));
-  background: color-mix(in srgb, var(--xos-accent) 14%, transparent);
 }
 
 .calls-datepicker__popover {
@@ -722,10 +723,10 @@
 
 .calls-recall {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.75rem 0.85rem;
+  gap: 0.7rem;
+  padding: 0.85rem 0.95rem;
   border: 1px solid color-mix(in srgb, var(--xos-border) 85%, transparent);
-  border-radius: 0.7rem;
+  border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -734,6 +735,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .calls-recall__title {
@@ -744,9 +746,53 @@
 }
 
 .calls-recall__summary {
-  font-size: 0.82rem;
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-recall__summary strong {
   color: var(--xos-text);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.calls-recall__track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calls-recall__chip {
+  appearance: none;
+  box-sizing: border-box;
+  height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--xos-border) 90%, transparent);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--xos-text);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calls-recall__chip--date {
+  min-width: 10.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.calls-recall__chip--active,
+.calls-recall__chip:hover,
+.calls-recall__chip[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--xos-accent) 55%, var(--xos-border));
+  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
 }
 
 .calls-recall__body {
@@ -758,24 +804,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-}
-
-.calls-recall__chip {
-  appearance: none;
-  border: 1px solid color-mix(in srgb, var(--xos-border) 90%, transparent);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--xos-text);
-  border-radius: 0.45rem;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.8rem;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.calls-recall__chip--active,
-.calls-recall__chip:hover {
-  border-color: color-mix(in srgb, var(--xos-accent) 55%, var(--xos-border));
-  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
 }
 
 .calls-recall__fields {
@@ -1130,36 +1158,23 @@
 
 .calls-contact-card h3 {
   margin: 0;
-  font-size: clamp(1.35rem, 3vw, 1.7rem);
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 .calls-contact-card__role {
-  margin: 0.35rem 0 0;
+  margin: 0.4rem 0 0;
   color: var(--xos-text-muted);
   font-size: 0.95rem;
-  line-height: 1.35;
+  line-height: 1.4;
+  max-width: 42rem;
 }
 
 .calls-contact-card__recall-meta {
-  margin: 0.4rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--xos-text-muted);
   font-size: 0.82rem;
-}
-
-.calls-contact-card__phone {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.calls-contact-card__reach {
-  display: grid;
-  gap: 0.45rem;
-  align-content: start;
-  justify-items: start;
 }
 
 .calls-contact-card__no-phone,
@@ -1171,7 +1186,7 @@
 }
 
 .calls-email-link {
-  color: var(--xos-text-muted);
+  color: color-mix(in srgb, var(--xos-text) 72%, var(--xos-text-muted));
   text-decoration: none;
   font-size: 0.92rem;
   word-break: break-all;
@@ -1183,28 +1198,34 @@
 }
 
 .calls-phone-link {
-  font-size: clamp(1.25rem, 3vw, 1.55rem);
-  color: var(--xos-accent);
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  color: var(--xos-text);
   text-decoration: none;
   letter-spacing: -0.02em;
+  font-weight: 600;
 }
 
 .calls-phone-link:hover {
-  text-decoration: underline;
+  color: var(--xos-accent);
 }
 
 .calls-view--runner .calls-contact-card {
   display: grid;
   gap: 1rem;
-  padding: 1.15rem 1.35rem;
+  padding: 1.1rem 1.2rem 1.15rem;
 }
 
-.calls-contact-card__bar {
+.calls-contact-card__main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+}
+
+.calls-contact-card__who {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
 }
 
 .calls-contact-card__chips {
@@ -1214,20 +1235,42 @@
   align-items: center;
 }
 
-.calls-contact-card__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 1fr);
-  gap: 1rem 1.5rem;
-  align-items: start;
+.calls-contact-card__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--xos-accent) 16%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--xos-accent) 30%, var(--xos-border));
 }
 
-.calls-contact-card__identity {
+.calls-contact-card__cta-copy {
+  display: grid;
+  gap: 0.3rem;
   min-width: 0;
 }
 
-@media (max-width: 720px) {
-  .calls-contact-card__body {
-    grid-template-columns: 1fr;
+.calls-contact-card__cta .xos-btn {
+  flex-shrink: 0;
+  min-width: 7.5rem;
+}
+
+@media (max-width: 640px) {
+  .calls-contact-card__main {
+    flex-direction: column;
+  }
+
+  .calls-contact-card__cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calls-contact-card__cta .xos-btn {
+    width: 100%;
   }
 }
 
@@ -1739,11 +1782,22 @@
 
 .calls-contact-card__links {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.65rem 0.9rem;
-  font-size: 0.85rem;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  padding-top: 0.15rem;
+}
+
+.calls-contact-card__links a {
+  color: var(--xos-text-muted);
+  text-decoration: none;
+}
+
+.calls-contact-card__links a:hover {
+  color: var(--xos-accent);
+  text-decoration: underline;
 }
 
 .calls-sf-link {

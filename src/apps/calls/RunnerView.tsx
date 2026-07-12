@@ -166,6 +166,7 @@ function RecallFields({
   if (!RECALL_ELIGIBLE_RESULTATS.includes(resultat)) return null;
 
   const activePreset = RECALL_PRESETS.find((preset) => addDaysIso(preset.days) === recallAt)?.days;
+  const customActive = activePreset == null;
 
   const pickPreset = (days: number) => {
     onDefaultRecallDaysChange(days);
@@ -176,6 +177,11 @@ function RecallFields({
     <div className="calls-recall" role="group" aria-label="Rappel">
       <div className="calls-recall__head">
         <p className="calls-recall__title">Rappel</p>
+        {(autoRecall || scheduleRecall) && (
+          <p className="calls-recall__summary">
+            Le <strong>{formatIsoDateFr(recallAt)}</strong>
+          </p>
+        )}
       </div>
       {!autoRecall && (
         <label className="calls-checkbox calls-checkbox--tight">
@@ -188,26 +194,25 @@ function RecallFields({
         </label>
       )}
       {(autoRecall || scheduleRecall) && (
-        <div className="calls-recall__body">
-          <div className="calls-recall__presets" role="group" aria-label="Délai de rappel">
-            {RECALL_PRESETS.map((preset) => (
-              <button
-                key={preset.days}
-                type="button"
-                className={`calls-recall__chip${activePreset === preset.days ? " calls-recall__chip--active" : ""}`}
-                aria-pressed={activePreset === preset.days}
-                onClick={() => pickPreset(preset.days)}
-              >
-                {preset.label}
-              </button>
-            ))}
-            <DatePicker
-              compact
-              label="Date de rappel"
-              value={recallAt}
-              onChange={onRecallAtChange}
-            />
-          </div>
+        <div className="calls-recall__track" role="group" aria-label="Choisir la date de rappel">
+          {RECALL_PRESETS.map((preset) => (
+            <button
+              key={preset.days}
+              type="button"
+              className={`calls-recall__chip${activePreset === preset.days ? " calls-recall__chip--active" : ""}`}
+              aria-pressed={activePreset === preset.days}
+              onClick={() => pickPreset(preset.days)}
+            >
+              {preset.label}
+            </button>
+          ))}
+          <DatePicker
+            compact
+            label="Autre date"
+            value={recallAt}
+            onChange={onRecallAtChange}
+            triggerClassName={`calls-recall__chip calls-recall__chip--date${customActive ? " calls-recall__chip--active" : ""}`}
+          />
         </div>
       )}
     </div>
@@ -541,12 +546,12 @@ export function RunnerView({
 
   return (
     <div className={`calls-view calls-view--runner${isRecallQueue ? " calls-view--recalls" : ""}`}>
-      <header className="calls-view__header">
-        <div className="calls-view__header-start">
-          <Button variant="secondary" onClick={onBack}>
+      <header className="calls-view__header calls-view__header--runner">
+        <div className="calls-view__nav">
+          <Button variant="secondary" className="calls-view__back" onClick={onBack}>
             Quitter
           </Button>
-          <div>
+          <div className="calls-view__titleblock">
             <Tag variant="accent">{isRecallQueue ? "File de rappels" : "Cockpit"}</Tag>
             <h2>{isRecallQueue ? "Rappels" : session.name}</h2>
           </div>
@@ -958,44 +963,24 @@ export function RunnerView({
       ) : focusedContact ? (
         <div className="calls-cockpit-detail">
           <GlassCard className="calls-contact-card">
-            <div className="calls-contact-card__bar">
-              <div className="calls-contact-card__chips">
-                {isRecallQueue && focusedContact.origin_session_name && (
-                  <Tag variant="accent">{focusedContact.origin_session_name}</Tag>
-                )}
-                {(focusedContact.attempt_count ?? 0) > 0 && (
-                  <Tag variant="muted">Tentative {focusedContact.attempt_count}</Tag>
-                )}
-                {focusedContact.status !== "pending" && (
-                  <Tag variant={listStatusDisplay(focusedContact).variant}>
-                    {listStatusDisplay(focusedContact).label}
-                  </Tag>
-                )}
-                {!contextLoading && contextApplies && contactContext?.npa && (
-                  <Tag variant="alert">Ne pas rappeler (NPA)</Tag>
-                )}
-              </div>
-              <div className="calls-contact-card__links">
-                {sfContactUrl && (
-                  <a
-                    href={sfContactUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="calls-sf-link"
-                  >
-                    Fiche Salesforce
-                  </a>
-                )}
-                {focusedContact.linkedin_url && (
-                  <a href={focusedContact.linkedin_url} target="_blank" rel="noopener noreferrer">
-                    LinkedIn
-                  </a>
-                )}
-              </div>
-            </div>
-
-            <div className="calls-contact-card__body">
-              <div className="calls-contact-card__identity">
+            <div className="calls-contact-card__main">
+              <div className="calls-contact-card__who">
+                <div className="calls-contact-card__chips">
+                  {isRecallQueue && focusedContact.origin_session_name && (
+                    <Tag variant="accent">{focusedContact.origin_session_name}</Tag>
+                  )}
+                  {(focusedContact.attempt_count ?? 0) > 0 && (
+                    <Tag variant="muted">Tentative {focusedContact.attempt_count}</Tag>
+                  )}
+                  {focusedContact.status !== "pending" && (
+                    <Tag variant={listStatusDisplay(focusedContact).variant}>
+                      {listStatusDisplay(focusedContact).label}
+                    </Tag>
+                  )}
+                  {!contextLoading && contextApplies && contactContext?.npa && (
+                    <Tag variant="alert">Ne pas rappeler (NPA)</Tag>
+                  )}
+                </div>
                 <h3>{focusedContact.contact_name}</h3>
                 <p className="calls-contact-card__role">
                   {[displayTitle, focusedContact.account_name || "Compte inconnu"].filter(Boolean).join(" · ")}
@@ -1006,17 +991,31 @@ export function RunnerView({
                   </p>
                 )}
               </div>
+              <div className="calls-contact-card__links">
+                {sfContactUrl && (
+                  <a
+                    href={sfContactUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="calls-sf-link"
+                  >
+                    Salesforce
+                  </a>
+                )}
+                {focusedContact.linkedin_url && (
+                  <a href={focusedContact.linkedin_url} target="_blank" rel="noopener noreferrer">
+                    LinkedIn
+                  </a>
+                )}
+              </div>
+            </div>
 
-              <div className="calls-contact-card__reach">
+            <div className="calls-contact-card__cta">
+              <div className="calls-contact-card__cta-copy">
                 {focusedContact.phone ? (
-                  <div className="calls-contact-card__phone">
-                    <a href={`tel:${focusedContact.phone}`} className="calls-phone-link xos-numeric">
-                      {focusedContact.phone}
-                    </a>
-                    <Button onClick={() => window.open(`tel:${focusedContact.phone}`, "_self")}>
-                      Appeler
-                    </Button>
-                  </div>
+                  <a href={`tel:${focusedContact.phone}`} className="calls-phone-link xos-numeric">
+                    {focusedContact.phone}
+                  </a>
                 ) : (
                   <p className="calls-contact-card__no-phone">Aucun numéro</p>
                 )}
@@ -1028,6 +1027,11 @@ export function RunnerView({
                   <p className="calls-contact-card__no-email">Aucun email</p>
                 )}
               </div>
+              {focusedContact.phone && (
+                <Button onClick={() => window.open(`tel:${focusedContact.phone}`, "_self")}>
+                  Appeler
+                </Button>
+              )}
             </div>
           </GlassCard>
 

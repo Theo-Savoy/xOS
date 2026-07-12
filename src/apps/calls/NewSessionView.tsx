@@ -168,12 +168,12 @@ export function NewSessionView({
 
   return (
     <div className="calls-view">
-      <header className="calls-view__header">
-        <div className="calls-view__header-start">
-          <Button variant="secondary" onClick={onBack}>
+      <header className="calls-view__header calls-view__header--runner">
+        <div className="calls-view__nav">
+          <Button variant="secondary" className="calls-view__back" onClick={onBack}>
             Retour
           </Button>
-          <div>
+          <div className="calls-view__titleblock">
             <Tag variant="accent">Nouvelle séance</Tag>
             <h2>Composer une liste</h2>
           </div>

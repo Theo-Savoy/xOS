@@ -342,7 +342,7 @@ describe("RunnerView", () => {
     await user.click(screen.getByRole("button", { name: "Appel décroché" }));
     expect(screen.getByLabelText(/Planifier un rappel/i)).toBeTruthy();
     await user.click(screen.getByLabelText(/Planifier un rappel/i));
-    expect(screen.getByRole("group", { name: "Délai de rappel" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Choisir la date de rappel" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /\+3 j/i })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Logguer & suivant/i }));
     expect(onLogAndNext).toHaveBeenCalledWith(

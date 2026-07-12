@@ -76,6 +76,7 @@ export function DatePicker({
   onChange,
   id,
   compact = false,
+  triggerClassName,
 }: {
   label?: string;
   value: string;
@@ -83,6 +84,8 @@ export function DatePicker({
   id?: string;
   /** Trigger seul, sans label — pour s’aligner dans une rangée de chips. */
   compact?: boolean;
+  /** Classes CSS du bouton trigger (ex. même style que les chips rappel). */
+  triggerClassName?: string;
 }) {
   const autoId = useId();
   const fieldId = id ?? autoId;
@@ -119,6 +122,12 @@ export function DatePicker({
     year: "numeric",
   });
   const today = todayParisIso();
+  const triggerClasses = [
+    compact ? null : "calls-input",
+    "calls-datepicker__trigger",
+    compact ? "calls-datepicker__trigger--compact" : null,
+    triggerClassName,
+  ].filter(Boolean).join(" ");
 
   return (
     <div className={`calls-field calls-datepicker${compact ? " calls-datepicker--compact" : ""}`} ref={rootRef}>
@@ -126,7 +135,7 @@ export function DatePicker({
       <button
         type="button"
         id={fieldId}
-        className={`calls-input calls-datepicker__trigger${compact ? " calls-datepicker__trigger--compact" : ""}`}
+        className={triggerClasses}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={label}
