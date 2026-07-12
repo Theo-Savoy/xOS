@@ -17,6 +17,9 @@ import {
   type DesktopShortcut,
 } from "./shortcuts";
 import { startSalesforceLink } from "./salesforceLink";
+// Side-effect import : déclenche les imports dynamiques qui cachent les
+// chunks lazy des apps. Voir preload.ts pour la liste complète.
+import "./preload";
 import "./theme.css";
 import "./desktop.css";
 
