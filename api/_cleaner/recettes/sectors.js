@@ -1,5 +1,6 @@
 import mapping from '../../_crm/mapping.js';
 import {
+  escapeSOQL,
   fetchSFToken,
   searchContacts,
   updateSObjects,
@@ -73,11 +74,19 @@ function suggestedTarget(label) {
 function accountQuery() {
   const account = mapping.objects.account;
   const fields = account.fields;
+  // Filter at the SOQL level: only return accounts whose Industry is NOT in
+  // the canonical ACTIVE_SECTORS list. This is cap-safe (we only see the
+  // accounts we care about) and avoids the previous behaviour of pulling
+  // all 50k+ accounts then filtering in JS (which clipped at SOQL_FETCH_CAP).
+  const inactiveClause = ACTIVE_SECTORS.length
+    ? `AND ${fields.industry} NOT IN (${ACTIVE_SECTORS.map((s) => `'${escapeSOQL(s)}'`).join(', ')})`
+    : '';
   return [
     `SELECT ${fields.id}, ${fields.name}, ${fields.industry}, ${fields.ownerId}`,
     `FROM ${account.name}`,
-    `WHERE ${fields.industry} != null`,
+    `WHERE ${fields.industry} != null ${inactiveClause}`,
     `ORDER BY ${fields.industry} ASC, ${fields.id} ASC`,
+    `LIMIT 2000`,
   ].join(' ');
 }
 
