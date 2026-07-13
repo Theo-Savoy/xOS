@@ -170,15 +170,31 @@ async function loadScopedAccounts(context, { requireApply = true } = {}) {
   return { accounts, token, capabilities: authorization.capabilities };
 }
 
-function groupAccounts(accounts) {
+function sectorIds(labels) {
+  return new Set(labels.map((label) => sectorId(label)));
+}
+
+function groupAccounts(accounts, reservedIds = sectorIds(ACTIVE_SECTORS)) {
   const groups = new Map();
+  const usedIds = new Set();
+  const reserved = new Set(reservedIds);
+  const labelToId = new Map();
   for (const account of accounts) {
-    const id = sectorId(account.sector);
-    const current = groups.get(id) || {
-      id,
-      label: account.sector,
-      accounts: [],
-    };
+    const label = account.sector;
+    let id = labelToId.get(label);
+    if (!id) {
+      const baseId = sectorId(label);
+      const isCanonical = ACTIVE_SECTORS.includes(label);
+      id = isCanonical || !reserved.has(baseId) ? baseId : `obsolete-${baseId}`;
+      let suffix = 2;
+      while (usedIds.has(id)) {
+        id = `obsolete-${baseId}-${suffix}`;
+        suffix += 1;
+      }
+      labelToId.set(label, id);
+      usedIds.add(id);
+    }
+    const current = groups.get(id) || { id, label, accounts: [] };
     current.accounts.push(account);
     groups.set(id, current);
   }

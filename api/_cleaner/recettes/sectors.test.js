@@ -76,6 +76,26 @@ describe('sectors recipe server slice', () => {
     expect(result.accountsPerSector[sectorId('Finance')]).toEqual(['001-old']);
   });
 
+  it('keeps colliding Salesforce labels distinct from the canonical target id', async () => {
+    const ctx = context({
+      searchContacts: vi.fn().mockResolvedValue({
+        records: [account('001-variant', 'Tourisme-Hôtellerie')],
+      }),
+    });
+
+    const result = await loadSectorRecipe(ctx);
+
+    expect(result.obsoleteSectors).toContainEqual(
+      expect.objectContaining({
+        id: 'obsolete-tourisme-hotellerie',
+        label: 'Tourisme-Hôtellerie',
+      }),
+    );
+    expect(result.suggestedMappings['obsolete-tourisme-hotellerie']).toBe(
+      sectorId('Tourisme / hôtellerie'),
+    );
+  });
+
   it('rejects commercial users from reading the organization-wide recipe', async () => {
     const ctx = context({ role: 'commercial' });
 
