@@ -14,6 +14,7 @@ import { OpportunitiesFilters } from './OpportunitiesFilters';
 import { OpportunitiesTable } from './OpportunitiesTable';
 import {
   paginateOpportunityItems,
+  PER_PAGE,
   sortOpportunityItems,
   matchesOpportunityFilters,
   type OpportunityWorkspaceState,
@@ -93,12 +94,12 @@ export function OpportunitiesCleaningView({
     () => sortOpportunityItems(filteredItems, state.sort),
     [filteredItems, state.sort],
   );
-  const page = paginateOpportunityItems(sortedItems, state.page);
+  const page = paginateOpportunityItems(sortedItems, state.page, PER_PAGE);
   const safePage = Math.min(state.page, page.pageCount);
   const pageItems =
     safePage === state.page
       ? page.items
-      : paginateOpportunityItems(sortedItems, safePage).items;
+      : paginateOpportunityItems(sortedItems, safePage, PER_PAGE).items;
   const updateFilters = (filters: OpportunityWorkspaceState['filters']) =>
     onStateChange({ ...state, filters, page: 1 });
   const sort = (key: OpportunityWorkspaceState['sort']['key']) =>

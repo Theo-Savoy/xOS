@@ -84,17 +84,19 @@ describe('OpportunitiesModule', () => {
       expect(screen.getByRole('columnheader', { name: 'Nom' })).toBeTruthy(),
     );
     for (const label of [
+      'Catégorie',
+      'Score',
       'Compte',
       'Owner',
       'Étape',
+      'Close date',
+      'Retard',
       'Montant',
       'Probabilité',
-      'Close date',
       'Dernière activité',
-      'Type de vente',
-      'Catégorie',
-      'Score',
       'Raisons',
+      'Lien SF',
+      'Type de vente',
       'Actions',
       'Evidence',
     ]) {
@@ -252,7 +254,9 @@ describe('OpportunitiesModule', () => {
     expect(screen.getByText('Valeur attendue')).toBeTruthy();
     expect(screen.getByText(/Avant : — · Après : À corriger/)).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: /Salesforce/i }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: 'Voir dans Salesforce' })
+        .getAttribute('href'),
     ).toContain('opp-1');
     fireEvent.click(screen.getByRole('button', { name: 'Fermer le détail' }));
     expect(screen.queryByRole('dialog')).toBeNull();

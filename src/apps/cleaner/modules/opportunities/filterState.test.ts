@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createInitialOpportunityFilters,
   matchesOpportunityFilters,
+  paginateOpportunityItems,
+  PER_PAGE,
   type OpportunityFilters,
 } from './filterState';
 import type { OpportunityDiagnostic } from './types';
@@ -90,5 +92,15 @@ describe('opportunity filters', () => {
         },
       ),
     ).toBe(false);
+  });
+
+  it('paginates 25 opportunities per page by default', () => {
+    const items = Array.from({ length: 26 }, (_, index) => index);
+
+    expect(PER_PAGE).toBe(25);
+    expect(paginateOpportunityItems(items, 1)).toMatchObject({
+      items: items.slice(0, 25),
+      pageCount: 2,
+    });
   });
 });

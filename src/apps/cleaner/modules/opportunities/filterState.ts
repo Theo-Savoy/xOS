@@ -11,7 +11,13 @@ export type OpportunitySortKey =
   | 'last_activity'
   | 'type_vente'
   | 'category'
-  | 'score';
+  | 'score'
+  | 'days_overdue'
+  | 'days_since_activity'
+  | 'reasons'
+  | 'salesforce_url'
+  | 'actions'
+  | 'evidence';
 
 export type OpportunityFilters = {
   search: string;
@@ -30,7 +36,8 @@ export type OpportunityWorkspaceState = {
   activeView: 'cleaning' | 'analytics' | 'history';
 };
 
-export const OPPORTUNITY_PAGE_SIZE = 25;
+export const PER_PAGE = 25;
+export const OPPORTUNITY_PAGE_SIZE = PER_PAGE;
 
 export const REASON_FAMILY_LABELS = {
   closedate: '⏰ Close date dépassée',
@@ -53,6 +60,10 @@ export const REASON_FAMILY_ORDER = [
   'stalled',
   'incoherent_amount',
 ] as const;
+=======
+export const PER_PAGE = 25;
+export const OPPORTUNITY_PAGE_SIZE = PER_PAGE;
+>>>>>>> b02969f (fix(labo): sortable columns, 25/page, reason labels, SF link (V3-B))
 
 export function createInitialOpportunityFilters(): OpportunityFilters {
   return {
@@ -153,11 +164,75 @@ export function matchesOpportunityFilters(
   });
 }
 
+function dateTimestamp(value: unknown): number | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const normalized = value.trim();
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+  const timestamp = dateOnly
+    ? Date.UTC(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      )
+    : Date.parse(normalized);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function daysSinceOpportunityDate(value: unknown): number | null {
+  const timestamp = dateTimestamp(value);
+  if (timestamp === null) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const todayTimestamp = dateTimestamp(today);
+  if (todayTimestamp === null) return null;
+  return Math.floor((todayTimestamp - timestamp) / 86400000);
+}
+
+function numericValue(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const parsed = Number(value.replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function comparable(
   item: OpportunityDiagnostic,
   key: OpportunitySortKey,
 ): string | number {
-  const value = item[key];
+  const workspaceItem = item as OpportunityDiagnostic & {
+    salesforce_url?: string | null;
+  };
+  let value: unknown;
+  switch (key) {
+    case 'days_overdue': {
+      const days = daysSinceOpportunityDate(item.close_date);
+      return days !== null && days > 0 ? days : -Infinity;
+    }
+    case 'days_since_activity': {
+      const days = daysSinceOpportunityDate(item.last_activity);
+      return days === null ? -Infinity : Math.max(days, 0);
+    }
+    case 'reasons':
+      value = item.anomalies.map((anomaly) => anomaly.label || anomaly.ruleId);
+      break;
+    case 'salesforce_url':
+      value = workspaceItem.salesforce_url;
+      break;
+    case 'actions':
+      value = item.id;
+      break;
+    case 'evidence':
+      value = item.anomalies.reduce(
+        (count, anomaly) => count + anomaly.evidence.length,
+        0,
+      );
+      break;
+    default:
+      value = item[key];
+  }
+  if (key === 'amount' || key === 'probability' || key === 'score') {
+    const numeric = numericValue(value);
+    if (numeric !== null) return numeric;
+  }
   if (typeof value === 'number')
     return Number.isFinite(value) ? value : -Infinity;
   return text(value);
@@ -184,17 +259,13 @@ export function sortOpportunityItems(
 export function paginateOpportunityItems<T>(
   items: T[],
   page: number,
+  pageSize = PER_PAGE,
 ): { items: T[]; pageCount: number } {
-  const pageCount = Math.max(
-    1,
-    Math.ceil(items.length / OPPORTUNITY_PAGE_SIZE),
-  );
+  const size = Math.max(1, Math.floor(pageSize));
+  const pageCount = Math.max(1, Math.ceil(items.length / size));
   const safePage = Math.min(Math.max(page, 1), pageCount);
   return {
-    items: items.slice(
-      (safePage - 1) * OPPORTUNITY_PAGE_SIZE,
-      safePage * OPPORTUNITY_PAGE_SIZE,
-    ),
+    items: items.slice((safePage - 1) * size, safePage * size),
     pageCount,
   };
 }
