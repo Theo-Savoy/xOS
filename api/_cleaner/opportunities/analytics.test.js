@@ -80,4 +80,26 @@ describe('computeOpportunityAnalytics', () => {
     expect(result.totals.totalItems).toBe(items.length);
     expect(items.some((item) => item.expectedRuleIds.length === 0)).toBe(false);
   });
+
+  it('returns a stable explicit empty result when workspace items and history are absent', () => {
+    const result = computeOpportunityAnalytics([], [], { today: '2026-07-13' });
+
+    expect(result.empty).toBe(true);
+    expect(result.totals).toMatchObject({
+      totalItems: 0,
+      affectedItems: 0,
+      anomalies: 0,
+      amount: 0,
+      overdue: 0,
+    });
+    expect(result.ownerDistribution).toEqual([]);
+    expect(result.stageDistribution).toEqual([]);
+    expect(result.anomalyEvolution).toEqual([]);
+    expect(result.corrections).toMatchObject({
+      total: 0,
+      resolved: 0,
+      failed: 0,
+      resolutionRate: 0,
+    });
+  });
 });

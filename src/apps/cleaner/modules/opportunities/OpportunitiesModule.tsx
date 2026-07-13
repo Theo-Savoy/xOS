@@ -149,7 +149,10 @@ export function OpportunitiesModule({
         />
       ) : null}
       {state.activeView === 'history' ? (
-        <OpportunitiesHistoryView accessToken={accessToken} />
+        <OpportunitiesHistoryView
+          accessToken={accessToken}
+          selectedOpportunityCount={state.selectedIds.size}
+        />
       ) : null}
     </section>
   );

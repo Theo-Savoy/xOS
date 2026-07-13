@@ -74,6 +74,9 @@ create table if not exists public.cleaner_action_targets (
   unique (action_journal_id, object_type, sf_record_id)
 );
 
+-- After applying this migration, reload PostgREST's relationship cache with
+-- `NOTIFY pgrst, 'reload schema';` or by applying 026_reload_postgrest_schema.sql.
+
 create index if not exists idx_cleaner_action_targets_owner
   on public.cleaner_action_targets (sf_owner_id, created_at desc);
 

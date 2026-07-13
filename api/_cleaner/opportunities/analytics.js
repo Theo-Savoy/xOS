@@ -70,7 +70,11 @@ export function computeOpportunityAnalytics(items, history = [], period = {}) {
   const visibleItems = Array.isArray(items)
     ? items.filter((item) => item && typeof item === 'object')
     : [];
-  const today = period.today || new Date().toISOString().slice(0, 10);
+  const safePeriod =
+    period && typeof period === 'object' && !Array.isArray(period)
+      ? period
+      : {};
+  const today = safePeriod.today || new Date().toISOString().slice(0, 10);
   const anomalyCount = visibleItems.reduce(
     (sum, item) =>
       sum + (Array.isArray(item.anomalies) ? item.anomalies.length : 0),
@@ -180,7 +184,8 @@ export function computeOpportunityAnalytics(items, history = [], period = {}) {
     ).length,
   };
   return {
-    period: { ...period, today },
+    empty: visibleItems.length === 0,
+    period: { ...safePeriod, today },
     totals,
     ownerDistribution,
     stageDistribution,

@@ -4,6 +4,7 @@ import { fetchOpportunityHistory, type OpportunityHistoryItem } from './api';
 type OpportunitiesHistoryViewProps = {
   accessToken?: string;
   role?: 'commercial' | 'manager' | 'admin';
+  selectedOpportunityCount?: number;
 };
 
 function text(value: unknown, fallback = '—'): string {
@@ -46,9 +47,22 @@ function number(value: unknown): number {
     : Number(value) || 0;
 }
 
+function isSchemaCacheError(cause: unknown): boolean {
+  if (!cause || typeof cause !== 'object') return false;
+  const code = 'code' in cause ? cause.code : undefined;
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return (
+    code === 'schema_cache' ||
+    /relationship between\s+action_journal\s+and\s+cleaner_action_targets/i.test(
+      message,
+    )
+  );
+}
+
 export function OpportunitiesHistoryView({
   accessToken,
   role,
+  selectedOpportunityCount = 0,
 }: OpportunitiesHistoryViewProps) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>(
     'loading',
@@ -59,12 +73,14 @@ export function OpportunitiesHistoryView({
   const [actorFilter, setActorFilter] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [schemaCacheError, setSchemaCacheError] = useState(false);
 
   const cursor = cursorStack[cursorStack.length - 1] || null;
   const load = useCallback(
     async (requestedCursor: string | null) => {
       setStatus('loading');
       setError(null);
+      setSchemaCacheError(false);
       try {
         const response = await fetchOpportunityHistory(accessToken, {
           cursor: requestedCursor,
@@ -74,6 +90,7 @@ export function OpportunitiesHistoryView({
         setNextCursor(response.nextCursor || null);
         setStatus(response.items.length ? 'ready' : 'empty');
       } catch (cause: unknown) {
+        setSchemaCacheError(isSchemaCacheError(cause));
         setError(
           cause instanceof Error
             ? cause.message
@@ -141,7 +158,21 @@ export function OpportunitiesHistoryView({
   if (status === 'error')
     return (
       <div className="cleaner-opportunities__history-state" role="alert">
-        <p>{error || 'L’historique est indisponible.'}</p>
+        {schemaCacheError ? (
+          <>
+            <p>
+              Le cache du schéma Supabase n’est pas à jour. Appliquez la
+              migration 026_reload_postgrest_schema.sql puis réessayez.
+            </p>
+            <p>
+              <a href="/supabase/migrations/026_reload_postgrest_schema.sql">
+                supabase/migrations/026_reload_postgrest_schema.sql
+              </a>
+            </p>
+          </>
+        ) : (
+          <p>{error || 'L’historique est indisponible.'}</p>
+        )}
         <button type="button" onClick={() => load(cursor)}>
           Actualiser
         </button>
@@ -200,7 +231,9 @@ export function OpportunitiesHistoryView({
       </div>
       {status === 'empty' ? (
         <div className="cleaner-opportunities__history-state" role="status">
-          Aucune action dans votre périmètre.
+          {selectedOpportunityCount > 0
+            ? "Pas encore d'historique pour vos opportunités — vos actions apparaîtront ici après la première commande."
+            : 'Aucune action dans votre périmètre.'}
         </div>
       ) : (
         <div className="cleaner-opportunities__table-wrap">

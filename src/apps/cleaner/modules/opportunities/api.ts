@@ -94,7 +94,8 @@ export class OpportunityApiError extends Error {
       | 'timeout'
       | 'http_error'
       | 'invalid_response'
-      | 'network_error',
+      | 'network_error'
+      | 'schema_cache',
     public readonly status: number | null = null,
     public readonly details: unknown = undefined,
   ) {
@@ -396,13 +397,19 @@ async function fetchOpportunityGet<T>(
         401,
         body,
       );
-    if (!response.ok)
+    if (!response.ok) {
+      const code =
+        isRecord(body) &&
+        (body.error === 'schema_cache' || body.code === 'schema_cache')
+          ? 'schema_cache'
+          : 'http_error';
       throw new OpportunityApiError(
         bodyMessage(body, response.status),
-        'http_error',
+        code,
         response.status,
         body,
       );
+    }
     return parse(body, response.status);
   } finally {
     clearTimeout(timeout);

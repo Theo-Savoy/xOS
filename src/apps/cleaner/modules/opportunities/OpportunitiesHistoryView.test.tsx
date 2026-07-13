@@ -124,4 +124,61 @@ describe('OpportunitiesHistoryView', () => {
     expect(await screen.findByText('own_action')).toBeTruthy();
     expect(screen.queryByText('Legacy CRM Cleaner')).toBeNull();
   });
+
+  it('explains that history will appear after the first command when selected opportunities have no entries', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+        }),
+      ),
+    );
+
+    render(
+      <OpportunitiesHistoryView
+        accessToken="token"
+        selectedOpportunityCount={2}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "Pas encore d'historique pour vos opportunités — vos actions apparaîtront ici après la première commande.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText('Aucune action dans votre périmètre.'),
+    ).toBeNull();
+  });
+
+  it('shows the schema-cache recovery hint when history reports schema_cache', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: 'schema_cache',
+            message: 'Le schéma est indisponible.',
+          }),
+          { status: 500 },
+        ),
+      ),
+    );
+
+    render(<OpportunitiesHistoryView accessToken="token" />);
+
+    expect(
+      await screen.findByText(
+        'Le cache du schéma Supabase n’est pas à jour. Appliquez la migration 026_reload_postgrest_schema.sql puis réessayez.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('link', {
+          name: 'supabase/migrations/026_reload_postgrest_schema.sql',
+        })
+        .getAttribute('href'),
+    ).toBe('/supabase/migrations/026_reload_postgrest_schema.sql');
+  });
 });

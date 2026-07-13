@@ -80,8 +80,12 @@ it('connects Synthèse navigation back to a filtered Nettoyage view', async () =
   render(<OpportunitiesModule accessToken="token" />);
   await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: 'Synthèse' }));
-  await waitFor(() => expect(screen.getByText('Alice')).toBeTruthy());
-  fireEvent.click(screen.getByRole('button', { name: /Alice/i }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /Alice · 1 éléments/i }),
+    ).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByRole('button', { name: /Alice · 1 éléments/i }));
   expect(
     screen
       .getByRole('button', { name: 'Nettoyage' })

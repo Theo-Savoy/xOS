@@ -809,6 +809,37 @@
   color: var(--xos-text-muted);
   font-size: 0.75rem;
 }
+.cleaner-opportunities__analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.cleaner-opportunities__analytics-summary-card ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cleaner-opportunities__analytics-summary-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+.cleaner-opportunities__analytics-summary-card li strong,
+.cleaner-opportunities__analytics-summary-amount {
+  color: var(--xos-text);
+  font-family: var(--xos-font-numeric);
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+.cleaner-opportunities__analytics-summary-card p {
+  margin: 0;
+  color: var(--xos-text-muted);
+  font-size: 0.75rem;
+}
 .cleaner-opportunities__analytics-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -931,6 +962,7 @@
     grid-template-columns: 1fr;
   }
   .cleaner-opportunities__analytics-kpis,
+  .cleaner-opportunities__analytics-summary,
   .cleaner-opportunities__analytics-grid {
     grid-template-columns: 1fr;
   }

@@ -65,13 +65,39 @@ const analytics = {
 
 describe('OpportunitiesAnalyticsView', () => {
   it('renders distributions, trends, period and navigates to matching cleaning filters', async () => {
+    const workspaceItems = [
+      {
+        category: 'dechet',
+        owner: 'Alice',
+        owner_id: 'owner-1',
+        amount: 50000,
+      },
+      {
+        category: 'dechet',
+        owner: 'Alice',
+        owner_id: 'owner-1',
+        amount: 25000,
+      },
+      {
+        category: 'incoherent',
+        owner: 'Bob',
+        owner_id: 'owner-2',
+        amount: 30000,
+      },
+      {
+        category: 'not_a_candidate',
+        owner: 'Bob',
+        owner_id: 'owner-2',
+        amount: 20000,
+      },
+    ];
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
         .mockResolvedValue(
           new Response(
-            JSON.stringify({ analytics, workspace: { items: [] } }),
+            JSON.stringify({ analytics, workspace: { items: workspaceItems } }),
             { status: 200 },
           ),
         ),
@@ -86,13 +112,21 @@ describe('OpportunitiesAnalyticsView', () => {
 
     expect(screen.getByRole('status')).toBeTruthy();
     expect(await screen.findByText('Juillet 2026')).toBeTruthy();
-    expect(screen.getByText('Alice')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Alice · 3 éléments/i }),
+    ).toBeTruthy();
     expect(screen.getByText('Proposal')).toBeTruthy();
     expect(screen.getByText('Montant manquant')).toBeTruthy();
     expect(screen.getByText(/taux de résolution/i)).toBeTruthy();
+    expect(screen.getByText('Opportunités par catégorie')).toBeTruthy();
+    expect(screen.getByText('Top 5 owners')).toBeTruthy();
+    expect(screen.getByText('Montant à risque')).toBeTruthy();
+    expect(screen.getAllByText(/125.000 €/)).toHaveLength(2);
     expect(screen.queryByText(/score global|santé globale/i)).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /Alice/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Alice · 3 éléments/i }),
+    );
     expect(onNavigateToCleaning).toHaveBeenCalledWith({ owners: ['Alice'] });
     fireEvent.click(screen.getByRole('button', { name: /Proposal/i }));
     expect(onNavigateToCleaning).toHaveBeenCalledWith({ search: 'Proposal' });
@@ -118,7 +152,9 @@ describe('OpportunitiesAnalyticsView', () => {
               ...analytics,
               totals: { ...analytics.totals, anomalies: 0 },
             },
-            workspace: { items: [] },
+            workspace: {
+              items: [{ category: 'dechet', owner: 'Alice', amount: 1 }],
+            },
           }),
           { status: 200 },
         ),
@@ -137,5 +173,36 @@ describe('OpportunitiesAnalyticsView', () => {
     fireEvent.click(screen.getByRole('button', { name: /actualiser/i }));
     await waitFor(() => expect(screen.getByText('Juillet 2026')).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a card explaining that no workspace opportunities are available', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ analytics, workspace: { items: [] } }),
+            { status: 200 },
+          ),
+        ),
+    );
+
+    render(
+      <OpportunitiesAnalyticsView
+        accessToken="token"
+        onNavigateToCleaning={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        'Aucune opportunité disponible pour la synthèse.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /actualiser/i })).toBeTruthy();
+    expect(
+      screen.queryByText('Aucune donnée analytique sur la période.'),
+    ).toBeNull();
   });
 });

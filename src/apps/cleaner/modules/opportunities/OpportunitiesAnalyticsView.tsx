@@ -6,6 +6,7 @@ import {
 import type { OpportunityFilters } from './filterState';
 
 type Analytics = Record<string, unknown>;
+type SummaryRow = { label: string; count: number };
 
 type OpportunitiesAnalyticsViewProps = {
   accessToken?: string;
@@ -45,6 +46,38 @@ function amount(value: unknown): string {
 
 function percent(value: unknown): string {
   return `${Math.round(number(value) * 100)} %`;
+}
+
+function summaryRows(
+  items: Analytics[],
+  valueOf: (item: Analytics) => unknown,
+  limit?: number,
+): SummaryRow[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const value = valueOf(item);
+    const key = value == null || value === '' ? 'Non renseigné' : String(value);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const rows = [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.label.localeCompare(right.label),
+    );
+  return limit ? rows.slice(0, limit) : rows;
+}
+
+function workspaceSummary(items: Analytics[]) {
+  return {
+    categories: summaryRows(items, (item) => item.category),
+    owners: summaryRows(
+      items,
+      (item) => item.owner ?? item.owner_name ?? item.owner_id,
+      5,
+    ),
+    amountAtRisk: items.reduce((total, item) => total + number(item.amount), 0),
+  };
 }
 
 function clickableRow(
@@ -185,13 +218,7 @@ export function OpportunitiesAnalyticsView({
     fetchOpportunityAnalytics(accessToken, { period })
       .then((next) => {
         setPayload(next);
-        const totals = record(next.analytics.totals);
-        setStatus(
-          number(totals.totalItems) > 0 ||
-            list(next.analytics.ownerDistribution).length > 0
-            ? 'ready'
-            : 'empty',
-        );
+        setStatus(list(next.workspace?.items).length ? 'ready' : 'empty');
       })
       .catch((cause: unknown) => {
         setError(
@@ -228,15 +255,21 @@ export function OpportunitiesAnalyticsView({
     );
   if (status === 'empty' || !payload)
     return (
-      <div className="cleaner-opportunities__analytics-state" role="status">
-        <p>Aucune donnée analytique sur la période.</p>
+      <section
+        className="cleaner-opportunities__analytics-state cleaner-opportunities__analytics-card"
+        role="status"
+      >
+        <h2>Aucune opportunité disponible pour la synthèse.</h2>
+        <p>Actualisez pour rechercher les opportunités de votre périmètre.</p>
         <button type="button" onClick={load}>
           Actualiser
         </button>
-      </div>
+      </section>
     );
 
   const analytics = payload.analytics;
+  const workspaceItems = list(payload.workspace?.items);
+  const summary = workspaceSummary(workspaceItems);
   const totals = record(analytics.totals);
   const corrections = record(analytics.corrections);
   const evolution = list(analytics.anomalyEvolution);
@@ -268,6 +301,40 @@ export function OpportunitiesAnalyticsView({
         >
           Actualiser
         </button>
+      </div>
+      <div
+        className="cleaner-opportunities__analytics-summary"
+        aria-label="Indicateurs issus des opportunités"
+      >
+        <section className="cleaner-opportunities__analytics-card cleaner-opportunities__analytics-summary-card">
+          <h3>Opportunités par catégorie</h3>
+          <ul>
+            {summary.categories.map((row) => (
+              <li key={row.label}>
+                <span>{row.label}</span>
+                <strong>{row.count}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="cleaner-opportunities__analytics-card cleaner-opportunities__analytics-summary-card">
+          <h3>Top 5 owners</h3>
+          <ul>
+            {summary.owners.map((row) => (
+              <li key={row.label}>
+                <span>{row.label}</span>
+                <strong>{row.count}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="cleaner-opportunities__analytics-card cleaner-opportunities__analytics-summary-card">
+          <h3>Montant à risque</h3>
+          <strong className="cleaner-opportunities__analytics-summary-amount">
+            {amount(summary.amountAtRisk)}
+          </strong>
+          <p>Somme des montants des opportunités chargées</p>
+        </section>
       </div>
       <div
         className="cleaner-opportunities__analytics-kpis"
