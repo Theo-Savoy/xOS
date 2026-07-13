@@ -5,7 +5,9 @@ import {
   useContext,
   useMemo,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from 'react';
 import type { UserNotification } from './notifications';
 
@@ -29,6 +31,14 @@ export function addBurst(
   return [...bursts, burst].slice(-MAX_BURSTS);
 }
 
+/** Adds a burst originating from this user's own click. */
+export function addLocalBurst(
+  bursts: FloatingReactionBurst[],
+  burst: FloatingReactionBurst,
+): FloatingReactionBurst[] {
+  return addBurst(bursts, burst);
+}
+
 function createBurstId(): string {
   if (
     typeof crypto !== 'undefined' &&
@@ -41,10 +51,13 @@ function createBurstId(): string {
 
 type NotificationsStoreValue = {
   notifications: UserNotification[];
-  setNotifications: (notifications: UserNotification[]) => void;
+  setNotifications: Dispatch<SetStateAction<UserNotification[]>>;
   bursts: FloatingReactionBurst[];
   addBurst: (burst: AddBurstInput) => string;
+  addLocalBurst: (burst: AddBurstInput) => string;
   removeBurst: (id: string) => void;
+  reactedAt: Record<number, number>;
+  markReacted: (id: number, at?: number) => void;
   controlCenterOpenRequest: number;
   requestOpenControlCenter: () => void;
 };
@@ -64,6 +77,7 @@ export function NotificationsProvider({
 }: NotificationsProviderProps) {
   const [notifications, setNotifications] = useState(initialNotifications);
   const [bursts, setBursts] = useState<FloatingReactionBurst[]>([]);
+  const [reactedAt, setReactedAt] = useState<Record<number, number>>({});
   const [controlCenterOpenRequest, setControlCenterOpenRequest] = useState(0);
 
   const addBurstToStore = useCallback((input: AddBurstInput) => {
@@ -72,8 +86,20 @@ export function NotificationsProvider({
     return burst.id;
   }, []);
 
+  const addLocalBurstToStore = useCallback((input: AddBurstInput) => {
+    const burst = { id: input.id ?? createBurstId(), emoji: input.emoji };
+    setBursts((previous) => addLocalBurst(previous, burst));
+    return burst.id;
+  }, []);
+
   const removeBurst = useCallback((id: string) => {
     setBursts((previous) => previous.filter((burst) => burst.id !== id));
+  }, []);
+
+  const markReacted = useCallback((id: number, at = Date.now()) => {
+    setReactedAt((previous) =>
+      previous[id] !== undefined ? previous : { ...previous, [id]: at },
+    );
   }, []);
 
   const requestOpenControlCenter = useCallback(() => {
@@ -86,7 +112,10 @@ export function NotificationsProvider({
       setNotifications,
       bursts,
       addBurst: addBurstToStore,
+      addLocalBurst: addLocalBurstToStore,
       removeBurst,
+      reactedAt,
+      markReacted,
       controlCenterOpenRequest,
       requestOpenControlCenter,
     }),
@@ -94,7 +123,10 @@ export function NotificationsProvider({
       notifications,
       bursts,
       addBurstToStore,
+      addLocalBurstToStore,
       removeBurst,
+      reactedAt,
+      markReacted,
       controlCenterOpenRequest,
       requestOpenControlCenter,
     ],

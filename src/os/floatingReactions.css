@@ -31,3 +31,10 @@
       rotate(var(--xos-float-rotate, 0deg)) scale(1.05);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .xos-float-reactions__emoji {
+    animation-delay: 0s;
+    animation-duration: 0.01ms !important;
+  }
+}

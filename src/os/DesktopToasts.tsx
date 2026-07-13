@@ -13,6 +13,7 @@ import './desktopToasts.css';
 const TOAST_DURATION_MS = 6_000;
 const TOAST_EXIT_MS = 180;
 const MAX_VISIBLE_TOASTS = 4;
+const REACTION_TTL_MS = 30 * 60 * 1000;
 
 type ToastState = {
   notification: UserNotification;
@@ -23,8 +24,13 @@ function isToastNotification(item: UserNotification): boolean {
   return item.kind === 'session_goal_hit' || item.kind === 'goal_reaction';
 }
 
+function isReactedExpired(timestamp: number | undefined): boolean {
+  return timestamp !== undefined && Date.now() - timestamp > REACTION_TTL_MS;
+}
+
 export function DesktopToasts({ accessToken }: { accessToken: string }) {
-  const { notifications, requestOpenControlCenter } = useNotificationsStore();
+  const { notifications, reactedAt, requestOpenControlCenter } =
+    useNotificationsStore();
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const seenToastIds = useRef(new Set<number>());
   const exitTimers = useRef(new Map<number, number>());
@@ -33,6 +39,7 @@ export function DesktopToasts({ accessToken }: { accessToken: string }) {
     const fresh = notifications.filter(
       (notification) =>
         isToastNotification(notification) &&
+        !isReactedExpired(reactedAt[notification.id]) &&
         !seenToastIds.current.has(notification.id),
     );
     if (fresh.length === 0) return;
@@ -47,7 +54,7 @@ export function DesktopToasts({ accessToken }: { accessToken: string }) {
         })),
       ].slice(-MAX_VISIBLE_TOASTS),
     );
-  }, [notifications]);
+  }, [notifications, reactedAt]);
 
   const dismissToast = useCallback(
     (id: number, markRead: boolean) => {
@@ -95,11 +102,14 @@ export function DesktopToasts({ accessToken }: { accessToken: string }) {
     [],
   );
 
-  if (toasts.length === 0) return null;
+  const visibleToasts = toasts.filter(
+    ({ notification }) => !isReactedExpired(reactedAt[notification.id]),
+  );
+  if (visibleToasts.length === 0) return null;
 
   return (
     <div className="xos-desktop-toasts" aria-label="Notifications récentes">
-      {toasts.map(({ notification, phase }) => {
+      {visibleToasts.map(({ notification, phase }) => {
         const emoji = reactionEmoji(notification);
         const handleClick = () => {
           dismissToast(notification.id, true);

@@ -10,6 +10,7 @@ type FloatingReactionsProps = {
 };
 
 const PARTICLE_COUNT = 14;
+const PARTICLE_LIFETIME_MS = 4_300;
 
 type Particle = {
   key: number;
@@ -22,14 +23,14 @@ type Particle = {
   rotate: string;
 };
 
-function particlesFor(emoji: string): Particle[] {
+export function particlesFor(emoji: string): Particle[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
     key: i,
     emoji,
     left: `${6 + Math.random() * 88}%`,
     delay: `${Math.random() * 0.35}s`,
-    duration: `${1.6 + Math.random() * 0.9}s`,
-    drift: `${(Math.random() - 0.5) * 120}px`,
+    duration: `${2.8 + Math.random()}s`,
+    drift: `${(Math.random() - 0.5) * 180}px`,
     size: `${1.2 + Math.random() * 1.6}rem`,
     rotate: `${(Math.random() - 0.5) * 80}deg`,
   }));
@@ -59,7 +60,7 @@ export function FloatingReactions({ bursts, onDone }: FloatingReactionsProps) {
         });
         startedRef.current.delete(burst.id);
         onDoneRef.current(burst.id);
-      }, 2800);
+      }, PARTICLE_LIFETIME_MS);
       timersRef.current.set(burst.id, timer);
     }
   }, [bursts]);

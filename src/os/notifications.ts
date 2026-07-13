@@ -6,6 +6,8 @@ export type UserNotification = {
   payload: Record<string, unknown>;
   created_at: string;
   read_at: string | null;
+  /** Present on Supabase Realtime rows; omitted by the notifications API. */
+  recipient_id?: string;
 };
 
 export function reactionEmoji(item: UserNotification): string | null {
@@ -50,7 +52,20 @@ export async function markNotificationsRead(
   if (!res.ok) throw new Error(`notifications_mark_${res.status}`);
 }
 
-const GOAL_REACTION_EMOJIS = ['👏', '🔥', '💪'] as const;
+const GOAL_REACTION_EMOJIS = [
+  '👏',
+  '🔥',
+  '💪',
+  '🎉',
+  '🥳',
+  '🙌',
+  '💯',
+  '⭐',
+  '❤️',
+  '🚀',
+  '🤝',
+  '💼',
+] as const;
 export type GoalReactionEmoji = (typeof GOAL_REACTION_EMOJIS)[number];
 export { GOAL_REACTION_EMOJIS };
 
