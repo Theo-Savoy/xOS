@@ -33,8 +33,17 @@ export function useRealtimeNotifications({
       const userId = session?.user.id;
       if (cancelled || !userId) return;
 
+      // Supabase Realtime private channels require both the `private: true`
+      // config AND a recent auth token bound to the socket via setAuth —
+      // otherwise postgres_changes events are silently dropped server-side.
+      if (session.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+
       channel = supabase
-        .channel(`user-notifications:${userId}`)
+        .channel(`user-notifications:${userId}`, {
+          config: { private: true },
+        })
         .on(
           'postgres_changes',
           {

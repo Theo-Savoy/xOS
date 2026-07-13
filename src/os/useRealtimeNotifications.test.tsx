@@ -28,7 +28,7 @@ const { getSession, channel, on, unsubscribe } = vi.hoisted(() => {
 });
 
 vi.mock('../lib/supabase', () => ({
-  supabase: { auth: { getSession }, channel },
+  supabase: { auth: { getSession }, channel, realtime: { setAuth: vi.fn() } },
 }));
 
 const incoming = {
@@ -72,7 +72,9 @@ describe('useRealtimeNotifications', () => {
     );
 
     await waitFor(() => expect(on).toHaveBeenCalled());
-    expect(channel).toHaveBeenCalledWith('user-notifications:user-1');
+    expect(channel).toHaveBeenCalledWith('user-notifications:user-1', {
+      config: { private: true },
+    });
     expect(on.mock.calls[0]?.[1]).toMatchObject({
       event: 'INSERT',
       schema: 'public',
