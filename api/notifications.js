@@ -17,10 +17,14 @@ export async function GET(request) {
   const unreadOnly = url.searchParams.get("unread") === "1";
   const limitRaw = Number(url.searchParams.get("limit") || 40);
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 40;
-  const since = url.searchParams.get("since") || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Default retention: 30 minutes. Old reactions linger in DB forever otherwise
+  // and reappear on every reload. Cap is intentionally tight because the
+  // client renders nothing useful from notifications older than a few minutes
+  // (the burst already played, the toast already dismissed).
+  const since = url.searchParams.get("since") || new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
   try {
-    await client.rpc("purge_user_notifications", { max_age_hours: 24 });
+    await client.rpc("purge_user_notifications", { max_age_hours: 1 });
   } catch {
     // Purging is best effort; a missing migration must not break reads.
   }

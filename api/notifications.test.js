@@ -102,7 +102,7 @@ describe("GET /api/notifications", () => {
     expect(mockGt).toHaveBeenCalledWith("created_at", since);
     expect(mockGt).toHaveBeenCalledTimes(2);
     expect(mockRpc).toHaveBeenCalledWith("purge_user_notifications", {
-      max_age_hours: 24,
+      max_age_hours: 1,
     });
   });
 });
