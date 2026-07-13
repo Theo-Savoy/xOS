@@ -212,7 +212,7 @@ export const COMBO_ACTIONS: ComboActionDef[] = [
     id: "toggle-sounds",
     label: "Activer / couper les sons",
     section: "Aide",
-    keywords: ["son", "mute", "audio"],
+    keywords: ["son", "mute", "audio", "réglages", "sons", "log"],
   },
 ];
 

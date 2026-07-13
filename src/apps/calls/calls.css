@@ -3128,6 +3128,45 @@
   font-size: 0.78rem;
 }
 
+.calls-cmdk__sound-details {
+  border-top: 1px solid color-mix(in srgb, var(--xos-border) 65%, transparent);
+  padding-top: 0.65rem;
+}
+
+.calls-cmdk__sound-details summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--xos-text-muted);
+  list-style: none;
+  user-select: none;
+}
+
+.calls-cmdk__sound-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.calls-cmdk__sound-details[open] summary {
+  margin-bottom: 0.55rem;
+  color: var(--xos-text);
+}
+
+.calls-sound-prefs--cmdk {
+  padding-top: 0;
+  border-top: 0;
+  gap: 0.55rem;
+}
+
+.calls-sound-prefs--cmdk .calls-sound-prefs__list {
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.calls-sound-prefs__cmdk-hint {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
 .calls-help__head {
   display: flex;
   justify-content: space-between;

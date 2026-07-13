@@ -2301,14 +2301,13 @@ export function RunnerView({
         onClose={() => setCommandBarOpen(false)}
         onRun={runComboAction}
         soundsEnabled={soundsEnabled}
+        soundPrefs={soundPrefs}
+        onSoundPrefsChange={setSoundPrefs}
       />
       <ShortcutHelp
         open={helpOpen}
         onClose={() => setHelpOpen(false)}
         onOpenCommandBar={() => setCommandBarOpen(true)}
-        soundsEnabled={soundsEnabled}
-        soundPrefs={soundPrefs}
-        onSoundPrefsChange={setSoundPrefs}
       />
       <ComboOnboardingDemo open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
