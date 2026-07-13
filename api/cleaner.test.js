@@ -111,6 +111,22 @@ describe('GET /api/cleaner', () => {
     );
   });
 
+  it('includes bulk edit capability in the commercial workspace response', async () => {
+    const response = await GET(
+      request('module=opportunities&resource=workspace'),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      capabilities: {
+        canBulkEdit: true,
+        canBulkClose: true,
+        canReassign: false,
+        canManageRules: false,
+      },
+    });
+  });
+
   it('loads manager team scope and preserves cursor pagination', async () => {
     mockGetProfile.mockResolvedValue({
       fullName: 'Manager',

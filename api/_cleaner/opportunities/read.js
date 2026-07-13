@@ -324,7 +324,9 @@ export async function loadOpportunityWorkspace(context = {}) {
     )
     .map((record) => normalizeOpportunity(record, settings, context))
     .filter(Boolean);
-  const scoped = scopeOpportunityItems(normalized, context, query);
+  const scoped = context.includeUnscopedForCommand
+    ? normalized
+    : scopeOpportunityItems(normalized, context, query);
   const items = scoped.slice(offset, offset + limit);
   return {
     items,

@@ -23,6 +23,16 @@ function response(status, body) {
   return new Response(JSON.stringify(body), { status, headers: HEADERS });
 }
 
+function publicCapabilities(capabilities) {
+  return {
+    canViewTeam: capabilities.canViewTeam,
+    canReassign: capabilities.canReassign,
+    canBulkEdit: capabilities.canBulkEdit,
+    canBulkClose: capabilities.canBulkClose,
+    canManageRules: capabilities.canManageRules,
+  };
+}
+
 async function teamSfUserIds(client, role, profile) {
   if (role === 'commercial') return profile.sfUserId ? [profile.sfUserId] : [];
   const result = await client.from('profiles').select('sf_user_id');
@@ -121,7 +131,12 @@ export async function GET(request) {
     }
 
     const workspace = await loadOpportunityWorkspace(context);
-    if (query.resource === 'workspace') return response(200, workspace);
+    const workspaceWithCapabilities = {
+      ...workspace,
+      capabilities: publicCapabilities(context.capabilities),
+    };
+    if (query.resource === 'workspace')
+      return response(200, workspaceWithCapabilities);
 
     const history = await historyFor(client, context, {
       ...query,
@@ -129,11 +144,11 @@ export async function GET(request) {
       cursor: null,
     });
     const analytics = computeOpportunityAnalytics(
-      workspace.items,
+      workspaceWithCapabilities.items,
       history.data || [],
       query,
     );
-    return response(200, { analytics, workspace });
+    return response(200, { analytics, workspace: workspaceWithCapabilities });
   } catch (error) {
     const normalized = toCleanerError(error);
     return response(normalized.status, errorBody(normalized));

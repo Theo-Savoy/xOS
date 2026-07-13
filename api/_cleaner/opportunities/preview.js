@@ -2,7 +2,10 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import mapping from '../../_crm/mapping.js';
 import { CleanerError } from '../core/errors.js';
-import { authorizeContext, allowedOwnerIds } from '../core/authorization.js';
+import {
+  authorizeContext,
+  scopeOpportunityItems,
+} from '../core/authorization.js';
 import { DEFAULT_CLEANER_SETTINGS } from '../core/settings.js';
 import { loadOpportunityWorkspace } from './read.js';
 
@@ -271,6 +274,44 @@ function fingerprintsFor(eligible, context) {
   return createHash('sha256').update(stable(body)).digest('hex');
 }
 
+function assertActionAllowed(context, changes) {
+  const authorization = authorizeContext(context);
+  if (!authorization.ok)
+    throw new CleanerError(
+      authorization.error,
+      authorization.error,
+      authorization.status,
+    );
+
+  const capabilities = authorization.capabilities;
+  if (Object.hasOwn(changes, 'owner_id') && !capabilities.canReassign)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de réassignation.',
+      403,
+    );
+
+  const isClose =
+    changes.stage === mapping.objects.opportunity.closedLostStage ||
+    Object.hasOwn(changes, 'loss_reason');
+  if (isClose && !capabilities.canBulkClose)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de clôture en masse.',
+      403,
+    );
+
+  const isEdit = ['close_date', 'stage', 'type_vente'].some((key) =>
+    Object.hasOwn(changes, key),
+  );
+  if (isEdit && !isClose && !capabilities.canBulkEdit)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de modification en masse.',
+      403,
+    );
+}
+
 async function readAllWorkspace(context) {
   const loader = context.loadOpportunityWorkspace || loadOpportunityWorkspace;
   const records = [];
@@ -279,6 +320,7 @@ async function readAllWorkspace(context) {
   for (;;) {
     const workspace = await loader({
       ...context,
+      includeUnscopedForCommand: true,
       limit: 200,
       cursor,
       query: { ...(context.query || {}), limit: 200, cursor },
@@ -312,6 +354,7 @@ export async function buildOpportunityPreview(context = {}, input = {}) {
   assertContext(context);
   const ids = normalizeIds(input);
   const changes = normalizeChanges(input.changes);
+  assertActionAllowed(context, changes);
   const evaluated = await evaluateOpportunitySelection(context, {
     ...input,
     ids,
@@ -361,15 +404,26 @@ export async function evaluateOpportunitySelection(context = {}, input = {}) {
   assertContext(context);
   const ids = normalizeIds(input);
   const changes = normalizeChanges(input.changes);
+  assertActionAllowed(context, changes);
   const current = await readAllWorkspace(context);
-  const byId = new Map(current.map((item) => [item.id, item]));
-  const allowed = new Set(allowedOwnerIds(context));
+  const scoped = scopeOpportunityItems(current, context, input.query);
+  const byId = new Map(scoped.map((item) => [item.id, item]));
+  const scopedIds = new Set(scoped.map((item) => item.id));
+  const outOfScope = ids.some(
+    (id) => current.some((item) => item.id === id) && !scopedIds.has(id),
+  );
+  if (outOfScope)
+    throw new CleanerError(
+      'out_of_scope',
+      'La sélection contient une opportunité hors périmètre.',
+      403,
+    );
   const eligible = [];
   const excluded = [];
 
   for (const id of ids) {
     const item = byId.get(id);
-    if (!item || (item.owner_id && !allowed.has(item.owner_id))) {
+    if (!item) {
       excluded.push({ id, reason: 'not_eligible' });
       continue;
     }

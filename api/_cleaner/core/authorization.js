@@ -9,6 +9,8 @@ const READ_ONLY = {
 const ROLE_CAPABILITIES = {
   commercial: {
     ...READ_ONLY,
+    canBulkEdit: true,
+    canBulkClose: true,
     canViewTeam: false,
     canReadOwn: true,
     canReadWorkspace: true,
@@ -17,6 +19,9 @@ const ROLE_CAPABILITIES = {
   },
   manager: {
     ...READ_ONLY,
+    canReassign: true,
+    canBulkEdit: true,
+    canBulkClose: true,
     canViewTeam: true,
     canReadOwn: true,
     canReadWorkspace: true,
@@ -25,6 +30,10 @@ const ROLE_CAPABILITIES = {
   },
   admin: {
     ...READ_ONLY,
+    canReassign: true,
+    canBulkEdit: true,
+    canBulkClose: true,
+    canManageRules: true,
     canViewTeam: true,
     canReadOwn: true,
     canReadWorkspace: true,

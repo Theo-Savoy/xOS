@@ -1,6 +1,10 @@
 import mapping from '../../_crm/mapping.js';
 import { fetchSFToken, updateSObjects } from '../../_crm/salesforce.js';
 import { journalCleanerAction } from '../core/audit.js';
+import {
+  authorizeContext,
+  scopeOpportunityItems,
+} from '../core/authorization.js';
 import { CleanerError } from '../core/errors.js';
 import { reserveCommand } from '../core/idempotency.js';
 import { evaluateOpportunitySelection, fingerprintsFor } from './preview.js';
@@ -9,6 +13,44 @@ const MAX_BATCH = 200;
 
 function invalid(message, status = 422, details) {
   throw new CleanerError('invalid_command', message, status, details);
+}
+
+function assertActionAllowed(context, changes) {
+  const authorization = authorizeContext(context);
+  if (!authorization.ok)
+    throw new CleanerError(
+      authorization.error,
+      authorization.error,
+      authorization.status,
+    );
+
+  const capabilities = authorization.capabilities;
+  if (Object.hasOwn(changes, 'owner_id') && !capabilities.canReassign)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de réassignation.',
+      403,
+    );
+
+  const isClose =
+    changes.stage === mapping.objects.opportunity.closedLostStage ||
+    Object.hasOwn(changes, 'loss_reason');
+  if (isClose && !capabilities.canBulkClose)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de clôture en masse.',
+      403,
+    );
+
+  const isEdit = ['close_date', 'stage', 'type_vente'].some((key) =>
+    Object.hasOwn(changes, key),
+  );
+  if (isEdit && !isClose && !capabilities.canBulkEdit)
+    throw new CleanerError(
+      'forbidden',
+      'Cette action nécessite la capacité de modification en masse.',
+      403,
+    );
 }
 
 function object(value) {
@@ -176,14 +218,36 @@ function resultFor(preview, idempotencyKey, commandId, results) {
 export async function executeOpportunityCommand(context = {}, input = {}) {
   if (!context.user || !context.supabase?.from)
     throw new CleanerError('unauthorized', 'Session X OS requise.', 401);
+  const authorization = authorizeContext(context);
+  if (!authorization.ok)
+    throw new CleanerError(
+      authorization.error,
+      authorization.error,
+      authorization.status,
+    );
   assertExecuteInput(input);
   const loaded = await loadPreview(context, input.previewId);
   const preview = loaded.preview;
+  assertActionAllowed(context, preview.changes);
   if (preview.fingerprint !== input.fingerprint)
     throw new CleanerError(
       'fingerprint_mismatch',
       'Le fingerprint ne correspond pas au preview.',
       409,
+    );
+
+  const scopedPreview = scopeOpportunityItems(
+    preview.eligible.map((item) => ({
+      id: item.id,
+      ...item.before,
+    })),
+    context,
+  );
+  if (scopedPreview.length !== preview.eligible.length)
+    throw new CleanerError(
+      'out_of_scope',
+      'Le preview contient une opportunité hors périmètre.',
+      403,
     );
 
   const reservation = await reserveCommand(context.supabase, {

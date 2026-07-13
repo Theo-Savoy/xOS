@@ -147,6 +147,31 @@ async function previewFor(
 describe('executeOpportunityCommand', () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it('rechecks reassignment capability at execute time instead of trusting a stored preview', async () => {
+    const supabase = makeSupabase();
+    const manager = makeContext([opportunity(ID(5))], {
+      supabase,
+      role: 'manager',
+      teamSfUserIds: ['005000000000001'],
+    });
+    const preview = await previewFor(manager, [ID(5)], {
+      owner_id: '005000000000003',
+    });
+    const commercial = makeContext([opportunity(ID(5))], {
+      supabase,
+      role: 'commercial',
+    });
+
+    await expect(
+      executeOpportunityCommand(commercial, {
+        previewId: preview.previewId,
+        fingerprint: preview.fingerprint,
+        idempotencyKey: 'idem-reassign-forbidden',
+      }),
+    ).rejects.toMatchObject({ code: 'forbidden', status: 403 });
+    expect(commercial.updateSObjects).not.toHaveBeenCalled();
+  });
+
   it('does not write Salesforce when the preview is stale', async () => {
     const item = opportunity(ID(1));
     const ctx = makeContext([item]);

@@ -52,7 +52,7 @@ function makeSupabase() {
   return client;
 }
 
-function context(items) {
+function context(items, overrides = {}) {
   return {
     user: { id: '11111111-1111-4111-8111-111111111111' },
     role: 'commercial',
@@ -64,6 +64,7 @@ function context(items) {
     loadOpportunityWorkspace: vi
       .fn()
       .mockResolvedValue({ items, nextCursor: null }),
+    ...overrides,
   };
 }
 
@@ -81,7 +82,10 @@ describe('previewOpportunityCommand', () => {
   });
 
   it('revalidates owner/date/stage/type and returns authoritative before/after without writing Salesforce', async () => {
-    const ctx = context([opportunity(ID(1))]);
+    const ctx = context([opportunity(ID(1))], {
+      role: 'manager',
+      teamSfUserIds: ['005000000000001'],
+    });
     const result = await previewOpportunityCommand(ctx, {
       ids: [ID(1)],
       changes: {
@@ -126,7 +130,10 @@ describe('previewOpportunityCommand', () => {
   });
 
   it('uses the authoritative account owner and dependent loss picklist', async () => {
-    const ctx = context([opportunity(ID(2))]);
+    const ctx = context([opportunity(ID(2))], {
+      role: 'manager',
+      teamSfUserIds: ['005000000000001'],
+    });
     ctx.opportunityMetadata = {
       lossReasonsBySaleType: { Catalogue: ['Budget perdu'] },
     };
