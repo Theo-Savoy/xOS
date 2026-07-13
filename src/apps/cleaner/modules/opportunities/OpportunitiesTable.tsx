@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Checkbox } from '../../../../components/ui';
+import { Checkbox, Tag } from '../../../../components/ui';
 import type { OpportunityWorkspaceItem } from './api';
 import {
   daysSinceOpportunityDate,
@@ -118,6 +118,38 @@ const columns: Array<[OpportunitySortKey, string]> = [
 
 const display = (value: unknown) =>
   value == null || value === '' ? '—' : String(value);
+
+type CategorySeverity = 'critical' | 'warning' | 'healthy' | 'unknown';
+
+function wasTreated(item: OpportunityWorkspaceItem): boolean {
+  if (item.loss_reason) return true;
+  return Boolean(
+    item.history?.some((entry) => {
+      const action = String(
+        entry.action || entry.action_type || '',
+      ).toLowerCase();
+      return (
+        action.includes('update') ||
+        action.includes('close') ||
+        action.includes('treat')
+      );
+    }),
+  );
+}
+
+function severityFor(item: OpportunityWorkspaceItem): CategorySeverity {
+  if (item.anomalies.some((anomaly) => anomaly.severity === 'critical'))
+    return 'critical';
+  if (item.anomalies.some((anomaly) => anomaly.severity === 'warning'))
+    return 'warning';
+  return item.anomalies.length > 0 ? 'unknown' : 'healthy';
+}
+
+function categoryFamilyLabel(item: OpportunityWorkspaceItem): string | null {
+  const firstAnomaly = item.anomalies[0];
+  if (!firstAnomaly) return null;
+  return REASON_FAMILY_LABELS[familyForRule(firstAnomaly.ruleId)] || null;
+}
 
 function formatDuration(days: number): string {
   if (days >= 365) return `${Math.floor(days / 365)}an`;
@@ -363,11 +395,6 @@ export function OpportunitiesTable({
     items.length > 0 && items.every((item) => state.selectedIds.has(item.id));
   const someSelected =
     !allSelected && items.some((item) => state.selectedIds.has(item.id));
-  const severityFor = (item: OpportunityWorkspaceItem) =>
-    item.anomalies.some((anomaly) => anomaly.severity === 'critical')
-      ? 'critical'
-      : 'warning';
-
   return (
     <div className="cleaner-opportunities__table-wrap">
       <table className="cleaner-opportunities__table">
@@ -435,6 +462,7 @@ export function OpportunitiesTable({
         <tbody>
           {items.map((item) => {
             const severity = severityFor(item);
+            const familyLabel = categoryFamilyLabel(item);
             return (
               <tr key={item.id}>
                 <td>
@@ -445,12 +473,32 @@ export function OpportunitiesTable({
                   />
                 </td>
                 <td>
-                  <span
-                    className={`cleaner-opportunities__category-tag cleaner-opportunities__category-tag--${severity}`}
+                  <div className="cleaner-opportunities__category-cell">
+                  <Tag
+                    variant={
+                      severity === 'critical'
+                        ? 'alert'
+                        : severity === 'warning'
+                          ? 'warning'
+                          : severity === 'healthy'
+                            ? 'success'
+                            : 'muted'
+                    }
                     title={display(item.category)}
                   >
-                    {severity === 'critical' ? 'Critique' : 'Avertissement'}
-                  </span>
+                    <span>
+                      {severity === 'critical'
+                        ? 'Critique'
+                        : severity === 'warning'
+                          ? 'Avertissement'
+                          : severity === 'healthy'
+                            ? 'Sain'
+                            : 'À vérifier'}
+                    </span>
+                    {familyLabel ? <span aria-hidden="true"> · {familyLabel}</span> : null}
+                  </Tag>
+                  {wasTreated(item) ? <Tag variant="muted">Traitée</Tag> : null}
+                  </div>
                 </td>
                 <td>{display(item.score)}</td>
                 <td className="cleaner-opportunities__name-cell">

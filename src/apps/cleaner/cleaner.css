@@ -259,6 +259,38 @@
   border-color: var(--xos-accent);
   background: color-mix(in srgb, var(--xos-accent) 10%, transparent);
 }
+.cleaner-opportunities__kpis button.is-active {
+  border-color: var(--xos-accent);
+  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
+  box-shadow: 0 0 0 1px var(--xos-accent) inset;
+}
+.cleaner-opportunities__kpis button.is-active strong {
+  color: var(--xos-accent);
+}
+.cleaner-opportunities__kpi--critical.is-active {
+  border-color: #ff7e8a;
+  background: color-mix(in srgb, #ff7e8a 18%, transparent);
+  box-shadow: 0 0 0 1px #ff7e8a inset;
+}
+.cleaner-opportunities__kpi--critical.is-active strong {
+  color: #ff7e8a;
+}
+.cleaner-opportunities__kpi--warning.is-active {
+  border-color: var(--xos-alert);
+  background: color-mix(in srgb, var(--xos-alert) 18%, transparent);
+  box-shadow: 0 0 0 1px var(--xos-alert) inset;
+}
+.cleaner-opportunities__kpi--warning.is-active strong {
+  color: var(--xos-alert);
+}
+.cleaner-opportunities__empty-note {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--xos-text-muted);
+  font-size: 0.85rem;
+}
 .cleaner-opportunities__kpis strong {
   font-family: var(--xos-font-numeric);
   font-size: 1.5rem;
