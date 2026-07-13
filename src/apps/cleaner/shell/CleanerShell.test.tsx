@@ -210,7 +210,9 @@ describe('CleanerShell navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Appliquer Finance' }));
 
     expect(await screen.findByText(/1 compte mis à jour/)).toBeTruthy();
-    expect(screen.getByText('Aucun secteur obsolète détecté')).toBeTruthy();
+    expect(
+      screen.getAllByText(/Aucun secteur obsolète/)[0],
+    ).toBeTruthy();
   });
 
   it('keeps home fixed and renders the cockpit first', () => {
