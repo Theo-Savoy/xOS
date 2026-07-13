@@ -13,7 +13,10 @@ import {
   useNotificationsStore,
   type FloatingReactionBurst,
 } from './notificationsStore';
+import { useRealtimeNotifications } from './useRealtimeNotifications';
 import './controlCenter.css';
+
+const REACTION_TTL_MS = 30 * 60 * 1000;
 
 type ControlCenterProps = {
   accessToken: string;
@@ -36,21 +39,23 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reactingId, setReactingId] = useState<number | null>(null);
-  const { addBurst, controlCenterOpenRequest, setNotifications } =
-    useNotificationsStore();
+  const [reactedAt, setReactedAt] = useState<Record<number, number>>({});
+  const {
+    addBurst,
+    addLocalBurst,
+    controlCenterOpenRequest,
+    reactedAt: sharedReactedAt,
+    markReacted,
+    setNotifications,
+  } = useNotificationsStore();
   const seenReactionIds = useRef(new Set<number>());
   const bootstrapped = useRef(false);
 
-  const refresh = useCallback(async () => {
-    if (!accessToken) return;
-    try {
-      const data = await fetchNotifications(accessToken);
-      const notifications = Array.isArray(data.notifications)
-        ? data.notifications
-        : [];
+  const processNotifications = useCallback(
+    (notifications: UserNotification[], unreadCount: number) => {
       setItems(notifications);
       setNotifications(notifications);
-      setUnread(typeof data.unread_count === 'number' ? data.unread_count : 0);
+      setUnread(unreadCount);
 
       const unreadReactions = notifications.filter(
         (n) => n.kind === 'goal_reaction' && !n.read_at,
@@ -68,10 +73,60 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
         }
         for (const burst of fresh) addBurst(burst);
       }
+    },
+    [addBurst, setNotifications],
+  );
+
+  const refresh = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const data = await fetchNotifications(accessToken);
+      const notifications = Array.isArray(data.notifications)
+        ? data.notifications
+        : [];
+      processNotifications(
+        notifications,
+        typeof data.unread_count === 'number' ? data.unread_count : 0,
+      );
     } catch {
       /* ignore poll errors */
     }
-  }, [accessToken, addBurst, setNotifications]);
+  }, [accessToken, processNotifications]);
+
+  const handleRealtimeInsert = useCallback(
+    async (notification: UserNotification) => {
+      if (!accessToken) return;
+
+      // Fetch through the existing authenticated API so the row shape and
+      // unread count stay consistent with polling. The Realtime row is used
+      // as a fallback when replication reaches the client before PostgREST.
+      try {
+        const data = await fetchNotifications(accessToken);
+        const notifications = Array.isArray(data.notifications)
+          ? data.notifications
+          : [];
+        const alreadyFetched = notifications.some(
+          (item) => item.id === notification.id,
+        );
+        processNotifications(
+          alreadyFetched
+            ? notifications
+            : [notification, ...notifications].slice(0, 40),
+          typeof data.unread_count === 'number'
+            ? data.unread_count + (alreadyFetched ? 0 : 1)
+            : 1,
+        );
+      } catch {
+        processNotifications([notification], 1);
+      }
+    },
+    [accessToken, processNotifications],
+  );
+
+  useRealtimeNotifications({
+    accessToken,
+    onInsert: handleRealtimeInsert,
+  });
 
   useEffect(() => {
     if (controlCenterOpenRequest > 0) setOpen(true);
@@ -79,7 +134,7 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 45_000);
+    const timer = window.setInterval(() => void refresh(), 10_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
 
@@ -126,9 +181,16 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
   ) => {
     if (reactingId === item.id) return;
     setReactingId(item.id);
-    addBurst({ emoji });
+    addLocalBurst({ emoji });
     try {
       await reactToNotification(accessToken, item.id, emoji);
+      const timestamp = Date.now();
+      setReactedAt((previous) =>
+        previous[item.id] !== undefined
+          ? previous
+          : { ...previous, [item.id]: timestamp },
+      );
+      markReacted(item.id, timestamp);
       if (!item.read_at) await markOne(item.id);
       else void refresh();
     } catch {
@@ -137,6 +199,11 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
       setReactingId(null);
     }
   };
+
+  const visibleItems = items.filter((item) => {
+    const timestamp = reactedAt[item.id] ?? sharedReactedAt[item.id];
+    return timestamp === undefined || Date.now() - timestamp <= REACTION_TTL_MS;
+  });
 
   return (
     <div className="xos-cc">
@@ -205,12 +272,12 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
               {loading && items.length === 0 && (
                 <p className="xos-cc__empty">Chargement…</p>
               )}
-              {!loading && items.length === 0 && (
+              {!loading && visibleItems.length === 0 && (
                 <p className="xos-cc__empty">
                   Aucune notification pour le moment.
                 </p>
               )}
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const eventUrl =
                   typeof item.payload?.sf_event_url === 'string'
                     ? item.payload.sf_event_url
