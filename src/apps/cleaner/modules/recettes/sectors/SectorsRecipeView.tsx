@@ -190,9 +190,32 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
                   <Button disabled={!state.capabilities.canApplyMerge || !bulkPreviewConfirmed || jobBusy} onClick={() => setConfirm({ kind: 'bulk' })}>Bulk apply</Button>
                   <button className="cleaner-sector-drawer-toggle" type="button" aria-expanded={drawerOpen} onClick={() => setDrawerOpen((value) => !value)}>{drawerOpen ? 'Masquer l’aperçu' : 'Afficher l’aperçu'}</button>
                   {jobBusy || job.status === 'done' ? (
-                    <div className="cleaner-sector-job" role="status">
-                      <span>{job.progress.processed}/{job.progress.total} secteurs traités</span>
-                      <progress value={job.progress.processed} max={Math.max(job.progress.total, 1)} />
+                    <div
+                      className="cleaner-sector-job"
+                      role="status"
+                      aria-valuenow={job.progress.processed}
+                      aria-valuemin={0}
+                      aria-valuemax={Math.max(job.progress.total, 1)}
+                    >
+                      <span className="cleaner-sector-job__label">
+                        {job.progress.processed}/{job.progress.total}{' '}
+                        secteurs traités
+                      </span>
+                      <div className="cleaner-sector-job__bar" aria-hidden="true">
+                        <span
+                          className="cleaner-sector-job__bar-fill"
+                          style={{
+                            width: `${
+                              job.progress.total > 0
+                                ? Math.min(
+                                    100,
+                                    (job.progress.processed / job.progress.total) * 100,
+                                  )
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
                     </div>
                   ) : null}
                 </div>

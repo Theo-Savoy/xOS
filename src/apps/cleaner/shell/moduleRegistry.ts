@@ -8,6 +8,7 @@ export type CleanerModuleProps = {
   params?: Record<string, string>;
   recipeId?: string;
   onRecipeChange?: (recipeId?: string) => void;
+  onSelectRecipe?: (recipeId: string) => void;
 };
 
 export type CleanerModuleDefinition = {

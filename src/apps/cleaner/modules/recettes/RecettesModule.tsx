@@ -37,6 +37,7 @@ export function RecettesModule(props: CleanerModuleProps) {
               type="button"
               onClick={() => {
                 setActiveRecipeId(recipe.id);
+                props.onSelectRecipe?.(recipe.id);
                 props.onRecipeChange?.(recipe.id);
               }}
             >
