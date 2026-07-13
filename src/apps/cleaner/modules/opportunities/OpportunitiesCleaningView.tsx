@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { Button, GlassCard } from '../../../../components/ui';
 import type { CleanerCapabilities } from '../../contracts';
 import {
   executeOpportunityCommand,
@@ -100,8 +101,20 @@ export function OpportunitiesCleaningView({
     safePage === state.page
       ? page.items
       : paginateOpportunityItems(sortedItems, safePage, PER_PAGE).items;
+  const tableColumnRef = useRef<HTMLDivElement>(null);
+  const focusTable = () => {
+    const tableColumn = tableColumnRef.current;
+    tableColumn?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    tableColumn
+      ?.querySelector<HTMLInputElement>('input[type="checkbox"]')
+      ?.focus({ preventScroll: true });
+  };
   const updateFilters = (filters: OpportunityWorkspaceState['filters']) =>
     onStateChange({ ...state, filters, page: 1 });
+  const applyKpiFilter = (filters: OpportunityWorkspaceState['filters']) => {
+    updateFilters(filters);
+    focusTable();
+  };
   const sort = (key: OpportunityWorkspaceState['sort']['key']) =>
     onStateChange({
       ...state,
@@ -230,6 +243,66 @@ export function OpportunitiesCleaningView({
   const healthyCount = filteredItems.filter(
     (item) => criticalityFor(item) === 'healthy',
   ).length;
+  const activeCriticality = state.filters.criticality;
+  const kpiCards: Array<{
+    severity: 'total' | 'critical' | 'warning' | 'healthy';
+    label: string;
+    count: number;
+    caption: string;
+    ariaLabel: string;
+    onClick: () => void;
+  }> = [
+    {
+      severity: 'total',
+      label: 'À nettoyer',
+      count: filteredItems.length,
+      caption: 'afficher tout',
+      ariaLabel: `Opportunités à nettoyer (${filteredItems.length})`,
+      onClick: () =>
+        applyKpiFilter({
+          ...state.filters,
+          search: '',
+          criticality: undefined,
+        }),
+    },
+    {
+      severity: 'critical',
+      label: 'Critiques',
+      count: criticalCount,
+      caption: 'filtrer les critiques',
+      ariaLabel: `Opportunités critiques (${criticalCount})`,
+      onClick: () =>
+        applyKpiFilter({ ...state.filters, criticality: 'critical' }),
+    },
+    {
+      severity: 'warning',
+      label: 'Avertissements',
+      count: warningCount,
+      caption: 'filtrer les alertes',
+      ariaLabel: `Opportunités avec avertissement (${warningCount})`,
+      onClick: () =>
+        applyKpiFilter({ ...state.filters, criticality: 'warning' }),
+    },
+    {
+      severity: 'healthy',
+      label: 'Sans anomalie',
+      count: healthyCount,
+      caption: 'filtrer les saines',
+      ariaLabel: `Opportunités sans anomalie (${healthyCount})`,
+      onClick: () =>
+        applyKpiFilter({ ...state.filters, criticality: 'healthy' }),
+    },
+  ];
+  const allKpisZero = [
+    filteredItems.length,
+    criticalCount,
+    warningCount,
+    healthyCount,
+  ].every((count) => count === 0);
+  const showCleanEmptyState =
+    filteredItems.length === 0 &&
+    criticalCount + warningCount === 0 &&
+    allKpisZero;
 
   return (
     <section
@@ -245,59 +318,51 @@ export function OpportunitiesCleaningView({
           Données Salesforce · {workspaceItems.length} reçues
         </span>
       </div>
-      <div
-        className="cleaner-opportunities__kpis"
-        aria-label="Indicateurs de nettoyage"
-      >
-        <button
-          className="cleaner-opportunities__kpi cleaner-opportunities__kpi--total"
-          type="button"
-          aria-label={`Opportunités à nettoyer (${filteredItems.length})`}
-          onClick={() =>
-            updateFilters({
-              ...state.filters,
-              search: '',
-              criticality: undefined,
-            })
-          }
+      {showCleanEmptyState ? (
+        <GlassCard
+          className="cleaner-opportunities__kpis-empty"
+          role="status"
+          aria-live="polite"
         >
-          <strong>{filteredItems.length}</strong>
-          <span>À nettoyer</span>
-        </button>
-        <button
-          className="cleaner-opportunities__kpi cleaner-opportunities__kpi--critical"
-          type="button"
-          aria-label={`Opportunités critiques (${criticalCount})`}
-          onClick={() =>
-            updateFilters({ ...state.filters, criticality: 'critical' })
-          }
+          <span className="cleaner-opportunities__kpis-empty-icon" aria-hidden="true">
+            ✓
+          </span>
+          {workspaceItems.length > 0 ? (
+            <div>
+              <strong>Tout est à jour</strong>
+              <p>Aucune opportunité à corriger dans cette vue.</p>
+            </div>
+          ) : (
+            <p>Aucune opportunité ne nécessite de nettoyage. Tout est propre.</p>
+          )}
+        </GlassCard>
+      ) : (
+        <div
+          className="cleaner-opportunities__kpis"
+          aria-label="Indicateurs de nettoyage"
         >
-          <strong>{criticalCount}</strong>
-          <span>Critiques</span>
-        </button>
-        <button
-          className="cleaner-opportunities__kpi cleaner-opportunities__kpi--warning"
-          type="button"
-          aria-label={`Opportunités avec avertissement (${warningCount})`}
-          onClick={() =>
-            updateFilters({ ...state.filters, criticality: 'warning' })
-          }
-        >
-          <strong>{warningCount}</strong>
-          <span>Avertissements</span>
-        </button>
-        <button
-          className="cleaner-opportunities__kpi cleaner-opportunities__kpi--healthy"
-          type="button"
-          aria-label={`Opportunités sans anomalie (${healthyCount})`}
-          onClick={() =>
-            updateFilters({ ...state.filters, criticality: 'healthy' })
-          }
-        >
-          <strong>{healthyCount}</strong>
-          <span>Sans anomalie</span>
-        </button>
-      </div>
+          {kpiCards.map((kpi) => {
+            const isActive =
+              (kpi.severity === 'total' && !activeCriticality) ||
+              activeCriticality === kpi.severity;
+            return (
+              <Button
+                key={kpi.severity}
+                variant="secondary"
+                className={`cleaner-opportunities__kpi cleaner-opportunities__kpi--${kpi.severity}${isActive ? ' is-active' : ''}`}
+                type="button"
+                aria-label={kpi.ariaLabel}
+                aria-pressed={isActive}
+                onClick={kpi.onClick}
+              >
+                <strong>{kpi.count}</strong>
+                <span>{kpi.label}</span>
+                <small>{kpi.caption}</small>
+              </Button>
+            );
+          })}
+        </div>
+      )}
       <div className="cleaner-opportunities__workspace">
         <OpportunitiesFilters
           items={workspaceItems}
@@ -337,7 +402,10 @@ export function OpportunitiesCleaningView({
         <div
           className={`cleaner-opportunities__main${detail ? ' has-detail' : ''}`}
         >
-          <div className="cleaner-opportunities__table-column">
+          <div
+            className="cleaner-opportunities__table-column"
+            ref={tableColumnRef}
+          >
             {filteredItems.length ? (
               <OpportunitiesTable
                 items={pageItems}

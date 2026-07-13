@@ -158,6 +158,19 @@ describe('OpportunitiesTable', () => {
     ).toBe('noopener noreferrer');
   });
 
+  it('uses the design-system Tag in the category cell', () => {
+    renderHarness([
+      item('opp-a', {
+        category: 'Date dépassée',
+      }),
+    ]);
+
+    const categoryTag = screen.getByText('Critique').closest('.xos-tag');
+    expect(categoryTag).toBeTruthy();
+    expect(categoryTag?.className).toContain('xos-tag--alert');
+    expect(categoryTag?.getAttribute('title')).toBe('Date dépassée');
+  });
+
   it('marks the page selector indeterminate when only some rows are selected', () => {
     renderHarness([item('opp-a'), item('opp-b')], new Set(['opp-a']));
 
