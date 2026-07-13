@@ -60,10 +60,6 @@ export const REASON_FAMILY_ORDER = [
   'stalled',
   'incoherent_amount',
 ] as const;
-=======
-export const PER_PAGE = 25;
-export const OPPORTUNITY_PAGE_SIZE = PER_PAGE;
->>>>>>> b02969f (fix(labo): sortable columns, 25/page, reason labels, SF link (V3-B))
 
 export function createInitialOpportunityFilters(): OpportunityFilters {
   return {

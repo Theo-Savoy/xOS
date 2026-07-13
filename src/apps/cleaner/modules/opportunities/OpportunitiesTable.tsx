@@ -382,7 +382,6 @@ export function OpportunitiesTable({
               );
             })}
           </tr>
-          </tr>
         </thead>
         <tbody>
           {items.map((item) => {

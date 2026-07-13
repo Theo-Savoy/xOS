@@ -1084,9 +1084,9 @@ export async function GET(request) {
     settingsValue(client, "weekly_tracking").catch(() => ({})),
   ]);
   if (teamView && profilesEarly === null) return json(500, { error: "team_lookup_failed" });
-  const scopeOwnerIds = teamView
-    ? [...new Set((profilesEarly || []).map((row) => row.sf_user_id).filter(Boolean))]
-    : (profile.sfUserId ? [profile.sfUserId] : []);
+  const scopeOwnerIds = uniqueOwnerIds(teamView
+    ? (profilesEarly || []).map((row) => row.sf_user_id).filter(Boolean)
+    : (profile.sfUserId ? [profile.sfUserId] : []));
   // Scoper les SOQL seulement s’il existe des owners « rituel » mappés.
   // Sinon (ex. seul Théo admin mappé + exclu) → pas de filtre, découverte via SF.
   const queryScopeIds = scopeOwnerIds.filter((id) => {
@@ -1295,7 +1295,7 @@ export async function GET(request) {
       owners.clear();
       owners.add(profile.sfUserId);
     }
-    const candidateOwnerIds = [...owners];
+    const candidateOwnerIds = uniqueOwnerIds([...owners]);
 
     let sfUsers = [];
     try {
