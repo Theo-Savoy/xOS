@@ -14,15 +14,29 @@ type CommandBarProps = {
   onClose: () => void;
   onRun: (id: ComboActionId) => void;
   soundsEnabled: boolean;
+  soundPrefs: ComboSoundPrefs;
+  onSoundPrefsChange: (next: ComboSoundPrefs) => void;
 };
 
-export function CommandBar({ open, onClose, onRun, soundsEnabled }: CommandBarProps) {
+export function CommandBar({
+  open,
+  onClose,
+  onRun,
+  soundsEnabled,
+  soundPrefs,
+  onSoundPrefsChange,
+}: CommandBarProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const actions = useMemo(() => filterComboActions(query), [query]);
+  const soundSectionOpen = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+    return /son|mute|audio|log|rdv|démo|demo/.test(q);
+  }, [query]);
 
   const handleEscape = useCallback(() => {
     onClose();
@@ -139,6 +153,15 @@ export function CommandBar({ open, onClose, onRun, soundsEnabled }: CommandBarPr
             </div>
           ))}
         </div>
+        <details className="calls-cmdk__sound-details" open={soundSectionOpen}>
+          <summary>Réglages des sons</summary>
+          <ComboSoundSettings
+            prefs={soundPrefs}
+            onChange={onSoundPrefsChange}
+            masterEnabled={soundsEnabled}
+            variant="cmdk"
+          />
+        </details>
         <p className="calls-cmdk__hint">
           Astuce : <kbd className="calls-kbd">1</kbd> puis <kbd className="calls-kbd">⌘↵</kbd> = combo non décroché
         </p>
@@ -151,19 +174,9 @@ type ShortcutHelpProps = {
   open: boolean;
   onClose: () => void;
   onOpenCommandBar: () => void;
-  soundsEnabled: boolean;
-  soundPrefs: ComboSoundPrefs;
-  onSoundPrefsChange: (next: ComboSoundPrefs) => void;
 };
 
-export function ShortcutHelp({
-  open,
-  onClose,
-  onOpenCommandBar,
-  soundsEnabled,
-  soundPrefs,
-  onSoundPrefsChange,
-}: ShortcutHelpProps) {
+export function ShortcutHelp({ open, onClose, onOpenCommandBar }: ShortcutHelpProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => onClose(), [onClose]);
   useComboOverlay(open, rootRef, handleEscape);
@@ -223,11 +236,6 @@ export function ShortcutHelp({
             ))}
           </ul>
         </div>
-        <ComboSoundSettings
-          prefs={soundPrefs}
-          onChange={onSoundPrefsChange}
-          masterEnabled={soundsEnabled}
-        />
         <div className="calls-help__foot">
           <Button
             variant="secondary"
@@ -238,7 +246,7 @@ export function ShortcutHelp({
           >
             Ouvrir la command bar
           </Button>
-          <span className="calls-muted">Toutes les actions + revoir la démo</span>
+          <span className="calls-muted">Toutes les actions, sons et démo via ⌘K</span>
         </div>
       </GlassCard>
     </div>

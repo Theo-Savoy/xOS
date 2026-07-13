@@ -16,9 +16,15 @@ type ComboSoundSettingsProps = {
   prefs: ComboSoundPrefs;
   onChange: (next: ComboSoundPrefs) => void;
   masterEnabled: boolean;
+  variant?: "default" | "cmdk";
 };
 
-export function ComboSoundSettings({ prefs, onChange, masterEnabled }: ComboSoundSettingsProps) {
+export function ComboSoundSettings({
+  prefs,
+  onChange,
+  masterEnabled,
+  variant = "default",
+}: ComboSoundSettingsProps) {
   const setGroup = (group: ComboSoundGroup, enabled: boolean) => {
     const next = { ...prefs, [group]: enabled };
     onChange(next);
@@ -36,15 +42,22 @@ export function ComboSoundSettings({ prefs, onChange, masterEnabled }: ComboSoun
   };
 
   return (
-    <div className="calls-sound-prefs">
-      <div className="calls-sound-prefs__head">
-        <h4>Sons</h4>
-        <p className="calls-muted">
-          {masterEnabled
-            ? "Affinez par catégorie — le mute global reste dans la command bar."
-            : "Sons coupés globalement — réactivez-les via la command bar (⌘K)."}
+    <div className={`calls-sound-prefs${variant === "cmdk" ? " calls-sound-prefs--cmdk" : ""}`}>
+      {variant !== "cmdk" && (
+        <div className="calls-sound-prefs__head">
+          <h4>Sons</h4>
+          <p className="calls-muted">
+            {masterEnabled
+              ? "Affinez par catégorie — le mute global reste dans la command bar."
+              : "Sons coupés globalement — réactivez-les via la command bar (⌘K)."}
+          </p>
+        </div>
+      )}
+      {variant === "cmdk" && !masterEnabled && (
+        <p className="calls-muted calls-sound-prefs__cmdk-hint">
+          Sons coupés — utilisez l&apos;action « Activer les sons » ci-dessus.
         </p>
-      </div>
+      )}
       <div className="calls-sound-prefs__presets">
         <Button
           type="button"
