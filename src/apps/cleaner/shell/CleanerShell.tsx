@@ -126,18 +126,32 @@ export function CleanerShell({
       />
       <main className="cleaner-shell__body" data-active-module={state.active}>
         {state.active === 'home' ? (
+          // V17c: home now shows ONLY the Recettes grid (single source
+          // of truth). The legacy CleanerCockpit is rendered when it
+          // carries summarised facts the user explicitly opted in to
+          // (the cockpit is no longer a default home view because it
+          // duplicated tile content with the Recettes grid).
           <>
-            <CleanerCockpit state={cockpit} onOpenModule={open} />
-            {/* V17b: surface the Recettes grid on the home so users see
-                every available recipe (including Secteurs obsolètes)
-                without having to navigate to a dedicated tab. */}
-            <section
-              className="cleaner-shell__home-recettes"
-              aria-label="Toutes les recettes"
-            >
+            {cockpit.status === 'ready' && cockpit.summaries.length > 0 ? (
+              <section aria-label="Faits saillants">
+                <CleanerCockpit state={cockpit} onOpenModule={open} />
+              </section>
+            ) : null}
+            <section aria-label="Toutes les recettes">
               <RecettesModule
                 accessToken={accessToken}
                 params={params}
+                onSelectRecipe={(recipeId) => {
+                  setActiveRecipeId(recipeId);
+                  setRenderedModules((current) =>
+                    current.includes('recettes')
+                      ? current
+                      : [...current, 'recettes' as CleanerModuleId],
+                  );
+                  setState((current) =>
+                    openModule(current, 'recettes'),
+                  );
+                }}
               />
             </section>
           </>

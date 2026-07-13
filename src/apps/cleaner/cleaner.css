@@ -405,16 +405,40 @@
 }
 .cleaner-sector-job {
   display: grid;
-  grid-template-columns: auto minmax(6rem, 10rem);
+  grid-template-columns: auto minmax(8rem, 12rem);
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.7rem;
   width: 100%;
   color: var(--xos-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
 }
-.cleaner-sector-job progress {
+.cleaner-sector-job__label {
+  white-space: nowrap;
+}
+.cleaner-sector-job__bar {
+  position: relative;
   width: 100%;
-  accent-color: var(--xos-accent);
+  height: 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.cleaner-sector-job__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--xos-accent) 70%, transparent),
+    var(--xos-accent)
+  );
+  transition: width 240ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cleaner-sector-job__bar-fill {
+    transition: none;
+  }
 }
 .cleaner-sector-mapping-grid {
   display: grid;
