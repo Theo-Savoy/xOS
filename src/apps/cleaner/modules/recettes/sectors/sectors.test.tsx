@@ -36,6 +36,25 @@ const state = {
   capabilities: { canApplyMerge: true },
 };
 
+const emptyState = {
+  ...state,
+  obsoleteSectors: [],
+  activeSectors: [
+    { id: 'transports', label: 'Transports', accountCount: 500 },
+    { id: 'banque-finance', label: 'Banque / finance', accountCount: 400 },
+    { id: 'industrie', label: 'Industrie', accountCount: 300 },
+    { id: 'sante', label: 'Santé', accountCount: 450 },
+    { id: 'services', label: 'Services', accountCount: 350 },
+    ...Array.from({ length: 45 }, (_, index) => ({
+      id: `canonical-${index}`,
+      label: `Secteur canonique ${index + 1}`,
+      accountCount: 0,
+    })),
+  ],
+  suggestedMappings: {},
+  accountsPerSector: {},
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -55,6 +74,46 @@ describe('SectorsRecipeView', () => {
     ).toBeTruthy();
     expect(screen.getByText('Comptes concernés')).toBeTruthy();
     expect(screen.getByText('Secteurs actifs')).toBeTruthy();
+  });
+
+  it('renders an informative empty state with the analyzed sector stats', async () => {
+    fetchSectorRecipe.mockResolvedValue(emptyState);
+
+    render(<SectorsRecipeView accessToken="jwt" />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Aucun secteur obsolète — votre base est alignée sur la nomenclature',
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText('5 secteurs distincts utilisés')).toBeTruthy();
+    expect(screen.getByText('50 secteurs canoniques disponibles')).toBeTruthy();
+    expect(screen.getByText('2000 comptes analysés')).toBeTruthy();
+  });
+
+  it('opens and closes the list of used sectors from the empty state disclosure', async () => {
+    fetchSectorRecipe.mockResolvedValue(emptyState);
+
+    render(<SectorsRecipeView accessToken="jwt" />);
+
+    await screen.findByRole('heading', {
+      name: 'Aucun secteur obsolète — votre base est alignée sur la nomenclature',
+    });
+    const disclosure = screen.getByTestId(
+      'used-sectors-disclosure',
+    ) as HTMLDetailsElement;
+    expect(disclosure.open).toBe(false);
+
+    fireEvent.click(
+      screen.getByText('Voir la liste des secteurs utilisés'),
+    );
+    expect(disclosure.open).toBe(true);
+    expect(screen.getByText('Transports — 500 comptes')).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByText('Voir la liste des secteurs utilisés'),
+    );
+    expect(disclosure.open).toBe(false);
   });
 
   it('previews, confirms, applies and refreshes a merge through the full recipe flow', async () => {

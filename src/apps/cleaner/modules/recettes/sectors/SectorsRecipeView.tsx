@@ -52,6 +52,20 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
     [state],
   );
 
+  const usedActiveSectors = useMemo(
+    () => state?.activeSectors.filter((sector) => sector.accountCount > 0) || [],
+    [state],
+  );
+
+  const analyzedAccountCount = useMemo(
+    () =>
+      (state?.activeSectors.reduce(
+        (total, sector) => total + sector.accountCount,
+        0,
+      ) || 0) + affectedAccounts,
+    [affectedAccounts, state],
+  );
+
   const askPreview = async (obsoleteId: string) => {
     const activeId = targets[obsoleteId];
     if (!activeId) return;
@@ -162,11 +176,108 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
       ) : null}
 
       {state.obsoleteSectors.length === 0 ? (
-        <GlassCard className="cleaner-sector-recipe__empty" role="status">
-          <strong>Aucun secteur obsolète détecté</strong>
-          <span>
-            Les comptes de votre périmètre utilisent la liste canonique.
-          </span>
+        <GlassCard
+          className="cleaner-sector-recipe__empty"
+          role="status"
+          style={{ gap: '1rem' }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.8rem',
+            }}
+          >
+            <Tag variant="success" aria-label="Analyse terminée">
+              ✓
+            </Tag>
+            <div style={{ display: 'grid', gap: '0.35rem' }}>
+              <h3 style={{ margin: 0 }}>
+                Aucun secteur obsolète — votre base est alignée sur la
+                nomenclature
+              </h3>
+              <span>
+                Aucun secteur obsolète détecté.
+              </span>
+              <span>
+                L’analyse est terminée : aucun compte ne nécessite de
+                correction.
+              </span>
+            </div>
+          </div>
+
+          <div
+            aria-label="Statistiques de l’analyse"
+            role="list"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: '0.65rem',
+            }}
+          >
+            {[
+              `${usedActiveSectors.length} secteurs distincts utilisés`,
+              `${state.activeSectors.length} secteurs canoniques disponibles`,
+              `${analyzedAccountCount} comptes analysés`,
+            ].map((stat) => (
+              <div
+                key={stat}
+                role="listitem"
+                style={{
+                  display: 'grid',
+                  gap: '0.25rem',
+                  padding: '0.7rem',
+                  border: '1px solid var(--xos-border)',
+                  borderRadius: '0.65rem',
+                  background: 'rgba(255, 255, 255, 0.035)',
+                  color: 'var(--xos-text-muted)',
+                  fontSize: '0.78rem',
+                }}
+              >
+                {stat}
+              </div>
+            ))}
+          </div>
+
+          <details
+            data-testid="used-sectors-disclosure"
+            style={{
+              borderTop: '1px solid var(--xos-border)',
+              paddingTop: '0.8rem',
+            }}
+          >
+            <summary style={{ cursor: 'pointer', color: 'var(--xos-text)' }}>
+              Voir la liste des secteurs utilisés
+            </summary>
+            <ul
+              aria-label="Secteurs utilisés"
+              style={{
+                display: 'grid',
+                gap: '0.4rem',
+                margin: '0.75rem 0 0',
+                padding: 0,
+                listStyle: 'none',
+              }}
+            >
+              {usedActiveSectors.map((sector) => (
+                <li
+                  key={sector.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '0.55rem',
+                    background: 'rgba(255, 255, 255, 0.035)',
+                  }}
+                >
+                  <span>{`${sector.label} — ${sector.accountCount} compte${sector.accountCount > 1 ? 's' : ''}`}</span>
+                  <Tag variant="muted">Actif</Tag>
+                </li>
+              ))}
+            </ul>
+          </details>
         </GlassCard>
       ) : (
         <div className="cleaner-sector-recipe__workspace">
