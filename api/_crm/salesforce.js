@@ -19,6 +19,11 @@ export function __resetSFTokenCache() {
   sfUserTokenContexts.clear();
 }
 
+/** Test-only hook to observe sfUserTokenContexts growth. */
+export function __sfUserTokenContextsSize() {
+  return sfUserTokenContexts.size;
+}
+
 export function escapeSOQL(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
@@ -335,7 +340,10 @@ async function fetchUserSFToken({ client, userId, forceRefresh = false }) {
     sfUserTokenContexts.set(cached.accessToken, { client, userId });
     return { accessToken: cached.accessToken, credential: "user" };
   }
-  if (cached) sfUserTokenCache.delete(userId);
+  if (cached) {
+    sfUserTokenCache.delete(userId);
+    sfUserTokenContexts.delete(cached.accessToken);
+  }
 
   let data;
   let error;

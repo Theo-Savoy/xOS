@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetSFTokenCache,
+  __sfUserTokenContextsSize,
   fetchSFToken,
   logCall,
   updateSObjects,
@@ -101,6 +102,20 @@ describe("Salesforce per-user credentials", () => {
 
     expect(maybeSingle).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[3][1].headers.Authorization).toBe("Bearer ada-fresh");
+  });
+
+  it("purges the stale sfUserTokenContexts entry on forced refresh", async () => {
+    const ciphertext = await encryptRefreshToken("ada-refresh");
+    const { client } = profileClient({ sf_refresh_token_encrypted: ciphertext });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "ada-token-1" }))
+      .mockResolvedValueOnce(jsonResponse({ access_token: "ada-token-2" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchSFToken({ client, userId: "user-ada" });
+    await fetchSFToken({ client, userId: "user-ada", forceRefresh: true });
+
+    expect(__sfUserTokenContextsSize()).toBe(1);
   });
 
   it("uses the same per-user retry path for composite updates", async () => {
