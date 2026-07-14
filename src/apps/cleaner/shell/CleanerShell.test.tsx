@@ -120,12 +120,12 @@ describe('CleanerShell navigation', () => {
     });
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Ouvrir Secteurs obsolètes' }),
+      screen.getByRole('button', { name: /Secteurs obsolètes/ }),
     );
 
     expect(screen.getByRole('tab', { name: 'Recettes' })).toBeTruthy();
     expect(
-      await screen.findByRole('heading', { name: 'Secteurs obsolètes' }),
+      await screen.findByRole('heading', { name: /Secteurs obsolètes/ }),
     ).toBeTruthy();
   });
 
@@ -203,7 +203,7 @@ describe('CleanerShell navigation', () => {
 
     // Open the recipe from the cockpit tile (legacy path still works).
     fireEvent.click(
-      screen.getByRole('button', { name: 'Ouvrir Secteurs obsolètes' }),
+      screen.getByRole('button', { name: /Secteurs obsolètes/ }),
     );
     await screen.findByText(/Finance/);
     // The new flow exposes a single 'Fusionner N secteurs' button — no
@@ -224,12 +224,13 @@ describe('CleanerShell navigation', () => {
     ).toBeTruthy();
   });
 
-  it('keeps home fixed and renders the cockpit first', () => {
+  it('keeps home fixed and renders only the recipes grid', () => {
     renderShell();
 
     expect(screen.getByRole('heading', { name: 'Labo' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Accueil' })).toBeTruthy();
-    expect(screen.getByTestId('cleaner-cockpit')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Recettes du Labo' })).toBeTruthy();
+    expect(screen.queryByTestId('cleaner-cockpit')).toBeNull();
     expect(screen.queryByLabelText('Fermer Accueil')).toBeNull();
   });
 
@@ -281,13 +282,13 @@ describe('CleanerShell navigation', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Ouvrir Opportunités suspectes ou abandonnées',
+        name: /Opportunités suspectes ou abandonnées/,
       }),
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Accueil' }));
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Ouvrir Opportunités suspectes ou abandonnées',
+        name: /Opportunités suspectes ou abandonnées/,
       }),
     );
 
@@ -310,7 +311,7 @@ describe('CleanerShell navigation', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Ouvrir Opportunités suspectes ou abandonnées',
+        name: /Opportunités suspectes ou abandonnées/,
       }),
     );
     const module = screen.getByTestId('cleaner-recipe-opportunities');
@@ -325,7 +326,7 @@ describe('CleanerShell navigation', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Ouvrir Opportunités suspectes ou abandonnées',
+        name: /Opportunités suspectes ou abandonnées/,
       }),
     );
     expect(screen.getByTestId('cleaner-recipe-opportunities')).toBe(module);
@@ -335,7 +336,7 @@ describe('CleanerShell navigation', () => {
     const first = renderShell();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Ouvrir Opportunités suspectes ou abandonnées',
+        name: /Opportunités suspectes ou abandonnées/,
       }),
     );
     first.unmount();

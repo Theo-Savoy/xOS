@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import type { AppRole } from '../../../os/registry';
-import { CleanerCockpit, type CleanerCockpitState } from '../CleanerCockpit';
+import type { CleanerCockpitState } from '../CleanerCockpit';
 import { CleanerTabs } from '../CleanerTabs';
 import { getModuleDefinition, getVisibleModules } from './moduleRegistry';
 import { RecettesModule } from '../modules/recettes/RecettesModule';
@@ -22,8 +22,6 @@ export type CleanerShellProps = {
   visibleModuleIds?: readonly CleanerModuleId[];
 };
 
-const emptyCockpit: CleanerCockpitState = { status: 'empty', summaries: [] };
-
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -37,7 +35,6 @@ export function CleanerShell({
   accessToken,
   role = 'commercial',
   params,
-  cockpit = emptyCockpit,
   initialState,
   visibleModuleIds,
 }: CleanerShellProps) {
@@ -95,15 +92,6 @@ export function CleanerShell({
     setState((current) => ({ ...current, active }));
   };
 
-  const open = (moduleId: CleanerModuleId, recipeId?: string) => {
-    if (!visibleIds.has(moduleId)) return;
-    setActiveRecipeId(recipeId);
-    setRenderedModules((current) =>
-      current.includes(moduleId) ? current : [...current, moduleId],
-    );
-    setState((current) => openModule(current, moduleId));
-  };
-
   const close = (moduleId: CleanerModuleId) => {
     setState((current) => closeModule(current, moduleId));
   };
@@ -126,35 +114,21 @@ export function CleanerShell({
       />
       <main className="cleaner-shell__body" data-active-module={state.active}>
         {state.active === 'home' ? (
-          // V17c: home now shows ONLY the Recettes grid (single source
-          // of truth). The legacy CleanerCockpit is rendered when it
-          // carries summarised facts the user explicitly opted in to
-          // (the cockpit is no longer a default home view because it
-          // duplicated tile content with the Recettes grid).
-          <>
-            {cockpit.status === 'ready' && cockpit.summaries.length > 0 ? (
-              <section aria-label="Faits saillants">
-                <CleanerCockpit state={cockpit} onOpenModule={open} />
-              </section>
-            ) : null}
-            <section aria-label="Toutes les recettes">
-              <RecettesModule
-                accessToken={accessToken}
-                params={params}
-                onSelectRecipe={(recipeId) => {
-                  setActiveRecipeId(recipeId);
-                  setRenderedModules((current) =>
-                    current.includes('recettes')
-                      ? current
-                      : [...current, 'recettes' as CleanerModuleId],
-                  );
-                  setState((current) =>
-                    openModule(current, 'recettes'),
-                  );
-                }}
-              />
-            </section>
-          </>
+          <section aria-label="Toutes les recettes">
+            <RecettesModule
+              accessToken={accessToken}
+              params={params}
+              onSelectRecipe={(recipeId: string) => {
+                setActiveRecipeId(recipeId);
+                setRenderedModules((current) =>
+                  current.includes('recettes')
+                    ? current
+                    : [...current, 'recettes' as CleanerModuleId],
+                );
+                setState((current) => openModule(current, 'recettes'));
+              }}
+            />
+          </section>
         ) : null}
         <div className="cleaner-shell__modules" aria-live="polite">
           {renderedModules.map((moduleId) => {
