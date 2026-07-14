@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
 import { cleanup, render } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionsView } from './SessionsView';
 
-const callsCss = readFileSync('src/apps/calls/calls.css', 'utf8');
+// jsdom's loader rejects `node:fs`; instead we expose the CSS through a
+// hoisted helper that vitest evaluates before jsdom wraps the module graph.
+const callsCss = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('node:fs') as typeof import('node:fs');
+  return fs.readFileSync('src/apps/calls/calls.css', 'utf8');
+});
 
 afterEach(cleanup);
 

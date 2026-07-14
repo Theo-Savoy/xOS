@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 
 import { cleanup, render } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CleanerShell } from './shell/CleanerShell';
 
-const cleanerCss = readFileSync('src/apps/cleaner/cleaner.css', 'utf8');
+const cleanerCss = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('node:fs') as typeof import('node:fs');
+  return fs.readFileSync('src/apps/cleaner/cleaner.css', 'utf8');
+});
 
 afterEach(cleanup);
 

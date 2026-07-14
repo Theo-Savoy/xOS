@@ -3,6 +3,7 @@ import { POST } from "./launcher.js";
 import { __resetSFTokenCache } from "./_crm/salesforce.js";
 import { __resetProfileCache } from "./_calls/profileCache.js";
 import { __resetServiceClient } from "./_calls/http.js";
+import { encryptRefreshToken } from "./_crm/tokenEncryption.js";
 
 // Hoisted mock for _auth.js
 const { mockVerifyJWT } = vi.hoisted(() => ({
@@ -20,12 +21,21 @@ vi.mock("./_auth.js", () => ({
 
 // Mock @supabase/supabase-js
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
-const mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
+const mockMaybeSingleProfile = vi.fn();
+const mockEqProfile = vi.fn(() => ({ maybeSingle: mockMaybeSingleProfile }));
+const mockSelectProfile = vi.fn(() => ({ eq: mockEqProfile }));
+const mockFrom = vi.fn((table) => {
+  if (table === "profiles") return { select: mockSelectProfile };
+  return { insert: mockInsert };
+});
 const mockSupabase = { from: mockFrom };
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => mockSupabase,
 }));
+
+// Ciphertext minted once (deterministic key) so decryptRefreshToken returns "user-refresh".
+let USER_REFRESH_CIPHERTEXT = "";
 
 function makeReq(body) {
   const url = `http://localhost/api/launcher`;
@@ -52,21 +62,29 @@ function makeRawReq(rawBody) {
 }
 
 describe("POST /api/launcher", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
     __resetSFTokenCache();
     __resetProfileCache();
     __resetServiceClient();
     mockInsert.mockClear();
     mockFrom.mockClear();
+    mockMaybeSingleProfile.mockReset();
 
     vi.stubEnv("SF_CLIENT_ID", "test-client-id");
     vi.stubEnv("SF_CLIENT_SECRET", "test-client-secret");
-    vi.stubEnv("SF_REFRESH_TOKEN", "test-refresh-token");
+    vi.stubEnv("SF_REFRESH_TOKEN", "org-fallback-refresh");
     vi.stubEnv("SF_LOGIN_URL", "https://login.test.salesforce.com");
     vi.stubEnv("SF_INSTANCE_URL", "https://test.my.salesforce.com");
     vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
+    vi.stubEnv("SF_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 7).toString("base64"));
+
+    USER_REFRESH_CIPHERTEXT = await encryptRefreshToken("user-refresh");
+    mockMaybeSingleProfile.mockResolvedValue({
+      data: { sf_refresh_token_encrypted: USER_REFRESH_CIPHERTEXT, sf_user_id: "005AA0000012345AAA", full_name: "Jean Dupont" },
+      error: null,
+    });
 
     mockVerifyJWT.mockResolvedValue({
       id: "user-123",
@@ -160,16 +178,6 @@ describe("POST /api/launcher", () => {
     });
 
     it("attribue la Task au commercial quand profiles.sf_user_id est mappé", async () => {
-      const maybeSingle = vi.fn().mockResolvedValue({
-        data: { sf_user_id: "005AA0000012345AAA", full_name: "Jean Dupont" },
-        error: null,
-      });
-      mockFrom.mockImplementation((table) =>
-        table === "profiles"
-          ? { select: () => ({ eq: () => ({ maybeSingle }) }) }
-          : { insert: mockInsert },
-      );
-
       const fetchSpy = vi.spyOn(globalThis, "fetch");
       fetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({ access_token: "sf-access-token" }), { status: 200 })
@@ -189,8 +197,6 @@ describe("POST /api/launcher", () => {
       const payload = JSON.parse(fetchSpy.mock.calls[1][1].body);
       expect(payload.OwnerId).toBe("005AA0000012345AAA");
       expect(payload.WhoId).toBe("003000000000001");
-
-      mockFrom.mockReturnValue({ insert: mockInsert });
     });
 
     it("creates a Salesforce Task with WhatId and logs to database on success", async () => {

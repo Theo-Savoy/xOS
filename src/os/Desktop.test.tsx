@@ -25,6 +25,9 @@ vi.mock("../lib/supabase", () => ({
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
     },
     from: vi.fn((table: string) =>
       table === "desktop_shortcuts"
@@ -94,41 +97,41 @@ describe("Desktop", () => {
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    await user.click(screen.getByRole("button", { name: "Ouvrir Aperçu commercial" }));
-    await user.click(screen.getByRole("button", { name: "Ouvrir Notes d’équipe" }));
+    await user.click(screen.getByRole("button", { name: "Ouvrir Combo" }));
+    await user.click(screen.getByRole("button", { name: "Ouvrir Lundi" }));
 
-    expect(await screen.findByRole("dialog", { name: "Aperçu commercial" })).toBeTruthy();
-    expect(screen.getByRole("dialog", { name: "Notes d’équipe" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Combo" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Lundi" })).toBeTruthy();
   });
 
   it("minimizes a window and restores it from the dock", async () => {
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    const dockButton = screen.getByRole("button", { name: "Ouvrir Notes d’équipe" });
+    const dockButton = screen.getByRole("button", { name: "Ouvrir Combo" });
     await user.click(dockButton);
-    await user.click(await screen.findByRole("button", { name: "Réduire Notes d’équipe" }));
-    expect(screen.getByRole("dialog", { name: "Notes d’équipe" }).closest(".xos-rnd-window")?.className).toContain("xos-rnd-window--minimized");
+    await user.click(await screen.findByRole("button", { name: "Réduire Combo" }));
+    expect(screen.getByRole("dialog", { name: "Combo" }).closest(".xos-rnd-window")?.className).toContain("xos-rnd-window--minimized");
 
-    await user.click(screen.getByRole("button", { name: "Restaurer Notes d’équipe" }));
-    expect(screen.getByRole("dialog", { name: "Notes d’équipe" }).closest(".xos-rnd-window")?.className).not.toContain("xos-rnd-window--minimized");
+    await user.click(screen.getByRole("button", { name: "Restaurer Combo" }));
+    expect(screen.getByRole("dialog", { name: "Combo" }).closest(".xos-rnd-window")?.className).not.toContain("xos-rnd-window--minimized");
   });
 
   it("sets inert on minimized window dialog and removes inert after restore", async () => {
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    await user.click(screen.getByRole("button", { name: /Ouvrir Notes d/ }));
-    const dialog = await screen.findByRole("dialog", { name: /Notes d/ });
+    await user.click(screen.getByRole("button", { name: /Ouvrir Combo/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Combo/ });
 
     // Minimize
-    await user.click(screen.getByRole("button", { name: /Réduire Notes d/ }));
+    await user.click(screen.getByRole("button", { name: /Réduire Combo/ }));
     const winSection = dialog.closest(".xos-window");
     expect(winSection).toBeTruthy();
     expect(winSection!.hasAttribute("inert")).toBe(true);
 
     // Restore from dock
-    await user.click(screen.getByRole("button", { name: /Restaurer Notes d/ }));
+    await user.click(screen.getByRole("button", { name: /Restaurer Combo/ }));
     expect(winSection!.hasAttribute("inert")).toBe(false);
   });
 
@@ -136,30 +139,30 @@ describe("Desktop", () => {
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    await user.click(screen.getByRole("button", { name: "Ouvrir Aperçu commercial" }));
-    await user.click(await screen.findByRole("button", { name: "Agrandir Aperçu commercial" }));
-    expect(screen.getByRole("button", { name: "Restaurer Aperçu commercial" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Ouvrir Labo" }));
+    await user.click(await screen.findByRole("button", { name: "Agrandir Labo" }));
+    expect(screen.getByRole("button", { name: "Restaurer Labo" })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Fermer Aperçu commercial" }));
-    expect(screen.queryByRole("dialog", { name: "Aperçu commercial" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Fermer Labo" }));
+    expect(screen.queryByRole("dialog", { name: "Labo" })).toBeNull();
   });
 
   it("renders a desktop shortcut and opens its app on click", async () => {
-    shortcutRows.push({ id: 1, app_id: "notes-demo", params: { note: "42" }, label: "Mes notes" });
+    shortcutRows.push({ id: 1, app_id: "calls", params: {}, label: "Mes appels" });
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
-    await user.click(await screen.findByRole("button", { name: "Mes notes" }));
-    expect(await screen.findByRole("dialog", { name: "Notes d’équipe" })).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Mes appels" }));
+    expect(await screen.findByRole("dialog", { name: "Combo" })).toBeTruthy();
   });
 
   it("removes a desktop shortcut", async () => {
-    shortcutRows.push({ id: 7, app_id: "notes-demo", params: {}, label: "Mes notes" });
+    shortcutRows.push({ id: 7, app_id: "calls", params: {}, label: "Mes appels" });
     const user = userEvent.setup();
     render(<Desktop userEmail="theo@xos-learning.fr" accessToken="test-token" />);
 
     await user.click(
-      await screen.findByRole("button", { name: "Supprimer le raccourci Mes notes" }),
+      await screen.findByRole("button", { name: "Supprimer le raccourci Mes appels" }),
     );
     expect(shortcutDeleteEq).toHaveBeenCalledWith("id", 7);
   });

@@ -14,8 +14,20 @@ describe("getProfile", () => {
   it("uses one database query for two requests from the same user", async () => {
     const { client, maybeSingle } = profileClient({ data: { sf_user_id: "005", full_name: "Ada Lovelace", role: "manager" }, error: null });
 
-    await expect(getProfile(client, "user-1")).resolves.toEqual({ sfUserId: "005", fullName: "Ada Lovelace", role: "manager" });
-    await expect(getProfile(client, "user-1")).resolves.toEqual({ sfUserId: "005", fullName: "Ada Lovelace", role: "manager" });
+    await expect(getProfile(client, "user-1")).resolves.toEqual({
+      sfUserId: "005",
+      fullName: "Ada Lovelace",
+      role: "manager",
+      sfAuthConnectedAt: null,
+      userLinked: false,
+    });
+    await expect(getProfile(client, "user-1")).resolves.toEqual({
+      sfUserId: "005",
+      fullName: "Ada Lovelace",
+      role: "manager",
+      sfAuthConnectedAt: null,
+      userLinked: false,
+    });
 
     expect(maybeSingle).toHaveBeenCalledTimes(1);
   });

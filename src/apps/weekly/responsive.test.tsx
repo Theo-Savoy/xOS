@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
 import { cleanup, render } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import WeeklyApp from './WeeklyApp';
 
-const weeklyCss = readFileSync('src/apps/weekly/weekly.css', 'utf8');
+const weeklyCss = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('node:fs') as typeof import('node:fs');
+  return fs.readFileSync('src/apps/weekly/weekly.css', 'utf8');
+});
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -31,8 +35,6 @@ vi.mock('recharts', () => ({
   YAxis: () => null,
   ZAxis: () => null,
 }));
-
-import WeeklyApp from './WeeklyApp';
 
 afterEach(cleanup);
 
