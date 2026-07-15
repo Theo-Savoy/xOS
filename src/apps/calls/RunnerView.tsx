@@ -1895,7 +1895,7 @@ export function RunnerView({
               )}
               {contextApplies && contactContext && contactContext.tasks.length > 0 && (
                 <>
-                <ul className="calls-context-list">
+                <ul className={`calls-context-list${contextShowMore.has("tasks") ? " calls-context-list--expanded" : ""}`}>
                   {contactContext.tasks.slice(0, contextShowMore.has("tasks") ? Infinity : 5).map((task, index) => (
                     <li key={task.id} className={index === 0 ? "calls-context-list__row--latest" : undefined}>
                       <strong>{task.result ?? task.subject ?? "Appel"}</strong>
@@ -1926,7 +1926,7 @@ export function RunnerView({
               )}
               {contextApplies && contactContext && contactContext.opportunities.length > 0 && (
                 <>
-                <ul className="calls-context-list">
+                <ul className={`calls-context-list${contextShowMore.has("opps") ? " calls-context-list--expanded" : ""}`}>
                   {sortedOpportunities.slice(0, contextShowMore.has("opps") ? Infinity : 5).map((opp) => (
                     <li
                       key={opp.id}
@@ -1967,7 +1967,7 @@ export function RunnerView({
               )}
               {contextApplies && contactContext && (contactContext.events?.length ?? 0) > 0 && (
                 <>
-                <ul className="calls-context-list">
+                <ul className={`calls-context-list${contextShowMore.has("events") ? " calls-context-list--expanded" : ""}`}>
                   {sortedEvents.slice(0, contextShowMore.has("events") ? Infinity : 5).map((event) => (
                     <li
                       key={event.id}

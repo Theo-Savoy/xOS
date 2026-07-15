@@ -2102,6 +2102,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
   align-items: start;
+  min-height: 0;
   max-height: min(28rem, 45vh);
   overflow-y: auto;
   padding-right: 0.15rem;
@@ -2134,6 +2135,7 @@
 
 .calls-context-panel {
   padding: 0.8rem;
+  min-width: 0;
   min-height: 9rem;
 }
 
@@ -2148,6 +2150,14 @@
   padding: 0;
   display: grid;
   gap: 0.3rem;
+}
+
+.calls-context-list--expanded {
+  max-height: min(18rem, 32vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
+  scrollbar-gutter: stable;
 }
 
 .calls-context-list li {

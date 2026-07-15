@@ -399,6 +399,65 @@ describe("RunnerView", () => {
     expect(within(historyPanel as HTMLElement).queryByText("Appel décroché")).toBeNull();
   });
 
+  it("contains each expanded CRM context list independently", async () => {
+    const user = userEvent.setup();
+    const current = { ...bob, status: "pending" as const, outcome: null };
+    const tasks = Array.from({ length: 6 }, (_, index) => ({
+      id: `00T${index}`,
+      activity_date: `2026-07-${String(index + 1).padStart(2, "0")}`,
+      result: `Appel ${index + 1}`,
+      subject: null,
+      description: null,
+      record_url: null,
+    }));
+    const opportunities = Array.from({ length: 6 }, (_, index) => ({
+      id: `006${index}`,
+      name: `Opportunité ${index + 1}`,
+      stage_name: "Prospection",
+      amount: null,
+      close_date: null,
+      is_closed: false,
+      is_won: false,
+      linked_to_contact: false,
+      record_url: null,
+    }));
+
+    render(
+      <RunnerView
+        {...runnerProps}
+        contacts={[current]}
+        currentContact={current}
+        contactContext={{
+          contact_record_url: null,
+          account_record_url: null,
+          email: null,
+          title: null,
+          npa: false,
+          tasks,
+          opportunities,
+          events: [],
+        }}
+        contextContactId={current.id}
+        awaitingEvent={null}
+      />,
+    );
+
+    const historyPanel = screen.getByRole("heading", { name: "Historique d'appels" }).closest(".calls-context-panel");
+    const opportunitiesPanel = screen.getByRole("heading", { name: "Opportunités du compte" }).closest(".calls-context-panel");
+    expect(historyPanel).toBeTruthy();
+    expect(opportunitiesPanel).toBeTruthy();
+    expect(within(historyPanel as HTMLElement).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(opportunitiesPanel as HTMLElement).getAllByRole("listitem")).toHaveLength(5);
+
+    await user.click(within(historyPanel as HTMLElement).getByRole("button", { name: "Voir tout (6)" }));
+
+    const expandedHistoryList = within(historyPanel as HTMLElement).getByRole("list");
+    expect(expandedHistoryList.classList.contains("calls-context-list--expanded")).toBe(true);
+    expect(within(historyPanel as HTMLElement).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(opportunitiesPanel as HTMLElement).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(opportunitiesPanel as HTMLElement).getByRole("button", { name: "Voir tout (6)" })).toBeTruthy();
+  });
+
   it("bulk-logs the same outcome for selected contacts", async () => {
     const user = userEvent.setup();
     const onLogMany = vi.fn();
