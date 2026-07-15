@@ -964,6 +964,22 @@ describe("POST /api/calls action=accounts_search", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(4);
   });
 
+  it("refines with a SOQL owner condition when filters.proprietaires is provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ records: [{ Id: "001000000000001AAA" }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+
+    const res = await POST(makeAccountsReq({ q: "ACME", filters: { proprietaires: ["005000000000001AAA"] } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).accounts).toHaveLength(1);
+    const refineSoql = decodeURIComponent(String(fetchSpy.mock.calls[2][0]).replace(/\+/g, " "));
+    expect(refineSoql).toContain(`${mapping.objects.account.fields.ownerId} IN ('005000000000001AAA')`);
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
   it("filters out accounts excluded by the refine query", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy

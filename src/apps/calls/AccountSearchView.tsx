@@ -21,14 +21,30 @@ type AbmFilters = {
   effectifs: EffectifTranche[];
   type_client: TypeClient[];
   tiers: Tier[];
+  proprietaires: string[];
 };
 
 function emptyAbmFilters(): AbmFilters {
-  return { secteurs: [], effectifs: [], type_client: [], tiers: [] };
+  return { secteurs: [], effectifs: [], type_client: [], tiers: [], proprietaires: [] };
 }
 
 function hasAnyFilter(filters: AbmFilters): boolean {
-  return filters.secteurs.length > 0 || filters.effectifs.length > 0 || filters.type_client.length > 0 || filters.tiers.length > 0;
+  return (
+    filters.secteurs.length > 0 ||
+    filters.effectifs.length > 0 ||
+    filters.type_client.length > 0 ||
+    filters.tiers.length > 0 ||
+    filters.proprietaires.length > 0
+  );
+}
+
+const PROPRIETAIRE_ID_RE = /^[a-zA-Z0-9]{15,18}$|^map:[a-zA-Z0-9_-]+$/;
+
+function parseProprietaires(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => PROPRIETAIRE_ID_RE.test(s));
 }
 
 function errorMessage(err: unknown): string {
@@ -72,6 +88,7 @@ type AccountSearchViewProps = {
 export function AccountSearchView({ token, onBack, onCreateAudience, creating, createError }: AccountSearchViewProps) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
+  const [proprietairesText, setProprietairesText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountSearchHit[]>([]);
@@ -79,6 +96,7 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
   const [searched, setSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [excludedCount, setExcludedCount] = useState(0);
+  const [sessionName, setSessionName] = useState("");
   const [targetSize, setTargetSize] = useState(50);
   const [maxSessions, setMaxSessions] = useState(5);
 
@@ -124,6 +142,11 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
     [selectedAccounts],
   );
 
+  const totalContactsCount = useMemo(
+    () => accounts.reduce((total, account) => total + account.contacts.length, 0),
+    [accounts],
+  );
+
   const packableAccounts = useMemo(
     () =>
       selectedAccounts.map((account) => ({
@@ -145,7 +168,7 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
       groups: groups.map((group) => ({ account_ids: group.accountIds, contacts: group.contacts })),
       targetSize,
       maxSessions,
-      namePrefix: query.trim() || undefined,
+      namePrefix: sessionName.trim() || query.trim() || undefined,
       excludedCount,
     });
   };
@@ -217,6 +240,19 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
               value={filters.tiers}
               onChange={(tiers) => setFilter({ tiers })}
             />
+            <label className="calls-field">
+              <span>Propriétaires du compte (IDs Salesforce)</span>
+              <input
+                type="text"
+                className="calls-input"
+                value={proprietairesText}
+                onChange={(e) => {
+                  setProprietairesText(e.target.value);
+                  setFilter({ proprietaires: parseProprietaires(e.target.value) });
+                }}
+                placeholder="005XXXXXXXXXXXXXXX, 005YYYYYYYYYYYYYYY"
+              />
+            </label>
           </div>
         </details>
       </GlassCard>
@@ -244,8 +280,9 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
           <GlassCard className="calls-name-form calls-name-form--sticky">
             <div className="calls-name-form__meta">
               <Tag>
-                {selectedContactsCount} contact{selectedContactsCount > 1 ? "s" : ""} dans{" "}
-                {selectedIds.size} compte{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}
+                {selectedIds.size > 0
+                  ? `${selectedContactsCount} contact${selectedContactsCount > 1 ? "s" : ""} dans ${selectedIds.size} compte${selectedIds.size > 1 ? "s" : ""} sélectionné${selectedIds.size > 1 ? "s" : ""}`
+                  : `${accounts.length} compte${accounts.length > 1 ? "s" : ""} trouvé${accounts.length > 1 ? "s" : ""} · ${totalContactsCount} contact${totalContactsCount > 1 ? "s" : ""} au total`}
               </Tag>
             </div>
           </GlassCard>
@@ -253,6 +290,16 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
           {selectedIds.size > 0 && (
             <GlassCard className="calls-audience-pack">
               <h3>Découper en plusieurs séances</h3>
+              <label className="calls-field">
+                <span>Nom des séances (préfixe)</span>
+                <input
+                  type="text"
+                  className="calls-input"
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  placeholder="Ex: 'ACME décisionnaires' → ACME décisionnaires #1, #2, ..."
+                />
+              </label>
               <div className="calls-fb-row">
                 <label className="calls-field">
                   <span>Taille cible par séance</span>

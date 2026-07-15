@@ -194,4 +194,52 @@ describe("AccountSearchView", () => {
 
     expect(screen.queryByText("Découper en plusieurs séances")).toBeNull();
   });
+
+  it("sends proprietaires as a filter when the owner IDs field is filled", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({ accounts: [acme], truncated: false });
+    renderView();
+
+    await user.click(screen.getByText("Filtres entreprise"));
+    await user.type(screen.getByLabelText("Propriétaires du compte (IDs Salesforce)"), "005000000000001AAA, map:paul");
+    await user.type(screen.getByLabelText("Nom du compte"), "ACME");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+    await waitFor(() =>
+      expect(fetchAccountsSearch).toHaveBeenCalledWith(
+        "token-123",
+        { q: "ACME", filters: expect.objectContaining({ proprietaires: ["005000000000001AAA", "map:paul"] }) },
+      ),
+    );
+  });
+
+  it("shows the estimation banner with the search total even without any selection", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({ accounts: [acme, acmeSubsidiary], truncated: false });
+    renderView();
+
+    await user.type(screen.getByLabelText("Nom du compte"), "ACME");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await screen.findByText("ACME");
+
+    expect(screen.getByText("2 comptes trouvés · 3 contacts au total")).toBeTruthy();
+  });
+
+  it("uses the explicit session name as namePrefix, falling back to the query", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({ accounts: [acme], truncated: false });
+    const { onCreateAudience } = renderView();
+
+    await user.type(screen.getByLabelText("Nom du compte"), "ACME");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await screen.findByText("ACME");
+
+    await user.click(screen.getByRole("checkbox", { name: "Sélectionner ACME" }));
+    await user.type(screen.getByLabelText("Nom des séances (préfixe)"), "ACME décisionnaires DAF");
+    await user.click(screen.getByRole("button", { name: "Créer 1 séance ABM" }));
+
+    expect(onCreateAudience).toHaveBeenCalledWith(
+      expect.objectContaining({ namePrefix: "ACME décisionnaires DAF" }),
+    );
+  });
 });
