@@ -603,25 +603,18 @@ export async function fetchContactContext(
     `LIMIT 1`,
   ].filter(Boolean).join(" ");
 
-  const taskLimit = lite ? 5 : 8;
-  const taskWhereContact = `${tf.whoId} = '${escapeSOQL(contactId)}' AND ${tf.subtype} = '${escapeSOQL(task.subtypeValue)}'`;
-  // Appels passés (ActivityDate < today) — couvre le bug "0 RDV/appels apparents"
-  // pour un compte dont les tâches historiques sont noyées sous les tâches futures
-  // quand on triait par DESC sans split.
-  const taskPastSoql = [
+  // Limite volontairement élevée : on remonte large (5 ans) pour que la fiche
+  // contact montre l'historique complet quand le user clique "Voir tout".
+  // Le front limite l'affichage à 5 par défaut et le bouton "Voir tout"
+  // étend la liste. Les RDV/appels anciens restent consultables à la demande.
+  const taskLimit = lite ? 12 : 50;
+  const taskSoql = [
     `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(", ")}`,
     `FROM ${task.name}`,
-    `WHERE ${taskWhereContact}`,
-    `AND ${tf.activityDate} < TODAY`,
+    `WHERE ${tf.whoId} = '${escapeSOQL(contactId)}'`,
+    `AND ${tf.subtype} = '${escapeSOQL(task.subtypeValue)}'`,
+    `AND ${tf.activityDate} >= LAST_N_YEARS:5`,
     `ORDER BY ${tf.activityDate} DESC NULLS LAST`,
-    `LIMIT ${taskLimit}`,
-  ].join(" ");
-  const taskUpcomingSoql = [
-    `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(", ")}`,
-    `FROM ${task.name}`,
-    `WHERE ${taskWhereContact}`,
-    `AND ${tf.activityDate} >= TODAY`,
-    `ORDER BY ${tf.activityDate} ASC NULLS LAST`,
     `LIMIT ${taskLimit}`,
   ].join(" ");
 
@@ -637,27 +630,18 @@ export async function fetchContactContext(
 
   const event = mapping.objects.event;
   const ef = event.fields;
-  // RDV passés + futurs séparés (5+5 max) pour que les RDV historiques d'un
-  // compte ne soient pas masqués par les RDV futurs quand on triait en
-  // DESC simple (cf. bug MINISTÈRE DES ARMÉES).
-  const eventLimit = lite ? 5 : 8;
+  // Limite volontairement élevée : voir commentaire tasks au-dessus. La fiche
+  // contact montre les 5 derniers RDV par défaut, "Voir tout" étend la liste.
+  const eventLimit = lite ? 12 : 50;
   const eventWhere = accountId
     ? `${ef.whatId} = '${escapeSOQL(accountId)}'`
     : `${ef.whoId} = '${escapeSOQL(contactId)}'`;
-  const eventPastSoql = [
+  const eventSoql = [
     `SELECT Id, ${ef.subject}, ${ef.startDateTime}, ${ef.whoId}, ${ef.whatId}`,
     `FROM ${event.name}`,
     `WHERE ${eventWhere}`,
-    `AND ${ef.startDateTime} < TODAY`,
+    `AND ${ef.startDateTime} >= LAST_N_YEARS:5`,
     `ORDER BY ${ef.startDateTime} DESC NULLS LAST`,
-    `LIMIT ${eventLimit}`,
-  ].join(" ");
-  const eventUpcomingSoql = [
-    `SELECT Id, ${ef.subject}, ${ef.startDateTime}, ${ef.whoId}, ${ef.whatId}`,
-    `FROM ${event.name}`,
-    `WHERE ${eventWhere}`,
-    `AND ${ef.startDateTime} >= TODAY`,
-    `ORDER BY ${ef.startDateTime} ASC NULLS LAST`,
     `LIMIT ${eventLimit}`,
   ].join(" ");
 
@@ -670,40 +654,19 @@ export async function fetchContactContext(
         `LIMIT 50`,
       ].join(" ");
 
-  const [contactResult, taskPastResult, taskUpcomingResult, oppResult, ocrResult, eventPastResult, eventUpcomingResult] = await Promise.all([
+  const [contactResult, tasksResult, oppResult, ocrResult, eventResult] = await Promise.all([
     searchContacts(token, contactAccountSoql),
-    searchContacts(token, taskPastSoql),
-    searchContacts(token, taskUpcomingSoql),
+    searchContacts(token, taskSoql),
     oppSoql ? searchContacts(token, oppSoql) : Promise.resolve({ records: [] }),
     ocrSoql ? searchContacts(token, ocrSoql) : Promise.resolve({ records: [] }),
-    searchContacts(token, eventPastSoql),
-    searchContacts(token, eventUpcomingSoql),
+    searchContacts(token, eventSoql),
   ]);
 
   if (contactResult.error) return { error: contactResult.error };
-  if (taskPastResult.error) return { error: taskPastResult.error };
-  if (taskUpcomingResult.error) return { error: taskUpcomingResult.error };
+  if (tasksResult.error) return { error: tasksResult.error };
   if (oppResult.error) return { error: oppResult.error };
-  // Fusionne passés (DESC) + futurs (ASC) → ordre chronologique naturel
-  // [passé le plus récent ... passé le plus ancien ... futur le plus proche ... futur le plus loin]
-  const taskRows = [
-    ...((taskPastResult.error ? [] : taskPastResult.records) || []),
-    ...((taskUpcomingResult.error ? [] : taskUpcomingResult.records) || []),
-  ];
-  const tasks = taskRows.map((record) => ({
-    id: record[tf.id],
-    activity_date: record[tf.activityDate] || null,
-    result: record[tf.result] || null,
-    subject: record[tf.subject] || null,
-    description: record[tf.description] || null,
-  }));
   // Events best-effort : si inaccessible, on continue sans historique RDV.
-  // Fusionne passés (DESC) + futurs (ASC) → ordre chronologique naturel.
-  const eventRows = [
-    ...((eventPastResult.error ? [] : eventPastResult.records) || []),
-    ...((eventUpcomingResult.error ? [] : eventUpcomingResult.records) || []),
-  ];
-  const events = eventRows.map((record) => ({
+  const events = (eventResult.error ? [] : eventResult.records || []).map((record) => ({
     id: record.Id,
     subject: record[ef.subject] || null,
     start_date_time: record[ef.startDateTime] || null,
@@ -768,9 +731,13 @@ export async function fetchContactContext(
     industry,
     peer_clients: peerClients,
     npa,
-    tasks: tasks.map((record) => ({
-      ...record,
-      record_url: buildLightningUrl(task.name, record.id),
+    tasks: (tasksResult.records || []).map((record) => ({
+      id: record[tf.id],
+      activity_date: record[tf.activityDate] || null,
+      result: record[tf.result] || null,
+      subject: record[tf.subject] || null,
+      description: record[tf.description] || null,
+      record_url: buildLightningUrl(task.name, record[tf.id]),
     })),
     opportunities,
     events,
