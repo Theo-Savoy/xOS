@@ -484,6 +484,8 @@ export function RunnerView({
   );
   const contextApplies = contextReady;
   const [showContextSkeleton, setShowContextSkeleton] = useState(false);
+  // Catégories du contexte contact (tasks/opps/events) étendues via "Voir tout".
+  const [contextShowMore, setContextShowMore] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!contextBusy) {
@@ -1893,8 +1895,9 @@ export function RunnerView({
                 <p className="calls-muted">Aucun appel récent.</p>
               )}
               {contextApplies && contactContext && contactContext.tasks.length > 0 && (
+                <>
                 <ul className="calls-context-list">
-                  {contactContext.tasks.map((task, index) => (
+                  {contactContext.tasks.slice(0, contextShowMore.has("tasks") ? Infinity : 5).map((task, index) => (
                     <li key={task.id} className={index === 0 ? "calls-context-list__row--latest" : undefined}>
                       <strong>{task.result ?? task.subject ?? "Appel"}</strong>
                       <span className="calls-context-list__date xos-numeric">
@@ -1905,6 +1908,15 @@ export function RunnerView({
                     </li>
                   ))}
                 </ul>
+                {contactContext.tasks.length > 5 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setContextShowMore((s) => new Set(s).add("tasks"))}
+                  >
+                    Voir tout ({contactContext.tasks.length})
+                  </Button>
+                )}
+                </>
               )}
             </GlassCard>
 
@@ -1914,8 +1926,9 @@ export function RunnerView({
                 <p className="calls-muted">Aucune opportunité sur ce compte.</p>
               )}
               {contextApplies && contactContext && contactContext.opportunities.length > 0 && (
+                <>
                 <ul className="calls-context-list">
-                  {sortedOpportunities.map((opp) => (
+                  {sortedOpportunities.slice(0, contextShowMore.has("opps") ? Infinity : 5).map((opp) => (
                     <li
                       key={opp.id}
                       className={[
@@ -1936,6 +1949,15 @@ export function RunnerView({
                     </li>
                   ))}
                 </ul>
+                {sortedOpportunities.length > 5 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setContextShowMore((s) => new Set(s).add("opps"))}
+                  >
+                    Voir tout ({sortedOpportunities.length})
+                  </Button>
+                )}
+                </>
               )}
             </GlassCard>
 
@@ -1945,8 +1967,9 @@ export function RunnerView({
                 <p className="calls-muted">Aucun RDV sur ce compte.</p>
               )}
               {contextApplies && contactContext && (contactContext.events?.length ?? 0) > 0 && (
+                <>
                 <ul className="calls-context-list">
-                  {sortedEvents.map((event) => (
+                  {sortedEvents.slice(0, contextShowMore.has("events") ? Infinity : 5).map((event) => (
                     <li
                       key={event.id}
                       className={event.linked_to_contact ? "calls-context-list__row--linked" : undefined}
@@ -1966,6 +1989,15 @@ export function RunnerView({
                     </li>
                   ))}
                 </ul>
+                {sortedEvents.length > 5 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setContextShowMore((s) => new Set(s).add("events"))}
+                  >
+                    Voir tout ({sortedEvents.length})
+                  </Button>
+                )}
+                </>
               )}
             </GlassCard>
               </>
