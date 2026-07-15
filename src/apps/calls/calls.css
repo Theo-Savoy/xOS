@@ -539,6 +539,9 @@
 
 .calls-pre-session {
   width: min(42rem, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  align-content: start;
 }
 
 .calls-pre-session__eyebrow {
@@ -561,7 +564,9 @@
 
 .calls-pre-session__accounts {
   max-height: 17rem;
+  min-height: 0;
   overflow: auto;
+  padding-right: 0.2rem;
 }
 
 .calls-pre-session__accounts li {
@@ -573,6 +578,10 @@
 .calls-pre-session__accounts small {
   grid-column: 1 / -1;
   color: var(--xos-text-muted);
+}
+
+.calls-pre-session__goal-error {
+  color: var(--xos-danger, #fb7185);
 }
 
 .calls-pre-session__warmup {
@@ -595,6 +604,16 @@
 @media (prefers-reduced-motion: reduce) {
   .calls-pre-session__countdown {
     transition: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .calls-pre-session .calls-runner-actions {
+    flex-direction: column;
+  }
+
+  .calls-pre-session .calls-runner-actions > .xos-btn {
+    width: 100%;
   }
 }
 

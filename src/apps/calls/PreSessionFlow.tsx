@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, GlassCard, Tag } from "../../components/ui";
+import { useComboOverlay } from "./comboOverlay";
 import type { SessionContact, SessionDetail } from "./types";
 
 type PreSessionFlowProps = {
@@ -25,10 +26,14 @@ function accountGroups(contacts: SessionContact[]) {
 
 export function PreSessionFlow({ session, contacts, loading = false, onLaunch, onCancel }: PreSessionFlowProps) {
   const [phase, setPhase] = useState<Phase>("review");
-  const [goal, setGoal] = useState(session.rdv_goal ?? 5);
+  const [goal, setGoal] = useState<number | undefined>(session.rdv_goal ?? 5);
   const [countdown, setCountdown] = useState(3);
+  const panelRef = useRef<HTMLDivElement>(null);
   const groups = useMemo(() => accountGroups(contacts), [contacts]);
   const remaining = contacts.filter((contact) => contact.status === "pending").length;
+  const validGoal = typeof goal === "number" && Number.isInteger(goal) && goal >= 1 && goal <= 8 ? goal : null;
+
+  useComboOverlay(true, panelRef, onCancel);
 
   useEffect(() => {
     if (phase !== "warmup") return undefined;
@@ -46,12 +51,12 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
   }, [phase]);
 
   const launch = async () => {
-    if (countdown !== 0 || goal < 1 || goal > 8) return;
-    await onLaunch(goal);
+    if (countdown !== 0 || validGoal === null) return;
+    await onLaunch(validGoal);
   };
 
   return (
-    <div className="calls-modal" role="dialog" aria-modal="true" aria-labelledby="calls-pre-session-title">
+    <div ref={panelRef} className="calls-modal" role="dialog" aria-modal="true" aria-labelledby="calls-pre-session-title">
       <GlassCard className="calls-modal__panel calls-pre-session">
         <div className="calls-pre-session__eyebrow">Préparation de séance</div>
         <h2 id="calls-pre-session-title">{session.name}</h2>
@@ -83,7 +88,7 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
         )}
         {phase === "objective" && (
           <>
-            <p className="calls-muted">Combien de rendez-vous veux-tu obtenir dans cette séance ? L’objectif sera verrouillé au lancement.</p>
+            <p id="calls-pre-session-objective-copy" className="calls-muted">Combien de rendez-vous veux-tu obtenir dans cette séance ? L’objectif sera verrouillé au lancement.</p>
             <label className="calls-field" htmlFor="calls-pre-session-goal">
               <span>Objectif de RDV</span>
               <input
@@ -93,19 +98,26 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
                 min={1}
                 max={8}
                 step={1}
-                value={goal}
-                onChange={(event) => setGoal(Math.min(8, Math.max(1, Number(event.target.value) || 1)))}
+                value={goal ?? ""}
+                aria-invalid={validGoal === null}
+                aria-describedby="calls-pre-session-goal-hint"
+                onChange={(event) => {
+                  const next = event.target.value === "" ? undefined : Number(event.target.value);
+                  setGoal(next === undefined || Number.isFinite(next) ? next : undefined);
+                }}
               />
             </label>
-            <p className="calls-muted">Entre 1 et 8 RDV. Une fois lancé, tu pourras augmenter cet objectif, jamais le réduire.</p>
+            <p id="calls-pre-session-goal-hint" className={`calls-muted${validGoal === null ? " calls-pre-session__goal-error" : ""}`}>
+              {validGoal === null ? "Choisis un nombre entier entre 1 et 8 RDV." : "Entre 1 et 8 RDV. Une fois lancé, tu pourras augmenter cet objectif, jamais le réduire."}
+            </p>
             <div className="calls-runner-actions">
-              <Button onClick={() => setPhase("warmup")} disabled={!Number.isInteger(goal) || goal < 1 || goal > 8}>Lancer le warmup</Button>
+              <Button onClick={() => setPhase("warmup")} disabled={validGoal === null}>Lancer le warmup</Button>
               <Button variant="secondary" onClick={() => setPhase("review")}>Retour</Button>
             </div>
           </>
         )}
         {phase === "warmup" && (
-          <div className="calls-pre-session__warmup" aria-live="polite">
+          <div className="calls-pre-session__warmup" role="status" aria-live="polite" aria-atomic="true">
             {countdown > 0 ? (
               <>
                 <div className="calls-pre-session__countdown">{countdown}</div>
@@ -114,7 +126,7 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
             ) : (
               <>
                 <div className="calls-pre-session__countdown">GO</div>
-                <p>Objectif verrouillé : {goal} RDV.</p>
+                <p>Objectif verrouillé : {validGoal ?? "—"} RDV.</p>
                 <Button onClick={() => void launch()} disabled={loading}>Entrer dans la séance</Button>
               </>
             )}
