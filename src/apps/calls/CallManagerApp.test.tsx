@@ -218,6 +218,131 @@ describe("CallManagerApp component", () => {
     expect(screen.getByText("Aperçu de la liste")).toBeTruthy();
   });
 
+  it("opens the first ABM session directly in the pre-session flow", async () => {
+    const user = userEvent.setup();
+    const account = {
+      id: "001000000000001AAA",
+      name: "ACME",
+      industry: "Services informatiques",
+      owner_name: "Paul Martin",
+      type_client: "Prospect",
+      tier: "A",
+      effectif: "51 - 250",
+      contacts: [{
+        sf_contact_id: "003000000000001AAA",
+        contact_name: "Alice Martin",
+        title: "Directrice",
+        phone: "0102030405",
+        mobile_phone: null,
+        email: "alice@acme.fr",
+        decision_level: "+",
+      }],
+    };
+    const contact = {
+      id: 101,
+      position: 0,
+      sf_contact_id: "003000000000001AAA",
+      sf_account_id: "001000000000001AAA",
+      contact_name: "Alice Martin",
+      account_name: "ACME",
+      phone: "0102030405",
+      title: "Directrice",
+      linkedin_url: null,
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") return hubResponse();
+      if (url === "/api/calls?resource=team") {
+        return Promise.resolve(new Response(JSON.stringify({ team: [{ user_id: "user-1", label: "Paul Martin", sf_user_id: "005000000000001AAA" }] }), { status: 200 }));
+      }
+      if (url === "/api/calls?session_id=7") {
+        return Promise.resolve(new Response(JSON.stringify({
+          session: { id: 7, name: "ACME #1", status: "active", created_at: "2026-07-15T10:00:00Z", rdv_goal: null, engaged_at: null },
+          contacts: [contact],
+        }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === "accounts_search") {
+          return Promise.resolve(new Response(JSON.stringify({ accounts: [account], truncated: false }), { status: 200 }));
+        }
+        if (body.action === "create_audience_sessions") {
+          return Promise.resolve(new Response(JSON.stringify({ sessions: [{ id: 7, name: "ACME #1", contact_count: 1, account_ids: [account.id] }] }), { status: 200 }));
+        }
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    render(<CallManagerApp params={{ view: "abm" }} />);
+
+    await user.type(await screen.findByLabelText("Nom du compte"), "ACME");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Sélectionner ACME" }));
+    await user.click(screen.getByRole("button", { name: "Créer 1 séance ABM" }));
+
+    expect(await screen.findByRole("heading", { name: "ACME #1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Définir mon objectif" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Rechercher des comptes" })).toBeNull();
+  });
+
+  it("keeps the runner objective read-only and sourced from the session", async () => {
+    const activeSession = {
+      id: 1,
+      name: "Objectif verrouillé",
+      status: "active",
+      created_at: "2026-07-10T10:00:00Z",
+      rdv_goal: 4,
+      engaged_at: "2026-07-10T10:01:00Z",
+    };
+    const contact = {
+      id: 101,
+      position: 0,
+      sf_contact_id: "003000000000001AAA",
+      sf_account_id: null,
+      contact_name: "Alice Martin",
+      account_name: "ACME",
+      phone: "0102030405",
+      title: null,
+      linkedin_url: null,
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") return hubResponse();
+      if (url === "/api/calls?resource=team") {
+        return Promise.resolve(new Response(JSON.stringify({ team: [] }), { status: 200 }));
+      }
+      if (url === "/api/calls?session_id=1") {
+        return Promise.resolve(new Response(JSON.stringify({ session: activeSession, contacts: [contact] }), { status: 200 }));
+      }
+      if (url.includes("context_contact_id=")) {
+        return Promise.resolve(new Response(JSON.stringify({ context: { contact_record_url: null, account_record_url: null, tasks: [], opportunities: [] } }), { status: 200 }));
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+
+    const kpis = await screen.findByLabelText("Indicateurs de séance");
+    expect(kpis.textContent).toContain("0/4");
+    expect(screen.getByRole("progressbar", { name: "Progression RDV : 0 sur 4" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Objectif/ })).toBeNull();
+  });
+
   it("restores new session view from persisted params", async () => {
     render(<CallManagerApp params={{ view: "new" }} />);
     expect(await screen.findByText("Composer une liste")).toBeTruthy();

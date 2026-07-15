@@ -20,4 +20,8 @@ describe("rdvCelebrate", () => {
     expect(rdvHeatLevel(8, false)).toBe(4);
     expect(rdvHeatLevel(2, true)).toBe(5);
   });
+
+  it("starts progression at the first RDV", () => {
+    expect(rdvHeatLevel(1, false)).toBe(1);
+  });
 });

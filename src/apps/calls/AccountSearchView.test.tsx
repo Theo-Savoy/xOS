@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountSearchView } from "./AccountSearchView";
 import { fetchAccountsSearch } from "./api";
-import type { AccountSearchHit } from "./types";
+import type { AccountSearchHit, TeamMember } from "./types";
 
 vi.mock("./api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api")>();
@@ -79,6 +79,11 @@ const zeroContactAccount: AccountSearchHit = {
   contacts: [],
 };
 
+const team: TeamMember[] = [
+  { user_id: "user-1", label: "Paul Martin", sf_user_id: "005000000000001AAA" },
+  { user_id: "map:christophe", label: "Christophe Durand", sf_user_id: "005000000000002AAA" },
+];
+
 function renderView(overrides: Partial<Parameters<typeof AccountSearchView>[0]> = {}) {
   const onCreateAudience = vi.fn();
   const utils = render(
@@ -88,6 +93,7 @@ function renderView(overrides: Partial<Parameters<typeof AccountSearchView>[0]> 
       onCreateAudience={onCreateAudience}
       creating={false}
       createError={null}
+      team={team}
       {...overrides}
     />,
   );
@@ -195,22 +201,23 @@ describe("AccountSearchView", () => {
     expect(screen.queryByText("Découper en plusieurs séances")).toBeNull();
   });
 
-  it("sends proprietaires as a filter when the owner IDs field is filled", async () => {
+  it("lets the user select readable owner names while sending Salesforce IDs", async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({ accounts: [acme], truncated: false });
     renderView();
 
     await user.click(screen.getByText("Filtres entreprise"));
-    await user.type(screen.getByLabelText("Propriétaires du compte (IDs Salesforce)"), "005000000000001AAA, map:paul");
+    await user.click(screen.getByRole("button", { name: "Paul Martin" }));
     await user.type(screen.getByLabelText("Nom du compte"), "ACME");
     await user.click(screen.getByRole("button", { name: "Rechercher" }));
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
         "token-123",
-        { q: "ACME", filters: expect.objectContaining({ proprietaires: ["005000000000001AAA", "map:paul"] }) },
+        { q: "ACME", filters: expect.objectContaining({ proprietaires: ["005000000000001AAA"] }) },
       ),
     );
+    expect(screen.queryByLabelText(/IDs Salesforce/)).toBeNull();
   });
 
   it("shows the estimation banner with the search total even without any selection", async () => {

@@ -14,7 +14,7 @@ import {
 import { fetchAccountsSearch, CallsApiError, type AudienceSessionGroup } from "./api";
 import { packAccountsIntoSessions } from "./audienceBinPacking";
 import { asOptions, ChipGroup, PicklistMultiSelect } from "./filterControls";
-import type { AccountSearchHit, ContactPreview } from "./types";
+import type { AccountSearchHit, ContactPreview, TeamMember } from "./types";
 
 type AbmFilters = {
   secteurs: Secteur[];
@@ -36,15 +36,6 @@ function hasAnyFilter(filters: AbmFilters): boolean {
     filters.tiers.length > 0 ||
     filters.proprietaires.length > 0
   );
-}
-
-const PROPRIETAIRE_ID_RE = /^[a-zA-Z0-9]{15,18}$|^map:[a-zA-Z0-9_-]+$/;
-
-function parseProprietaires(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => PROPRIETAIRE_ID_RE.test(s));
 }
 
 function errorMessage(err: unknown): string {
@@ -79,16 +70,16 @@ export type CreateAudiencePayload = {
 
 type AccountSearchViewProps = {
   token: string;
+  team?: TeamMember[];
   onBack: () => void;
   onCreateAudience: (payload: CreateAudiencePayload) => void;
   creating: boolean;
   createError: string | null;
 };
 
-export function AccountSearchView({ token, onBack, onCreateAudience, creating, createError }: AccountSearchViewProps) {
+export function AccountSearchView({ token, team = [], onBack, onCreateAudience, creating, createError }: AccountSearchViewProps) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
-  const [proprietairesText, setProprietairesText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountSearchHit[]>([]);
@@ -101,6 +92,14 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
   const [maxSessions, setMaxSessions] = useState(5);
 
   const setFilter = (patch: Partial<AbmFilters>) => setFilters((current) => ({ ...current, ...patch }));
+
+  const ownerOptions = useMemo(
+    () => [...new Map(team.filter((member) => member.sf_user_id).map((member) => [member.sf_user_id, {
+      value: member.sf_user_id,
+      label: member.label,
+    }])).values()],
+    [team],
+  );
 
   const canSearch = query.trim().length >= 2 || hasAnyFilter(filters);
 
@@ -240,19 +239,13 @@ export function AccountSearchView({ token, onBack, onCreateAudience, creating, c
               value={filters.tiers}
               onChange={(tiers) => setFilter({ tiers })}
             />
-            <label className="calls-field">
-              <span>Propriétaires du compte (IDs Salesforce)</span>
-              <input
-                type="text"
-                className="calls-input"
-                value={proprietairesText}
-                onChange={(e) => {
-                  setProprietairesText(e.target.value);
-                  setFilter({ proprietaires: parseProprietaires(e.target.value) });
-                }}
-                placeholder="005XXXXXXXXXXXXXXX, 005YYYYYYYYYYYYYYY"
-              />
-            </label>
+            <ChipGroup
+              label="Propriétaires du compte"
+              hint="Sélectionne par nom"
+              options={ownerOptions}
+              value={filters.proprietaires}
+              onChange={(proprietaires) => setFilter({ proprietaires })}
+            />
           </div>
         </details>
       </GlassCard>

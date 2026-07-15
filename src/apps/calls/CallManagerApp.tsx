@@ -284,7 +284,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
   }, [token]);
 
   useEffect(() => {
-    if (view === "runner" || view === "recalls" || view === "new" || shareSessionId != null) {
+    if (view === "runner" || view === "recalls" || view === "new" || view === "account-search" || shareSessionId != null) {
       void loadTeam();
     }
   }, [view, loadTeam, shareSessionId]);
@@ -1420,6 +1420,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       {view === "account-search" && (
         <AccountSearchView
           token={token}
+          team={team}
           onBack={() => setView("new")}
           onCreateAudience={(payload) => void handleCreateAudience(payload)}
           creating={audienceCreating}

@@ -30,12 +30,10 @@ import { playComboSound, playRdvCelebrateSound } from "./comboSounds";
 import { RdvConfetti } from "./RdvConfetti";
 import {
   countSessionRdvs,
-  readRdvGoal,
   rdvHeatLevel,
-  writeRdvGoal,
   type RdvHeat,
 } from "./rdvCelebrate";
-import { DatePicker, formatActivityDateFr, formatIsoDateFr, RdvGoalPicker, todayParisIso } from "./formControls";
+import { DatePicker, formatActivityDateFr, formatIsoDateFr, todayParisIso } from "./formControls";
 import { LinkedInRecordLink, SalesforceRecordLink } from "./BrandLinks";
 import { ProgressBar } from "./ProgressBar";
 import {
@@ -257,6 +255,7 @@ export function RunnerView({
   currentUserId = null,
 }: RunnerViewProps) {
   const isRecallQueue = variant === "recalls";
+  const rdvGoal = isRecallQueue ? null : session.rdv_goal ?? null;
   const [shareOpen, setShareOpen] = useState(false);
   const [shareSaving, setShareSaving] = useState(false);
   const today = todayParisIso();
@@ -296,9 +295,6 @@ export function RunnerView({
     confirmLabel: string;
   } | null>(null);
   const [sessionRdvCount, setSessionRdvCount] = useState(() => countSessionRdvs(contacts));
-  const [rdvGoal, setRdvGoal] = useState<number | null>(() =>
-    isRecallQueue ? null : readRdvGoal(session.id),
-  );
   const [confettiBurst, setConfettiBurst] = useState(0);
   const [confettiHeat, setConfettiHeat] = useState<RdvHeat>(1);
   const [goalBurst, setGoalBurst] = useState(false);
@@ -312,8 +308,7 @@ export function RunnerView({
     const n = countSessionRdvs(contacts);
     sessionRdvRef.current = n;
     setSessionRdvCount(n);
-    setRdvGoal(isRecallQueue ? null : readRdvGoal(session.id));
-  }, [session.id, isRecallQueue]);
+  }, [session.id]);
 
   useEffect(() => {
     const n = countSessionRdvs(contacts);
@@ -650,12 +645,6 @@ export function RunnerView({
       onCelebrateGoal({ goal: rdvGoal, count: next });
     }
   }, [onCelebrateGoal, rdvGoal, soundsEnabled]);
-
-  const handleRdvGoalChange = (goal: number | null) => {
-    if (isRecallQueue) return;
-    setRdvGoal(goal);
-    writeRdvGoal(session.id, goal);
-  };
 
   const handleSubmit = useCallback(() => {
     if (!focusedContact || focusedContact.status !== "pending") return;
@@ -1265,7 +1254,7 @@ export function RunnerView({
                 "calls-stat--rdv",
                 rdvGoal != null && sessionRdvCount >= rdvGoal ? "calls-stat--rdv-goal" : "",
                 kpiGoalPulse ? "calls-stat--rdv-goal-hit" : "",
-                sessionRdvCount >= 2 ? `calls-stat--rdv-heat-${rdvHeatLevel(sessionRdvCount, false)}` : "",
+                sessionRdvCount >= 1 ? `calls-stat--rdv-heat-${rdvHeatLevel(sessionRdvCount, false)}` : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -1277,13 +1266,20 @@ export function RunnerView({
                   <span className="calls-stat__goal">/{rdvGoal}</span>
                 ) : null}
               </strong>
-              {!isRecallQueue && (
-                <RdvGoalPicker
-                  label="Objectif"
-                  value={rdvGoal}
-                  onChange={handleRdvGoalChange}
-                  compact
-                />
+              {rdvGoal != null && (
+                <div
+                  className="calls-stat__progress"
+                  role="progressbar"
+                  aria-label={`Progression RDV : ${sessionRdvCount} sur ${rdvGoal}`}
+                  aria-valuemin={0}
+                  aria-valuemax={rdvGoal}
+                  aria-valuenow={Math.min(sessionRdvCount, rdvGoal)}
+                >
+                  <span
+                    className="calls-stat__progress-fill"
+                    style={{ width: `${Math.min(100, (sessionRdvCount / rdvGoal) * 100)}%` }}
+                  />
+                </div>
               )}
             </GlassCard>
           </div>

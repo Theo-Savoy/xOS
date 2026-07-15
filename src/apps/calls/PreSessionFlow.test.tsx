@@ -71,7 +71,7 @@ describe("PreSessionFlow", () => {
     opener.remove();
   });
 
-  it("makes an out-of-range objective visible and keeps the CTA disabled", async () => {
+  it("offers objectives as accessible selection chips from 1 to 8", async () => {
     const user = userEvent.setup();
     render(
       <PreSessionFlow
@@ -83,13 +83,11 @@ describe("PreSessionFlow", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Définir mon objectif" }));
-    const input = screen.getByRole("spinbutton", { name: "Objectif de RDV" });
-    await user.clear(input);
-    await user.type(input, "9");
-
-    expect(input.getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByText("Choisis un nombre entier entre 1 et 8 RDV.")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Lancer le warmup" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole("button", { name: /RDV$/ })).toHaveLength(8);
+    expect(screen.getByRole("button", { name: "5 RDV" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "6 RDV" }));
+    expect(screen.getByRole("button", { name: "6 RDV" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText(/Objectif choisi : 6 RDV/)).toBeTruthy();
   });
 
   it("lets a valid objective start the accessible warmup countdown", async () => {
@@ -104,18 +102,19 @@ describe("PreSessionFlow", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Définir mon objectif" }));
-    const input = screen.getByRole("spinbutton", { name: "Objectif de RDV" });
-    await user.clear(input);
-    await user.type(input, "6");
+    await user.click(screen.getByRole("button", { name: "6 RDV" }));
     await user.click(screen.getByRole("button", { name: "Lancer le warmup" }));
 
     expect(screen.getByRole("status").textContent).toContain("3");
-    expect(screen.getByText("Respire. Une conversation à la fois.")).toBeTruthy();
+    expect(screen.getByText(/Respire\. Une conversation à la fois\./)).toBeTruthy();
   });
 
   it("exposes the pre-session responsive safeguards in the calls stylesheet", async () => {
     expect(callsCss).toContain(".calls-pre-session");
     expect(callsCss).toContain("max-height: calc(100dvh - 2rem)");
     expect(callsCss).toContain(".calls-pre-session__accounts");
+    expect(callsCss).toContain("backdrop-filter: blur(16px) saturate(125%)");
+    expect(callsCss).toContain(".calls-stat__progress");
+    expect(callsCss).toContain(".calls-stat--rdv-heat-1");
   });
 });

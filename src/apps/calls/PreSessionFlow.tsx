@@ -13,6 +13,8 @@ type PreSessionFlowProps = {
 
 type Phase = "review" | "objective" | "warmup";
 
+const OBJECTIVE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+
 function accountGroups(contacts: SessionContact[]) {
   const groups = new Map<string, { name: string; contacts: SessionContact[] }>();
   for (const contact of contacts) {
@@ -89,27 +91,27 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
         {phase === "objective" && (
           <>
             <p id="calls-pre-session-objective-copy" className="calls-muted">Combien de rendez-vous veux-tu obtenir dans cette séance ? L’objectif sera verrouillé au lancement.</p>
-            <label className="calls-field" htmlFor="calls-pre-session-goal">
-              <span>Objectif de RDV</span>
-              <input
-                id="calls-pre-session-goal"
-                className="calls-input"
-                type="number"
-                min={1}
-                max={8}
-                step={1}
-                value={goal ?? ""}
-                aria-invalid={validGoal === null}
-                aria-describedby="calls-pre-session-goal-hint"
-                onChange={(event) => {
-                  const next = event.target.value === "" ? undefined : Number(event.target.value);
-                  setGoal(next === undefined || Number.isFinite(next) ? next : undefined);
-                }}
-              />
-            </label>
-            <p id="calls-pre-session-goal-hint" className={`calls-muted${validGoal === null ? " calls-pre-session__goal-error" : ""}`}>
-              {validGoal === null ? "Choisis un nombre entier entre 1 et 8 RDV." : "Entre 1 et 8 RDV. Une fois lancé, tu pourras augmenter cet objectif, jamais le réduire."}
-            </p>
+            <div className="calls-pre-session__objective-picker" role="group" aria-label="Objectif de RDV">
+              <span className="calls-pre-session__objective-label">Objectif de RDV</span>
+              <div className="calls-pre-session__objective-options">
+                {OBJECTIVE_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`calls-pre-session__objective-chip${goal === option ? " calls-pre-session__objective-chip--active" : ""}`}
+                    aria-label={`${option} RDV`}
+                    aria-pressed={goal === option}
+                    onClick={() => setGoal(option)}
+                  >
+                    <strong>{option}</strong>
+                    <span>RDV</span>
+                  </button>
+                ))}
+              </div>
+              <span id="calls-pre-session-goal-hint" className="calls-muted">
+                {validGoal === null ? "Choisis un nombre entier entre 1 et 8 RDV." : `Objectif choisi : ${validGoal} RDV. Il sera verrouillé au lancement.`}
+              </span>
+            </div>
             <div className="calls-runner-actions">
               <Button onClick={() => setPhase("warmup")} disabled={validGoal === null}>Lancer le warmup</Button>
               <Button variant="secondary" onClick={() => setPhase("review")}>Retour</Button>
@@ -118,10 +120,14 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
         )}
         {phase === "warmup" && (
           <div className="calls-pre-session__warmup" role="status" aria-live="polite" aria-atomic="true">
+            <div className="calls-pre-session__warmup-head">
+              <span className="calls-pre-session__warmup-kicker">Phase 3 · Activation</span>
+              <strong className="calls-pre-session__warmup-title">On passe en mode conversation</strong>
+            </div>
             {countdown > 0 ? (
               <>
-                <div className="calls-pre-session__countdown">{countdown}</div>
-                <p>Respire. Une conversation à la fois.</p>
+                <div className="calls-pre-session__countdown calls-pre-session__countdown--pulse">{countdown}</div>
+                <p>Respire. Une conversation à la fois. Ton cap : {validGoal ?? "—"} RDV.</p>
               </>
             ) : (
               <>
