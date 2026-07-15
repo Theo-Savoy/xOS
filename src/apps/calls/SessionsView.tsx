@@ -4,6 +4,7 @@ import { ProgressBar } from "./ProgressBar";
 import { DatePicker, SessionTypePicker, todayParisIso } from "./formControls";
 import type { CallStats, PeriodKpis, SessionSummary, SessionType } from "./types";
 import { SESSION_TYPE_OPTIONS, sessionTypeLabel } from "./types";
+import { sessionDayKey } from "./sessionLifecycle";
 
 type HubViewMode = "list" | "calendar";
 type KpiPeriod = "week" | "month";
@@ -45,11 +46,6 @@ function formatScheduledDate(value: string): string {
     month: "short",
     year: "numeric",
   });
-}
-
-function sessionDayKey(session: SessionSummary): string {
-  if (session.scheduled_for) return session.scheduled_for;
-  return session.created_at.slice(0, 10);
 }
 
 function emptyKpis(): PeriodKpis {

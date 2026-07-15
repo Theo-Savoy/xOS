@@ -4039,3 +4039,74 @@ a.calls-contact-card__peer:hover {
   margin: 0.2rem 0 0;
   font-size: 0.82rem;
 }
+
+/* Session rollover decisions */
+.calls-rollover {
+  display: grid;
+  gap: 1rem;
+  min-height: 100%;
+}
+
+.calls-rollover__panel {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.calls-rollover__global {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-rollover__global > span {
+  margin-right: auto;
+  font-weight: 600;
+}
+
+.calls-rollover__contacts {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calls-rollover__contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem;
+  border: 1px solid var(--xos-border);
+  border-radius: 0.75rem;
+}
+
+.calls-rollover__contact > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.calls-rollover__contact small {
+  color: var(--xos-muted);
+}
+
+.calls-rollover__contact label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--xos-muted);
+}
+
+.calls-rollover__contact select {
+  min-width: 8.5rem;
+}
+
+@media (max-width: 720px) {
+  .calls-rollover__contact {
+    grid-template-columns: 1fr;
+  }
+}

@@ -343,6 +343,112 @@ describe("CallManagerApp component", () => {
     expect(screen.queryByRole("button", { name: /Objectif/ })).toBeNull();
   });
 
+  it("opens an unengaged session in the pre-session flow", async () => {
+    const session = {
+      id: 1,
+      name: "Jamais engagée",
+      status: "active",
+      created_at: "2026-07-15T10:00:00Z",
+      rdv_goal: 4,
+      engaged_at: null,
+    };
+    const contact = {
+      id: 101,
+      position: 0,
+      sf_contact_id: "003000000000001AAA",
+      sf_account_id: null,
+      contact_name: "Alice Martin",
+      account_name: "ACME",
+      phone: null,
+      title: null,
+      linkedin_url: null,
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") return hubResponse();
+      if (url === "/api/calls?session_id=1") {
+        return Promise.resolve(new Response(JSON.stringify({ session, contacts: [contact] }), { status: 200 }));
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+
+    expect(await screen.findByRole("heading", { name: "Jamais engagée" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Définir mon objectif" })).toBeTruthy();
+  });
+
+  it("closes an overdue active session and opens a decision screen for pending contacts", async () => {
+    const overdue = {
+      id: 9,
+      name: "Séance à récupérer",
+      status: "active" as const,
+      created_at: "2026-07-15T10:00:00Z",
+      scheduled_for: "2026-07-15",
+      session_type: "prospection" as const,
+      total: 1,
+      called: 0,
+      skipped: 0,
+      pending: 1,
+      rdv_goal: null,
+      engaged_at: null,
+    };
+    const contact = {
+      id: 901,
+      position: 0,
+      sf_contact_id: "003000000000009AAA",
+      sf_account_id: null,
+      contact_name: "Contact à décider",
+      account_name: "ACME",
+      phone: null,
+      title: null,
+      linkedin_url: null,
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    const postedActions: string[] = [];
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") {
+        return Promise.resolve(new Response(JSON.stringify({ ...mockHub, sessions: [overdue] }), { status: 200 }));
+      }
+      if (url === "/api/calls?session_id=9") {
+        return Promise.resolve(new Response(JSON.stringify({
+          session: { ...overdue },
+          contacts: [contact],
+        }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        postedActions.push(JSON.parse(String(init.body)).action);
+        return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    render(<CallManagerApp />);
+
+    expect(await screen.findByRole("heading", { name: "Décider du devenir des contacts" })).toBeTruthy();
+    expect(screen.getByText("Contact à décider")).toBeTruthy();
+    expect(postedActions).toEqual(["complete_session"]);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Retirer" }));
+    await user.click(screen.getByRole("button", { name: "Appliquer les décisions" }));
+    await user.click(screen.getByRole("button", { name: "Retirer le contact" }));
+    await waitFor(() => expect(postedActions).toEqual(["complete_session", "remove_contact"]));
+  });
+
   it("restores new session view from persisted params", async () => {
     render(<CallManagerApp params={{ view: "new" }} />);
     expect(await screen.findByText("Composer une liste")).toBeTruthy();

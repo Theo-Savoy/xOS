@@ -44,7 +44,10 @@ import { RunnerView, type LogPayload } from "./RunnerView";
 import { SessionsView } from "./SessionsView";
 import { PreSessionFlow } from "./PreSessionFlow";
 import { ShareSessionPanel } from "./ShareSessionPanel";
+import { shouldShowPreSession, isStaleSession } from "./sessionLifecycle";
+import { RolloverDecisionView, type RolloverDecision } from "./RolloverDecisionView";
 import type { AudienceSessionGroup } from "./api";
+import { nextContinuationName } from "./sessionNaming";
 import type {
   CallStats,
   ContactContext,
@@ -55,6 +58,7 @@ import type {
   SessionType,
   TeamMember,
 } from "./types";
+import { todayParisIso } from "./formControls";
 import "./calls.css";
 
 const CONTEXT_PREFETCH_AHEAD = 3;
@@ -194,6 +198,10 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
 
   const [activeSession, setActiveSession] = useState<SessionDetail | null>(null);
   const [contacts, setContacts] = useState<SessionContact[]>([]);
+  const [rollover, setRollover] = useState<{ session: SessionDetail; contacts: SessionContact[] } | null>(null);
+  const [rolloverLoading, setRolloverLoading] = useState(false);
+  const [rolloverError, setRolloverError] = useState<string | null>(null);
+  const rolloverSeen = useRef(new Set<number>());
   const [runnerLoading, setRunnerLoading] = useState(false);
   const [runnerError, setRunnerError] = useState<string | null>(null);
   const [awaitingEvent, setAwaitingEvent] = useState<SessionContact | null>(null);
@@ -307,11 +315,9 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         }
         setView(data.session.status === "completed"
           ? "recap"
-          : data.session.rdv_goal === undefined
-            ? "runner"
-            : data.session.engaged_at && data.session.rdv_goal
-              ? "runner"
-              : "pre-session");
+          : shouldShowPreSession(data.session)
+            ? "pre-session"
+            : "runner");
       } catch (err) {
         setSessionsError(errorMessage(err));
         // Si on était sur le loader de transition params, retombe sur la
@@ -329,6 +335,41 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       void loadSessions();
     }
   }, [token, loadSessions]);
+
+  useEffect(() => {
+    if (!token || view !== "sessions" || rollover || rolloverLoading) return;
+    const stale = sessions.find(
+      (candidate) =>
+        !rolloverSeen.current.has(candidate.id)
+        && isStaleSession(candidate, todayParisIso()),
+    );
+    if (!stale) return;
+
+    rolloverSeen.current.add(stale.id);
+    setRolloverLoading(true);
+    setRolloverError(null);
+    void (async () => {
+      try {
+        const data = await fetchSession(token, stale.id);
+        let session = data.session;
+        if (session.status === "active") {
+          await completeSession(token, session.id);
+          session = { ...session, status: "completed" };
+        }
+        const pending = data.contacts.filter((contact) => contact.status === "pending");
+        if (pending.length > 0) {
+          setRollover({ session, contacts: data.contacts });
+        } else {
+          invalidateComboHubCache();
+          await loadSessions({ force: true });
+        }
+      } catch (err) {
+        setRolloverError(errorMessage(err));
+      } finally {
+        setRolloverLoading(false);
+      }
+    })();
+  }, [loadSessions, rollover, rolloverLoading, sessions, token, view]);
 
   useEffect(() => {
     const email = session?.user?.email;
@@ -1204,6 +1245,67 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     }
   };
 
+  const handleRolloverApply = async (decisions: RolloverDecision[]) => {
+    if (!token || !rollover) return;
+    setRolloverLoading(true);
+    setRolloverError(null);
+    const failures: unknown[] = [];
+    try {
+      for (const decision of decisions.filter((item) => item.action === "remove")) {
+        try {
+          await removeContact(token, rollover.session.id, decision.contactId);
+        } catch (err) {
+          failures.push(err);
+        }
+      }
+
+      const byDate = new Map<string, number[]>();
+      for (const decision of decisions) {
+        if (decision.action !== "contact" || !decision.scheduledFor) continue;
+        const ids = byDate.get(decision.scheduledFor) ?? [];
+        ids.push(decision.contactId);
+        byDate.set(decision.scheduledFor, ids);
+      }
+      for (const [scheduledFor, contactIds] of byDate) {
+        const target = sessions.find(
+          (candidate) =>
+            candidate.id !== rollover.session.id
+            && candidate.status === "active"
+            && candidate.scheduled_for === scheduledFor,
+        );
+        try {
+          await deferContacts(
+            token,
+            rollover.session.id,
+            contactIds,
+            scheduledFor,
+            target?.id ?? null,
+            target ? null : nextContinuationName(rollover.session.name),
+          );
+        } catch (err) {
+          failures.push(err);
+        }
+      }
+
+      if (failures.length > 0) {
+        const applied = Math.max(0, decisions.length - failures.length);
+        setRolloverError(
+          applied + " décision" + (applied > 1 ? "s" : "")
+          + " appliquée" + (applied > 1 ? "s" : "")
+          + ", " + failures.length + " en échec — vérifiez la séance.",
+        );
+        return;
+      }
+      setRollover(null);
+      invalidateComboHubCache();
+      await loadSessions({ force: true });
+    } catch (err) {
+      setRolloverError(errorMessage(err));
+    } finally {
+      setRolloverLoading(false);
+    }
+  };
+
   useEffect(() => {
     const userId = session?.user?.id;
     if (view !== "runner" || !token || !activeSession || !focusedContactId || !userId) return;
@@ -1314,6 +1416,12 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     void loadSessions();
   };
 
+  const refreshSessions = () => {
+    rolloverSeen.current.clear();
+    setRolloverError(null);
+    void loadSessions({ force: true });
+  };
+
   if (bridgeError && !session) {
     return (
       <div className="calls-app">
@@ -1345,7 +1453,19 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       {view === "loading-params" && (
         <WindowBootScreen label="Ouverture de la séance…" />
       )}
-      {view === "sessions" && (
+      {rollover && view === "sessions" && (
+        <RolloverDecisionView
+          session={rollover.session}
+          contacts={rollover.contacts}
+          loading={rolloverLoading}
+          error={rolloverError}
+          onApply={handleRolloverApply}
+        />
+      )}
+      {view === "sessions" && !rollover && rolloverError && (
+        <p className="calls-state" role="alert">{rolloverError}</p>
+      )}
+      {view === "sessions" && !rollover && (
         <SessionsView
           sessions={sessions}
           stats={stats}
@@ -1354,7 +1474,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           loading={sessionsLoading}
           error={sessionsError}
           canPilotage={canPilotage}
-          onRefresh={() => void loadSessions({ force: true })}
+          onRefresh={refreshSessions}
           onNewSession={() => {
             setView("new");
             setFilters(emptyFilterTree());
