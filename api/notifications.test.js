@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockVerifyJWT, mockFrom, mockRpc, mockDb, mockGt } = vi.hoisted(() => {
+const { mockVerifyJWT, mockFrom, mockRpc, mockDb, mockGt, mockUpsert } = vi.hoisted(() => {
   const mockDb = vi.fn();
   const mockGt = vi.fn();
+  const mockUpsert = vi.fn();
   const chain = {
     then(onFulfilled, onRejected) {
       return Promise.resolve(mockDb()).then(onFulfilled, onRejected);
@@ -29,6 +30,10 @@ const { mockVerifyJWT, mockFrom, mockRpc, mockDb, mockGt } = vi.hoisted(() => {
     update() {
       return this;
     },
+    upsert() {
+      mockUpsert(...arguments);
+      return this;
+    },
     in() {
       return this;
     },
@@ -39,6 +44,7 @@ const { mockVerifyJWT, mockFrom, mockRpc, mockDb, mockGt } = vi.hoisted(() => {
     mockRpc: vi.fn(),
     mockDb,
     mockGt,
+    mockUpsert,
   };
 });
 
@@ -55,7 +61,7 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
-import { GET } from "./notifications.js";
+import { GET, insertUserNotification } from "./notifications.js";
 
 function request(url = "https://xos.test/api/notifications") {
   return new Request(url, {
@@ -68,6 +74,7 @@ beforeEach(() => {
   mockVerifyJWT.mockResolvedValue({ id: "user-1" });
   mockRpc.mockResolvedValue({ data: 0, error: null });
   mockGt.mockClear();
+  mockUpsert.mockClear();
   mockFrom.mockClear();
   mockDb.mockReset();
   vi.stubEnv("SUPABASE_URL", "https://test.supabase.co");
@@ -104,5 +111,26 @@ describe("GET /api/notifications", () => {
     expect(mockRpc).toHaveBeenCalledWith("purge_user_notifications", {
       max_age_hours: 1,
     });
+  });
+});
+
+describe("insertUserNotification", () => {
+  it("uses an idempotent recipient/key upsert for deduplicated notifications", async () => {
+    mockDb.mockResolvedValueOnce({ data: null, error: null });
+
+    await insertUserNotification({ from: mockFrom }, {
+      recipientId: "user-1",
+      kind: "session_goal_hit",
+      title: "Objectif RDV atteint",
+      body: "Bravo",
+      payload: { session_id: 12 },
+      dedupeKey: "goal:12:3:user-1",
+    });
+
+    expect(mockFrom).toHaveBeenCalledWith("user_notifications");
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ dedupe_key: "goal:12:3:user-1" }),
+      { onConflict: "recipient_id,dedupe_key", ignoreDuplicates: true },
+    );
   });
 });

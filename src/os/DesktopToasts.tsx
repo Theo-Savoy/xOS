@@ -140,7 +140,7 @@ export function DesktopToasts({ accessToken }: { accessToken: string }) {
         const emoji = reactionEmoji(notification);
         const handleClick = () => {
           dismissToast(notification.id, true);
-          requestOpenControlCenter();
+          requestOpenControlCenter(notification.id);
         };
         return (
           <GlassCard

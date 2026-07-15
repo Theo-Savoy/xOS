@@ -1,4 +1,6 @@
 import { nextContinuationName } from "./sessionNaming.js";
+import { insertUserNotification } from "../notifications.js";
+import { newlyAddedSessionMemberIds, sessionShareNotification } from "./notificationHelpers.js";
 import { SF_ID, assertSessionOwner, enrichSessionContacts, filterContactsForFollowUp, insertSessionWithContacts, isValidScheduledFor, isValidSessionType, todayParisDate } from "./http.js";
 
 export async function handleSessionWrite({ action, body, user, client, headers }) {
@@ -535,6 +537,19 @@ export async function handleSessionWrite({ action, body, user, client, headers }
       }
     }
 
+    const { data: existingMemberRows, error: existingMembersError } = await client
+      .from("call_session_members")
+      .select("user_id")
+      .eq("session_id", session_id);
+    if (existingMembersError) {
+      return new Response(JSON.stringify({ error: "session_members_lookup_failed" }), { status: 500, headers });
+    }
+    const newlyAddedIds = newlyAddedSessionMemberIds(
+      (existingMemberRows || []).map((row) => row.user_id),
+      uniqueIds,
+      user.id,
+    );
+
     const { error: deleteError } = await client
       .from("call_session_members")
       .delete()
@@ -553,6 +568,21 @@ export async function handleSessionWrite({ action, body, user, client, headers }
       if (insertError) {
         return new Response(JSON.stringify({ error: "members_update_failed" }), { status: 500, headers });
       }
+    }
+
+    if (newlyAddedIds.length > 0) {
+      const actorLabel = user.user_metadata?.full_name || user.email || "Un collègue";
+      const notification = sessionShareNotification({
+        sessionId: session_id,
+        sessionName: sessionCheck.session.name,
+        actorId: user.id,
+        actorLabel,
+      });
+      await Promise.all(
+        newlyAddedIds.map((recipientId) =>
+          insertUserNotification(client, { recipientId, ...notification }),
+        ),
+      );
     }
 
     const { data: memberRows } = await client

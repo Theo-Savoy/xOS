@@ -152,6 +152,45 @@ describe('ControlCenter', () => {
     expect(document.activeElement).toBe(moreButton);
   });
 
+  it('opens a shared session deep-link in Combo', async () => {
+    const shared = {
+      id: 44,
+      kind: 'session_shared',
+      title: 'Nouvelle séance partagée',
+      body: 'Ada a partagé la séance « Lyon » avec vous',
+      payload: {
+        action: 'open_session',
+        app_id: 'calls',
+        params: { view: 'runner', session_id: '12' },
+      },
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ notifications: [shared], unread_count: 1 }), {
+          status: 200,
+        }),
+      ),
+    );
+    const onOpenApp = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <NotificationsProvider>
+        <ControlCenter accessToken="token" onOpenApp={onOpenApp} />
+      </NotificationsProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Centre de notifications' }));
+    await waitFor(() => expect(screen.getByText(shared.title)).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'Ouvrir la séance' }));
+
+    expect(onOpenApp).toHaveBeenCalledWith('calls', {
+      view: 'runner',
+      session_id: '12',
+    });
+  });
+
   it('hides a reacted item after the thirty-minute TTL', async () => {
     render(
       <NotificationsProvider>

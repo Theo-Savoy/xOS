@@ -62,8 +62,11 @@ type NotificationsStoreValue = {
   realtimeLastEventAt: number | null;
   setRealtimeHealthy: (healthy: boolean) => void;
   markRealtimeEvent: (at?: number) => void;
-  controlCenterOpenRequest: number;
-  requestOpenControlCenter: () => void;
+  controlCenterOpenRequest: {
+    sequence: number;
+    notificationId: number | null;
+  };
+  requestOpenControlCenter: (notificationId?: number) => void;
 };
 
 const NotificationsStoreContext = createContext<NotificationsStoreValue | null>(
@@ -86,7 +89,10 @@ export function NotificationsProvider({
   const [realtimeLastEventAt, setRealtimeLastEventAt] = useState<number | null>(
     null,
   );
-  const [controlCenterOpenRequest, setControlCenterOpenRequest] = useState(0);
+  const [controlCenterOpenRequest, setControlCenterOpenRequest] = useState({
+    sequence: 0,
+    notificationId: null as number | null,
+  });
 
   const addBurstToStore = useCallback((input: AddBurstInput) => {
     const burst = { id: input.id ?? createBurstId(), emoji: input.emoji };
@@ -120,8 +126,11 @@ export function NotificationsProvider({
     setRealtimeLastEventAt(at);
   }, []);
 
-  const requestOpenControlCenter = useCallback(() => {
-    setControlCenterOpenRequest((request) => request + 1);
+  const requestOpenControlCenter = useCallback((notificationId?: number) => {
+    setControlCenterOpenRequest((request) => ({
+      sequence: request.sequence + 1,
+      notificationId: notificationId ?? null,
+    }));
   }, []);
 
   const value = useMemo<NotificationsStoreValue>(

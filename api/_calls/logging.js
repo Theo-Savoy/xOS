@@ -1,5 +1,6 @@
 import { insertUserNotification } from "../notifications.js";
 import { getProfile } from "./profileCache.js";
+import { goalNotificationDedupeKey } from "./notificationHelpers.js";
 import mapping from "../_crm/mapping.js";
 import { createEvent, fetchSFToken, logCall, updateContactDoNotCall, buildLightningUrl } from "../_crm/salesforce.js";
 import { SF_ID, actorName, assertSessionAccess, assertSessionContact, claimSessionContact, isValidEventStart, journalAction } from "./http.js";
@@ -542,7 +543,16 @@ export async function handleLogging({ action, body, user, client, headers }) {
     }
     const session = sessionCheck.session;
 
-    const profileResult = await getProfile(client, user.id);
+    // Profile and membership are independent reads. Start both before doing
+    // any recipient work so the notification insert is not held up by a
+    // serial profile -> members lookup.
+    const [profileResult, membersResult] = await Promise.all([
+      getProfile(client, user.id),
+      client
+        .from("call_session_members")
+        .select("user_id")
+        .eq("session_id", session_id),
+    ]);
     if (profileResult.error) {
       return new Response(JSON.stringify({ error: profileResult.error }), { status: 500, headers });
     }
@@ -553,10 +563,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
     const recipientIds = new Set();
     if (session.owner && session.owner !== user.id) recipientIds.add(session.owner);
 
-    const { data: members, error: membersError } = await client
-      .from("call_session_members")
-      .select("user_id")
-      .eq("session_id", session_id);
+    const { data: members, error: membersError } = membersResult;
     if (membersError) {
       return new Response(JSON.stringify({ error: "session_members_lookup_failed" }), { status: 500, headers });
     }
@@ -587,6 +594,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
     };
     const title = "Objectif RDV atteint";
     const notifBody = `${actorLabel} a atteint ${rdv_count}/${goal} RDV sur « ${sessionName} »`;
+    const dedupeKey = goalNotificationDedupeKey(session_id, goal, user.id);
 
     await Promise.all(
       [...recipientIds].map((recipientId) =>
@@ -596,6 +604,7 @@ export async function handleLogging({ action, body, user, client, headers }) {
           title,
           body: notifBody,
           payload,
+          dedupeKey,
         }),
       ),
     );

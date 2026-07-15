@@ -13,13 +13,14 @@ import {
 import mapping from "./_crm/mapping.js";
 import { __resetProfileCache } from "./_calls/profileCache.js";
 
-const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds, mockUpdateContactDoNotCall } = vi.hoisted(() => ({
+const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds, mockUpdateContactDoNotCall, mockUpsert } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
   mockFetchSFToken: vi.fn(),
   mockLogCall: vi.fn(),
   mockCreateEvent: vi.fn(),
   mockFetchContactBasicsByIds: vi.fn(),
   mockUpdateContactDoNotCall: vi.fn(),
+  mockUpsert: vi.fn(),
 }));
 
 vi.mock("./_auth.js", () => ({
@@ -58,6 +59,7 @@ const mockChain = {
   },
   select() { return this; },
   insert: vi.fn(function insert() { return this; }),
+  upsert: vi.fn(function upsert(...args) { mockUpsert(...args); return this; }),
   update() { return this; },
   delete() { return this; },
   eq() { return this; },
@@ -113,6 +115,8 @@ beforeEach(() => {
   mockRpc.mockReset();
   mockRpc.mockResolvedValue({ data: null, error: { message: "no rpc" } });
   mockChain.insert.mockClear();
+  mockChain.upsert.mockClear();
+  mockUpsert.mockClear();
   mockFetchSFToken.mockReset();
   mockLogCall.mockReset();
   mockCreateEvent.mockReset();
@@ -640,6 +644,80 @@ describe("POST /api/calls", () => {
       expect(body.contacts[0].title).toBe("RF");
       expect(body.contacts[0].email).toBe("marie@acme.fr");
       expect(body.contacts[0].linkedin_url).toBe("https://linkedin.com/in/marie");
+    });
+  });
+
+  describe("set_session_members notifications", () => {
+    it("notifies only recipients newly added to the session", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: { id: 12, owner: "user-123", name: "Prospection Lyon", status: "active" }, error: null })
+        .mockResolvedValueOnce({ data: [{ id: "user-2" }, { id: "user-3" }], error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }, { user_id: "user-3" }], error: null })
+        .mockResolvedValueOnce({ data: [{ id: "user-2", full_name: "Bob", email: null, sf_user_id: null }, { id: "user-3", full_name: "Cleo", email: null, sf_user_id: null }], error: null });
+
+      const res = await POST(makeReq("POST", {
+        action: "set_session_members",
+        session_id: 12,
+        member_user_ids: ["user-2", "user-3"],
+      }));
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.members.map((member) => member.user_id)).toEqual(["user-2", "user-3"]);
+      expect(mockChain.insert).toHaveBeenCalledWith(expect.objectContaining({
+        recipient_id: "user-3",
+        kind: "session_shared",
+        payload: expect.objectContaining({
+          session_name: "Prospection Lyon",
+          action: "open_session",
+          params: { view: "runner", session_id: "12" },
+        }),
+      }));
+      expect(mockChain.insert).not.toHaveBeenCalledWith(expect.objectContaining({ recipient_id: "user-2" }));
+    });
+
+    it("does not notify unchanged members", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: { id: 12, owner: "user-123", name: "Prospection Lyon", status: "active" }, error: null })
+        .mockResolvedValueOnce({ data: [{ id: "user-2" }], error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
+        .mockResolvedValueOnce({ data: [{ id: "user-2", full_name: "Bob", email: null, sf_user_id: null }], error: null });
+
+      const res = await POST(makeReq("POST", {
+        action: "set_session_members",
+        session_id: 12,
+        member_user_ids: ["user-2"],
+      }));
+
+      expect(res.status).toBe(200);
+      expect(mockChain.insert).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "session_shared" }));
+    });
+  });
+
+  describe("celebrate_goal notifications", () => {
+    it("uses a stable dedupe key when a goal celebration is retried", async () => {
+      mockDb
+        .mockResolvedValueOnce({ data: { id: 12, owner: "owner-1", name: "Prospection Lyon", status: "active" }, error: null })
+        .mockResolvedValueOnce({ data: { user_id: "user-123" }, error: null })
+        .mockResolvedValueOnce({ data: { sf_user_id: null, full_name: "Ada", role: "commercial" }, error: null })
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [{ id: "owner-1" }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null });
+
+      const body = { action: "celebrate_goal", session_id: 12, goal: 3, rdv_count: 3 };
+      expect((await POST(makeReq("POST", body))).status).toBe(200);
+
+      expect(mockUpsert).toHaveBeenCalledTimes(1);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ dedupe_key: "goal:12:3:user-123" }),
+        { onConflict: "recipient_id,dedupe_key", ignoreDuplicates: true },
+      );
     });
   });
 

@@ -166,16 +166,26 @@ export async function insertUserNotification(client, {
   title,
   body,
   payload = {},
+  dedupeKey,
 }) {
   if (!client || !recipientId || !kind || !title || !body) return;
   try {
-    const { error } = await client.from("user_notifications").insert({
+    const row = {
       recipient_id: recipientId,
       kind,
       title,
       body,
       payload,
-    });
+      ...(dedupeKey ? { dedupe_key: dedupeKey } : {}),
+    };
+    const query = client.from("user_notifications");
+    const result = dedupeKey
+      ? await query.upsert(row, {
+        onConflict: "recipient_id,dedupe_key",
+        ignoreDuplicates: true,
+      })
+      : await query.insert(row);
+    const { error } = result;
     if (error) console.error("Failed to insert user_notification:", error);
   } catch (err) {
     console.error("Failed to insert user_notification:", err);

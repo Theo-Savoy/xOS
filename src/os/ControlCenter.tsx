@@ -35,6 +35,7 @@ export function shouldPollNotifications(
 
 type ControlCenterProps = {
   accessToken: string;
+  onOpenApp?: (appId: string, params: Record<string, string>) => void;
 };
 
 function formatRelative(iso: string): string {
@@ -48,7 +49,7 @@ function formatRelative(iso: string): string {
   return `il y a ${days} j`;
 }
 
-export function ControlCenter({ accessToken }: ControlCenterProps) {
+export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UserNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -74,8 +75,12 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
   const seenReactionIds = useRef(new Set<number>());
   const pendingReactionReadTimers = useRef(new Map<number, number>());
   const bootstrapped = useRef(false);
+  const itemsRef = useRef<UserNotification[]>([]);
+  const unreadRef = useRef(0);
   const pickerRootRef = useRef<HTMLDivElement>(null);
   const pickerButtonRefs = useRef(new Map<number, HTMLButtonElement>());
+  const reactionButtonRefs = useRef(new Map<number, HTMLButtonElement>());
+  const [pendingOpenNotificationId, setPendingOpenNotificationId] = useState<number | null>(null);
 
   const closePicker = useCallback(() => {
     if (pickerOpenId === null) return;
@@ -113,6 +118,8 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
 
   const processNotifications = useCallback(
     (notifications: UserNotification[], unreadCount: number) => {
+      itemsRef.current = notifications;
+      unreadRef.current = unreadCount;
       setItems(notifications);
       setNotifications(notifications);
       setUnread(unreadCount);
@@ -166,31 +173,37 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
   }, [accessToken, processNotifications]);
 
   const handleRealtimeInsert = useCallback(
-    async (notification: UserNotification) => {
+    (notification: UserNotification) => {
       if (!accessToken) return;
 
-      // Fetch through the existing authenticated API so the row shape and
-      // unread count stay consistent with polling. The Realtime row is used
-      // as a fallback when replication reaches the client before PostgREST.
-      try {
-        const data = await fetchNotifications(accessToken);
-        const notifications = Array.isArray(data.notifications)
-          ? data.notifications
-          : [];
-        const alreadyFetched = notifications.some(
-          (item) => item.id === notification.id,
-        );
+      // Render the Realtime row immediately so the toast is not held behind
+      // a second authenticated round trip. Reconcile with the API in the
+      // background for the authoritative list and unread count.
+      const alreadyPresent = itemsRef.current.some((item) => item.id === notification.id);
+      if (!alreadyPresent) {
         processNotifications(
-          alreadyFetched
-            ? notifications
-            : [notification, ...notifications].slice(0, 40),
-          typeof data.unread_count === 'number'
-            ? data.unread_count + (alreadyFetched ? 0 : 1)
-            : 1,
+          [notification, ...itemsRef.current].slice(0, 40),
+          unreadRef.current + 1,
         );
-      } catch {
-        processNotifications([notification], 1);
       }
+      void fetchNotifications(accessToken)
+        .then((data) => {
+          const notifications = Array.isArray(data.notifications)
+            ? data.notifications
+            : [];
+          const alreadyFetched = notifications.some(
+            (item) => item.id === notification.id,
+          );
+          processNotifications(
+            alreadyFetched
+              ? notifications
+              : [notification, ...notifications].slice(0, 40),
+            typeof data.unread_count === 'number'
+              ? data.unread_count + (alreadyFetched ? 0 : 1)
+              : unreadRef.current,
+          );
+        })
+        .catch(() => {});
     },
     [accessToken, processNotifications],
   );
@@ -203,8 +216,22 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
   });
 
   useEffect(() => {
-    if (controlCenterOpenRequest > 0) setOpen(true);
+    if (controlCenterOpenRequest.sequence > 0) {
+      setOpen(true);
+      setPendingOpenNotificationId(controlCenterOpenRequest.notificationId);
+    }
   }, [controlCenterOpenRequest]);
+
+  useEffect(() => {
+    if (!open || pendingOpenNotificationId === null) return;
+    const item = items.find((candidate) => candidate.id === pendingOpenNotificationId);
+    if (!item || item.kind !== 'session_goal_hit') return;
+    setPickerOpenId(item.id);
+    setPendingOpenNotificationId(null);
+    window.setTimeout(() => {
+      reactionButtonRefs.current.get(item.id)?.focus();
+    }, 0);
+  }, [items, open, pendingOpenNotificationId]);
 
   useEffect(() => {
     if (open) return;
@@ -418,6 +445,18 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
                 const unreadItem = !item.read_at;
                 const goalHit = item.kind === 'session_goal_hit';
                 const bigEmoji = reactionEmoji(item);
+                const actionParams =
+                  item.payload?.action === 'open_session' &&
+                  typeof item.payload.app_id === 'string' &&
+                  item.payload.params &&
+                  typeof item.payload.params === 'object'
+                    ? Object.fromEntries(
+                        Object.entries(item.payload.params).filter(
+                          ([key, value]) =>
+                            typeof key === 'string' && typeof value === 'string',
+                        ),
+                      )
+                    : null;
                 return (
                   <article
                     key={item.id}
@@ -462,6 +501,12 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
                           {QUICK_REACTION_EMOJIS.map((emoji) => (
                             <button
                               key={emoji}
+                              ref={(button) => {
+                                if (emoji === QUICK_REACTION_EMOJIS[0]) {
+                                  if (button) reactionButtonRefs.current.set(item.id, button);
+                                  else reactionButtonRefs.current.delete(item.id);
+                                }
+                              }}
                               type="button"
                               className="xos-cc__react"
                               disabled={reactingId === item.id}
@@ -558,6 +603,18 @@ export function ControlCenter({ accessToken }: ControlCenterProps) {
                           </svg>
                           Ouvrir le RDV
                         </a>
+                      )}
+                      {actionParams && onOpenApp && (
+                        <button
+                          type="button"
+                          className="xos-cc__sf"
+                          onClick={() => {
+                            if (unreadItem) void markOne(item.id);
+                            onOpenApp(item.payload.app_id as string, actionParams);
+                          }}
+                        >
+                          Ouvrir la séance
+                        </button>
                       )}
                       {unreadItem && (
                         <button

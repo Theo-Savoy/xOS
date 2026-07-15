@@ -218,7 +218,13 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
           />
         </span>
         <div className="xos-menubar__session-group">
-          <ControlCenter accessToken={accessToken} />
+          <ControlCenter
+            accessToken={accessToken}
+            onOpenApp={(appId, params) => {
+              const app = visibleApps.find((candidate) => candidate.id === appId);
+              if (app) openApp(app, params);
+            }}
+          />
           <span className="xos-menubar__session" title={userEmail}>
             <span className="xos-menubar__status" aria-hidden="true" />
             {userEmail}

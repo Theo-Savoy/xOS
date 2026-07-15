@@ -10,6 +10,20 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DesktopToasts } from './DesktopToasts';
 import { NotificationsProvider } from './notificationsStore';
+import { ControlCenter } from './ControlCenter';
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      unsubscribe: vi.fn().mockResolvedValue('ok'),
+    })),
+  },
+}));
 
 const goalHit = {
   id: 7,
@@ -77,6 +91,34 @@ describe('DesktopToasts', () => {
         body: JSON.stringify({ action: 'mark_read', ids: [goalHit.id] }),
       }),
     );
+  });
+
+  it('opens the inline reaction picker when a goal toast is activated', async () => {
+    vi.useRealTimers();
+    const freshGoalHit = { ...goalHit, created_at: new Date().toISOString() };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ notifications: [freshGoalHit], unread_count: 1 }),
+            { status: 200 },
+          ),
+        ),
+      ),
+    );
+    render(
+      <NotificationsProvider initialNotifications={[freshGoalHit]}>
+        <ControlCenter accessToken="token" />
+        <DesktopToasts accessToken="token" />
+      </NotificationsProvider>,
+    );
+
+    await screen.findByText(freshGoalHit.title);
+    fireEvent.click(screen.getByRole('status'));
+
+    expect(await screen.findByRole('menu')).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Réagir 🎉' })).toBeTruthy();
   });
 
   it('auto-dismisses without marking the notification read', () => {
