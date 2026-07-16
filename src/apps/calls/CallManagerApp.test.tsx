@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { isValidElement } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRegistry, getAppManifest } from "../../os/registry";
@@ -289,7 +289,7 @@ describe("CallManagerApp component", () => {
     await user.click(screen.getByRole("button", { name: "Créer 1 séance ABM" }));
 
     expect(await screen.findByRole("heading", { name: "Aujourd’hui, tu appelles" })).toBeTruthy();
-    expect(screen.getByText("ACME #1")).toBeTruthy();
+    expect(within(screen.getByRole("dialog")).getByText("ACME #1")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Préparer le départ" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Rechercher des comptes" })).toBeNull();
   });
@@ -339,7 +339,7 @@ describe("CallManagerApp component", () => {
     await user.click(await screen.findByRole("button", { name: /Créer séance #2/i }));
 
     expect(await screen.findByRole("heading", { name: "Aujourd’hui, tu appelles" })).toBeTruthy();
-    expect(screen.getByText("Prospection Lyon #2")).toBeTruthy();
+    expect(within(screen.getByRole("dialog")).getByText("Prospection Lyon #2")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Préparer le départ" })).toBeTruthy();
   });
 
@@ -432,7 +432,7 @@ describe("CallManagerApp component", () => {
     render(<CallManagerApp params={{ session_id: "1" }} />);
 
     expect(await screen.findByRole("heading", { name: "Aujourd’hui, tu appelles" })).toBeTruthy();
-    expect(screen.getByText("Jamais engagée")).toBeTruthy();
+    expect(within(screen.getByRole("dialog")).getByText("Jamais engagée")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Préparer le départ" })).toBeTruthy();
   });
 

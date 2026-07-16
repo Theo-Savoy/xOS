@@ -1580,8 +1580,9 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         </div>
       )}
 
-      {(view === "runner" || view === "recalls") && activeSession && (
-        <RunnerView
+      {(view === "runner" || view === "recalls" || view === "pre-session") && activeSession && (
+        <div className={view === "pre-session" ? "calls-pre-session__underlay" : undefined} aria-hidden={view === "pre-session"}>
+          <RunnerView
           session={activeSession}
           contacts={contacts}
           hubSessions={sessions}
@@ -1617,7 +1618,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           onUpdateRecall={(contactIds, recallAt) => void handleUpdateRecall(contactIds, recallAt)}
           onLogMany={(ids, payload) => void handleLogMany(ids, payload)}
           onCelebrateGoal={handleCelebrateGoal}
-        />
+          />
+        </div>
       )}
 
       {view === "recap" && activeSession && (
