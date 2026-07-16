@@ -6,7 +6,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRegistry, getAppManifest } from "../../os/registry";
 import { useSession } from "../../auth/useSession";
+import { todayParisIso } from "./formControls";
 
+const testToday = todayParisIso();
 const mockSession = {
   user: { id: "user-1", email: "theo@xos-learning.fr" },
   access_token: "test-token-abc",
@@ -264,7 +266,7 @@ describe("CallManagerApp component", () => {
       }
       if (url === "/api/calls?session_id=7") {
         return Promise.resolve(new Response(JSON.stringify({
-          session: { id: 7, name: "ACME #1", status: "active", created_at: "2026-07-15T10:00:00Z", rdv_goal: null, engaged_at: null },
+          session: { id: 7, name: "ACME #1", status: "active", created_at: `${testToday}T10:00:00Z`, rdv_goal: null, engaged_at: null },
           contacts: [contact],
         }), { status: 200 }));
       }
@@ -311,7 +313,7 @@ describe("CallManagerApp component", () => {
       comments: null,
       sf_task_id: null,
       sf_event_id: null,
-      called_at: "2026-07-15T10:00:00Z",
+      called_at: `${testToday}T10:00:00Z`,
     };
     const nextContact = { ...contact, status: "pending", outcome: null };
     vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -319,7 +321,7 @@ describe("CallManagerApp component", () => {
       if (url === "/api/calls?resource=hub") return hubResponse();
       if (url === "/api/calls?session_id=1") {
         return Promise.resolve(new Response(JSON.stringify({
-          session: { id: 1, name: "Prospection Lyon", status: "completed", created_at: "2026-07-15T10:00:00Z" },
+          session: { id: 1, name: "Prospection Lyon", status: "completed", created_at: `${testToday}T10:00:00Z` },
           contacts: [contact],
         }), { status: 200 }));
       }
@@ -398,7 +400,7 @@ describe("CallManagerApp component", () => {
       id: 1,
       name: "Jamais engagée",
       status: "active",
-      created_at: "2026-07-15T10:00:00Z",
+      created_at: `${testToday}T10:00:00Z`,
       rdv_goal: 4,
       engaged_at: null,
     };
@@ -441,7 +443,7 @@ describe("CallManagerApp component", () => {
       id: 9,
       name: "Séance à récupérer",
       status: "active" as const,
-      created_at: "2026-07-15T10:00:00Z",
+      created_at: `${testToday}T10:00:00Z`,
       scheduled_for: "2026-07-15",
       session_type: "prospection" as const,
       total: 1,

@@ -44,7 +44,7 @@ import { RunnerView, type LogPayload } from "./RunnerView";
 import { SessionsView } from "./SessionsView";
 import { PreSessionFlow } from "./PreSessionFlow";
 import { ShareSessionPanel } from "./ShareSessionPanel";
-import { shouldShowPreSession, isStaleSession } from "./sessionLifecycle";
+import { shouldShowPreSession, isStaleSession, sessionDayKey } from "./sessionLifecycle";
 import { RolloverDecisionView, type RolloverDecision } from "./RolloverDecisionView";
 import type { AudienceSessionGroup } from "./api";
 import { nextContinuationName } from "./sessionNaming";
@@ -313,11 +313,18 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         if (focusContactId != null && data.contacts.some((c) => c.id === focusContactId)) {
           setFocusedContactId(focusContactId);
         }
-        setView(data.session.status === "completed"
-          ? "recap"
-          : shouldShowPreSession(data.session)
-            ? "pre-session"
-            : "runner");
+        const isToday = sessionDayKey(data.session) === todayParisIso();
+        if (data.session.status === "completed") {
+          setView("recap");
+        } else if (shouldShowPreSession(data.session) && isToday) {
+          setView("pre-session");
+        } else if (data.session.engaged_at === null && !isToday) {
+          invalidateComboHubCache();
+          setView("sessions");
+          await loadSessions({ force: true });
+        } else {
+          setView("runner");
+        }
       } catch (err) {
         setSessionsError(errorMessage(err));
         // Si on était sur le loader de transition params, retombe sur la
@@ -327,7 +334,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         setRunnerLoading(false);
       }
     },
-    [token],
+    [loadSessions, token],
   );
 
   useEffect(() => {
@@ -581,7 +588,12 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       setContacts(data.contacts);
       setAwaitingEvent(null);
       invalidateComboHubCache();
-      setView("pre-session");
+      if (shouldShowPreSession(data.session) && sessionDayKey(data.session) === todayParisIso()) {
+        setView("pre-session");
+      } else {
+        setView("sessions");
+        await loadSessions({ force: true });
+      }
     } catch (err) {
       setNewError(errorMessage(err));
     } finally {
