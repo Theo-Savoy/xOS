@@ -543,6 +543,8 @@
 }
 
 .calls-pre-session {
+  --calls-hot: #ff5a36;
+  --calls-hot-soft: color-mix(in srgb, var(--calls-hot) 32%, transparent);
   width: min(42rem, 100%);
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
@@ -561,16 +563,22 @@
   margin: 0;
 }
 
+.calls-pre-session__rail {
+  position: relative;
+  margin: 0.15rem 0 0.2rem;
+}
+
 .calls-pre-session__phases {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.4rem;
   list-style: none;
-  margin: 0.15rem 0 0.2rem;
+  margin: 0;
   padding: 0;
 }
 
 .calls-pre-session__phase {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -593,9 +601,41 @@
   font-size: 0.65rem;
 }
 
+.calls-pre-session__phase--done {
+  border-bottom-color: color-mix(in srgb, var(--xos-accent) 55%, transparent);
+  color: color-mix(in srgb, var(--xos-accent) 70%, var(--xos-text-muted));
+}
+
 .calls-pre-session__phase--active {
-  border-color: var(--xos-accent);
+  border-bottom-color: var(--xos-accent);
   color: var(--xos-accent);
+}
+
+.calls-pre-session__phase--active > span {
+  background: color-mix(in srgb, var(--xos-accent) 22%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xos-accent) 18%, transparent);
+}
+
+.calls-pre-session__manifest-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+
+.calls-pre-session__manifest-head .calls-muted {
+  margin: 0;
+}
+
+.calls-pre-session__manifest-tag {
+  flex: none;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--xos-accent) 45%, var(--xos-border));
+  border-radius: 0.3rem;
+  color: var(--xos-accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .calls-pre-session__stats {
@@ -622,6 +662,7 @@
 }
 
 .calls-pre-session__objective-chip {
+  position: relative;
   display: grid;
   gap: 0.1rem;
   min-width: 0;
@@ -632,7 +673,27 @@
   color: var(--xos-text-muted);
   font: inherit;
   cursor: pointer;
+  overflow: hidden;
   transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.calls-pre-session__objective-glow {
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  background: radial-gradient(circle, var(--calls-hot-soft) 0%, transparent 68%);
+  animation: calls-pre-session-objective-pulse 1.8s ease-in-out infinite;
+}
+
+.calls-pre-session__objective-chip strong,
+.calls-pre-session__objective-chip span {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes calls-pre-session-objective-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
 
 .calls-pre-session__objective-chip:hover,
@@ -738,7 +799,36 @@
   letter-spacing: -0.02em;
 }
 
+.calls-pre-session__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.calls-pre-session__stage::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--xos-accent) 26%, transparent) 0%, transparent 70%);
+  animation: calls-pre-session-stage-pulse 1.4s ease-in-out infinite;
+}
+
+.calls-pre-session__stage--go::before {
+  background: radial-gradient(circle, var(--calls-hot-soft) 0%, transparent 72%);
+  animation-duration: 0.9s;
+}
+
+@keyframes calls-pre-session-stage-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
 .calls-pre-session__countdown {
+  position: relative;
+  z-index: 1;
   color: var(--xos-accent);
   font-size: clamp(4rem, 15vw, 7rem);
   font-weight: 800;
@@ -748,6 +838,10 @@
 
 .calls-pre-session__countdown--pulse {
   animation: calls-pre-session-countdown-pulse 0.7s ease-out both;
+}
+
+.calls-pre-session__countdown--go {
+  color: var(--calls-hot);
 }
 
 @keyframes calls-pre-session-countdown-pulse {
@@ -761,11 +855,25 @@
   }
 }
 
+.calls-pre-session__ignition {
+  border-color: color-mix(in srgb, var(--calls-hot) 65%, var(--xos-border)) !important;
+  background: var(--calls-hot) !important;
+  color: #1a0a05 !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--calls-hot) 30%, transparent), 0 8px 24px color-mix(in srgb, var(--calls-hot) 35%, transparent);
+}
+
+.calls-pre-session__ignition:hover,
+.calls-pre-session__ignition:focus-visible {
+  background: color-mix(in srgb, var(--calls-hot) 88%, white) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .calls-pre-session__countdown,
   .calls-pre-session__countdown--pulse,
   .calls-pre-session__objective-chip,
-  .calls-pre-session__warmup-progress {
+  .calls-pre-session__objective-glow,
+  .calls-pre-session__warmup-progress,
+  .calls-pre-session__stage::before {
     transition: none;
     animation: none;
     transform: none;

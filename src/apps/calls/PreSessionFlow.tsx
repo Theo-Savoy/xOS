@@ -19,6 +19,7 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: "objective", label: "Objectif" },
   { id: "warmup", label: "Activation" },
 ];
+const PHASE_ORDER = PHASES.map((item) => item.id);
 
 function accountGroups(contacts: SessionContact[]) {
   const groups = new Map<string, { name: string; contacts: SessionContact[] }>();
@@ -39,6 +40,7 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
   const groups = useMemo(() => accountGroups(contacts), [contacts]);
   const remaining = contacts.filter((contact) => contact.status === "pending").length;
   const validGoal = typeof goal === "number" && Number.isInteger(goal) && goal >= 1 && goal <= 8 ? goal : null;
+  const phaseIndex = PHASE_ORDER.indexOf(phase);
 
   useComboOverlay(true, panelRef, onCancel);
 
@@ -65,24 +67,32 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
   return (
     <div ref={panelRef} className="calls-modal" role="dialog" aria-modal="true" aria-labelledby="calls-pre-session-title">
       <GlassCard className="calls-modal__panel calls-pre-session">
-        <div className="calls-pre-session__eyebrow">Préparation de séance</div>
+        <div className="calls-pre-session__eyebrow">Rituel de lancement</div>
         <h2 id="calls-pre-session-title">{session.name}</h2>
-        <ol className="calls-pre-session__phases" aria-label="Étapes de préparation">
-          {PHASES.map((item, index) => (
-            <li
-              key={item.id}
-              aria-label={`${item.label}${phase === item.id ? " — en cours" : ""}`}
-              aria-current={phase === item.id ? "step" : undefined}
-              className={phase === item.id ? "calls-pre-session__phase calls-pre-session__phase--active" : "calls-pre-session__phase"}
-            >
-              <span>{index + 1}</span>
-              {item.label}
-            </li>
-          ))}
-        </ol>
+        <div className="calls-pre-session__rail">
+          <ol className="calls-pre-session__phases" aria-label="Étapes de préparation">
+            {PHASES.map((item, index) => {
+              const state = index === phaseIndex ? "active" : index < phaseIndex ? "done" : "pending";
+              return (
+                <li
+                  key={item.id}
+                  aria-label={`${item.label}${phase === item.id ? " — en cours" : ""}`}
+                  aria-current={phase === item.id ? "step" : undefined}
+                  className={`calls-pre-session__phase calls-pre-session__phase--${state}`}
+                >
+                  <span>{state === "done" ? "✓" : index + 1}</span>
+                  {item.label}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
         {phase === "review" && (
           <>
-            <p className="calls-muted">Regarde la matière avant de te lancer. Cette séance contient {remaining} contact{remaining > 1 ? "s" : ""} à traiter.</p>
+            <div className="calls-pre-session__manifest-head">
+              <span className="calls-pre-session__manifest-tag">Manifeste</span>
+              <p className="calls-muted">Vérifie la matière avant l’engagement. {remaining} contact{remaining > 1 ? "s" : ""} à traiter dans cette séance.</p>
+            </div>
             <div className="calls-pre-session__stats">
               <Tag variant="accent">{groups.length} compte{groups.length > 1 ? "s" : ""}</Tag>
               <Tag>{remaining} contact{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}</Tag>
@@ -110,7 +120,7 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
           <>
             <p id="calls-pre-session-objective-copy" className="calls-muted">Combien de rendez-vous veux-tu obtenir dans cette séance ? L’objectif sera verrouillé au lancement.</p>
             <div className="calls-pre-session__objective-picker" role="group" aria-label="Objectif de RDV">
-              <span className="calls-pre-session__objective-label">Objectif de RDV</span>
+              <span className="calls-pre-session__objective-label">Engagement d’objectif</span>
               <div className="calls-pre-session__objective-options">
                 {OBJECTIVE_OPTIONS.map((option) => (
                   <button
@@ -121,6 +131,7 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
                     aria-pressed={goal === option}
                     onClick={() => setGoal(option)}
                   >
+                    {goal === option && <span className="calls-pre-session__objective-glow" aria-hidden="true" />}
                     <strong>{option}</strong>
                     <span>RDV</span>
                   </button>
@@ -139,19 +150,22 @@ export function PreSessionFlow({ session, contacts, loading = false, onLaunch, o
         {phase === "warmup" && (
           <div className="calls-pre-session__warmup" role="status" aria-live="polite" aria-atomic="true">
             <div className="calls-pre-session__warmup-head">
-              <span className="calls-pre-session__warmup-kicker">Phase 3 · Activation</span>
+              <span className="calls-pre-session__warmup-kicker">Phase 3 · Lancement</span>
               <strong className="calls-pre-session__warmup-title">On passe en mode conversation</strong>
             </div>
-            {countdown > 0 ? (
-              <>
+            <div className={countdown === 0 ? "calls-pre-session__stage calls-pre-session__stage--go" : "calls-pre-session__stage"}>
+              {countdown > 0 ? (
                 <div className="calls-pre-session__countdown calls-pre-session__countdown--pulse">{countdown}</div>
-                <p>Respire. Une conversation à la fois. Ton cap : {validGoal ?? "—"} RDV.</p>
-              </>
+              ) : (
+                <div className="calls-pre-session__countdown calls-pre-session__countdown--go">GO</div>
+              )}
+            </div>
+            {countdown > 0 ? (
+              <p>Respire. Une conversation à la fois. Ton cap : {validGoal ?? "—"} RDV.</p>
             ) : (
               <>
-                <div className="calls-pre-session__countdown">GO</div>
                 <p>Objectif verrouillé : {validGoal ?? "—"} RDV.</p>
-                <Button onClick={() => void launch()} disabled={loading}>Entrer dans la séance</Button>
+                <Button className="calls-pre-session__ignition" onClick={() => void launch()} disabled={loading}>Entrer dans la séance</Button>
               </>
             )}
             <div className="calls-pre-session__warmup-track" aria-hidden="true">

@@ -123,6 +123,25 @@ describe("PreSessionFlow", () => {
     expect(screen.getByText(/Respire\. Une conversation à la fois\./)).toBeTruthy();
   });
 
+  it("reaches the GO moment and exposes the ignition action once the countdown ends", async () => {
+    const user = userEvent.setup();
+    render(
+      <PreSessionFlow
+        session={session}
+        contacts={[contact]}
+        onLaunch={vi.fn().mockResolvedValue(undefined)}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Définir mon objectif" }));
+    await user.click(screen.getByRole("button", { name: "Lancer le warmup" }));
+
+    const ignition = await screen.findByRole("button", { name: "Entrer dans la séance" }, { timeout: 3000 });
+    expect(screen.getByRole("status").textContent).toContain("GO");
+    expect(ignition).toBeTruthy();
+  });
+
   it("exposes the pre-session responsive safeguards in the calls stylesheet", async () => {
     expect(callsCss).toContain(".calls-pre-session");
     expect(callsCss).toContain("max-height: calc(100dvh - 2rem)");
