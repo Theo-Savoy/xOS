@@ -320,8 +320,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           setView("pre-session");
         } else if (data.session.engaged_at === null && !isToday) {
           invalidateComboHubCache();
-          setView("sessions");
           await loadSessions({ force: true });
+          setView("sessions");
         } else {
           setView("runner");
         }
@@ -591,8 +591,8 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       if (shouldShowPreSession(data.session) && sessionDayKey(data.session) === todayParisIso()) {
         setView("pre-session");
       } else {
-        setView("sessions");
         await loadSessions({ force: true });
+        setView("sessions");
       }
     } catch (err) {
       setNewError(errorMessage(err));
