@@ -8,7 +8,6 @@ import {
   waitFor,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PreSessionFlow } from './PreSessionFlow';
 import type { SessionContact, SessionDetail } from './types';
@@ -46,6 +45,18 @@ const contact: SessionContact = {
   called_at: null,
 };
 
+function renderFlow(onLaunch = vi.fn().mockResolvedValue(undefined)) {
+  render(
+    <PreSessionFlow
+      session={session}
+      contacts={[contact]}
+      onLaunch={onLaunch}
+      onCancel={vi.fn()}
+    />,
+  );
+  return onLaunch;
+}
+
 describe('PreSessionFlow', () => {
   it('closes on Escape and restores focus to the element that opened it', () => {
     const opener = document.createElement('button');
@@ -54,22 +65,17 @@ describe('PreSessionFlow', () => {
     const onCancel = vi.fn();
 
     function Harness() {
-      const [open, setOpen] = useState(true);
-      return open ? (
+      return (
         <PreSessionFlow
           session={session}
           contacts={[contact]}
           onLaunch={vi.fn().mockResolvedValue(undefined)}
-          onCancel={() => {
-            onCancel();
-            setOpen(false);
-          }}
+          onCancel={onCancel}
         />
-      ) : null;
+      );
     }
 
     render(<Harness />);
-
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -77,84 +83,44 @@ describe('PreSessionFlow', () => {
     opener.remove();
   });
 
-  it('offers objectives as accessible selection chips from 1 to 8', async () => {
-    const user = userEvent.setup();
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={vi.fn().mockResolvedValue(undefined)}
-        onCancel={vi.fn()}
-      />,
-    );
+  it('shows the operator briefing with the objective in the same view', () => {
+    renderFlow();
 
-    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
+    expect(
+      screen.getByRole('heading', { name: 'Aujourd’hui, tu appelles' }),
+    ).toBeTruthy();
+    expect(screen.getByText('contacts à appeler')).toBeTruthy();
+    expect(screen.getByText('comptes')).toBeTruthy();
+    expect(screen.getByText('Acme')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /RDV$/ })).toHaveLength(8);
     expect(
-      screen
-        .getByRole('button', { name: '5 RDV' })
-        .getAttribute('aria-pressed'),
+      screen.getByRole('button', { name: '5 RDV' }).getAttribute('aria-pressed'),
     ).toBe('true');
-    await user.click(screen.getByRole('button', { name: '6 RDV' }));
-    expect(
-      screen
-        .getByRole('button', { name: '6 RDV' })
-        .getAttribute('aria-pressed'),
-    ).toBe('true');
-    expect(screen.getByText(/Cap choisi : 6 RDV/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Préparer le départ' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Annuler' })).toBeTruthy();
+    expect(screen.queryByText('Matière')).toBeNull();
+    expect(screen.queryByText('Cap')).toBeNull();
   });
 
-  it('shows the current phase in a clear preparation indicator', () => {
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={vi.fn().mockResolvedValue(undefined)}
-        onCancel={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole('list', { name: 'Étapes de préparation' }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('listitem', { name: /Matière.*en cours/i }),
-    ).toBeTruthy();
-  });
-
-  it('lets a valid objective start the accessible warmup countdown', async () => {
+  it('lets the operator choose an objective before preparing the departure', async () => {
     const user = userEvent.setup();
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={vi.fn().mockResolvedValue(undefined)}
-        onCancel={vi.fn()}
-      />,
-    );
+    renderFlow();
 
-    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
     await user.click(screen.getByRole('button', { name: '6 RDV' }));
-    await user.click(screen.getByRole('button', { name: 'Lancer le départ' }));
+    expect(screen.getByText('Objectif RDV : 6')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Préparer le départ' }));
 
     expect(screen.getByRole('status').textContent).toContain('3');
-    expect(screen.getByText(/contact.*prêt.*à appeler/)).toBeTruthy();
+    expect(screen.getByText('Objectif RDV')).toBeTruthy();
+    expect(screen.queryByText('Aujourd’hui, tu appelles')).toBeNull();
+    expect(screen.queryByText('Acme')).toBeNull();
   });
 
   it('automatically hands off at GO exactly once', async () => {
     const user = userEvent.setup();
-    const onLaunch = vi.fn().mockResolvedValue(undefined);
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={onLaunch}
-        onCancel={vi.fn()}
-      />,
-    );
+    const onLaunch = renderFlow();
 
-    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
-    await user.click(screen.getByRole('button', { name: 'Lancer le départ' }));
+    await user.click(screen.getByRole('button', { name: 'Préparer le départ' }));
 
     await waitFor(() => expect(onLaunch).toHaveBeenCalledTimes(1), {
       timeout: 3000,
@@ -164,9 +130,7 @@ describe('PreSessionFlow', () => {
     expect(
       screen.getByRole('dialog').querySelector('.calls-pre-session')?.className,
     ).toContain('calls-pre-session--handoff');
-    expect(
-      screen.queryByRole('button', { name: 'Entrer dans la séance' }),
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Entrer dans la séance' })).toBeNull();
     expect(onLaunch).toHaveBeenCalledWith(5);
 
     await new Promise((resolve) => window.setTimeout(resolve, 250));
@@ -179,17 +143,9 @@ describe('PreSessionFlow', () => {
       .fn()
       .mockRejectedValueOnce(new Error('network'))
       .mockResolvedValueOnce(undefined);
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={onLaunch}
-        onCancel={vi.fn()}
-      />,
-    );
+    renderFlow(onLaunch);
 
-    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
-    await user.click(screen.getByRole('button', { name: 'Lancer le départ' }));
+    await user.click(screen.getByRole('button', { name: 'Préparer le départ' }));
     await screen.findByRole(
       'alert',
       { name: 'Échec du départ' },
@@ -201,40 +157,28 @@ describe('PreSessionFlow', () => {
         'Le départ n’a pas abouti. Vérifie la connexion puis relance.',
       ),
     ).toBeTruthy();
-    await user.click(
-      screen.getByRole('button', { name: 'Relancer le départ' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Relancer le départ' }));
     await waitFor(() => expect(onLaunch).toHaveBeenCalledTimes(2), {
       timeout: 1000,
     });
   });
 
-  it('uses launch-gate copy for the intelligence and objective stages', async () => {
-    const user = userEvent.setup();
-    render(
-      <PreSessionFlow
-        session={session}
-        contacts={[contact]}
-        onLaunch={vi.fn().mockResolvedValue(undefined)}
-        onCancel={vi.fn()}
-      />,
-    );
+  it('uses concrete French field copy', () => {
+    renderFlow();
 
-    expect(screen.getByText('Matière prête')).toBeTruthy();
-    expect(screen.queryByText('Manifeste')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
-    expect(screen.getByText('Cap de la séance')).toBeTruthy();
-    expect(screen.getByText('Objectif verrouillé au départ.')).toBeTruthy();
-    expect(screen.queryByText(/Combien de rendez-vous veux-tu/)).toBeNull();
+    expect(screen.getByText('Aujourd’hui, tu appelles')).toBeTruthy();
+    expect(screen.getByText('Objectif RDV')).toBeTruthy();
+    expect(screen.getByText('Préparer le départ')).toBeTruthy();
+    expect(screen.getAllByText(/premier appel/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Matière|Cap|Manifeste/)).toBeNull();
   });
 
-  it('exposes the pre-session responsive safeguards in the calls stylesheet', async () => {
+  it('exposes the briefing and activation safeguards in the calls stylesheet', () => {
     expect(callsCss).toContain('.calls-pre-session');
     expect(callsCss).toContain('max-height: calc(100dvh - 2rem)');
     expect(callsCss).toContain('.calls-pre-session__accounts');
-    expect(callsCss).toContain('backdrop-filter: blur(24px) saturate(145%)');
-    expect(callsCss).toContain('.calls-stat__progress');
-    expect(callsCss).toContain('.calls-stat--rdv-heat-1');
+    expect(callsCss).toContain('.calls-pre-session__briefing');
+    expect(callsCss).toContain('.calls-pre-session__activation');
     expect(callsCss).toContain('calls-pre-session-handoff');
     expect(callsCss).toContain('prefers-reduced-motion: reduce');
   });
