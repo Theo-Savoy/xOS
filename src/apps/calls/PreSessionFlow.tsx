@@ -53,9 +53,7 @@ export function PreSessionFlow({
   const [handoffState, setHandoffState] = useState<HandoffState>('idle');
   const [launchError, setLaunchError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const phaseTitleRef = useRef<HTMLHeadingElement>(null);
   const launchStartedRef = useRef(false);
-  const previousPhaseRef = useRef<Phase>('review');
   const groups = useMemo(() => accountGroups(contacts), [contacts]);
   const remaining = contacts.filter(
     (contact) => contact.status === 'pending',
@@ -67,6 +65,15 @@ export function PreSessionFlow({
   const phaseIndex = PHASE_ORDER.indexOf(phase);
 
   useComboOverlay(true, panelRef, onCancel);
+
+  const changePhase = (nextPhase: Phase) => {
+    setPhase(nextPhase);
+    window.setTimeout(() => {
+      panelRef.current
+        ?.querySelector<HTMLHeadingElement>('[data-phase-title]')
+        ?.focus();
+    }, 0);
+  };
 
   useEffect(() => {
     if (phase !== 'warmup') return undefined;
@@ -84,16 +91,6 @@ export function PreSessionFlow({
       });
     }, 700);
     return () => window.clearInterval(timer);
-  }, [phase]);
-
-  useEffect(() => {
-    if (previousPhaseRef.current === phase) return undefined;
-    previousPhaseRef.current = phase;
-    const focusTimer = window.setTimeout(
-      () => phaseTitleRef.current?.focus(),
-      0,
-    );
-    return () => window.clearTimeout(focusTimer);
   }, [phase]);
 
   const launch = useCallback(
@@ -176,7 +173,7 @@ export function PreSessionFlow({
                 <span className="calls-pre-session__stage-kicker">
                   Matière prête
                 </span>
-                <h3 ref={phaseTitleRef} tabIndex={-1}>
+                <h3 data-phase-title tabIndex={-1}>
                   Tout ce qui est actionnable est en ligne.
                 </h3>
                 <p className="calls-muted">
@@ -224,7 +221,7 @@ export function PreSessionFlow({
                 })}
               </ul>
               <div className="calls-runner-actions">
-                <Button onClick={() => setPhase('objective')}>
+                <Button onClick={() => changePhase('objective')}>
                   Choisir le cap
                 </Button>
                 <Button variant="secondary" onClick={onCancel}>
@@ -240,7 +237,7 @@ export function PreSessionFlow({
                 <span className="calls-pre-session__stage-kicker">
                   Cap de la séance
                 </span>
-                <h3 ref={phaseTitleRef} tabIndex={-1}>
+                <h3 data-phase-title tabIndex={-1}>
                   Le cap guide chaque appel.
                 </h3>
                 <p className="calls-muted">Objectif verrouillé au départ.</p>
@@ -289,12 +286,15 @@ export function PreSessionFlow({
               </div>
               <div className="calls-runner-actions">
                 <Button
-                  onClick={() => setPhase('warmup')}
+                  onClick={() => changePhase('warmup')}
                   disabled={validGoal === null}
                 >
                   Lancer le départ
                 </Button>
-                <Button variant="secondary" onClick={() => setPhase('review')}>
+                <Button
+                  variant="secondary"
+                  onClick={() => changePhase('review')}
+                >
                   Retour
                 </Button>
               </div>
@@ -312,7 +312,7 @@ export function PreSessionFlow({
               <div className="calls-pre-session__warmup-head">
                 <span className="calls-pre-session__stage-kicker">Départ</span>
                 <h3
-                  ref={phaseTitleRef}
+                  data-phase-title
                   tabIndex={-1}
                   className="calls-pre-session__warmup-title"
                 >

@@ -19,6 +19,12 @@ const callsCss = vi.hoisted(() => {
   return fs.readFileSync('src/apps/calls/calls.css', 'utf8');
 });
 
+const preSessionFlowSource = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('node:fs') as typeof import('node:fs');
+  return fs.readFileSync('src/apps/calls/PreSessionFlow.tsx', 'utf8');
+});
+
 afterEach(cleanup);
 
 const session: SessionDetail = {
@@ -104,7 +110,8 @@ describe('PreSessionFlow', () => {
     expect(screen.getByText(/Cap choisi : 6 RDV/)).toBeTruthy();
   });
 
-  it('shows the current phase in a clear preparation indicator', () => {
+  it('centralizes phase focus and moves it only after phase changes', async () => {
+    const user = userEvent.setup();
     render(
       <PreSessionFlow
         session={session}
@@ -114,12 +121,40 @@ describe('PreSessionFlow', () => {
       />,
     );
 
+    const reviewTitle = screen.getByRole('heading', {
+      name: 'Tout ce qui est actionnable est en ligne.',
+    });
+    expect(document.activeElement).not.toBe(reviewTitle);
     expect(
       screen.getByRole('list', { name: 'Étapes de préparation' }),
     ).toBeTruthy();
     expect(
       screen.getByRole('listitem', { name: /Matière.*en cours/i }),
     ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
+    const objectiveTitle = screen.getByRole('heading', {
+      name: 'Le cap guide chaque appel.',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(objectiveTitle));
+
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    const returnedReviewTitle = screen.getByRole('heading', {
+      name: 'Tout ce qui est actionnable est en ligne.',
+    });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(returnedReviewTitle),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Choisir le cap' }));
+    await user.click(screen.getByRole('button', { name: 'Lancer le départ' }));
+    const warmupTitle = screen.getByRole('heading', {
+      name: 'Prépare le premier appel.',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(warmupTitle));
+
+    expect(preSessionFlowSource).not.toContain('phaseTitleRef');
+    expect(preSessionFlowSource).not.toContain('previousPhaseRef');
   });
 
   it('lets a valid objective start the accessible warmup countdown', async () => {
