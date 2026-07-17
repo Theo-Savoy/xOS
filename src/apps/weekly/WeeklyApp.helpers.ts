@@ -35,16 +35,20 @@ export type Pace = {
   monthly_indicative?: MonthlyIndicative[];
 };
 
-function roundToMagnitude(value: number) {
+// Arrondit toujours vers le haut (jamais d'indicatif < raw) au prochain multiple
+// "rond" (1/2/5 x 10^n) dont le pas est <= 10% de la valeur : l'écart introduit
+// par l'arrondi (< pas) reste donc toujours strictement sous 10% de la valeur.
+function roundIndicative(value: number) {
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const exp = Math.floor(Math.log10(value));
+  const maxStep = value * 0.1;
+  const exp = Math.floor(Math.log10(maxStep));
   const base = 10 ** exp;
-  const normalized = value / base;
-  let factor = 10;
-  if (normalized < 1.5) factor = 1;
-  else if (normalized < 3.5) factor = 2.5;
-  else if (normalized < 7.5) factor = 5;
-  return Math.round(factor * base);
+  const normalized = maxStep / base;
+  let stepFactor = 1;
+  if (normalized >= 5) stepFactor = 5;
+  else if (normalized >= 2) stepFactor = 2;
+  const step = stepFactor * base;
+  return Math.ceil(value / step) * step;
 }
 
 export function aggregateMonthlyIndicative(rows: Quarter[]): MonthlyIndicative[] {
@@ -58,7 +62,7 @@ export function aggregateMonthlyIndicative(rows: Quarter[]): MonthlyIndicative[]
   }
   return [...byMonth.values()].map((month) => ({
     ...month,
-    indicative: roundToMagnitude(month.raw),
+    indicative: roundIndicative(month.raw),
   }));
 }
 
