@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { isValidElement } from "react";
+import { isValidElement, useState } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -293,6 +293,89 @@ describe("CallManagerApp component", () => {
     expect(await screen.findByRole("heading", { name: "ACME #1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Choisir le cap" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Rechercher des comptes" })).toBeNull();
+  });
+
+  it("keeps the pre-session flow open when the window manager round-trips params", async () => {
+    const user = userEvent.setup();
+    const account = {
+      id: "001000000000001AAA",
+      name: "ACME",
+      industry: "Services informatiques",
+      owner_name: "Paul Martin",
+      type_client: "Prospect",
+      tier: "A",
+      effectif: "51 - 250",
+      contacts: [{
+        sf_contact_id: "003000000000001AAA",
+        contact_name: "Alice Martin",
+        title: "Directrice",
+        phone: "0102030405",
+        mobile_phone: null,
+        email: "alice@acme.fr",
+        decision_level: "+",
+      }],
+    };
+    const contact = {
+      id: 101,
+      position: 0,
+      sf_contact_id: "003000000000001AAA",
+      sf_account_id: "001000000000001AAA",
+      contact_name: "Alice Martin",
+      account_name: "ACME",
+      phone: "0102030405",
+      title: "Directrice",
+      linkedin_url: null,
+      status: "pending",
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") return hubResponse();
+      if (url === "/api/calls?resource=team") {
+        return Promise.resolve(new Response(JSON.stringify({ team: [{ user_id: "user-1", label: "Paul Martin", sf_user_id: "005000000000001AAA" }] }), { status: 200 }));
+      }
+      if (url === "/api/calls?session_id=7") {
+        return Promise.resolve(new Response(JSON.stringify({
+          session: { id: 7, name: "ACME #1", status: "active", created_at: `${testToday}T10:00:00Z`, rdv_goal: null, engaged_at: null },
+          contacts: [contact],
+        }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === "accounts_search") {
+          return Promise.resolve(new Response(JSON.stringify({ accounts: [account], truncated: false }), { status: 200 }));
+        }
+        if (body.action === "create_audience_sessions") {
+          return Promise.resolve(new Response(JSON.stringify({ sessions: [{ id: 7, name: "ACME #1", contact_count: 1, account_ids: [account.id] }] }), { status: 200 }));
+        }
+      }
+      if (url === "/api/calls") return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    });
+
+    // Reproduit le vrai WindowManager : onParamsChange réinjecte les params
+    // dans la prop, ce que le rendu statique des autres tests ne couvre pas.
+    function Harness() {
+      const [params, setParams] = useState<Record<string, string> | undefined>({ view: "abm" });
+      return <CallManagerApp params={params} onParamsChange={setParams} />;
+    }
+    render(<Harness />);
+
+    await user.type(await screen.findByLabelText("Nom du compte"), "ACME");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Sélectionner ACME" }));
+    await user.click(screen.getByRole("button", { name: "Créer 1 séance ABM" }));
+
+    expect(await screen.findByRole("heading", { name: "ACME #1" })).toBeTruthy();
+    // Laisse la boucle params → view se stabiliser : le brief doit rester ouvert.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole("button", { name: "Choisir le cap" })).toBeTruthy();
+    expect(screen.queryByText("Nouvelle séance")).toBeNull();
   });
 
   it("opens recap follow-up sessions in the pre-session flow", async () => {

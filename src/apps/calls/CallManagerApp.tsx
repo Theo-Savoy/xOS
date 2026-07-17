@@ -97,6 +97,7 @@ function navigationParamsForView(view: View, sessionId?: number | null): Record<
     case "recalls":
       return { view: "recalls" };
     case "runner":
+    case "pre-session":
       return sessionId ? { view: "runner", session_id: String(sessionId) } : undefined;
     case "recap":
       return sessionId ? { view: "recap", session_id: String(sessionId) } : undefined;
@@ -399,13 +400,27 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     };
   }, [session?.user?.email]);
 
+  // Miroir du couple vue/séance affichée, pour que l'effet ci-dessous puisse
+  // ignorer le retour de ses propres params sans élargir ses dépendances.
+  const displayedSessionRef = useRef<{ view: View; sessionId: number | null }>({
+    view: "sessions",
+    sessionId: null,
+  });
+  displayedSessionRef.current = { view, sessionId: activeSession?.id ?? null };
+
   useEffect(() => {
     const sessionId = params?.session_id;
     if (sessionId && token) {
       const id = Number(sessionId);
-      if (!Number.isNaN(id)) {
-        void openSession(id);
+      if (Number.isNaN(id)) return;
+      const displayed = displayedSessionRef.current;
+      if (
+        displayed.sessionId === id
+        && (displayed.view === "pre-session" || displayed.view === "runner" || displayed.view === "recap")
+      ) {
+        return;
       }
+      void openSession(id);
     }
   }, [params?.session_id, token, openSession]);
 
