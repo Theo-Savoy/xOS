@@ -3635,7 +3635,8 @@
 
 .calls-cmdk,
 .calls-help,
-.calls-demo {
+.calls-demo,
+.calls-trophies {
   position: fixed;
   inset: 0;
   z-index: 80;
@@ -3645,7 +3646,8 @@
 }
 
 .calls-cmdk__backdrop,
-.calls-help__backdrop {
+.calls-help__backdrop,
+.calls-trophies__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
@@ -3653,13 +3655,65 @@
 }
 
 .calls-cmdk__panel,
-.calls-help__panel {
+.calls-help__panel,
+.calls-trophies__panel {
   position: relative;
   z-index: 1;
   width: min(36rem, 100%);
   display: grid;
   gap: 0.85rem;
   padding: 0.9rem;
+}
+
+.calls-cmdk__xp {
+  border-top: 1px solid color-mix(in srgb, var(--xos-border) 65%, transparent);
+  padding-top: 0.65rem;
+  font-size: 0.82rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-cmdk__xp ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.calls-cmdk__xp-badge {
+  margin: 0.35rem 0 0;
+}
+
+.calls-trophies__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.calls-trophies__section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.calls-trophies__section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.calls-recap-nudges ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.calls-note-chips {
+  margin-top: -0.35rem;
 }
 
 .calls-cmdk__head {
