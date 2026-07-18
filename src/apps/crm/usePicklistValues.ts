@@ -6,7 +6,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { apiFetch } from '../../lib/apiClient';
 
 export type PicklistValue = {
   label: string;
@@ -16,14 +15,13 @@ export type PicklistValue = {
 
 type CacheEntry = {
   values: PicklistValue[];
+  dependOn: string | null;
   ts: number;
 };
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const picklistCache = new Map<string, CacheEntry>();
-const PicklistAccessTokenContext = createContext<string | undefined>(
-  undefined,
-);
+const PicklistAccessTokenContext = createContext<string | undefined>(undefined);
 
 export function PicklistValuesProvider({
   accessToken,
@@ -43,15 +41,26 @@ export function __resetPicklistValuesCache() {
   picklistCache.clear();
 }
 
-function cachedValues(field: string): PicklistValue[] | null {
-  const cached = picklistCache.get(field);
+function cacheKey(field: string, controllingValue?: string): string {
+  return `${field}:${controllingValue ?? ''}`;
+}
+
+function cachedPicklist(
+  field: string,
+  controllingValue?: string,
+): CacheEntry | null {
+  const key = cacheKey(field, controllingValue);
+  const cached = picklistCache.get(key);
   if (!cached) return null;
-  if (Date.now() - cached.ts < CACHE_TTL_MS) return cached.values;
-  picklistCache.delete(field);
+  if (Date.now() - cached.ts < CACHE_TTL_MS) return cached;
+  picklistCache.delete(key);
   return null;
 }
 
-function parseValues(body: unknown): PicklistValue[] {
+function parsePicklist(body: unknown): {
+  values: PicklistValue[];
+  dependOn: string | null;
+} {
   if (
     !body ||
     typeof body !== 'object' ||
@@ -59,36 +68,57 @@ function parseValues(body: unknown): PicklistValue[] {
   ) {
     throw new Error('La réponse de la picklist est invalide.');
   }
-  return (body as { values: unknown[] }).values
-    .filter(
-      (value): value is Record<string, unknown> =>
-        Boolean(value) &&
-        typeof value === 'object' &&
-        typeof (value as { label?: unknown }).label === 'string',
-    )
-    .map((value) => ({
-      label: value.label as string,
-      active: value.active === true,
-      default: value.default === true,
-    }));
+  const response = body as {
+    values: unknown[];
+    controllerName?: unknown;
+  };
+  return {
+    values: response.values
+      .filter(
+        (value): value is Record<string, unknown> =>
+          Boolean(value) &&
+          typeof value === 'object' &&
+          typeof (value as { label?: unknown }).label === 'string',
+      )
+      .map((value) => ({
+        label: value.label as string,
+        active: value.active === true,
+        default: value.default === true,
+      })),
+    dependOn:
+      typeof response.controllerName === 'string'
+        ? response.controllerName
+        : null,
+  };
 }
 
-export function usePicklistValues(field: string): {
+export function usePicklistValues(
+  field: string,
+  controllingValue?: string,
+): {
   values: PicklistValue[];
   loading: boolean;
   error: string | null;
+  dependOn: string | null;
 } {
   const accessToken = useContext(PicklistAccessTokenContext);
-  const initialValues = cachedValues(field);
-  const [values, setValues] = useState<PicklistValue[]>(initialValues ?? []);
-  const [loading, setLoading] = useState(initialValues === null);
+  const initialPicklist = cachedPicklist(field, controllingValue);
+  const [values, setValues] = useState<PicklistValue[]>(
+    initialPicklist?.values ?? [],
+  );
+  const [dependOn, setDependOn] = useState<string | null>(
+    initialPicklist?.dependOn ?? null,
+  );
+  const [loading, setLoading] = useState(initialPicklist === null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    const cached = cachedValues(field);
+    const key = cacheKey(field, controllingValue);
+    const cached = cachedPicklist(field, controllingValue);
     if (cached) {
-      setValues(cached);
+      setValues(cached.values);
+      setDependOn(cached.dependOn);
       setLoading(false);
       setError(null);
       return () => {
@@ -97,6 +127,7 @@ export function usePicklistValues(field: string): {
     }
 
     setValues([]);
+    setDependOn(null);
     setLoading(Boolean(field));
     setError(null);
     if (!field) return () => undefined;
@@ -104,15 +135,25 @@ export function usePicklistValues(field: string): {
     void (async () => {
       try {
         if (!accessToken) throw new Error('Session expirée.');
-        const body = await apiFetch<unknown>(
-          accessToken,
-          `/api/crm/picklists?field=${encodeURIComponent(field)}`,
-        ).catch(() => {
+        const controllingValueQuery =
+          controllingValue === undefined
+            ? ''
+            : `&controllingValue=${encodeURIComponent(controllingValue)}`;
+        const response = await fetch(
+          `/api/crm/picklists?field=${encodeURIComponent(field)}${controllingValueQuery}`,
+          {
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
+        if (!response.ok)
           throw new Error('Le chargement de la picklist a échoué.');
-        });
-        const nextValues = parseValues(body);
-        picklistCache.set(field, { values: nextValues, ts: Date.now() });
-        if (active) setValues(nextValues);
+        const nextPicklist = parsePicklist(await response.json());
+        picklistCache.set(key, { ...nextPicklist, ts: Date.now() });
+        if (active) {
+          setValues(nextPicklist.values);
+          setDependOn(nextPicklist.dependOn);
+        }
       } catch (cause) {
         if (active)
           setError(
@@ -128,7 +169,7 @@ export function usePicklistValues(field: string): {
     return () => {
       active = false;
     };
-  }, [accessToken, field]);
+  }, [accessToken, controllingValue, field]);
 
-  return { values, loading, error };
+  return { values, loading, error, dependOn };
 }

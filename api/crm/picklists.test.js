@@ -29,12 +29,13 @@ import { __resetPicklistCache, GET } from './picklists.js';
 
 const FIELD = 'Raison_de_perte_V2__c';
 
-function request(field) {
+function request(field, controllingValue) {
   const selectedField = arguments.length === 0 ? FIELD : field;
-  const query =
-    selectedField === undefined
-      ? ''
-      : `?field=${encodeURIComponent(selectedField)}`;
+  const searchParams = new URLSearchParams();
+  if (selectedField !== undefined) searchParams.set('field', selectedField);
+  if (controllingValue !== undefined)
+    searchParams.set('controllingValue', controllingValue);
+  const query = searchParams.size ? `?${searchParams}` : '';
   return new Request(`https://xos.test/api/crm/picklists${query}`, {
     headers: { Authorization: 'Bearer token' },
   });
@@ -44,28 +45,45 @@ function describeResponse() {
   return {
     fields: [
       {
+        name: 'Type_de_vente__c',
+        controllerName: null,
+        picklistValues: [
+          { label: 'Catalogue', value: 'Catalogue', active: true },
+          { label: 'Sur-mesure', value: 'Sur-mesure', active: true },
+          { label: 'Conseil', value: 'Conseil', active: true },
+        ],
+      },
+      {
         name: FIELD,
-        controllerName: 'StageName',
+        controllerName: 'Type_de_vente__c',
         picklistValues: [
           {
             label: 'Budget insuffisant',
             value: 'Budget insuffisant',
             active: true,
             defaultValue: false,
+            validFor: 'gA==',
           },
           {
             label: 'Priorité différente',
             value: 'Priorité différente',
             active: true,
             defaultValue: true,
+            validFor: 'wA==',
           },
           {
             label: 'Ancienne valeur',
             value: 'Ancienne valeur',
             active: false,
             defaultValue: false,
+            validFor: '/w==',
           },
         ],
+      },
+      {
+        name: 'Motif_remise__c',
+        controllerName: 'Type_de_vente__c',
+        picklistValues: [],
       },
     ],
   };
@@ -82,9 +100,13 @@ beforeEach(() => {
   vi.stubEnv('SF_INSTANCE_URL', 'https://example.my.salesforce.com');
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(describeResponse()), { status: 200 }),
-    ),
+    vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(describeResponse()), { status: 200 }),
+        ),
+      ),
   );
 });
 
@@ -100,7 +122,9 @@ describe('GET /api/crm/picklists', () => {
         { label: 'Budget insuffisant', active: true, default: false },
         { label: 'Priorité différente', active: true, default: true },
       ],
-      controllerName: 'StageName',
+      controllerName: 'Type_de_vente__c',
+      controllingValue: null,
+      dependents: ['Motif_remise__c'],
       cachedAt: '2026-07-18T08:30:00.000Z',
     });
     expect(mockFetchSFToken).toHaveBeenCalledWith({
@@ -127,6 +151,64 @@ describe('GET /api/crm/picklists', () => {
     await expect(second.json()).resolves.toMatchObject({
       field: FIELD,
       cachedAt: '2026-07-18T08:30:00.000Z',
+    });
+  });
+
+  it('filters dependent values with the controlling value validFor bitset', async () => {
+    const response = await GET(request(FIELD, 'Sur-mesure'));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      field: FIELD,
+      values: [{ label: 'Priorité différente', active: true, default: true }],
+      controllerName: 'Type_de_vente__c',
+      controllingValue: 'Sur-mesure',
+      dependents: ['Motif_remise__c'],
+    });
+  });
+
+  it('keeps separate cache entries for each controlling value', async () => {
+    const catalogue = await GET(request(FIELD, 'Catalogue'));
+    const custom = await GET(request(FIELD, 'Sur-mesure'));
+    const cachedCatalogue = await GET(request(FIELD, 'Catalogue'));
+
+    await expect(catalogue.json()).resolves.toMatchObject({
+      controllingValue: 'Catalogue',
+      values: [
+        { label: 'Budget insuffisant' },
+        { label: 'Priorité différente' },
+      ],
+    });
+    await expect(custom.json()).resolves.toMatchObject({
+      controllingValue: 'Sur-mesure',
+      values: [{ label: 'Priorité différente' }],
+    });
+    await expect(cachedCatalogue.json()).resolves.toMatchObject({
+      controllingValue: 'Catalogue',
+      values: [
+        { label: 'Budget insuffisant' },
+        { label: 'Priorité différente' },
+      ],
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not filter a field without a controller', async () => {
+    const response = await GET(
+      request('Type_de_vente__c', 'Valeur sans effet'),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      field: 'Type_de_vente__c',
+      values: [
+        { label: 'Catalogue', active: true, default: false },
+        { label: 'Sur-mesure', active: true, default: false },
+        { label: 'Conseil', active: true, default: false },
+      ],
+      controllerName: null,
+      controllingValue: 'Valeur sans effet',
+      dependents: [],
     });
   });
 
