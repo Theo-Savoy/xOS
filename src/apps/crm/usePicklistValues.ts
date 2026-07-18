@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { apiFetch } from '../../lib/apiClient';
 
 export type PicklistValue = {
   label: string;
@@ -139,16 +140,11 @@ export function usePicklistValues(
           controllingValue === undefined
             ? ''
             : `&controllingValue=${encodeURIComponent(controllingValue)}`;
-        const response = await fetch(
+        const body = await apiFetch<unknown>(
+          accessToken,
           `/api/crm/picklists?field=${encodeURIComponent(field)}${controllingValueQuery}`,
-          {
-            cache: 'no-store',
-            headers: { Authorization: `Bearer ${accessToken}` },
-          },
         );
-        if (!response.ok)
-          throw new Error('Le chargement de la picklist a échoué.');
-        const nextPicklist = parsePicklist(await response.json());
+        const nextPicklist = parsePicklist(body);
         picklistCache.set(key, { ...nextPicklist, ts: Date.now() });
         if (active) {
           setValues(nextPicklist.values);
