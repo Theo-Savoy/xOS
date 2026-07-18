@@ -1,3 +1,4 @@
+import { Button } from '../../../../components/ui';
 import type { CleanerCapabilities } from '../../contracts';
 import type { CommandAction } from './CommandPreviewPanel.types';
 
@@ -46,61 +47,37 @@ export function BulkActionBar({
       </div>
       <div className="cleaner-opportunities__bulk-selection">
         {!allFilteredSelected && selectedCount < filteredCount ? (
-          <button
-            className="xos-btn xos-btn--secondary"
-            type="button"
-            onClick={onSelectAll}
-          >
+          <Button variant="secondary" onClick={onSelectAll}>
             Sélectionner les {filteredCount} résultats filtrés
-          </button>
+          </Button>
         ) : null}
-        <button
-          className="xos-btn xos-btn--secondary"
-          type="button"
-          onClick={onClear}
-        >
+        <Button variant="secondary" onClick={onClear}>
           Désélectionner
-        </button>
+        </Button>
       </div>
       <div
         className="cleaner-opportunities__bulk-actions"
         aria-label="Commandes disponibles"
       >
         {capabilities.canReassign ? (
-          <button
-            className="xos-btn xos-btn--secondary"
-            type="button"
-            onClick={() => onStartAction('reassign-owner')}
-          >
+          <Button variant="secondary" onClick={() => onStartAction('reassign-owner')}>
             Réassigner le propriétaire
-          </button>
+          </Button>
         ) : null}
         {capabilities.canBulkEdit ? (
           <>
-            <button
-              className="xos-btn xos-btn--secondary"
-              type="button"
-              onClick={() => onStartAction('close-date')}
-            >
+            <Button variant="secondary" onClick={() => onStartAction('close-date')}>
               Modifier la date de clôture
-            </button>
-            <button
-              className="xos-btn xos-btn--secondary"
-              type="button"
-              onClick={() => onStartAction('sale-type')}
-            >
+            </Button>
+            <Button variant="secondary" onClick={() => onStartAction('sale-type')}>
               Modifier le type de vente
-            </button>
+            </Button>
           </>
         ) : null}
         {capabilities.canBulkClose ? (
-          <button
-            className="xos-btn xos-btn--primary"
-            type="button"
-            onClick={() => onStartAction('close-lost')}
-          >
+          <Button onClick={() => onStartAction('close-lost')}>
             Clore en perdue
-          </button>
+          </Button>
         ) : null}
       </div>
     </aside>

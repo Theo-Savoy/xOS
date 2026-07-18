@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '../../../../components/ui';
 import { usePicklistValues } from '../../../crm/usePicklistValues';
 import type {
   OpportunityCommandChanges,
@@ -200,13 +201,9 @@ export function CommandPreviewPanel({
             {result.auditError ? (
               <p role="alert">Erreur d’audit : {result.auditError}</p>
             ) : null}
-            <button
-              className="xos-btn xos-btn--secondary"
-              type="button"
-              onClick={onClose}
-            >
+            <Button variant="secondary" onClick={onClose}>
               Fermer
-            </button>
+            </Button>
           </section>
         ) : (
           <>
@@ -377,35 +374,20 @@ export function CommandPreviewPanel({
                   </div>
                 ))}
                 {preview!.eligible.length ? (
-                  <button
-                    className="xos-btn xos-btn--primary"
-                    type="button"
-                    disabled={loading}
-                    onClick={() => onExecute(preview!)}
-                  >
+                  <Button disabled={loading} onClick={() => onExecute(preview!)}>
                     Confirmer et exécuter
-                  </button>
+                  </Button>
                 ) : null}
               </section>
             ) : null}
             <footer className="cleaner-opportunities__command-footer">
-              <button
-                className="xos-btn xos-btn--secondary"
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-              >
+              <Button variant="secondary" onClick={onClose} disabled={loading}>
                 Annuler
-              </button>
+              </Button>
               {!previewMatchesDraft ? (
-                <button
-                  className="xos-btn xos-btn--primary"
-                  type="button"
-                  onClick={submitPreview}
-                  disabled={loading}
-                >
+                <Button onClick={submitPreview} disabled={loading}>
                   {loading ? 'Préparation…' : 'Prévisualiser les changements'}
-                </button>
+                </Button>
               ) : null}
             </footer>
           </>

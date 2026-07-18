@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui';
 import { isCleanerModuleId, type CleanerModuleId } from './shell/shellState';
 
 export type CleanerCriticality = 'critical' | 'warning' | 'healthy';
@@ -131,9 +132,8 @@ export function CleanerCockpit({ state, onOpenModule }: CleanerCockpitProps) {
                 enregistrements concernés
               </p>
             </div>
-            <button
-              className="xos-btn xos-btn--secondary"
-              type="button"
+            <Button
+              variant="secondary"
               aria-label={`Ouvrir ${summary.label}`}
               onClick={() => {
                 if (isCleanerModuleId(summary.moduleId))
@@ -141,7 +141,7 @@ export function CleanerCockpit({ state, onOpenModule }: CleanerCockpitProps) {
               }}
             >
               Ouvrir
-            </button>
+            </Button>
           </article>
         ))}
       </div>

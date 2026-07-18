@@ -1,5 +1,5 @@
 import { useMemo, useState, type MouseEvent } from "react";
-import { Button, GlassCard, Tag } from "../../components/ui";
+import { Button, GlassCard, Modal, Tag } from "../../components/ui";
 import { ProgressBar } from "./ProgressBar";
 import { DatePicker, SessionTypePicker } from "./formControls";
 import { todayParisIso } from "./formControls.helpers";
@@ -621,111 +621,93 @@ export function SessionsView({
       </section>
 
       {dayOverflow && (
-        <div
-          className="calls-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="day-overflow-title"
-          onClick={() => setDayOverflow(null)}
+        <Modal
+          open
+          variant="glass"
+          title={`Séances du ${new Date(`${dayOverflow.key}T12:00:00`).toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "long",
+          })}`}
+          onClose={() => setDayOverflow(null)}
         >
-          <GlassCard
-            className="calls-modal__panel"
-            onClick={(e: MouseEvent) => e.stopPropagation()}
-          >
-            <h3 id="day-overflow-title">
-              Séances du{" "}
-              {new Date(`${dayOverflow.key}T12:00:00`).toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "long",
-              })}
-            </h3>
-            <ul className="calls-day-overflow-list">
-              {dayOverflow.sessions.map((session) => (
-                <li key={session.id}>
-                  <button
-                    type="button"
-                    className="calls-day-overflow-list__item"
-                    onClick={() => {
-                      setDayOverflow(null);
-                      onOpenSession(session.id);
-                    }}
-                  >
-                    <strong>{session.name}</strong>
-                    <Tag variant="muted">{sessionTypeLabel(session.session_type)}</Tag>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <Button variant="secondary" onClick={() => setDayOverflow(null)}>
-              Fermer
-            </Button>
-          </GlassCard>
-        </div>
+          <ul className="calls-day-overflow-list">
+            {dayOverflow.sessions.map((session) => (
+              <li key={session.id}>
+                <button
+                  type="button"
+                  className="calls-day-overflow-list__item"
+                  onClick={() => {
+                    setDayOverflow(null);
+                    onOpenSession(session.id);
+                  }}
+                >
+                  <strong>{session.name}</strong>
+                  <Tag variant="muted">{sessionTypeLabel(session.session_type)}</Tag>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <Button variant="secondary" onClick={() => setDayOverflow(null)}>
+            Fermer
+          </Button>
+        </Modal>
       )}
 
       {editing && (
-        <div
-          className="calls-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-session-title"
-          onClick={() => !saving && setEditing(null)}
+        <Modal
+          open
+          variant="glass"
+          title="Modifier la séance"
+          onClose={() => !saving && setEditing(null)}
         >
-          <GlassCard className="calls-modal__panel" onClick={(e: MouseEvent) => e.stopPropagation()}>
-            <h3 id="edit-session-title">Modifier la séance</h3>
-            <label className="calls-field">
-              <span>Nom</span>
-              <input
-                className="calls-input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                autoFocus
-              />
-            </label>
-            <DatePicker label="Date" value={editDate} onChange={setEditDate} />
-            <SessionTypePicker value={editType} onChange={setEditType} />
-            <div className="calls-runner-actions">
-              <Button onClick={() => void saveEdit()} disabled={saving || !editName.trim()}>
-                {saving ? "Enregistrement…" : "Enregistrer"}
-              </Button>
-              <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving}>
-                Annuler
-              </Button>
-            </div>
-          </GlassCard>
-        </div>
+          <label className="calls-field">
+            <span>Nom</span>
+            <input
+              className="calls-input"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              autoFocus
+            />
+          </label>
+          <DatePicker label="Date" value={editDate} onChange={setEditDate} />
+          <SessionTypePicker value={editType} onChange={setEditType} />
+          <div className="calls-runner-actions">
+            <Button onClick={() => void saveEdit()} disabled={saving || !editName.trim()}>
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+            <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving}>
+              Annuler
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {pendingDelete && (
-        <div
-          className="calls-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-session-title"
-          onClick={() => deletingId == null && setPendingDelete(null)}
+        <Modal
+          open
+          variant="glass"
+          title="Supprimer la séance"
+          onClose={() => deletingId == null && setPendingDelete(null)}
         >
-          <GlassCard className="calls-modal__panel" onClick={(e: MouseEvent) => e.stopPropagation()}>
-            <h3 id="delete-session-title">Supprimer la séance</h3>
-            <p className="calls-muted">
-              Supprimer « <strong>{pendingDelete.name}</strong> » ? Cette action est irréversible.
-            </p>
-            <div className="calls-runner-actions">
-              <Button
-                onClick={() => void executeDelete()}
-                disabled={deletingId === pendingDelete.id}
-              >
-                {deletingId === pendingDelete.id ? "Suppression…" : "Supprimer"}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setPendingDelete(null)}
-                disabled={deletingId === pendingDelete.id}
-              >
-                Annuler
-              </Button>
-            </div>
-          </GlassCard>
-        </div>
+          <p className="calls-muted">
+            Supprimer « <strong>{pendingDelete.name}</strong> » ? Cette action est irréversible.
+          </p>
+          <div className="calls-runner-actions">
+            <Button
+              onClick={() => void executeDelete()}
+              disabled={deletingId === pendingDelete.id}
+            >
+              {deletingId === pendingDelete.id ? "Suppression…" : "Supprimer"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setPendingDelete(null)}
+              disabled={deletingId === pendingDelete.id}
+            >
+              Annuler
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
   );

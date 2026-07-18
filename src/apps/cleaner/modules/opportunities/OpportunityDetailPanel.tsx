@@ -1,3 +1,4 @@
+import { Button } from '../../../../components/ui';
 import type { OpportunityWorkspaceItem } from './api';
 
 type OpportunityDetailPanelProps = {
@@ -21,14 +22,9 @@ export function OpportunityDetailPanel({
           <p className="cleaner-eyebrow">Détail opportunité</p>
           <h2 id="opportunity-detail-title">{item.name || item.id}</h2>
         </div>
-        <button
-          className="xos-btn xos-btn--secondary"
-          type="button"
-          aria-label="Fermer le détail"
-          onClick={onClose}
-        >
+        <Button variant="secondary" aria-label="Fermer le détail" onClick={onClose}>
           Retour
-        </button>
+        </Button>
       </div>
       <dl className="cleaner-opportunities__facts">
         <div>
