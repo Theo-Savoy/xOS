@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
+import { Button } from '../../../../components/ui';
 import { moduleAllowedForRole } from '../../shell/shellState';
 import type { CleanerModuleProps } from '../../shell/moduleRegistry';
 import { recipeRegistry } from './manifest';
@@ -66,16 +67,15 @@ export function RecettesModule(props: CleanerModuleProps) {
   return (
     <section className="cleaner-recipes" data-testid="cleaner-module-recettes">
       <div className="cleaner-recipes__header">
-        <button
-          className="xos-btn xos-btn--secondary"
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => {
             setActiveRecipeId(undefined);
             props.onRecipeChange?.(undefined);
           }}
         >
           ← Toutes les recettes
-        </button>
+        </Button>
         <strong>{activeRecipe.label}</strong>
       </div>
       <Suspense fallback={<div role="status">Ouverture de la recette…</div>}>

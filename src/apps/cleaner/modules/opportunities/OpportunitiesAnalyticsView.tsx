@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '../../../../components/ui';
 import {
   fetchOpportunityAnalytics,
   type OpportunityAnalyticsResponse,
@@ -294,13 +295,9 @@ export function OpportunitiesAnalyticsView({
             Période : <span>{periodLabel}</span>
           </p>
         </div>
-        <button
-          type="button"
-          className="xos-btn xos-btn--secondary"
-          onClick={load}
-        >
+        <Button variant="secondary" onClick={load}>
           Actualiser
-        </button>
+        </Button>
       </div>
       <div
         className="cleaner-opportunities__analytics-summary"

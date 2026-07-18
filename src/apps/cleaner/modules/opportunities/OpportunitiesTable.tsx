@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Checkbox, Tag } from '../../../../components/ui';
+import { Button, Checkbox, Modal, Tag } from '../../../../components/ui';
 import type { OpportunityWorkspaceItem } from './api';
 import {
   daysSinceOpportunityDate,
@@ -223,30 +223,7 @@ function ReasonChips({
 
 function ScoreHelpModal({ onClose }: { onClose: () => void }) {
   return (
-    <div
-      className="cleaner-opportunities__score-backdrop"
-      role="presentation"
-      onClick={onClose}
-    >
-      <section
-        className="cleaner-opportunities__score-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cleaner-opportunities-score-help-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="cleaner-opportunities__score-header">
-          <h2 id="cleaner-opportunities-score-help-title">
-            📊 Calcul du Score d&apos;Hygiène
-          </h2>
-          <button
-            type="button"
-            aria-label="Fermer l'aide du score"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
+    <Modal open variant="glass" title="📊 Calcul du Score d'Hygiène" onClose={onClose}>
         <div className="cleaner-opportunities__score-content">
           <p>
             Le score permet de prioriser le nettoyage du CRM. Plus le score est
@@ -305,16 +282,9 @@ function ScoreHelpModal({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <div className="cleaner-opportunities__score-footer">
-          <button
-            className="xos-btn xos-btn--primary"
-            type="button"
-            onClick={onClose}
-          >
-            Fermer
-          </button>
+          <Button onClick={onClose}>Fermer</Button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
 
@@ -504,27 +474,25 @@ export function OpportunitiesTable({
         className="cleaner-opportunities__pagination"
         aria-label="Pagination des opportunités"
       >
-        <button
-          className="xos-btn xos-btn--secondary"
-          type="button"
+        <Button
+          variant="secondary"
           aria-label="Page précédente"
           disabled={state.page <= 1}
           onClick={() => onPageChange(state.page - 1)}
         >
           Précédente
-        </button>
+        </Button>
         <span>
           Page {state.page} / {pageCount}
         </span>
-        <button
-          className="xos-btn xos-btn--secondary"
-          type="button"
+        <Button
+          variant="secondary"
           aria-label="Page suivante"
           disabled={state.page >= pageCount}
           onClick={() => onPageChange(state.page + 1)}
         >
           Suivante
-        </button>
+        </Button>
       </nav>
       {scoreHelpOpen ? (
         <ScoreHelpModal onClose={() => setScoreHelpOpen(false)} />

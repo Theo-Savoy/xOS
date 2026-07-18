@@ -1,49 +1,8 @@
 import { useId, useState } from "react";
 import type { PicklistGroup } from "./filterControls.helpers";
 
-/** Groupe de chips à sélection multiple — logique OU, visible pour l'utilisateur. */
-export function ChipGroup<T extends string>({
-  label,
-  hint,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  options: readonly { value: T; label: string }[];
-  value: T[];
-  onChange: (next: T[]) => void;
-}) {
-  const normalized = options;
-
-  const toggle = (v: T) => {
-    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  };
-
-  return (
-    <div className="calls-fb-control">
-      <div className="calls-fb-control__label">
-        <span>{label}</span>
-        {hint && <small>{hint}</small>}
-        {value.length > 1 && <span className="calls-fb-or">OU</span>}
-      </div>
-      <div className="calls-chip-row">
-        {normalized.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            className={`calls-chip${value.includes(opt.value) ? " calls-chip--active" : ""}`}
-            onClick={() => toggle(opt.value)}
-            aria-pressed={value.includes(opt.value)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+/** @deprecated moved to src/components/ui/SegmentedControl — import from there in new code. */
+export { SegmentedControl as ChipGroup } from "../../components/ui/SegmentedControl";
 
 /** Bascule à trois états : peu importe / oui / non. */
 export function TriState({

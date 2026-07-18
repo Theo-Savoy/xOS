@@ -2254,7 +2254,6 @@ export function RunnerView({
         onConfirm={executeRemove}
         onCancel={() => setPendingRemove(null)}
         loading={loading}
-        titleId="calls-remove-contact-title"
       />
     </div>
   );

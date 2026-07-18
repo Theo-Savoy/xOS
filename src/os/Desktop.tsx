@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import logoXos from '../assets/logo-xos.png';
+import { Button } from '../components/ui';
 import { apiFetch } from '../lib/apiClient';
 import { supabase } from '../lib/supabase';
 import { Dock } from './Dock';
@@ -355,18 +356,13 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
             </p>
           </div>
           <div className="xos-notification__actions">
-            <button
-              type="button"
-              className="xos-btn xos-btn--primary"
-              disabled={sfLinking}
-              onClick={startLink}
-            >
+            <Button disabled={sfLinking} onClick={startLink}>
               {sfLinking
                 ? 'Connexion…'
                 : sfStatus === 'needs_reconnect'
                   ? 'Reconnecter Salesforce'
                   : 'Lier Salesforce'}
-            </button>
+            </Button>
           </div>
         </div>
       )}

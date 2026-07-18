@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '../../../../components/ui';
 import { fetchOpportunityHistory, type OpportunityHistoryItem } from './api';
 
 type OpportunitiesHistoryViewProps = {
@@ -193,13 +194,9 @@ export function OpportunitiesHistoryView({
             Source : Supabase action_journal · portée appliquée par le serveur
           </p>
         </div>
-        <button
-          type="button"
-          className="xos-btn xos-btn--secondary"
-          onClick={() => load(cursor)}
-        >
+        <Button variant="secondary" onClick={() => load(cursor)}>
           Actualiser
-        </button>
+        </Button>
       </div>
       <div className="cleaner-opportunities__history-filters">
         <label>

@@ -1167,34 +1167,6 @@
   }
 }
 
-.calls-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.calls-progress__track {
-  flex: 1;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.calls-progress__fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--xos-accent), color-mix(in srgb, var(--xos-accent) 70%, white));
-  transition: width 0.25s ease;
-}
-
-.calls-progress__label {
-  font-size: 0.8rem;
-  color: var(--xos-text-muted);
-  min-width: 2.5rem;
-  text-align: right;
-}
-
 .calls-filters,
 .calls-preview,
 .calls-name-form,
@@ -2139,37 +2111,11 @@
   max-width: 14rem;
 }
 
-.calls-empty-state {
-  display: grid;
-  justify-items: center;
-  gap: 0.65rem;
-  padding: 1.5rem 1rem 1.25rem;
-  text-align: center;
-}
-
-.calls-empty-state__art {
-  color: var(--xos-accent);
-  margin-bottom: 0.25rem;
-}
-
-.calls-empty-state h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-family: var(--xos-font-display);
-}
-
-.calls-empty-state p {
-  margin: 0;
-  max-width: 28rem;
-  color: var(--xos-text-muted);
-  line-height: 1.45;
-}
-
 .calls-cockpit-list__rows--recalls {
   --calls-col-status: 9rem;
 }
 
-.calls-cockpit-list__empty .calls-empty-state {
+.calls-cockpit-list__empty .xos-empty-state {
   padding: 2rem 1rem;
 }
 
