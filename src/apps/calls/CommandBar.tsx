@@ -8,6 +8,7 @@ import {
 } from "./comboKeyboard";
 import type { ComboSoundPrefs } from "./comboSoundPrefs";
 import { useComboOverlay } from "./comboOverlay";
+import { useComboXp } from "./useComboXp";
 
 type CommandBarProps = {
   open: boolean;
@@ -16,6 +17,7 @@ type CommandBarProps = {
   soundsEnabled: boolean;
   soundPrefs: ComboSoundPrefs;
   onSoundPrefsChange: (next: ComboSoundPrefs) => void;
+  currentUserId?: string | null;
 };
 
 export function CommandBar({
@@ -25,6 +27,7 @@ export function CommandBar({
   soundsEnabled,
   soundPrefs,
   onSoundPrefsChange,
+  currentUserId,
 }: CommandBarProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -43,6 +46,8 @@ export function CommandBar({
   }, [onClose]);
 
   useComboOverlay(open, rootRef, handleEscape, { initialFocusRef: inputRef });
+
+  const xp = useComboXp(currentUserId ?? "");
 
   useEffect(() => {
     if (!open) return;
@@ -153,6 +158,20 @@ export function CommandBar({
             </div>
           ))}
         </div>
+        {currentUserId && (
+          <div className="calls-cmdk__xp" aria-label="Progression Combo">
+            <ul>
+              {xp.axes.map((axis) => (
+                <li key={axis.id}>
+                  {axis.label} {axis.count}
+                  {axis.palier && ` · ${axis.palier}`}
+                </li>
+              ))}
+            </ul>
+            {xp.lastBadge && <p className="calls-cmdk__xp-badge">Dernier badge : {xp.lastBadge.label}</p>}
+          </div>
+        )}
+
         <details className="calls-cmdk__sound-details" open={soundSectionOpen}>
           <summary>Réglages des sons</summary>
           <ComboSoundSettings
@@ -174,9 +193,10 @@ type ShortcutHelpProps = {
   open: boolean;
   onClose: () => void;
   onOpenCommandBar: () => void;
+  onOpenMyTrophies?: () => void;
 };
 
-export function ShortcutHelp({ open, onClose, onOpenCommandBar }: ShortcutHelpProps) {
+export function ShortcutHelp({ open, onClose, onOpenCommandBar, onOpenMyTrophies }: ShortcutHelpProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => onClose(), [onClose]);
   useComboOverlay(open, rootRef, handleEscape);
@@ -246,6 +266,17 @@ export function ShortcutHelp({ open, onClose, onOpenCommandBar }: ShortcutHelpPr
           >
             Ouvrir la command bar
           </Button>
+          {onOpenMyTrophies && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                onClose();
+                onOpenMyTrophies();
+              }}
+            >
+              Mes réussites
+            </Button>
+          )}
           <span className="calls-muted">Toutes les actions, sons et démo via ⌘K</span>
         </div>
       </GlassCard>
