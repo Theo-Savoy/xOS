@@ -17,6 +17,7 @@ const baseProps = {
   action: 'close-lost' as const,
   selectedCount: 1,
   selectedItems: [{ id: '006000000000001', name: 'Alpha' }],
+  saleTypeOptions: ['Catalogue', 'Sur-mesure', 'Conseil'],
   onClose: vi.fn(),
   onPreview: vi.fn(),
   onExecute: vi.fn(),
@@ -44,16 +45,19 @@ describe('CommandPreviewPanel', () => {
       error: null,
     });
 
-    render(
-      <CommandPreviewPanel {...baseProps} onPreview={onPreview} />,
-    );
+    render(<CommandPreviewPanel {...baseProps} onPreview={onPreview} />);
 
-    expect(mockUsePicklistValues).toHaveBeenCalledWith(
+    expect(mockUsePicklistValues).toHaveBeenCalledWith('', undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Type de vente' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Catalogue' }));
+    expect(mockUsePicklistValues).toHaveBeenLastCalledWith(
       'Raison_de_perte_V2__c',
+      'Catalogue',
     );
     expect(
-      screen.getByRole('combobox', { name: 'Raison de perte' }),
+      screen.getByRole('button', { name: 'Raison de perte' }),
     ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Raison de perte' }));
     expect(
       screen.getByRole('option', { name: 'Budget insuffisant' }),
     ).toBeTruthy();
@@ -64,9 +68,8 @@ describe('CommandPreviewPanel', () => {
       screen.getByRole('option', { name: 'Autre (saisie libre)' }),
     ).toBeTruthy();
 
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Raison de perte' }),
-      { target: { value: '__other__' } },
+    fireEvent.click(
+      screen.getByRole('option', { name: 'Autre (saisie libre)' }),
     );
     fireEvent.change(screen.getByLabelText('Autre raison de perte'), {
       target: { value: 'Autre motif Salesforce' },
@@ -86,7 +89,7 @@ describe('CommandPreviewPanel', () => {
     const input = screen.getByLabelText('Raison de perte');
     expect(input.tagName).toBe('INPUT');
     expect(
-      screen.queryByRole('combobox', { name: 'Raison de perte' }),
+      screen.queryByRole('button', { name: 'Raison de perte' }),
     ).toBeNull();
   });
 
@@ -102,8 +105,38 @@ describe('CommandPreviewPanel', () => {
     const input = screen.getByLabelText('Raison de perte');
     expect(input.tagName).toBe('INPUT');
     expect(
-      screen.queryByRole('combobox', { name: 'Raison de perte' }),
+      screen.queryByRole('button', { name: 'Raison de perte' }),
     ).toBeNull();
+  });
+
+  it('refetches loss reasons when the sale type changes', () => {
+    render(<CommandPreviewPanel {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type de vente' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Catalogue' }));
+    expect(mockUsePicklistValues).toHaveBeenLastCalledWith(
+      'Raison_de_perte_V2__c',
+      'Catalogue',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type de vente' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Conseil' }));
+    expect(mockUsePicklistValues).toHaveBeenLastCalledWith(
+      'Raison_de_perte_V2__c',
+      'Conseil',
+    );
+  });
+
+  it('does not render a native select element', () => {
+    mockUsePicklistValues.mockReturnValue({
+      values: [{ label: 'Budget insuffisant', active: true, default: false }],
+      loading: false,
+      error: null,
+    });
+
+    const { container } = render(<CommandPreviewPanel {...baseProps} />);
+
+    expect(container.querySelector('select')).toBeNull();
   });
 
   it('requires a loss reason before asking the server for a preview', () => {

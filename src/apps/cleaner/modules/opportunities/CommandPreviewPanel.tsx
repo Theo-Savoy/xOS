@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Select, type SelectOption } from '../../../../components/ui';
 import { usePicklistValues } from '../../../crm/usePicklistValues';
 import type {
   OpportunityCommandChanges,
@@ -97,9 +98,30 @@ export function CommandPreviewPanel({
     'unselected' | 'picklist' | 'other' | 'free'
   >('unselected');
   const [validationError, setValidationError] = useState<string | null>(null);
-  const { values: lossReasonOptions, error: picklistError } =
-    usePicklistValues(action === 'close-lost' ? LOSS_REASON_FIELD : '');
+  const { values: lossReasonOptions, error: picklistError } = usePicklistValues(
+    action === 'close-lost' && saleType ? LOSS_REASON_FIELD : '',
+    saleType || undefined,
+  );
+  const saleTypeSelectOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: '', label: 'Sélectionnez un type' },
+      ...saleTypeOptions.map((option) => ({ value: option, label: option })),
+    ],
+    [saleTypeOptions],
+  );
+  const lossReasonSelectOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: '', label: 'Sélectionnez une raison' },
+      ...lossReasonOptions.map((option) => ({
+        value: option.label,
+        label: option.label,
+      })),
+      { value: OTHER_LOSS_REASON, label: 'Autre (saisie libre)' },
+    ],
+    [lossReasonOptions],
+  );
   const showLossReasonSelect =
+    Boolean(saleType) &&
     !picklistError &&
     lossReasonOptions.length > 0 &&
     lossReasonSource !== 'free';
@@ -251,35 +273,38 @@ export function CommandPreviewPanel({
                 </>
               ) : null}
               {action === 'sale-type' ? (
-                <>
-                  <label htmlFor="cleaner-sale-type">Type de vente</label>
-                  <input
-                    id="cleaner-sale-type"
-                    list="cleaner-sale-types"
-                    value={saleType}
-                    onChange={(event) => setSaleType(event.target.value)}
-                  />
-                  <datalist id="cleaner-sale-types">
-                    {saleTypeOptions.map((option) => (
-                      <option value={option} key={option} />
-                    ))}
-                  </datalist>
-                </>
+                <Select
+                  label="Type de vente"
+                  value={saleType}
+                  options={saleTypeSelectOptions}
+                  onChange={setSaleType}
+                />
               ) : null}
               {action === 'close-lost' ? (
                 <>
-                  <label htmlFor="cleaner-loss-reason">Raison de perte</label>
+                  {saleTypeOptions.length ? (
+                    <Select
+                      label="Type de vente"
+                      value={saleType}
+                      options={saleTypeSelectOptions}
+                      onChange={(value) => {
+                        setSaleType(value);
+                        setLossReason('');
+                        setLossReasonSource('unselected');
+                      }}
+                    />
+                  ) : null}
                   {showLossReasonSelect ? (
                     <>
-                      <select
-                        id="cleaner-loss-reason"
+                      <Select
+                        label="Raison de perte"
                         value={
                           lossReasonSource === 'other'
                             ? OTHER_LOSS_REASON
                             : lossReason
                         }
-                        onChange={(event) => {
-                          const value = event.target.value;
+                        options={lossReasonSelectOptions}
+                        onChange={(value) => {
                           if (value === OTHER_LOSS_REASON) {
                             setLossReasonSource('other');
                             setLossReason('');
@@ -290,21 +315,7 @@ export function CommandPreviewPanel({
                             setLossReason(value);
                           }
                         }}
-                        required
-                      >
-                        <option value="">Sélectionnez une raison</option>
-                        {lossReasonOptions.map((option, index) => (
-                          <option
-                            value={option.label}
-                            key={`${option.label}-${index}`}
-                          >
-                            {option.label}
-                          </option>
-                        ))}
-                        <option value={OTHER_LOSS_REASON}>
-                          Autre (saisie libre)
-                        </option>
-                      </select>
+                      />
                       {lossReasonSource === 'other' ? (
                         <>
                           <label htmlFor="cleaner-loss-reason-other">
@@ -322,15 +333,20 @@ export function CommandPreviewPanel({
                       ) : null}
                     </>
                   ) : (
-                    <input
-                      id="cleaner-loss-reason"
-                      value={lossReason}
-                      onChange={(event) => {
-                        setLossReasonSource('free');
-                        setLossReason(event.target.value);
-                      }}
-                      required
-                    />
+                    <>
+                      <label htmlFor="cleaner-loss-reason">
+                        Raison de perte
+                      </label>
+                      <input
+                        id="cleaner-loss-reason"
+                        value={lossReason}
+                        onChange={(event) => {
+                          setLossReasonSource('free');
+                          setLossReason(event.target.value);
+                        }}
+                        required
+                      />
+                    </>
                   )}
                 </>
               ) : null}
