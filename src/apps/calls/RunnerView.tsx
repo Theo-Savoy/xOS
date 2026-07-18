@@ -1746,6 +1746,18 @@ export function RunnerView({
                   <span className="calls-cockpit-list__cell xos-numeric">
                     {contact.recall_at ? formatIsoDateFr(contact.recall_at) : "—"}
                   </span>
+                  <Button
+                    variant="ghost"
+                    className="calls-cockpit-list__remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmRemove([contact.id], contact.contact_name);
+                    }}
+                    title="Retirer ce contact de la séance"
+                    aria-label={`Retirer ${contact.contact_name} de la séance`}
+                  >
+                    ×
+                  </Button>
                 </li>
                 );
               })}
