@@ -269,7 +269,7 @@ export function NewSessionView({
         </div>
         {onOpenAccountSearch && (
           <Button variant="secondary" onClick={onOpenAccountSearch}>
-            Mode ABM
+            Comptes précis (ABM)
           </Button>
         )}
       </header>
@@ -428,7 +428,10 @@ export function NewSessionView({
           <GlassCard className="calls-preview">
             <div className="calls-preview__header">
               <div className="calls-preview__heading">
-                <h3>Aperçu</h3>
+                <h3>
+                  Aperçu — {preview.length} contact{preview.length > 1 ? "s" : ""} trouvé
+                  {preview.length > 1 ? "s" : ""}
+                </h3>
                 <Tag>
                   {selectedContacts.length} sélectionné{selectedContacts.length > 1 ? "s" : ""} /{" "}
                   {preview.length}
