@@ -2432,14 +2432,17 @@
   padding: 0;
   display: grid;
   gap: 0.3rem;
-}
-
-.calls-context-list--expanded {
-  max-height: min(18rem, 32vh);
+  /* Toujours borner la hauteur : avec 5 opps, on reste dans le viewport ;
+     au-delà, scroll interne au lieu de pousser la section RDV hors écran. */
+  max-height: 12.5rem;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.15rem;
   scrollbar-gutter: stable;
+}
+
+.calls-context-list--expanded {
+  max-height: min(18rem, 32vh);
 }
 
 .calls-context-list li {
