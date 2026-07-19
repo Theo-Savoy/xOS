@@ -186,4 +186,32 @@ describe("nudgeLearning", () => {
     expect(sixth.shouldShow).toBe(false);
     expect(sixth.state.mouseCount).toBe(6);
   });
+
+  describe("BUG-04: per-shortcut intensive thresholds", () => {
+    it("shows the intensive nudge for L after 3 clicks, not 5", () => {
+      const second = clickTimes("L", 2);
+      expect(second.shouldShow).toBe(false);
+
+      const third = registerMouseClick("L", USER_ID);
+      expect(third.shouldShow).toBe(true);
+    });
+
+    it("shows the intensive nudge for F after 3 clicks, not 5", () => {
+      const second = clickTimes("F", 2);
+      expect(second.shouldShow).toBe(false);
+
+      const third = registerMouseClick("F", USER_ID);
+      expect(third.shouldShow).toBe(true);
+    });
+
+    it("still requires 5 clicks for K/J/digits/cmd-enter/?", () => {
+      for (const id of ["K", "J", "1", "2", "3", "4", "5", "cmd-enter", "?"] as const) {
+        const fourth = clickTimes(id, 4);
+        expect(fourth.shouldShow).toBe(false);
+        const fifth = registerMouseClick(id, USER_ID);
+        expect(fifth.shouldShow).toBe(true);
+        resetLearning(id, USER_ID);
+      }
+    });
+  });
 });

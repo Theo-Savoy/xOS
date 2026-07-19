@@ -27,7 +27,25 @@ export const NUDGE_LEARNING_KEY_PREFIX = "xos-combo-nudge-learning:";
 export const NUDGE_LEARNING_SESSION_PREFIX = "xos-combo-nudge-learning-session:";
 export const NUDGE_LEARNING_WEEK_PREFIX = "xos-combo-nudge-learning-week:";
 
-const INTENSIVE_THRESHOLD = 5;
+/**
+ * BUG-04 : seuil de la phase intensive par raccourci — la spec (§2.5) exige
+ * 3 clics pour Vue liste (L) et Vue fiche (F), 5 pour tous les autres.
+ * cmd-k est désactivé (0) : ⌘K ouvre la command bar, jamais nudgé.
+ */
+const INTENSIVE_THRESHOLDS: Record<ShortcutId, number> = {
+  K: 5,
+  J: 5,
+  L: 3,
+  F: 3,
+  "1": 5,
+  "2": 5,
+  "3": 5,
+  "4": 5,
+  "5": 5,
+  "cmd-enter": 5,
+  "cmd-k": 0,
+  "?": 5,
+};
 const REGULIERE_THRESHOLD = 10;
 const ESPACEE_THRESHOLD = 30;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -211,7 +229,7 @@ function evaluateShouldShow(
   if (state.nudgesSeen >= 3) return false;
 
   if (state.nudgesSeen === 0) {
-    return state.mouseCount >= INTENSIVE_THRESHOLD;
+    return state.mouseCount >= INTENSIVE_THRESHOLDS[shortcutId];
   }
 
   if (state.nudgesSeen === 1) {
