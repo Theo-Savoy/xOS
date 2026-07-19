@@ -3744,6 +3744,15 @@
   margin: 0.35rem 0 0;
 }
 
+.calls-cmdk__streaks {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  color: var(--xos-accent);
+}
+
 .calls-trophies__head {
   display: flex;
   align-items: center;

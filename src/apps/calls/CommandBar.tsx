@@ -7,8 +7,9 @@ import {
   filterComboActions,
 } from "./comboKeyboard";
 import type { ComboSoundPrefs } from "./comboSoundPrefs";
+import { INTENSE_STREAK_THRESHOLD } from "./comboStreaks";
 import { useComboOverlay } from "./comboOverlay";
-import { useComboXp } from "./useComboXp";
+import { summarizeComboStreaks, useComboXp, type ComboStreakSummary } from "./useComboXp";
 
 type CommandBarProps = {
   open: boolean;
@@ -19,6 +20,20 @@ type CommandBarProps = {
   onSoundPrefsChange: (next: ComboSoundPrefs) => void;
   currentUserId?: string | null;
 };
+
+function formatStreakLine(streak: ComboStreakSummary): string | null {
+  if (streak.days <= 0) return null;
+  switch (streak.id) {
+    case "classique":
+      return `🔥 ${streak.days} jour${streak.days > 1 ? "s" : ""}`;
+    case "productif":
+      return `🎯 ${streak.days} séance${streak.days > 1 ? "s" : ""} à 3 RDV`;
+    case "intense":
+      return `⚡ ${streak.days} séance${streak.days > 1 ? "s" : ""} à ${INTENSE_STREAK_THRESHOLD} appels`;
+    default:
+      return null;
+  }
+}
 
 export function CommandBar({
   open,
@@ -48,6 +63,9 @@ export function CommandBar({
   useComboOverlay(open, rootRef, handleEscape, { initialFocusRef: inputRef });
 
   const xp = useComboXp(currentUserId ?? "");
+  const streakLines = summarizeComboStreaks(currentUserId ?? "")
+    .map(formatStreakLine)
+    .filter((line): line is string => line !== null);
 
   useEffect(() => {
     if (!open) return;
@@ -168,6 +186,13 @@ export function CommandBar({
                 </li>
               ))}
             </ul>
+            {streakLines.length > 0 && (
+              <ul className="calls-cmdk__streaks" aria-label="Streaks Combo">
+                {streakLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
             {xp.lastBadge && <p className="calls-cmdk__xp-badge">Dernier badge : {xp.lastBadge.label}</p>}
           </div>
         )}
