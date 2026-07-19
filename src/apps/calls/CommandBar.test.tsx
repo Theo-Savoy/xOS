@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandBar, ShortcutHelp } from "./CommandBar";
 import { DEFAULT_SOUND_PREFS } from "./comboSoundPrefs";
-import { comboXpStorageKey } from "./comboXp";
+import { comboStreaksStorageKey, comboXpStorageKey } from "./comboXp";
 
 function installLocalStorage() {
   const store: Record<string, string> = {};
@@ -65,6 +65,50 @@ describe("CommandBar XP section", () => {
       />,
     );
     expect(screen.queryByLabelText("Progression Combo")).toBeNull();
+  });
+});
+
+describe("CommandBar streak tag", () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
+  it("shows no streak line when the streak is 0", () => {
+    window.localStorage.setItem(
+      comboStreaksStorageKey("user-1"),
+      JSON.stringify({ classique: 0, productif: 0, intense: 0 }),
+    );
+    render(
+      <CommandBar
+        open
+        onClose={vi.fn()}
+        onRun={vi.fn()}
+        soundsEnabled
+        soundPrefs={DEFAULT_SOUND_PREFS}
+        onSoundPrefsChange={vi.fn()}
+        currentUserId="user-1"
+      />,
+    );
+    expect(screen.queryByLabelText("Streaks Combo")).toBeNull();
+  });
+
+  it("shows the classic streak as 🔥 14 jours", () => {
+    window.localStorage.setItem(
+      comboStreaksStorageKey("user-1"),
+      JSON.stringify({ classique: 14, productif: 0, intense: 0 }),
+    );
+    render(
+      <CommandBar
+        open
+        onClose={vi.fn()}
+        onRun={vi.fn()}
+        soundsEnabled
+        soundPrefs={DEFAULT_SOUND_PREFS}
+        onSoundPrefsChange={vi.fn()}
+        currentUserId="user-1"
+      />,
+    );
+    expect(screen.getByText("🔥 14 jours")).toBeTruthy();
   });
 });
 
