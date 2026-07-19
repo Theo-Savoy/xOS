@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyEvent, currentPalier, detectPaliers, loadXp, progressToNext, saveXp } from "./comboXp";
+import { applyEvent, currentPalier, detectPaliers, hasEventRecorded, loadXp, progressToNext, saveXp } from "./comboXp";
 import type { ComboXp } from "./comboXp";
 
 function installLocalStorage() {
@@ -149,5 +149,52 @@ describe("comboXp", () => {
     expect(progress.next).toBeNull();
     expect(progress.pctToNext).toBe(100);
     expect(progress.valueToNext).toBe(0);
+  });
+
+  describe("BUG-02: anti-abus dedup", () => {
+    it("2 clics du même raccourci le même jour = 1 XP Vitesse", () => {
+      const first = applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-19" });
+      expect(first.xp.vitesse).toBe(1);
+      expect(second.xp.vitesse).toBe(1);
+      expect(second.paliersFranchis).toEqual([]);
+    });
+
+    it("does not dedupe distinct actionIds the same day", () => {
+      applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "shortcut", 1, { actionId: "F", dateParis: "2026-07-19" });
+      expect(second.xp.vitesse).toBe(2);
+    });
+
+    it("does not dedupe the same actionId on a different day", () => {
+      applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-20" });
+      expect(second.xp.vitesse).toBe(2);
+    });
+
+    it("Vitesse without actionId is never deduped (no dedupe key)", () => {
+      applyEvent(USER, "shortcut", 1, { dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "shortcut", 1, { dateParis: "2026-07-19" });
+      expect(second.xp.vitesse).toBe(2);
+    });
+
+    it("2 crédits Régularité le même jour = 1 seul crédit (un streak par jour)", () => {
+      const first = applyEvent(USER, "day-logged", 1, { dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "day-logged", 1, { dateParis: "2026-07-19" });
+      expect(first.xp.regularite).toBe(1);
+      expect(second.xp.regularite).toBe(1);
+    });
+
+    it("Régularité credits again on a new day", () => {
+      applyEvent(USER, "day-logged", 1, { dateParis: "2026-07-19" });
+      const second = applyEvent(USER, "day-logged", 1, { dateParis: "2026-07-20" });
+      expect(second.xp.regularite).toBe(2);
+    });
+
+    it("marks the dedupe key as recorded via hasEventRecorded", () => {
+      expect(hasEventRecorded(USER, "vitesse:L:2026-07-19")).toBe(false);
+      applyEvent(USER, "shortcut", 1, { actionId: "L", dateParis: "2026-07-19" });
+      expect(hasEventRecorded(USER, "vitesse:L:2026-07-19")).toBe(true);
+    });
   });
 });

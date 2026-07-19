@@ -1,5 +1,7 @@
 /** Modèle XP + paliers Combo. Pas d'UI, pas de notifs — voir docs/specs/combo-gamification-v1.md §1. */
 
+import { todayParisIso } from "../../lib/dates";
+
 export type ComboXpAxis = "vitesse" | "impact" | "regularite";
 
 export type PalierId = "bronze" | "argent" | "or" | "platine" | "diamant" | "challenger";
@@ -119,13 +121,80 @@ export function detectPaliers(previousXp: ComboXp, newXp: ComboXp): AxePalier[] 
   return crossed;
 }
 
-export function applyEvent(userId: string, event: ComboXpEventType, qty = 1): ApplyEventResult {
+function dedupeStorageKey(userId: string): string {
+  return `xos-combo-xp-dedupe:${userId}`;
+}
+
+function loadDedupeSet(userId: string): Set<string> {
+  try {
+    const raw = window.localStorage?.getItem(dedupeStorageKey(userId));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? new Set(parsed.filter((v): v is string => typeof v === "string")) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDedupeSet(userId: string, set: Set<string>): void {
+  try {
+    window.localStorage?.setItem(dedupeStorageKey(userId), JSON.stringify(Array.from(set)));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** BUG-02 : lit le Set de déduplication persisté pour `userId` — `dedupeKey` identifie une action déjà comptée. */
+export function hasEventRecorded(userId: string, dedupeKey: string): boolean {
+  return loadDedupeSet(userId).has(dedupeKey);
+}
+
+function markEventRecorded(userId: string, dedupeKey: string): void {
+  const set = loadDedupeSet(userId);
+  set.add(dedupeKey);
+  saveDedupeSet(userId, set);
+}
+
+export interface ApplyEventOptions {
+  /** Identifiant métier de l'action (ex. le raccourci utilisé) — requis pour dédupliquer Vitesse. */
+  actionId?: string;
+  /** Jour Europe/Paris (YYYY-MM-DD) de l'événement ; par défaut aujourd'hui. */
+  dateParis?: string;
+}
+
+/**
+ * BUG-02 : anti-abus — Vitesse ne peut être créditée qu'une fois par
+ * {userId, actionId, dateParis} (empêche de matraquer le même raccourci pour
+ * farmer de l'XP), Régularité qu'une fois par {userId, dateParis} (un seul
+ * crédit "jour loggé" par jour). Impact n'est pas dédupliqué ici : chaque
+ * crédit correspond à un RDV réellement créé côté Salesforce.
+ */
+function buildDedupeKey(axis: ComboXpAxis, options: ApplyEventOptions): string | null {
+  const dateParis = options.dateParis ?? todayParisIso();
+  if (axis === "regularite") return `regularite:${dateParis}`;
+  if (axis === "vitesse" && options.actionId) return `vitesse:${options.actionId}:${dateParis}`;
+  return null;
+}
+
+export function applyEvent(
+  userId: string,
+  event: ComboXpEventType,
+  qty = 1,
+  options: ApplyEventOptions = {},
+): ApplyEventResult {
   const previousXp = loadXp(userId);
   const axis = EVENT_AXIS[event];
+
+  const dedupeKey = buildDedupeKey(axis, options);
+  if (dedupeKey && hasEventRecorded(userId, dedupeKey)) {
+    return { xp: previousXp, previousXp, paliersFranchis: [] };
+  }
+
   const newXp: ComboXp = { ...previousXp, [axis]: previousXp[axis] + qty, lastSeen: new Date().toISOString() };
 
   const paliersFranchis = detectPaliers(previousXp, newXp);
   saveXp(userId, newXp);
+  if (dedupeKey) markEventRecorded(userId, dedupeKey);
 
   return { xp: newXp, previousXp, paliersFranchis };
 }
