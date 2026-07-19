@@ -1747,6 +1747,63 @@
   line-height: 1.1;
 }
 
+/* Transition entre fiches après un log — sortie/entrée CSS pures (BUG G.14). */
+.calls-contact-card {
+  position: relative;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.calls-contact-card--leaving {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.calls-contact-card--entering {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.calls-contact-card--idle {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.calls-log-checkmark {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--xos-accent-success);
+  color: #0b1220;
+  font-size: 1.1rem;
+  line-height: 1;
+  animation: calls-log-checkmark-in 600ms ease-out;
+}
+
+@keyframes calls-log-checkmark-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateX(0.5rem);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.1) translateX(0);
+  }
+  35% {
+    transform: scale(1) translateX(0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .calls-contact-card__role {
   margin: 0.4rem 0 0;
   color: var(--xos-text-muted);
@@ -2744,6 +2801,48 @@
   color: var(--xos-text);
   font-size: 0.82rem;
   box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.3);
+}
+
+.calls-nudge-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: min(26rem, calc(100vw - 2rem));
+  border: 1px solid var(--xos-border);
+  border-radius: 0.75rem;
+  background: rgba(8, 15, 36, 0.9);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.3);
+  animation: calls-nudge-toast-in 0.25s ease-out;
+}
+
+.calls-nudge-toast__dismiss {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--xos-text);
+  font-size: 0.82rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.calls-nudge-toast__dismiss kbd {
+  font-family: var(--xos-font-display, inherit);
+}
+
+@keyframes calls-nudge-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .calls-runner-toast--rdv {
@@ -3783,6 +3882,25 @@
 
 .calls-note-chips {
   margin-top: -0.35rem;
+}
+
+.calls-medic-chips {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: -0.35rem;
+}
+
+.calls-medic-category {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.calls-medic-category__label {
+  font-family: var(--xos-font-display);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--xos-text-muted);
 }
 
 .calls-cmdk__head {

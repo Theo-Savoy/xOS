@@ -16,7 +16,7 @@ import { ComboOnboardingDemo } from "./ComboOnboardingDemo";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MyTrophies } from "./MyTrophies";
 import { recordShortcut } from "./comboEvents";
-import { markAdopted, type ShortcutId } from "./nudgeLearning";
+import { markAdopted, markNudgeSeen, registerMouseClick, type ShortcutId } from "./nudgeLearning";
 import {
   digitFromKeyboardCode,
   hasSeenComboDemo,
@@ -36,7 +36,8 @@ import {
   rdvHeatLevel,
   type RdvHeat,
 } from "./rdvCelebrate";
-import { DatePicker, NoteTemplateChips } from "./formControls";
+import { DatePicker } from "./formControls";
+import { NoteTemplateChips } from "./noteTemplates";
 import { formatActivityDateFr, formatIsoDateFr, todayParisIso } from "./formControls.helpers";
 import { LinkedInRecordLink, SalesforceRecordLink } from "./BrandLinks";
 import { ProgressBar } from "./ProgressBar";
@@ -65,6 +66,24 @@ import { ContextSideSkeleton } from "./ContextSideSkeleton";
 import type { DeferPayload, LogPayload } from "./RunnerView.types";
 
 const RECALL_DAYS_KEY = "xos-calls-default-recall-days";
+
+/** Textes des toasts de nudge apprentissage — terrain, sobre, jamais culpabilisant. */
+const NUDGE_TOAST_MESSAGES: Partial<Record<ShortcutId, string>> = {
+  K: "Tu peux passer au suivant avec `K` — c'est 0,3s au lieu de 0,8s à la souris",
+  J: "Tu peux revenir au précédent avec `J`",
+  L: "Tu peux switcher en vue liste avec `L`",
+  F: "Tu peux switcher en vue fiche avec `F`",
+  "?": "Tu peux ouvrir l'aide avec `?`",
+};
+
+/** Actions Command bar dont le clic souris équivaut à un raccourci nudgeable. */
+const COMMAND_BAR_NUDGE_SHORTCUTS: Partial<Record<ComboActionId, ShortcutId>> = {
+  "nav-next": "K",
+  "nav-prev": "J",
+  "mode-list": "L",
+  "mode-fiche": "F",
+  help: "?",
+};
 
 type RunnerMode = "list" | "detail";
 
@@ -275,6 +294,7 @@ export function RunnerView({
   const [bulkRecallPicker, setBulkRecallPicker] = useState<{ ids: number[]; seed: string } | null>(null);
   const [pinned, setPinned] = useState(false);
   const [toast, setToast] = useState<RunnerToast | null>(null);
+  const [nudgeToast, setNudgeToast] = useState<{ shortcutId: ShortcutId; message: string } | null>(null);
   const [commandBarOpen, setCommandBarOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [myTrophiesOpen, setMyTrophiesOpen] = useState(false);
@@ -292,10 +312,13 @@ export function RunnerView({
   const [confettiHeat, setConfettiHeat] = useState<RdvHeat>(1);
   const [goalBurst, setGoalBurst] = useState(false);
   const [kpiGoalPulse, setKpiGoalPulse] = useState(false);
+  const [cardAnimState, setCardAnimState] = useState<"idle" | "entering" | "leaving">("idle");
+  const [showLogCheckmark, setShowLogCheckmark] = useState(false);
   const sessionRdvRef = useRef(sessionRdvCount);
   const sessionContactsRef = useRef(contacts);
   sessionContactsRef.current = contacts;
   const bootstrappedDetail = useRef(false);
+  const prevFocusedContactIdRef = useRef<number | null>(null);
   const eventPanelRef = useRef<EventPanelHandle>(null);
 
   useEffect(() => {
@@ -343,6 +366,40 @@ export function RunnerView({
     const timeout = window.setTimeout(() => setKpiGoalPulse(false), 7200);
     return () => window.clearTimeout(timeout);
   }, [kpiGoalPulse]);
+
+  const dismissNudgeToast = useCallback(() => {
+    setNudgeToast((current) => {
+      if (current) {
+        try {
+          markNudgeSeen(current.shortcutId, currentUserId ?? "anon");
+        } catch (err) {
+          console.warn("[gamification] markNudgeSeen failed:", err);
+        }
+      }
+      return null;
+    });
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!nudgeToast) return;
+    const timeout = window.setTimeout(dismissNudgeToast, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [nudgeToast, dismissNudgeToast]);
+
+  /** Clic souris sur un bouton raccourci : candidat au nudge apprentissage (spec §2.5). */
+  const handleShortcutMouseClick = useCallback(
+    (shortcutId: ShortcutId) => {
+      try {
+        const uid = currentUserId ?? "anon";
+        const { shouldShow } = registerMouseClick(shortcutId, uid);
+        const message = NUDGE_TOAST_MESSAGES[shortcutId];
+        if (shouldShow && message) setNudgeToast({ shortcutId, message });
+      } catch (err) {
+        console.warn("[gamification] nudge mouse tracking failed:", err);
+      }
+    },
+    [currentUserId],
+  );
 
   const kpis = useMemo(() => computeKpis(contacts), [contacts]);
   const canRecall = RECALL_ELIGIBLE_RESULTATS.includes(resultat) && !doNotCall;
@@ -565,6 +622,37 @@ export function RunnerView({
     setScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(resultat));
   }, [resultat]);
 
+  // Transition fiche → fiche : la carte sort (leaving) puis la nouvelle entre (entering) avant de se stabiliser.
+  useEffect(() => {
+    if (!focusedContact) return;
+    if (prevFocusedContactIdRef.current === null) {
+      prevFocusedContactIdRef.current = focusedContact.id;
+      return;
+    }
+    if (prevFocusedContactIdRef.current === focusedContact.id) return;
+    setCardAnimState("leaving");
+    const leaveTimer = window.setTimeout(() => {
+      prevFocusedContactIdRef.current = focusedContact.id;
+      setCardAnimState("entering");
+    }, 180);
+    return () => window.clearTimeout(leaveTimer);
+    // Reacts to a change of identity (focusedContact.id) only — re-running on every
+    // field update of the same contact would replay the leave/enter animation needlessly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedContact?.id]);
+
+  useEffect(() => {
+    if (cardAnimState !== "entering") return;
+    const enterTimer = window.setTimeout(() => setCardAnimState("idle"), 200);
+    return () => window.clearTimeout(enterTimer);
+  }, [cardAnimState]);
+
+  useEffect(() => {
+    if (!showLogCheckmark) return;
+    const timer = window.setTimeout(() => setShowLogCheckmark(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [showLogCheckmark]);
+
   useEffect(() => {
     setBulkScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(bulkResultat));
   }, [bulkResultat]);
@@ -651,6 +739,7 @@ export function RunnerView({
       doNotCall,
     });
     playComboSound(willSendRecall ? "recall" : "success", { master: soundsEnabled });
+    setShowLogCheckmark(true);
     setToast({
       kind: "plain",
       message: willSendRecall
@@ -677,6 +766,7 @@ export function RunnerView({
       },
       { start, durationMin, subject: meta.subject, ownerSfUserId: meta.ownerSfUserId },
     );
+    setShowLogCheckmark(true);
     celebrateRdv();
   };
 
@@ -1138,6 +1228,13 @@ export function RunnerView({
           </p>
         </div>
       )}
+      {nudgeToast && (
+        <div className="calls-nudge-toast" role="status" aria-live="polite">
+          <button type="button" className="calls-nudge-toast__dismiss" onClick={dismissNudgeToast}>
+            {nudgeToast.message}
+          </button>
+        </div>
+      )}
       <RdvConfetti burstKey={confettiBurst} heat={confettiHeat} goalHit={goalBurst} />
       <header className="calls-view__header calls-view__header--runner">
         <div className="calls-view__nav">
@@ -1160,7 +1257,10 @@ export function RunnerView({
               type="button"
               className={`calls-mode-toggle__btn${mode === "list" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "list"}
-              onClick={() => setMode("list")}
+              onClick={() => {
+                handleShortcutMouseClick("L");
+                setMode("list");
+              }}
               title="L"
             >
               Liste <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">L</kbd>
@@ -1169,7 +1269,10 @@ export function RunnerView({
               type="button"
               className={`calls-mode-toggle__btn${mode === "detail" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "detail"}
-              onClick={() => setMode("detail")}
+              onClick={() => {
+                handleShortcutMouseClick("F");
+                setMode("detail");
+              }}
               title="F"
             >
               Fiche <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">F</kbd>
@@ -1189,6 +1292,7 @@ export function RunnerView({
           <Button
             variant="secondary"
             onClick={() => {
+              handleShortcutMouseClick("?");
               setHelpOpen(true);
               playComboSound("whoosh", { master: soundsEnabled });
             }}
@@ -1800,7 +1904,12 @@ export function RunnerView({
         </div>
       ) : focusedContact ? (
         <div className="calls-cockpit-detail">
-          <GlassCard className="calls-contact-card">
+          <GlassCard className={`calls-contact-card calls-contact-card--${cardAnimState}`}>
+            {showLogCheckmark && (
+              <div className="calls-log-checkmark" aria-hidden="true">
+                ✓
+              </div>
+            )}
             <div className="calls-contact-card__main">
               <div className="calls-contact-card__who">
                 <div className="calls-contact-card__chips">
@@ -2271,7 +2380,11 @@ export function RunnerView({
       <CommandBar
         open={commandBarOpen}
         onClose={() => setCommandBarOpen(false)}
-        onRun={runComboAction}
+        onRun={(id) => {
+          const shortcutId = COMMAND_BAR_NUDGE_SHORTCUTS[id];
+          if (shortcutId) handleShortcutMouseClick(shortcutId);
+          runComboAction(id);
+        }}
         soundsEnabled={soundsEnabled}
         soundPrefs={soundPrefs}
         onSoundPrefsChange={setSoundPrefs}
