@@ -1,7 +1,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
-import { Button, GlassCard, Select, Tag } from "../../components/ui";
+import { Button, GlassCard, Select, Skeleton, Tag } from "../../components/ui";
 import { apiFetch } from "../../lib/apiClient";
 import { supabase } from "../../lib/supabase";
 import {
@@ -1634,8 +1634,8 @@ function ForecastChart({ weeks, history, ownerIds, target, currentIndex }: { wee
   </GlassCard>;
 }
 
-function Skeleton() {
-  return <main className="weekly-app"><header className="weekly-header"><div className="weekly-skeleton weekly-skeleton--tag" /><div className="weekly-skeleton weekly-skeleton--title" /></header><section className="weekly-pulse-grid">{Array.from({ length: 3 }, (_, index) => <GlassCard className="weekly-pulse-card weekly-skeleton-card" key={index}><div className="weekly-skeleton weekly-skeleton--line" /><div className="weekly-skeleton weekly-skeleton--metrics" /></GlassCard>)}</section></main>;
+function WeeklySkeleton() {
+  return <main className="weekly-app"><header className="weekly-header"><Skeleton className="weekly-skeleton weekly-skeleton--tag" /><Skeleton className="weekly-skeleton weekly-skeleton--title" /></header><section className="weekly-pulse-grid">{Array.from({ length: 3 }, (_, index) => <GlassCard className="weekly-pulse-card weekly-skeleton-card" key={index}><Skeleton className="weekly-skeleton weekly-skeleton--line" /><Skeleton className="weekly-skeleton weekly-skeleton--metrics" /></GlassCard>)}</section></main>;
 }
 
 export default function WeeklyApp() {
@@ -1873,7 +1873,7 @@ export default function WeeklyApp() {
   }, [mode, result, selectedOwnerId]);
 
   if (error && !model) return <main className="weekly-app weekly-app__state"><GlassCard className="weekly-error"><h2>Performance indisponible</h2><p>La récupération des données n’a pas abouti.</p><Button onClick={() => void loadPeriod(period)}>Réessayer</Button></GlassCard></main>;
-  if (!model) return <Skeleton />;
+  if (!model) return <WeeklySkeleton />;
   const { payload, currentIndex, visibleOwners, roster, pulseFor, pipelineFor, priorPulseFor, priorPipelineFor, quarterFor, sellerIds, forecastHistory, customPipe, pace, target, followUps, stagnant, quarterBounds, compareLabel, priorQuarterLabel, context, periodHistory } = model;
   const weekMode = period === "week";
   const liveWeekStart = context?.live_week_start || context?.anchor_week_start || addDays(payload.range.to, -6);
