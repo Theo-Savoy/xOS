@@ -773,7 +773,7 @@ export function RunnerView({
     setScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(resultat));
   }, [resultat]);
 
-  // Transition fiche → fiche : snapshot sortant + entrée latérale dans un viewport commun.
+  // Transition fiche → fiche : snapshot sortant + crossfade dans un viewport commun.
   useEffect(() => {
     if (!focusedContact) return;
 
@@ -794,7 +794,7 @@ export function RunnerView({
         setCardTransitionActive(false);
         prevFocusedContactIdRef.current = focusedContact.id;
         prevContactSnapshotRef.current = focusedContact;
-      }, 250);
+      }, 150);
       return () => {
         window.clearTimeout(timer);
         if (cardTransitionRafRef.current != null) {

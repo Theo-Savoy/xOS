@@ -97,7 +97,7 @@ describe("RunnerView contact card transition", () => {
     expect(screen.getByRole("heading", { name: "Alice Martin" })).toBeTruthy();
 
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(150);
     });
     expect(contactCards()).toHaveLength(1);
     expect(contactCards()[0]?.className).toContain("calls-contact-card--idle");
