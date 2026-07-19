@@ -551,6 +551,74 @@ describe("CallManagerApp component", () => {
     await waitFor(() => expect(sessionRefetchCount).toBe(refetchesAfterOpen + 1), { timeout: 2000 });
   });
 
+  it("removes a contact locally before the remove API resolves", async () => {
+    const user = userEvent.setup();
+    const activeSession = {
+      id: 1,
+      name: "Prospection Lyon",
+      status: "active" as const,
+      created_at: "2026-07-10T10:00:00Z",
+      rdv_goal: null,
+      engaged_at: "2026-07-10T10:01:00Z",
+    };
+    const contact = {
+      id: 201,
+      position: 0,
+      sf_contact_id: "003000000000002AAA",
+      sf_account_id: null,
+      contact_name: "Contact en attente",
+      account_name: "ACME",
+      phone: null,
+      title: null,
+      linkedin_url: null,
+      status: "pending" as const,
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    let rejectRemove!: (error: Error) => void;
+    const removeRequest = new Promise<Response>((_, reject) => {
+      rejectRemove = reject;
+    });
+    let removeStarted = false;
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/calls?resource=hub") return hubResponse();
+      if (url === "/api/calls?resource=team") {
+        return Promise.resolve(new Response(JSON.stringify({ team: [] }), { status: 200 }));
+      }
+      if (url === "/api/calls?session_id=1") {
+        return Promise.resolve(new Response(JSON.stringify({ session: activeSession, contacts: [contact] }), { status: 200 }));
+      }
+      if (url === "/api/calls" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === "remove_contact") {
+          removeStarted = true;
+          return removeRequest;
+        }
+      }
+      return Promise.resolve(new Response(JSON.stringify(mockSessions), { status: 200 }));
+    });
+
+    render(<CallManagerApp params={{ session_id: "1" }} />);
+
+    await user.click(await screen.findByRole("button", { name: "Liste" }));
+    await user.click(screen.getByLabelText(`Sélectionner ${contact.contact_name}`));
+    await user.click(screen.getByRole("button", { name: "Retirer" }));
+    const dialog = screen.getByRole("dialog", { name: /Retirer.*séance/i });
+    await user.click(within(dialog).getByRole("button", { name: "Retirer" }));
+
+    expect(removeStarted).toBe(true);
+    expect(screen.queryByText(contact.contact_name)).toBeNull();
+
+    rejectRemove(new Error("remove failed"));
+    await waitFor(() => expect(screen.getByText(contact.contact_name)).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toContain("1 en échec");
+  });
+
   it("opens an unengaged session in the pre-session flow", async () => {
     const session = {
       id: 1,

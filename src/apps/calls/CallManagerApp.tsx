@@ -1208,77 +1208,95 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     }
   };
 
-  const handleRemoveContacts = async (contactIds: number[]) => {
+  const handleRemoveContacts = (contactIds: number[]) => {
     if (!token || contactIds.length === 0) return;
     // Pas de spinner global ici : l'UI reste réactive pendant les removes,
-    // la mise à jour locale (filter ci-dessous) rend l'action instantanée
-    // à l'œil. Le spinner était trompeur (l'utilisateur voyait 3 minutes de
-    // chargement alors que le state local était déjà synchronisé).
+    // la mise à jour locale (filter ci-dessous) rend l'action instantanée.
     setRunnerError(null);
     const targets = contactIds
       .map((contactId) => resolveLogTarget(contactId))
       .filter((target): target is { sessionId: number; contactId: number } => target !== null);
-    const results = await Promise.allSettled(
+    const removedIds = targets.map((target) => target.contactId);
+    const snapshots = contacts.filter((contact) => removedIds.includes(contact.id));
+
+    // Optimistic update : retirer immédiatement les contacts du state avant
+    // tout appel réseau. Les échecs réintègrent ensuite leur snapshot local.
+    if (focusedContactId != null && contactIds.includes(focusedContactId)) {
+      setFocusedContactId(null);
+    }
+    if (removedIds.length > 0) {
+      setContacts((prev) => prev.filter((contact) => !removedIds.includes(contact.id)));
+    }
+
+    // Les appels réseau restent parallèles et fire-and-forget pour ne pas
+    // bloquer l'UI. La synchronisation serveur est décalée après leur retour.
+    void Promise.allSettled(
       targets.map((target) =>
         view === "recalls"
           ? updateRecall(token, target.sessionId, target.contactId, null)
           : removeContact(token, target.sessionId, target.contactId),
       ),
-    );
-    const removedIds = targets
-      .filter((_, index) => results[index]!.status === "fulfilled")
-      .map((target) => target.contactId);
-    const failures = results.filter((result) => result.status === "rejected");
+    ).then((results) => {
+      const failedTargets = targets.filter((_, index) => results[index]!.status === "rejected");
+      const failures = failedTargets.length;
 
-    if (focusedContactId && contactIds.includes(focusedContactId)) {
-      setFocusedContactId(null);
-    }
-    if (removedIds.length > 0) {
-      setContacts((prev) => prev.filter((c) => !removedIds.includes(c.id)));
-    }
-    if (failures.length) {
-      setRunnerError(
-        `${results.length - failures.length} retirés, ${failures.length} en échec — liste actualisée`,
-      );
-    }
-    scheduleRemoveSync(view, activeSession?.id ?? null);
+      if (failures > 0) {
+        setContacts((prev) => {
+          const existingIds = new Set(prev.map((contact) => contact.id));
+          const failedSnapshots = snapshots.filter((contact) => !existingIds.has(contact.id));
+          if (failedSnapshots.length === 0) return prev;
+          return [...prev, ...failedSnapshots].sort((a, b) => a.position - b.position);
+        });
+        setRunnerError(
+          `${results.length - failures} retirés, ${failures} en échec — liste actualisée`,
+        );
+      }
+      scheduleRemoveSync(view, activeSession?.id ?? null);
+    });
   };
 
-  const handleUpdateRecall = async (contactIds: number[], recallAt: string | null) => {
+  const handleUpdateRecall = (contactIds: number[], recallAt: string | null) => {
     if (!token || contactIds.length === 0) return;
-    // Pas de spinner global : update local immédiat (filter ci-dessous) puis
-    // refetch debounced via refreshRecallsQueue. Le spinner rendait l'UI
-    // gelée inutilement.
+    // Pas de spinner global : l'UI reste réactive pendant la mise à jour.
     setRunnerError(null);
     const targets = contactIds
       .map((contactId) => resolveLogTarget(contactId))
       .filter((target): target is { sessionId: number; contactId: number } => target !== null);
-    const results = await Promise.allSettled(
-      targets.map((target) => updateRecall(token, target.sessionId, target.contactId, recallAt)),
-    );
-    const updatedIds = targets
-      .filter((_, index) => results[index]!.status === "fulfilled")
-      .map((target) => target.contactId);
-    const failures = results.filter((result) => result.status === "rejected");
-    try {
-      if (recallAt === null && focusedContactId && contactIds.includes(focusedContactId)) {
+    const removedIds = recallAt === null ? targets.map((target) => target.contactId) : [];
+    const snapshots = contacts.filter((contact) => removedIds.includes(contact.id));
+
+    if (recallAt === null) {
+      if (focusedContactId != null && contactIds.includes(focusedContactId)) {
         setFocusedContactId(null);
       }
-      // Mise à jour locale immédiate pour ne pas attendre le refetch réseau
-      if (updatedIds.length > 0 && recallAt === null) {
-        setContacts((prev) => prev.filter((c) => !updatedIds.includes(c.id)));
+      if (removedIds.length > 0) {
+        setContacts((prev) => prev.filter((contact) => !removedIds.includes(contact.id)));
       }
-      if (failures.length) {
+    }
+
+    // L'update_recall est fire-and-forget après la mise à jour locale. Les
+    // contacts dont l'appel échoue sont réintégrés à partir de leur snapshot.
+    void Promise.allSettled(
+      targets.map((target) => updateRecall(token, target.sessionId, target.contactId, recallAt)),
+    ).then((results) => {
+      const failedTargets = targets.filter((_, index) => results[index]!.status === "rejected");
+      const failures = failedTargets.length;
+
+      if (failures > 0) {
+        if (recallAt === null) {
+          setContacts((prev) => {
+            const existingIds = new Set(prev.map((contact) => contact.id));
+            const failedSnapshots = snapshots.filter((contact) => !existingIds.has(contact.id));
+            if (failedSnapshots.length === 0) return prev;
+            return [...prev, ...failedSnapshots].sort((a, b) => a.position - b.position);
+          });
+        }
         setRunnerError(
-          `${results.length - failures.length} mis à jour, ${failures.length} en échec — liste actualisée`,
+          `${results.length - failures} mis à jour, ${failures} en échec — liste actualisée`,
         );
       }
-      // Sync debounced : on laisse le state local optimiste vivre, le refetch
-      // corrige les éventuelles divergences après le délai.
       scheduleRemoveSync(view, activeSession?.id ?? null);
-    } catch (err) {
-      setRunnerError(errorMessage(err));
-    }
+    });
   };
 
   const handleLogMany = async (contactIds: number[], payload: LogPayload) => {
