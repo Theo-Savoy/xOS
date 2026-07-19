@@ -33,6 +33,7 @@ import {
 } from "./api";
 import { addShortcut } from "../../os/shortcuts";
 import { resolveContextContactId, pendingContactsAhead } from "./runnerContext";
+import { recordLogCall, recordRdv, recordSessionComplete } from "./comboEvents";
 import { PilotageView } from "./PilotageView";
 import { supabase } from "../../lib/supabase";
 import type { AppRole } from "../../os/registry";
@@ -363,6 +364,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         let session = data.session;
         if (session.status === "active") {
           await completeSession(token, session.id);
+          safeRecordSessionComplete(session.id);
           session = { ...session, status: "completed" };
         }
         const pending = data.contacts.filter((contact) => contact.status === "pending");
@@ -662,10 +664,31 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     return data;
   };
 
+  const safeRecordSessionComplete = (sessionId: number) => {
+    try {
+      if (!session?.user?.id || !activeSession || activeSession.id !== sessionId) return;
+      const rdvCount = contacts.filter((c) => c.outcome === "RDV planifié").length;
+      const callsCount = contacts.filter((c) => c.status === "called").length;
+      const npaCount = contacts.filter((c) => c.marked_npa === true).length;
+      const contactsCompletedCount = contacts.filter((c) => c.status !== "pending").length;
+      recordSessionComplete(session.user.id, {
+        sessionId,
+        startedAt: activeSession.created_at,
+        rdvCount,
+        callsCount,
+        contactsCompletedCount,
+        npaCount,
+      });
+    } catch (err) {
+      console.warn("[gamification] recordSessionComplete failed:", err);
+    }
+  };
+
   const advanceOrComplete = async (sessionId: number) => {
     const data = await refreshRunner(sessionId);
     if (!findNextPending(data.contacts)) {
       await completeSession(token, sessionId);
+      safeRecordSessionComplete(sessionId);
       const finalData = await refreshRunner(sessionId);
       setActiveSession(finalData.session);
       setContacts(finalData.contacts);
@@ -909,6 +932,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
     setRunnerLoading(true);
     try {
       await completeSession(token, sessionId);
+      safeRecordSessionComplete(sessionId);
       const finalData = await refreshRunner(sessionId);
       setActiveSession(finalData.session);
       setContacts(finalData.contacts);
@@ -1059,6 +1083,10 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           comments: payload.comments,
           doNotCall: payload.doNotCall,
         });
+        // Gamification : RDV réussi = +10 XP Impact
+        try {
+          if (session?.user?.id) recordRdv(session.user.id, `single:${contactId}`);
+        } catch (err) { console.warn("[gamification] recordRdv failed:", err); }
         if (result.needs_event) {
           await logEvent(
             token,
@@ -1278,6 +1306,17 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
         && result.reason.code === "contact_already_processed")
     ));
     const succeeded = results.length - failures.length;
+
+    // Gamification : XP sur les logs réussis (try/catch pour ne pas casser l'app)
+    if (succeeded > 0 && session?.user?.id) {
+      try {
+        // Note : handleLogMany refuse les RDV (l.1254) donc ici c'est toujours un log d'appel
+        recordLogCall(session.user.id);
+      } catch (err) {
+        console.warn("[gamification] recordLogCall failed:", err);
+      }
+    }
+
     try {
       setFocusedContactId(null);
       if (view === "recalls") {

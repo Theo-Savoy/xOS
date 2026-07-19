@@ -15,6 +15,8 @@ import { CommandBar, ShortcutHelp } from "./CommandBar";
 import { ComboOnboardingDemo } from "./ComboOnboardingDemo";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MyTrophies } from "./MyTrophies";
+import { recordShortcut } from "./comboEvents";
+import { markAdopted, type ShortcutId } from "./nudgeLearning";
 import {
   digitFromKeyboardCode,
   hasSeenComboDemo,
@@ -821,6 +823,25 @@ export function RunnerView({
 
   const runComboAction = useCallback(
     (id: ComboActionId) => {
+      // Gamification : raccourci clavier = XP Vitesse + adoption nudge
+      try {
+        const shortcutMap: Partial<Record<ComboActionId, ShortcutId>> = {
+          "result-1": "1",
+          "result-2": "2",
+          "result-3": "3",
+          "result-4": "4",
+          "result-5": "5",
+          "nav-prev": "J",
+          "nav-next": "K",
+        };
+        const sid = shortcutMap[id];
+        if (sid) {
+          const uid = currentUserId ?? "anon";
+          recordShortcut(uid, sid);
+          markAdopted(sid, uid);
+        }
+      } catch (err) { console.warn("[gamification] runComboAction tracking failed:", err); }
+
       switch (id) {
         case "result-1":
         case "result-2":
