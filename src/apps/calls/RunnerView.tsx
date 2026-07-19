@@ -16,7 +16,7 @@ import { ComboOnboardingDemo } from "./ComboOnboardingDemo";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MyTrophies } from "./MyTrophies";
 import { recordShortcut } from "./comboEvents";
-import { markAdopted, type ShortcutId } from "./nudgeLearning";
+import { markAdopted, markNudgeSeen, registerMouseClick, type ShortcutId } from "./nudgeLearning";
 import {
   digitFromKeyboardCode,
   hasSeenComboDemo,
@@ -66,6 +66,24 @@ import { ContextSideSkeleton } from "./ContextSideSkeleton";
 import type { DeferPayload, LogPayload } from "./RunnerView.types";
 
 const RECALL_DAYS_KEY = "xos-calls-default-recall-days";
+
+/** Textes des toasts de nudge apprentissage — terrain, sobre, jamais culpabilisant. */
+const NUDGE_TOAST_MESSAGES: Partial<Record<ShortcutId, string>> = {
+  K: "Tu peux passer au suivant avec `K` — c'est 0,3s au lieu de 0,8s à la souris",
+  J: "Tu peux revenir au précédent avec `J`",
+  L: "Tu peux switcher en vue liste avec `L`",
+  F: "Tu peux switcher en vue fiche avec `F`",
+  "?": "Tu peux ouvrir l'aide avec `?`",
+};
+
+/** Actions Command bar dont le clic souris équivaut à un raccourci nudgeable. */
+const COMMAND_BAR_NUDGE_SHORTCUTS: Partial<Record<ComboActionId, ShortcutId>> = {
+  "nav-next": "K",
+  "nav-prev": "J",
+  "mode-list": "L",
+  "mode-fiche": "F",
+  help: "?",
+};
 
 type RunnerMode = "list" | "detail";
 
@@ -276,6 +294,7 @@ export function RunnerView({
   const [bulkRecallPicker, setBulkRecallPicker] = useState<{ ids: number[]; seed: string } | null>(null);
   const [pinned, setPinned] = useState(false);
   const [toast, setToast] = useState<RunnerToast | null>(null);
+  const [nudgeToast, setNudgeToast] = useState<{ shortcutId: ShortcutId; message: string } | null>(null);
   const [commandBarOpen, setCommandBarOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [myTrophiesOpen, setMyTrophiesOpen] = useState(false);
@@ -344,6 +363,40 @@ export function RunnerView({
     const timeout = window.setTimeout(() => setKpiGoalPulse(false), 7200);
     return () => window.clearTimeout(timeout);
   }, [kpiGoalPulse]);
+
+  const dismissNudgeToast = useCallback(() => {
+    setNudgeToast((current) => {
+      if (current) {
+        try {
+          markNudgeSeen(current.shortcutId, currentUserId ?? "anon");
+        } catch (err) {
+          console.warn("[gamification] markNudgeSeen failed:", err);
+        }
+      }
+      return null;
+    });
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!nudgeToast) return;
+    const timeout = window.setTimeout(dismissNudgeToast, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [nudgeToast, dismissNudgeToast]);
+
+  /** Clic souris sur un bouton raccourci : candidat au nudge apprentissage (spec §2.5). */
+  const handleShortcutMouseClick = useCallback(
+    (shortcutId: ShortcutId) => {
+      try {
+        const uid = currentUserId ?? "anon";
+        const { shouldShow } = registerMouseClick(shortcutId, uid);
+        const message = NUDGE_TOAST_MESSAGES[shortcutId];
+        if (shouldShow && message) setNudgeToast({ shortcutId, message });
+      } catch (err) {
+        console.warn("[gamification] nudge mouse tracking failed:", err);
+      }
+    },
+    [currentUserId],
+  );
 
   const kpis = useMemo(() => computeKpis(contacts), [contacts]);
   const canRecall = RECALL_ELIGIBLE_RESULTATS.includes(resultat) && !doNotCall;
@@ -1139,6 +1192,13 @@ export function RunnerView({
           </p>
         </div>
       )}
+      {nudgeToast && (
+        <div className="calls-nudge-toast" role="status" aria-live="polite">
+          <button type="button" className="calls-nudge-toast__dismiss" onClick={dismissNudgeToast}>
+            {nudgeToast.message}
+          </button>
+        </div>
+      )}
       <RdvConfetti burstKey={confettiBurst} heat={confettiHeat} goalHit={goalBurst} />
       <header className="calls-view__header calls-view__header--runner">
         <div className="calls-view__nav">
@@ -1161,7 +1221,10 @@ export function RunnerView({
               type="button"
               className={`calls-mode-toggle__btn${mode === "list" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "list"}
-              onClick={() => setMode("list")}
+              onClick={() => {
+                handleShortcutMouseClick("L");
+                setMode("list");
+              }}
               title="L"
             >
               Liste <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">L</kbd>
@@ -1170,7 +1233,10 @@ export function RunnerView({
               type="button"
               className={`calls-mode-toggle__btn${mode === "detail" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "detail"}
-              onClick={() => setMode("detail")}
+              onClick={() => {
+                handleShortcutMouseClick("F");
+                setMode("detail");
+              }}
               title="F"
             >
               Fiche <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">F</kbd>
@@ -1190,6 +1256,7 @@ export function RunnerView({
           <Button
             variant="secondary"
             onClick={() => {
+              handleShortcutMouseClick("?");
               setHelpOpen(true);
               playComboSound("whoosh", { master: soundsEnabled });
             }}
@@ -2272,7 +2339,11 @@ export function RunnerView({
       <CommandBar
         open={commandBarOpen}
         onClose={() => setCommandBarOpen(false)}
-        onRun={runComboAction}
+        onRun={(id) => {
+          const shortcutId = COMMAND_BAR_NUDGE_SHORTCUTS[id];
+          if (shortcutId) handleShortcutMouseClick(shortcutId);
+          runComboAction(id);
+        }}
         soundsEnabled={soundsEnabled}
         soundPrefs={soundPrefs}
         onSoundPrefsChange={setSoundPrefs}
