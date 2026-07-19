@@ -29,3 +29,8 @@ export const todayParisIso = sharedTodayParisIso;
 export function tomorrowParisIso(): string {
   return addDaysParisIso(todayParisIso(), 1);
 }
+
+/** Ajoute un chip de note au commentaire existant, séparé par une virgule. */
+export function appendNoteChip(value: string, chip: string): string {
+  return value ? `${value}, ${chip}` : chip;
+}

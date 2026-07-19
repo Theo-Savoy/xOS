@@ -36,7 +36,8 @@ import {
   rdvHeatLevel,
   type RdvHeat,
 } from "./rdvCelebrate";
-import { DatePicker, NoteTemplateChips } from "./formControls";
+import { DatePicker } from "./formControls";
+import { NoteTemplateChips } from "./noteTemplates";
 import { formatActivityDateFr, formatIsoDateFr, todayParisIso } from "./formControls.helpers";
 import { LinkedInRecordLink, SalesforceRecordLink } from "./BrandLinks";
 import { ProgressBar } from "./ProgressBar";

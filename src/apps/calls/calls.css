@@ -3785,6 +3785,25 @@
   margin-top: -0.35rem;
 }
 
+.calls-medic-chips {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: -0.35rem;
+}
+
+.calls-medic-category {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.calls-medic-category__label {
+  font-family: var(--xos-font-display);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--xos-text-muted);
+}
+
 .calls-cmdk__head {
   display: flex;
   align-items: center;
