@@ -1423,11 +1423,17 @@
 
 .calls-name-form--sticky {
   position: sticky;
-  top: 0.5rem;
+  bottom: 0.75rem;
   z-index: 30;
   background: color-mix(in srgb, rgba(8, 12, 32, 0.92) 88%, transparent);
   border-color: color-mix(in srgb, var(--xos-accent) 35%, var(--xos-border));
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* Laisse de la place en bas du scroll pour que la barre sticky ne masque
+   pas les dernières lignes de l'aperçu ou de l'état vide. */
+.calls-view:has(.calls-name-form--sticky) {
+  padding-bottom: 8rem;
 }
 
 .calls-audience-pack {
@@ -1458,6 +1464,10 @@
 
   .calls-name-form__meta {
     padding-bottom: 0;
+  }
+
+  .calls-view:has(.calls-name-form--sticky) {
+    padding-bottom: 14rem;
   }
 }
 
