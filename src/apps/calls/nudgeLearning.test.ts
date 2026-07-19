@@ -97,7 +97,7 @@ describe("nudgeLearning", () => {
     expect(afterTen.state.phase).toBe("reguliere");
   });
 
-  it("moves to espacee after second nudge and shows after 30 more clicks", () => {
+  it("moves to espacee after second nudge and shows at 30 cumulative clicks, not 45 (BUG-05)", () => {
     clickTimes(SHORTCUT, 5);
     markNudgeSeen(SHORTCUT, USER_ID);
     clickTimes(SHORTCUT, 10);
@@ -106,14 +106,19 @@ describe("nudgeLearning", () => {
     const state = loadLearningState(SHORTCUT, USER_ID);
     expect(state.phase).toBe("espacee");
     expect(state.nudgesSeen).toBe(2);
+    expect(state.totalMouseCount).toBe(15);
     expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
 
-    const afterTwentyNine = clickTimes(SHORTCUT, 29);
-    expect(afterTwentyNine.shouldShow).toBe(false);
+    // 15 déjà cumulés (5 + 10) ; il en faut 15 de plus pour atteindre 30 au
+    // total, pas 30 de plus (ce qui donnerait 45).
+    const afterFourteenMore = clickTimes(SHORTCUT, 14);
+    expect(afterFourteenMore.shouldShow).toBe(false);
+    expect(afterFourteenMore.state.totalMouseCount).toBe(29);
 
-    const afterThirty = registerMouseClick(SHORTCUT, USER_ID);
-    expect(afterThirty.shouldShow).toBe(true);
-    expect(afterThirty.state.phase).toBe("espacee");
+    const afterThirtieth = registerMouseClick(SHORTCUT, USER_ID);
+    expect(afterThirtieth.shouldShow).toBe(true);
+    expect(afterThirtieth.state.phase).toBe("espacee");
+    expect(afterThirtieth.state.totalMouseCount).toBe(30);
   });
 
   it("enters acceptee after 3 nudges seen and never shows again", () => {

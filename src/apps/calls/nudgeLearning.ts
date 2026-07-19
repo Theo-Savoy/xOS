@@ -16,6 +16,8 @@ export type LearningNudgePhase = "intensive" | "reguliere" | "espacee" | "accept
 
 export type LearningState = {
   mouseCount: number;
+  /** BUG-05 : total de clics cumulé depuis toujours, jamais remis à zéro (contrairement à mouseCount). */
+  totalMouseCount: number;
   nudgesSeen: number;
   lastNudgeAt: string | null;
   phase: LearningNudgePhase;
@@ -117,6 +119,7 @@ export function derivePhase(nudgesSeen: number): LearningNudgePhase {
 export function defaultLearningState(): LearningState {
   return {
     mouseCount: 0,
+    totalMouseCount: 0,
     nudgesSeen: 0,
     lastNudgeAt: null,
     phase: "intensive",
@@ -151,11 +154,17 @@ function normalizeState(state: Partial<LearningState> | undefined): LearningStat
     typeof state?.nudgesSeen === "number" && state.nudgesSeen >= 0
       ? Math.floor(state.nudgesSeen)
       : 0;
+  const mouseCount =
+    typeof state?.mouseCount === "number" && state.mouseCount >= 0
+      ? Math.floor(state.mouseCount)
+      : 0;
   return {
-    mouseCount:
-      typeof state?.mouseCount === "number" && state.mouseCount >= 0
-        ? Math.floor(state.mouseCount)
-        : 0,
+    mouseCount,
+    // Migration douce des états déjà persistés sans totalMouseCount (BUG-05).
+    totalMouseCount:
+      typeof state?.totalMouseCount === "number" && state.totalMouseCount >= 0
+        ? Math.floor(state.totalMouseCount)
+        : mouseCount,
     nudgesSeen,
     lastNudgeAt: typeof state?.lastNudgeAt === "string" ? state.lastNudgeAt : null,
     phase: derivePhase(nudgesSeen),
@@ -239,7 +248,9 @@ function evaluateShouldShow(
 
   if (state.nudgesSeen === 2) {
     if (isEspaceeShownThisWeek(userId, shortcutId)) return false;
-    return state.mouseCount >= ESPACEE_THRESHOLD;
+    // BUG-05 : seuil cumulatif depuis toujours (30 clics au total), pas 30
+    // de plus depuis le dernier nudge — sinon le 3e nudge n'arrive qu'à 45.
+    return state.totalMouseCount >= ESPACEE_THRESHOLD;
   }
 
   return false;
@@ -251,6 +262,7 @@ export function registerMouseClick(
 ): { shouldShow: boolean; state: LearningState } {
   const state = loadLearningState(shortcutId, userId);
   state.mouseCount += 1;
+  state.totalMouseCount += 1;
   state.phase = derivePhase(state.nudgesSeen);
 
   const shouldShow = evaluateShouldShow(shortcutId, userId, state);
