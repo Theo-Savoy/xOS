@@ -2082,7 +2082,7 @@ export function RunnerView({
                   placeholder={willSendRecall ? "Motif du rappel…" : "Notes sur l'appel…"}
                 />
               </label>
-              <NoteTemplateChips value={comments} onChange={setComments} />
+              <NoteTemplateChips value={comments} onChange={setComments} resultat={resultat} />
 
               {resultat === "RDV planifié" ? (
                 <EventPanel

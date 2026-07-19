@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { ResultatCall } from "../../crm";
 import { RDV_GOAL_PRESETS } from "./rdvCelebrate";
 import type { SessionType } from "./types";
 import { SESSION_TYPE_OPTIONS } from "./types";
@@ -109,21 +110,14 @@ export function RdvGoalPicker({
     </div>
   );
 }
-/** Chips MEDDIC lite — spec §2.2. Un clic ajoute le tag au commentaire avec une virgule. */
-export const NOTE_TEMPLATE_CHIPS: readonly string[] = [
-  "Intérêt produit A",
-  "Intérêt produit B",
-  "Intérêt produit C",
-  "Décision ce trimestre",
-  "Décision Q+1",
-  "Pas de projet",
-  "Curieux",
-  "Évalue",
-  "Compare",
-  "Métrique identifiée",
-  "Champion identifié",
-  "Décideur connu",
-];
+/** Chips MEDDIC lite contextuelles par résultat — spec §2.2, max 5 par résultat. */
+export const NOTE_TEMPLATE_CHIPS: Record<ResultatCall, readonly string[]> = {
+  "Appel non décroché": ["Rappel +1j", "Rappel +3j"],
+  "Message répondeur": ["Rappel +3j", "Rappel +7j"],
+  "Appel décroché": ["Décision ce trimestre", "Pas de projet"],
+  "Appel argumenté": ["Métrique identifiée", "Champion identifié"],
+  "RDV planifié": ["Décideur connu", "Décision ce trimestre"],
+};
 
 export function appendNoteChip(value: string, chip: string): string {
   return value ? `${value}, ${chip}` : chip;
@@ -133,14 +127,17 @@ export function appendNoteChip(value: string, chip: string): string {
 export function NoteTemplateChips({
   value,
   onChange,
+  resultat,
 }: {
   value: string;
   onChange: (next: string) => void;
+  resultat: ResultatCall;
 }) {
   if (value.trim().length > 0) return null;
+  const chips = NOTE_TEMPLATE_CHIPS[resultat];
   return (
     <div className="calls-chip-row calls-note-chips" role="group" aria-label="Modèles de note">
-      {NOTE_TEMPLATE_CHIPS.map((chip) => (
+      {chips.map((chip) => (
         <button key={chip} type="button" className="calls-chip" onClick={() => onChange(appendNoteChip(value, chip))}>
           {chip}
         </button>
