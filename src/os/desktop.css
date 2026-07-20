@@ -187,8 +187,10 @@ textarea {
     0 30px 80px rgba(0, 0, 0, 0.38),
     0 6px 18px rgba(0, 0, 0, 0.24),
     inset 0 1px rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  /* Pas de backdrop-filter ici : sous Chromium, il crée un backdrop-root qui
+     neutralise les backdrop-filters imbriqués (ex. la card glass
+     .calls-name-form--sticky). L'apparence de la fenêtre reste identique car
+     .xos-window__content est opaque et le wallpaper est un dégradé lisse. */
 }
 
 .xos-window__titlebar {
