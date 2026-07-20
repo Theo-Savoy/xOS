@@ -106,9 +106,7 @@ describe('OpportunitiesCleaningView', () => {
     renderView([]);
 
     expect(
-      screen.getByText(
-        /Aucune opportunité ne nécessite de nettoyage/,
-      ),
+      screen.getByText(/Tout est propre/),
     ).toBeTruthy();
   });
 });
