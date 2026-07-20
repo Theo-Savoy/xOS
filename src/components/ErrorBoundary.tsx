@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button } from "./ui/Button";
 
 interface Props {
   children: ReactNode;
@@ -99,7 +100,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 {this.state.error?.toString() || "Erreur inconnue"}
               </pre>
             ) : null}
-            <button
+            <Button
+              variant="primary"
               onClick={() => (chunkError ? hardReload() : window.location.reload())}
               style={{
                 background: "#8b5bfa",
@@ -116,7 +118,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onMouseOut={(e) => (e.currentTarget.style.background = "#8b5bfa")}
             >
               {chunkError ? "Recharger la nouvelle version" : "Recharger X OS"}
-            </button>
+            </Button>
           </div>
         </div>
       );

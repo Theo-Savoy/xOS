@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "./components/ui/Button";
 import { LoginScreen } from "./auth/LoginScreen";
 import { useSession } from "./auth/useSession";
 import { BootScreen } from "./components/BootScreen";
@@ -66,9 +67,9 @@ function App() {
     return (
       <div className="xos-app-error">
         <p>Impossible de préparer l'accès au CRM.</p>
-        <button type="button" onClick={() => window.location.reload()}>
+        <Button type="button" variant="primary" onClick={() => window.location.reload()}>
           Réessayer
-        </button>
+        </Button>
       </div>
     );
   }

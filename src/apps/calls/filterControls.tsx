@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import type { PicklistGroup } from "./filterControls.helpers";
 
 /** @deprecated moved to src/components/ui/SegmentedControl — import from there in new code. */
@@ -34,7 +35,9 @@ export function TriState({
           const disabled = disabledValues.includes(opt.value);
           const key = String(opt.value);
           return (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={key}
               type="button"
               className={`calls-tristate__opt${value === opt.value ? " calls-tristate__opt--active" : ""}${disabled ? " calls-tristate__opt--disabled" : ""}`}
@@ -44,7 +47,7 @@ export function TriState({
               title={disabled ? disabledReasons[key] : undefined}
             >
               {opt.label}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -171,7 +174,9 @@ export function PicklistMultiSelect<T extends string>({
           />
         </label>
         {showChevron && onToggleOpen ? (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className="calls-picklist__family-toggle"
             aria-expanded={isOpen}
@@ -185,7 +190,7 @@ export function PicklistMultiSelect<T extends string>({
               {selectedInFamily > 0 ? `${selectedInFamily}/` : ""}
               {group.values.length}
             </span>
-          </button>
+          </Button>
         ) : (
           <div className="calls-picklist__family-toggle calls-picklist__family-toggle--static">
             <span className="calls-picklist__family-label">{group.label}</span>
@@ -270,28 +275,32 @@ export function PicklistMultiSelect<T extends string>({
           {selectedKnown.map((item) => (
             <span key={item} className="calls-chip calls-chip--active">
               {optionByValue.get(item)?.label ?? item}
-              <button
+              <Button
+                variant="icon"
+                size="sm"
                 type="button"
                 className="calls-chip__remove"
                 aria-label={`Retirer ${item}`}
                 onClick={() => remove(item)}
               >
                 ×
-              </button>
+              </Button>
             </span>
           ))}
           {obsoleteValues.map((item) => (
             <span key={item} className="calls-chip calls-chip--active calls-chip--obsolete">
               {item}
               <small> (obsolète)</small>
-              <button
+              <Button
+                variant="icon"
+                size="sm"
                 type="button"
                 className="calls-chip__remove"
                 aria-label={`Retirer ${item}`}
                 onClick={() => remove(item)}
               >
                 ×
-              </button>
+              </Button>
             </span>
           ))}
         </div>
@@ -310,13 +319,15 @@ export function PicklistMultiSelect<T extends string>({
             aria-controls={listId}
           />
           {value.length > 0 && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className="calls-picklist__clear"
               onClick={() => onChange([])}
             >
               Tout effacer
-            </button>
+            </Button>
           )}
         </div>
         <div id={listId} className="calls-picklist" role="group" aria-label={label}>

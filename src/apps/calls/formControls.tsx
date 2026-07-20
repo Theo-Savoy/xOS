@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { Button } from "../../components/ui/Button";
 import { RDV_GOAL_PRESETS } from "./rdvCelebrate";
 import type { SessionType } from "./types";
 import { SESSION_TYPE_OPTIONS } from "./types";
@@ -27,7 +28,9 @@ export function SessionTypePicker({
       </div>
       <div className="calls-chip-row" role="radiogroup" aria-label={label}>
         {SESSION_TYPE_OPTIONS.map((opt) => (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             key={opt.value}
             type="button"
             role="radio"
@@ -36,7 +39,7 @@ export function SessionTypePicker({
             onClick={() => onChange(opt.value)}
           >
             {opt.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -71,7 +74,9 @@ export function RdvGoalPicker({
         <span className="calls-rdv-goal__label">{label}</span>
         <div className="calls-seg calls-rdv-goal__seg" role="radiogroup" aria-label={label}>
           {RDV_GOAL_OPTIONS.map((opt) => (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={opt.label}
               type="button"
               role="radio"
@@ -80,7 +85,7 @@ export function RdvGoalPicker({
               onClick={() => onChange(opt.value)}
             >
               {opt.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -94,7 +99,9 @@ export function RdvGoalPicker({
       </div>
       <div className="calls-chip-row" role="radiogroup" aria-label={label}>
         {RDV_GOAL_OPTIONS.map((opt) => (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             key={opt.label}
             type="button"
             role="radio"
@@ -103,7 +110,7 @@ export function RdvGoalPicker({
             onClick={() => onChange(opt.value)}
           >
             {opt.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

@@ -167,7 +167,9 @@ function DistributionTable({
                     key={`${kind}-${String(row.key ?? row.ruleId ?? row.ownerId ?? index)}`}
                   >
                     <td>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         className="cleaner-opportunities__analytics-link"
                         aria-label={`${rowLabel} · ${number(row.count)} éléments`}
@@ -176,7 +178,7 @@ function DistributionTable({
                         }
                       >
                         {rowLabel}
-                      </button>
+                      </Button>
                     </td>
                     <td>{number(row.count)}</td>
                     <td>{amount(row.amount)}</td>
@@ -249,9 +251,9 @@ export function OpportunitiesAnalyticsView({
     return (
       <div className="cleaner-opportunities__analytics-state" role="alert">
         <p>{error || 'La synthèse est indisponible.'}</p>
-        <button type="button" onClick={load}>
+        <Button variant="secondary" type="button" onClick={load}>
           Actualiser
-        </button>
+        </Button>
       </div>
     );
   if (status === 'empty' || !payload)
@@ -262,9 +264,9 @@ export function OpportunitiesAnalyticsView({
       >
         <h2>Aucune opportunité disponible pour la synthèse.</h2>
         <p>Actualisez pour rechercher les opportunités de votre périmètre.</p>
-        <button type="button" onClick={load}>
+        <Button variant="secondary" type="button" onClick={load}>
           Actualiser
-        </button>
+        </Button>
       </section>
     );
 
@@ -353,7 +355,8 @@ export function OpportunitiesAnalyticsView({
           ['Owners inactifs', totals.inactiveOwners, 'inactiveOwners'],
           ['Montants incohérents', totals.amountIncoherent, 'amountIncoherent'],
         ].map(([name, value, kind, hint]) => (
-          <button
+          <Button
+            variant="ghost"
             type="button"
             key={String(name)}
             title={typeof hint === 'string' ? hint : undefined}
@@ -361,7 +364,7 @@ export function OpportunitiesAnalyticsView({
           >
             <strong>{String(value)}</strong>
             <span>{String(name)}</span>
-          </button>
+          </Button>
         ))}
         <div className="cleaner-opportunities__analytics-kpi">
           <strong>

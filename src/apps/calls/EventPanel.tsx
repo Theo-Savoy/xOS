@@ -169,7 +169,9 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
         <div className="calls-fb-control__label">Type de RDV</div>
         <div className="calls-rdv-subjects">
           {subjects.map((subject) => (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={subject.id}
               type="button"
               className={`calls-rdv-subjects__btn${subjectId === subject.id ? " calls-rdv-subjects__btn--active" : ""}`}
@@ -182,7 +184,7 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
                   Lundi
                 </span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
         {selectedSubject.countsForLundi ? (
@@ -208,7 +210,9 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
         <div className="calls-fb-control__label">Durée</div>
         <div className="calls-rdv-durations">
           {RDV_DURATION_PRESETS.map((mins) => (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={mins}
               type="button"
               className={`calls-rdv-durations__btn${durationMin === mins ? " calls-rdv-durations__btn--active" : ""}`}
@@ -216,7 +220,7 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
               onClick={() => setDurationMin(mins)}
             >
               {mins}&nbsp;min
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -225,7 +229,9 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
         <div className="calls-fb-control__label">Attribué à</div>
         <div className="calls-chip-row" role="radiogroup" aria-label="Attribué à">
           {!sdr && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className={`calls-chip${ownerSfUserId === "" ? " calls-chip--active" : ""}`}
               aria-checked={ownerSfUserId === ""}
@@ -233,10 +239,12 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
               onClick={() => setOwnerSfUserId("")}
             >
               Moi
-            </button>
+            </Button>
           )}
           {assignees.map((member) => (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               key={member.user_id}
               type="button"
               className={`calls-chip${ownerSfUserId === member.sf_user_id ? " calls-chip--active" : ""}`}
@@ -245,7 +253,7 @@ export const EventPanel = forwardRef<EventPanelHandle, EventPanelProps>(function
               onClick={() => setOwnerSfUserId(member.sf_user_id)}
             >
               {member.label}
-            </button>
+            </Button>
           ))}
         </div>
         {accountOwnerAssignable && ownerSfUserId === defaultOwnerSfUserId && (

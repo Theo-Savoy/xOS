@@ -1,5 +1,6 @@
 import { Suspense, memo, useCallback, type Dispatch } from "react";
 import { Rnd, type RndDragCallback, type RndResizeCallback } from "react-rnd";
+import { Button } from "../components/ui/Button";
 import { WindowBootScreen } from "../components/WindowBootScreen";
 import { getAppManifest } from "./registry";
 import type { AppWindow, WindowAction } from "./windowState";
@@ -102,20 +103,26 @@ export const WindowFrame = memo(function WindowFrame({
       >
         <header className="xos-window__titlebar">
           <div className="xos-window__controls">
-            <button
+            <Button
               className="xos-window__control xos-window__control--close"
+              variant="icon"
+              size="sm"
               onClick={handleClose}
               type="button"
               aria-label={`Fermer ${app.title}`}
             />
-            <button
+            <Button
               className="xos-window__control xos-window__control--minimize"
+              variant="icon"
+              size="sm"
               onClick={handleMinimize}
               type="button"
               aria-label={`Réduire ${app.title}`}
             />
-            <button
+            <Button
               className="xos-window__control xos-window__control--maximize"
+              variant="icon"
+              size="sm"
               onClick={handleToggleMaximize}
               type="button"
               aria-label={`${window.maximized ? "Restaurer" : "Agrandir"} ${app.title}`}

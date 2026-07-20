@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Command } from "cmdk";
+import { Button } from "../components/ui/Button";
 import { apiFetch, ApiError } from "../lib/apiClient";
 import { appRegistry, type AppManifest, getAppManifest } from "./registry";
 import "./launcher.css";
@@ -348,13 +349,15 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                     <span>
                       <strong>[{GROUP_LABELS[logRecord.type]}]</strong> {logRecord.name}
                     </span>
-                    <button
+                    <Button
                       type="button"
+                      variant="icon"
+                      size="sm"
                       className="xos-launcher-form__badge-remove"
                       onClick={() => setLogRecord(null)}
                     >
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <>
@@ -404,22 +407,24 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
               </div>
 
               <div className="xos-launcher-form__actions">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   className="xos-launcher-form__button xos-launcher-form__button--secondary"
                   onClick={resetFormState}
                   disabled={logLoading}
                 >
                   Annuler
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="primary"
                   className="xos-launcher-form__button xos-launcher-form__button--primary"
                   onClick={handleLogSubmit}
                   disabled={logLoading || !logRecord || !logComments.trim()}
                 >
                   {logLoading ? "Enregistrement…" : "Enregistrer la note"}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -495,13 +500,15 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                 {createAccount ? (
                   <div className="xos-launcher-form__badge">
                     <span>{createAccount.name}</span>
-                    <button
+                    <Button
                       type="button"
+                      variant="icon"
+                      size="sm"
                       className="xos-launcher-form__badge-remove"
                       onClick={() => setCreateAccount(null)}
                     >
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <>
@@ -536,22 +543,24 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
               </div>
 
               <div className="xos-launcher-form__actions">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   className="xos-launcher-form__button xos-launcher-form__button--secondary"
                   onClick={resetFormState}
                   disabled={createLoading}
                 >
                   Annuler
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="primary"
                   className="xos-launcher-form__button xos-launcher-form__button--primary"
                   onClick={handleCreateSubmit}
                   disabled={createLoading || !createLastName.trim()}
                 >
                   {createLoading ? "Création…" : "Créer le contact"}
-                </button>
+                </Button>
               </div>
             </>
           )}

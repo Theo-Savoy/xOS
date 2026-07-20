@@ -1426,9 +1426,9 @@ export function RunnerView({
       )}
       {nudgeToast && (
         <div className="calls-nudge-toast" role="status" aria-live="polite">
-          <button type="button" className="calls-nudge-toast__dismiss" onClick={dismissNudgeToast}>
+          <Button variant="ghost" size="sm" type="button" className="calls-nudge-toast__dismiss" onClick={dismissNudgeToast}>
             {nudgeToast.message}
-          </button>
+          </Button>
         </div>
       )}
       <RdvConfetti burstKey={confettiBurst} heat={confettiHeat} goalHit={goalBurst} />
@@ -1449,7 +1449,9 @@ export function RunnerView({
         </div>
         <div className="calls-view__actions">
           <div className="calls-mode-toggle" role="group" aria-label="Mode d'affichage">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className={`calls-mode-toggle__btn${mode === "list" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "list"}
@@ -1460,8 +1462,10 @@ export function RunnerView({
               title="L"
             >
               Liste <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">L</kbd>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className={`calls-mode-toggle__btn${mode === "detail" ? " calls-mode-toggle__btn--active" : ""}`}
               aria-pressed={mode === "detail"}
@@ -1472,7 +1476,7 @@ export function RunnerView({
               title="F"
             >
               Fiche <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">F</kbd>
-            </button>
+            </Button>
           </div>
           <Button
             variant="secondary"
@@ -1613,7 +1617,9 @@ export function RunnerView({
                 ["all", "Tous", recallDateCounts.all],
               ] as const
             ).map(([value, label, count]) => (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 key={value}
                 type="button"
                 className={`calls-list-filter-chip${recallDateFilter === value ? " calls-list-filter-chip--active" : ""}`}
@@ -1622,12 +1628,14 @@ export function RunnerView({
               >
                 {label}
                 <span className="xos-numeric">{count}</span>
-              </button>
+              </Button>
             ))}
           </div>
           {recallOriginSessions.length > 1 && (
             <div className="calls-recall-queue__filters" role="group" aria-label="Filtrer les rappels par séance">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 className={`calls-list-filter-chip${recallSessionFilter === "all" ? " calls-list-filter-chip--active" : ""}`}
                 aria-pressed={recallSessionFilter === "all"}
@@ -1635,9 +1643,11 @@ export function RunnerView({
               >
                 Toutes les séances
                 <span className="xos-numeric">{contacts.length}</span>
-              </button>
+              </Button>
               {recallOriginSessions.map((session) => (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   key={session.id}
                   type="button"
                   className={`calls-list-filter-chip${recallSessionFilter === session.id ? " calls-list-filter-chip--active" : ""}`}
@@ -1647,7 +1657,7 @@ export function RunnerView({
                 >
                   {session.name}
                   <span className="xos-numeric">{session.count}</span>
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -1878,7 +1888,9 @@ export function RunnerView({
                 <ul className="calls-defer-panel__candidates">
                   {deferCandidates.map((candidate) => (
                     <li key={candidate.id}>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         className={`calls-defer-panel__candidate${deferTargetId === candidate.id ? " calls-defer-panel__candidate--active" : ""}`}
                         onClick={() => setDeferTargetId(candidate.id)}
@@ -1888,7 +1900,7 @@ export function RunnerView({
                           <small> · {sessionTypeLabel(candidate.session_type)}</small>
                         </span>
                         <span className="xos-numeric">{candidate.pending} restants</span>
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -1946,7 +1958,9 @@ export function RunnerView({
                       ["skipped", "Non contactés", statusCounts.skipped],
                     ] as const
                   ).map(([value, label, count]) => (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       key={value}
                       type="button"
                       className={`calls-list-filter-chip${listStatusFilter === value ? " calls-list-filter-chip--active" : ""}`}
@@ -1955,7 +1969,7 @@ export function RunnerView({
                     >
                       {label}
                       <span className="calls-list-filter-chip__count xos-numeric">{count}</span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -2011,7 +2025,7 @@ export function RunnerView({
                       aria-label={`Sélectionner ${contact.contact_name}`}
                     />
                   </label>
-                  <button type="button" className="calls-cockpit-list__name" onClick={() => openDetail(contact.id)}>
+                  <Button variant="ghost" size="sm" type="button" className="calls-cockpit-list__name" onClick={() => openDetail(contact.id)}>
                     <strong title={contact.contact_name}>{contact.contact_name}</strong>
                     {(contact.attempt_count ?? 0) > 0 && (
                       <small className="calls-cockpit-list__attempt">
@@ -2019,7 +2033,7 @@ export function RunnerView({
                       </small>
                     )}
                     {previousCallersBadge && <small className="calls-muted">{previousCallersBadge}</small>}
-                  </button>
+                  </Button>
                   <span className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap" title={contact.title ?? undefined}>
                     {contact.title ?? "—"}
                   </span>
@@ -2420,7 +2434,9 @@ export function RunnerView({
                     <ul className="calls-defer-panel__candidates">
                       {deferCandidates.map((candidate) => (
                         <li key={candidate.id}>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             type="button"
                             className={`calls-defer-panel__candidate${deferTargetId === candidate.id ? " calls-defer-panel__candidate--active" : ""}`}
                             onClick={() => setDeferTargetId(candidate.id)}
@@ -2430,7 +2446,7 @@ export function RunnerView({
                               <small> · {sessionTypeLabel(candidate.session_type)}</small>
                             </span>
                             <span className="xos-numeric">{candidate.pending} restants</span>
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>

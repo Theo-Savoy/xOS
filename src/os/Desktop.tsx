@@ -225,8 +225,9 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
             {userEmail}
           </span>
           {needsSfAction ? (
-            <button
+            <Button
               type="button"
+              variant="primary"
               className={`xos-menubar__sf-status ${sfStatusClass(sfStatus)}`}
               title={
                 sfStatus === 'needs_link'
@@ -248,7 +249,7 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
               <span className="xos-menubar__sf-text">
                 {sfLinking ? 'Connexion…' : sfStatusLabel(sfStatus)}
               </span>
-            </button>
+            </Button>
           ) : (
             <span
               className={`xos-menubar__sf-status ${sfStatusClass(sfStatus)}`}
@@ -268,13 +269,14 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
             </span>
           )}
         </div>
-        <button
+        <Button
           type="button"
+          variant="secondary"
           className="xos-menubar__logout"
           onClick={() => void supabase.auth.signOut()}
         >
           Déconnexion
-        </button>
+        </Button>
       </header>
 
       {shortcuts.length > 0 && (
@@ -284,8 +286,9 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
             if (!app) return null;
             return (
               <div key={shortcut.id} className="xos-shortcut">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   className="xos-shortcut__open"
                   title={shortcut.label}
                   onClick={() => openApp(app, shortcut.params)}
@@ -294,9 +297,11 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
                     {app.icon}
                   </span>
                   <span className="xos-shortcut__label">{shortcut.label}</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="icon"
+                  size="sm"
                   className="xos-shortcut__remove"
                   aria-label={`Supprimer le raccourci ${shortcut.label}`}
                   onClick={() =>
@@ -304,7 +309,7 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
                   }
                 >
                   &times;
-                </button>
+                </Button>
               </div>
             );
           })}
@@ -334,14 +339,16 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
             </div>
             <span className="xos-notification__appname">Salesforce</span>
             <span className="xos-notification__time">maintenant</span>
-            <button
+            <Button
               type="button"
+              variant="icon"
+              size="sm"
               className="xos-notification__close"
               aria-label="Fermer"
               onClick={() => setDismissed(true)}
             >
               &times;
-            </button>
+            </Button>
           </div>
           <div className="xos-notification__body">
             <h3 className="xos-notification__title">

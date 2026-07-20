@@ -1,4 +1,5 @@
 import { useCallback, useId, useMemo, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import { Select } from "../../components/ui";
 import type { ResultatCall } from "../../crm";
 import {
@@ -218,7 +219,8 @@ function MeddicSection({
       className={`calls-medic-section${locked ? " calls-medic-section--locked" : ""}${isOpen ? " calls-medic-section--open" : ""}`}
     >
       <div className="calls-medic-section__head">
-        <button
+        <Button
+          variant="ghost"
           type="button"
           id={sectionId}
           className="calls-medic-section__toggle"
@@ -232,16 +234,18 @@ function MeddicSection({
           ) : (
             <span className="calls-medic-section__placeholder">Non renseigné</span>
           )}
-        </button>
+        </Button>
         {locked && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className="calls-medic-section__edit"
             aria-label={`Modifier ${label}`}
             onClick={onEdit}
           >
             Modifier
-          </button>
+          </Button>
         )}
       </div>
       {isOpen && (
@@ -279,14 +283,16 @@ function MeddicSection({
             </label>
           )}
           {pendingOption !== PLACEHOLDER_VALUE && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               type="button"
               className="calls-medic-section__confirm"
               disabled={!canConfirm}
               onClick={onConfirm}
             >
               Valider
-            </button>
+            </Button>
           )}
         </div>
       )}

@@ -182,7 +182,9 @@ function ReasonChips({
           </div>
           <div className="cleaner-opportunities__reason-chips">
             {collapsedItems.map(chip)}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               className="cleaner-opportunities__reason-more"
               aria-label={`Afficher ${hiddenCount} autres raisons`}
@@ -190,7 +192,7 @@ function ReasonChips({
               onClick={() => setExpanded(true)}
             >
               +{hiddenCount} autres
-            </button>
+            </Button>
           </div>
         </>
       ) : (
@@ -206,7 +208,9 @@ function ReasonChips({
               {chips(anomalies)}
             </div>
           ))}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className="cleaner-opportunities__reason-more"
             aria-label="Réduire les raisons"
@@ -214,7 +218,7 @@ function ReasonChips({
             onClick={() => setExpanded(false)}
           >
             Réduire
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -333,7 +337,9 @@ export function OpportunitiesTable({
                   key={key}
                 >
                   <div className="cleaner-opportunities__table-header">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       aria-label={`Trier par ${label}`}
                       onClick={() => onSort(key)}
@@ -349,9 +355,11 @@ export function OpportunitiesTable({
                             ? ' ↓'
                             : ''}
                       </span>
-                    </button>
+                    </Button>
                     {key === 'score' ? (
-                      <button
+                      <Button
+                        variant="icon"
+                        size="sm"
                         className="cleaner-opportunities__score-help"
                         type="button"
                         aria-label="Afficher l'aide du score"
@@ -359,7 +367,7 @@ export function OpportunitiesTable({
                         onClick={() => setScoreHelpOpen(true)}
                       >
                         ⓘ
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </th>
@@ -410,7 +418,9 @@ export function OpportunitiesTable({
                 </td>
                 <td>{display(item.score)}</td>
                 <td className="cleaner-opportunities__name-cell">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="cleaner-opportunities__row-link"
                     type="button"
                     onClick={() => onOpenDetail(item)}
@@ -422,7 +432,7 @@ export function OpportunitiesTable({
                     >
                       {item.name || item.id}
                     </span>
-                  </button>
+                  </Button>
                 </td>
                 <td>{display(item.account)}</td>
                 <td>{display(item.owner)}</td>
@@ -451,13 +461,15 @@ export function OpportunitiesTable({
                 </td>
                 <td>{display(item.type_vente)}</td>
                 <td>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="cleaner-opportunities__row-link"
                     type="button"
                     onClick={() => onOpenDetail(item)}
                   >
                     Détail
-                  </button>
+                  </Button>
                 </td>
                 <td>
                   {item.anomalies.reduce(

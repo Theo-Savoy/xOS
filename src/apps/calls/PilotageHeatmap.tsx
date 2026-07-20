@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Button } from "../../components/ui/Button";
 import type { CockpitHeatmapDay } from "./pilotageApi";
 import {
   buildWeekdayHeatmapGrid,
@@ -48,22 +49,26 @@ export function PilotageHeatmap({
           <p className="pilotage-heatmap__hint">Jours ouvrés · cliquez pour filtrer.</p>
         </div>
         <div className="calls-seg pilotage-heatmap__metric" role="group" aria-label="Métrique affichée">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className={`calls-seg__btn${metric === "calls" ? " calls-seg__btn--active" : ""}`}
             aria-pressed={metric === "calls"}
             onClick={() => setMetric("calls")}
           >
             Appels
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             className={`calls-seg__btn${metric === "rdv" ? " calls-seg__btn--active" : ""}`}
             aria-pressed={metric === "rdv"}
             onClick={() => setMetric("rdv")}
           >
             RDV
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -114,7 +119,9 @@ export function PilotageHeatmap({
                 const dayNum = Number(cell.date.slice(8, 10));
 
                 return (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     key={cell.date}
                     type="button"
                     role="gridcell"
@@ -138,7 +145,7 @@ export function PilotageHeatmap({
                     {value > 0 ? (
                       <span className="pilotage-heatmap__value xos-numeric">{value}</span>
                     ) : null}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

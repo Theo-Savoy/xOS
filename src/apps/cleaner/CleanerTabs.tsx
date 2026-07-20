@@ -1,4 +1,5 @@
 import type { AppRole } from '../../os/registry';
+import { Button } from '../../components/ui/Button';
 import {
   getVisibleModules,
   type CleanerModuleDefinition,
@@ -28,7 +29,8 @@ export function CleanerTabs({
         role="tablist"
         aria-label="Onglets du Labo"
       >
-        <button
+        <Button
+          variant="ghost"
           className={`cleaner-tab${state.active === 'home' ? ' cleaner-tab--active' : ''}`}
           type="button"
           role="tab"
@@ -36,7 +38,7 @@ export function CleanerTabs({
           onClick={() => onActivate('home')}
         >
           Accueil
-        </button>
+        </Button>
         {state.open
           .filter((moduleId) => visibleIds.has(moduleId))
           .map((moduleId) => {
@@ -46,7 +48,8 @@ export function CleanerTabs({
             if (!module) return null;
             return (
               <div className="cleaner-tab-group" key={module.id}>
-                <button
+                <Button
+                  variant="ghost"
                   className={`cleaner-tab${state.active === module.id ? ' cleaner-tab--active' : ''}`}
                   type="button"
                   role="tab"
@@ -54,15 +57,17 @@ export function CleanerTabs({
                   onClick={() => onActivate(module.id)}
                 >
                   {module.label}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="icon"
+                  size="sm"
                   className="cleaner-tab__close"
                   type="button"
                   aria-label={`Fermer ${module.label}`}
                   onClick={() => onClose(module.id)}
                 >
                   ×
-                </button>
+                </Button>
               </div>
             );
           })}

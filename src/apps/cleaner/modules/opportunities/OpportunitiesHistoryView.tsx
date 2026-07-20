@@ -174,9 +174,9 @@ export function OpportunitiesHistoryView({
         ) : (
           <p>{error || 'L’historique est indisponible.'}</p>
         )}
-        <button type="button" onClick={() => load(cursor)}>
+        <Button variant="secondary" type="button" onClick={() => load(cursor)}>
           Actualiser
-        </button>
+        </Button>
       </div>
     );
   return (
@@ -310,23 +310,25 @@ export function OpportunitiesHistoryView({
         </div>
       )}
       <div className="cleaner-opportunities__history-pagination">
-        <button
+        <Button
+          variant="secondary"
           type="button"
           aria-label="Page précédente"
           disabled={cursorStack.length <= 1}
           onClick={previous}
         >
           Page précédente
-        </button>
+        </Button>
         <span>Page {cursorStack.length}</span>
-        <button
+        <Button
+          variant="secondary"
           type="button"
           aria-label="Page suivante"
           disabled={!nextCursor}
           onClick={next}
         >
           Page suivante
-        </button>
+        </Button>
       </div>
     </section>
   );
