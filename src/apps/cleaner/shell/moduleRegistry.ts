@@ -1,4 +1,4 @@
-import type { FC, LazyExoticComponent } from 'react';
+import type { ComponentType, FC, LazyExoticComponent } from 'react';
 import type { AppRole } from '../../../os/registry';
 import { recettesManifest } from '../modules/recettes/manifest';
 import { moduleAllowedForRole, type CleanerModuleId } from './shellState';
@@ -17,7 +17,7 @@ export type CleanerModuleDefinition = {
   label: string;
   criticality: 'critical' | 'warning' | 'healthy';
   roles?: readonly AppRole[];
-  component: LazyExoticComponent<FC<CleanerModuleProps>>;
+  component: LazyExoticComponent<FC<CleanerModuleProps>> | ComponentType<CleanerModuleProps>;
 };
 
 export const moduleRegistry = [

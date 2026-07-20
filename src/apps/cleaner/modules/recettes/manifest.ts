@@ -1,6 +1,7 @@
 import { lazy, type FC, type LazyExoticComponent, type ReactNode } from 'react';
 import type { AppRole } from '../../../../os/registry';
 import type { CleanerModuleProps } from '../../shell/moduleRegistry';
+import { RecettesModule } from './RecettesModule';
 
 export type RecipeAction =
   | 'bulk_edit'
@@ -74,16 +75,10 @@ export const recipeRegistry: readonly RecipeManifest[] = [
   sectorsRecipe,
 ];
 
-const lazyRecettesModule = lazy(() =>
-  import('./RecettesModule').then(({ RecettesModule }) => ({
-    default: RecettesModule,
-  })),
-);
-
 export const recettesManifest = {
   id: 'recettes' as const,
   label: 'Recettes',
   criticality: 'warning' as const,
   roles: ['commercial', 'manager', 'admin'] as readonly AppRole[],
-  component: lazyRecettesModule,
+  component: RecettesModule,
 };
