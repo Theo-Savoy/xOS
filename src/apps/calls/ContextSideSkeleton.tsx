@@ -1,19 +1,22 @@
-import { GlassCard } from "../../components/ui";
+import { GlassCard, Skeleton } from "../../components/ui";
 
-export function ContextSideSkeleton({ quiet = false }: { quiet?: boolean }) {
+export function ContextSideSkeleton({ quiet: _quiet = false }: { quiet?: boolean }) {
   return (
     <>
       <GlassCard className="calls-context-panel calls-context-panel--skeleton" aria-busy="true">
-        <h3>Historique d&apos;appels</h3>
-        <p className="calls-muted">{quiet ? "\u00a0" : "Chargement…"}</p>
+        <Skeleton className="calls-context-skel-line" width="60%" height="14px" />
+        <Skeleton className="calls-context-skel-line" width="80%" height="12px" />
+        <Skeleton className="calls-context-skel-line" width="45%" height="12px" />
       </GlassCard>
       <GlassCard className="calls-context-panel calls-context-panel--skeleton" aria-busy="true">
-        <h3>Opportunités du compte</h3>
-        <p className="calls-muted">{quiet ? "\u00a0" : "Chargement…"}</p>
+        <Skeleton className="calls-context-skel-line" width="60%" height="14px" />
+        <Skeleton className="calls-context-skel-line" width="80%" height="12px" />
+        <Skeleton className="calls-context-skel-line" width="45%" height="12px" />
       </GlassCard>
       <GlassCard className="calls-context-panel calls-context-panel--skeleton" aria-busy="true">
-        <h3>RDV du compte</h3>
-        <p className="calls-muted">{quiet ? "\u00a0" : "Chargement…"}</p>
+        <Skeleton className="calls-context-skel-line" width="60%" height="14px" />
+        <Skeleton className="calls-context-skel-line" width="80%" height="12px" />
+        <Skeleton className="calls-context-skel-line" width="45%" height="12px" />
       </GlassCard>
     </>
   );

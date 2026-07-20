@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { PicklistValuesProvider } from '../../../crm/usePicklistValues';
-import { Button, GlassCard } from '../../../../components/ui';
+import { Button, EmptyState, GlassCard } from '../../../../components/ui';
 import type { CleanerCapabilities } from '../../contracts';
 import {
   executeOpportunityCommand,
@@ -321,22 +321,19 @@ export function OpportunitiesCleaningView({
         </span>
       </div>
       {showCleanEmptyState ? (
-        <GlassCard
-          className="cleaner-opportunities__kpis-empty"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="cleaner-opportunities__kpis-empty-icon" aria-hidden="true">
-            ✓
-          </span>
-          {workspaceItems.length > 0 ? (
-            <div>
-              <strong>Tout est à jour</strong>
-              <p>Aucune opportunité à corriger dans cette vue.</p>
-            </div>
-          ) : (
-            <p>Aucune opportunité ne nécessite de nettoyage. Tout est propre.</p>
-          )}
+        <GlassCard role="status" aria-live="polite">
+          <EmptyState
+            title={
+              workspaceItems.length > 0
+                ? 'Tout est à jour'
+                : 'Aucune opportunité à corriger'
+            }
+            description={
+              workspaceItems.length > 0
+                ? 'Aucune opportunité à corriger dans cette vue.'
+                : 'Tout est propre.'
+            }
+          />
         </GlassCard>
       ) : (
         <div
