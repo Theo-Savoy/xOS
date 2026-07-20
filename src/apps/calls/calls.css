@@ -2574,9 +2574,9 @@
   padding: 0.8rem;
 }
 
-.calls-context-panel--skeleton h3 {
-  margin: 0;
-  font-size: 0.92rem;
+.calls-context-skel-line {
+  margin-bottom: 8px;
+  border-radius: var(--xos-radius-sm, 4px);
 }
 
 .calls-contact-card__context-meta {
@@ -3981,12 +3981,51 @@
   gap: 0.25rem;
 }
 
+.calls-palier {
+  font-weight: 600;
+}
+
+.calls-palier--bronze {
+  color: color-mix(in srgb, var(--xos-accent) 30%, transparent);
+}
+
+.calls-palier--argent {
+  color: color-mix(in srgb, var(--xos-accent) 45%, transparent);
+}
+
+.calls-palier--or {
+  color: color-mix(in srgb, var(--xos-accent) 60%, transparent);
+}
+
+.calls-palier--platine {
+  color: color-mix(in srgb, var(--xos-accent) 75%, transparent);
+}
+
+.calls-palier--diamant {
+  color: color-mix(in srgb, var(--xos-accent) 90%, transparent);
+}
+
+.calls-palier--challenger {
+  color: color-mix(in srgb, var(--xos-accent) 100%, transparent);
+}
+
 .calls-recap-nudges ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.4rem;
+}
+
+.calls-recap-combo {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-recap-combo p {
+  margin: 0;
 }
 
 .calls-note-chips {

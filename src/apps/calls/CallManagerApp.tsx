@@ -1759,6 +1759,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           contacts={contacts}
           followUpLoading={followUpLoading}
           error={runnerError}
+          userId={session.user.id}
           onBack={goToSessions}
           onCreateFollowUp={(name, scheduledFor) => void handleCreateFollowUp(name, scheduledFor)}
         />

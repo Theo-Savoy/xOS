@@ -1,10 +1,31 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RecapView } from "./RecapView";
 import { tomorrowParisIso, formatIsoDateFr } from "./formControls.helpers";
+import { comboXpStorageKey } from "./comboXp";
 import type { SessionContact, SessionDetail } from "./types";
 
+function installLocalStorage() {
+  const store: Record<string, string> = {};
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = String(value);
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        for (const key of Object.keys(store)) delete store[key];
+      },
+    },
+  });
+}
+
+beforeEach(installLocalStorage);
 afterEach(cleanup);
 
 const baseSession: SessionDetail = {
@@ -47,6 +68,7 @@ describe("RecapView nudges", () => {
         contacts={contacts}
         followUpLoading={false}
         error={null}
+        userId="user-1"
         onBack={noop}
         onCreateFollowUp={noop}
       />,
@@ -63,6 +85,7 @@ describe("RecapView nudges", () => {
         followUpLoading={false}
         error={null}
         weeklyCallStats={{ callsThisWeek: 124, isNewRecord: true }}
+        userId="user-1"
         onBack={noop}
         onCreateFollowUp={noop}
       />,
@@ -79,6 +102,7 @@ describe("RecapView nudges", () => {
         followUpLoading={false}
         error={null}
         weeklyCallStats={{ callsThisWeek: 40, isNewRecord: false }}
+        userId="user-1"
         onBack={noop}
         onCreateFollowUp={noop}
       />,
@@ -95,6 +119,7 @@ describe("RecapView nudges", () => {
         contacts={contacts}
         followUpLoading={false}
         error={null}
+        userId="user-1"
         onBack={noop}
         onCreateFollowUp={noop}
       />,
@@ -111,11 +136,33 @@ describe("RecapView nudges", () => {
         contacts={contacts}
         followUpLoading={false}
         error={null}
+        userId="user-1"
         onBack={noop}
         onCreateFollowUp={noop}
       />,
     );
     expect(screen.getByText("Séance clôturée sans être terminée — 1 contact à trancher")).toBeTruthy();
     expect(screen.queryByText(/aurais pu/)).toBeNull();
+  });
+
+  it("shows the combo XP block with per-axis paliers and the last unlocked badge", () => {
+    window.localStorage.setItem(
+      comboXpStorageKey("user-1"),
+      JSON.stringify({ vitesse: 10, impact: 30, regularite: 3, badges: ["premier_pas"], lastSeen: "" }),
+    );
+    const contacts = [contact({ id: 1 })];
+    render(
+      <RecapView
+        session={baseSession}
+        contacts={contacts}
+        followUpLoading={false}
+        error={null}
+        userId="user-1"
+        onBack={noop}
+        onCreateFollowUp={noop}
+      />,
+    );
+    expect(screen.getByText("Vitesse · Bronze | Impact · Bronze | Régularité · Bronze")).toBeTruthy();
+    expect(screen.getByText(/Dernier badge débloqué : 🐣 Premier pas/)).toBeTruthy();
   });
 });

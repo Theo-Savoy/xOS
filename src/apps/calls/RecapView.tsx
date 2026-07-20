@@ -3,6 +3,7 @@ import { Button, GlassCard, Tag } from "../../components/ui";
 import { DatePicker } from "./formControls";
 import { formatIsoDateFr, tomorrowParisIso } from "./formControls.helpers";
 import { suggestFollowUpSessionName } from "./sessionNaming";
+import { summarizeComboXp } from "./comboXp";
 import type { SessionContact, SessionDetail } from "./types";
 
 export type WeeklyCallStats = { callsThisWeek: number; isNewRecord: boolean };
@@ -14,6 +15,7 @@ type RecapViewProps = {
   error: string | null;
   /** Comparaison hebdo (record vs médiane 4 dernières) — absente si non calculée, alors le nudge reste silencieux. */
   weeklyCallStats?: WeeklyCallStats;
+  userId: string;
   onBack: () => void;
   onCreateFollowUp: (name: string, scheduledFor: string) => void;
 };
@@ -56,6 +58,7 @@ export function RecapView({
   followUpLoading,
   error,
   weeklyCallStats,
+  userId,
   onBack,
   onCreateFollowUp,
 }: RecapViewProps) {
@@ -78,6 +81,9 @@ export function RecapView({
     computeFollowUpNudge(followUpCount, followUpDate),
     computeAbandonedNudge(session, pending.length),
   ].filter((text): text is string => Boolean(text));
+
+  const comboXp = summarizeComboXp(userId);
+  const paliersLine = comboXp.axes.map((axis) => `${axis.label} · ${axis.palier ?? "—"}`).join(" | ");
 
   return (
     <div className="calls-view">
@@ -121,6 +127,11 @@ export function RecapView({
           </ul>
         </GlassCard>
       )}
+
+      <GlassCard className="calls-recap-combo">
+        <p>{paliersLine}</p>
+        {comboXp.lastBadge && <p>Dernier badge débloqué : {comboXp.lastBadge.label}</p>}
+      </GlassCard>
 
       {error && (
         <GlassCard className="calls-error">

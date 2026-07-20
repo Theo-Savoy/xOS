@@ -1015,6 +1015,7 @@ describe("RecapView", () => {
         contacts={[alice]}
         followUpLoading={false}
         error="Aucun contact ne nécessite de relance."
+        userId="user-1"
         onBack={vi.fn()}
         onCreateFollowUp={vi.fn()}
       />,
@@ -1040,6 +1041,7 @@ describe("RecapView", () => {
         contacts={[skippedContact]}
         followUpLoading={false}
         error={null}
+        userId="user-1"
         onBack={vi.fn()}
         onCreateFollowUp={onCreateFollowUp}
       />,
