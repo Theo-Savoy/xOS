@@ -357,11 +357,9 @@
   color: var(--xos-text);
   font: inherit;
   cursor: pointer;
-  padding: 0.1rem 0.12rem;
+  padding: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
-  align-items: start;
-  justify-items: stretch;
+  place-items: center;
   background: rgba(255, 255, 255, 0.03);
   transition: border-color 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
 }
@@ -418,15 +416,7 @@
   opacity: 0.92;
 }
 
-.pilotage-heatmap__value {
-  align-self: end;
-  justify-self: end;
-  font-size: 0.72rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  pointer-events: none;
-}
+
 
 .pilotage-funnel-block {
   display: grid;
@@ -549,7 +539,7 @@
   padding: 0.9rem 1rem;
   display: grid;
   gap: 0.55rem;
-  overflow: auto;
+  min-height: 0;
 }
 
 .pilotage-panel h3 {

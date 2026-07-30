@@ -64,10 +64,10 @@ describe("filterSessionsModeKpis", () => {
     expect(result.allCallers).toBe(true);
   });
 
-  it("returns empty KPIs only when user explicitly deselected all sessions", () => {
+  it("treats empty selection as 'no filter' and returns team KPIs", () => {
     const data = cockpit([session(1)]);
     const result = filterSessionsModeKpis(data, data.sessions, new Set());
-    expect(result.kpis.calls).toBe(0);
-    expect(result.allCallers).toBe(false);
+    expect(result.kpis).toEqual(data.team_kpis);
+    expect(result.allCallers).toBe(true);
   });
 });

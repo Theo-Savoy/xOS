@@ -67,7 +67,7 @@ export function filterSessionsModeKpis(
     return { kpis: data.team_kpis, allCallers: true };
   }
   if (selectedSessionIds.size === 0) {
-    return { kpis: emptyKpis(), allCallers: false };
+    return { kpis: data.team_kpis, allCallers: true };
   }
   if (selectionStaleForSessions(sessions, selectedSessionIds)) {
     return { kpis: data.team_kpis, allCallers: true };

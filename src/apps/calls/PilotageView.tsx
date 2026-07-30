@@ -14,7 +14,8 @@ import {
   normalizeSessionId,
   selectionStaleForSessions,
 } from "./pilotageKpis";
-import type { PeriodKpis } from "./types";
+import type { PeriodKpis, TeamMember } from "./types";
+import { fetchTeam } from "./api";
 import {
   fetchProspectionCockpit,
   prefetchProspectionCockpit,
@@ -113,9 +114,47 @@ const SESSION_TYPE_LABEL: Record<string, string> = {
   relance: "Relance",
 };
 
+function looksLikeEmail(value: string): boolean {
+  return value.includes("@");
+}
+
+/** "jean.dupont@xos-learning.fr" → "Jean Dupont" */
+function emailPrefixToName(email: string): string {
+  const prefix = email.split("@")[0];
+  return prefix
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Build a user_id / sf_user_id → display-name map from the team directory. */
+function buildTeamNameMap(team: TeamMember[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const member of team) {
+    if (member.label && !looksLikeEmail(member.label)) {
+      map.set(member.user_id, member.label);
+      if (member.sf_user_id) map.set(member.sf_user_id, member.label);
+    }
+  }
+  return map;
+}
+
+/** Resolve a label: if it looks like an email, try the team map, else format the prefix. */
+function resolveLabel(
+  label: string,
+  userId: string | null,
+  teamNameMap: Map<string, string>,
+): string {
+  if (!looksLikeEmail(label)) return label;
+  if (userId && teamNameMap.has(userId)) return teamNameMap.get(userId)!;
+  return emailPrefixToName(label);
+}
+
 function callersFromSessions(
   sessions: CockpitSessionRow[],
   baseCallers: CockpitCallerRow[],
+  teamNameMap?: Map<string, string>,
 ): CallerCard[] {
   const baseById = new Map(baseCallers.map((c) => [c.user_id, c]));
   const grouped = new Map<string, { label: string; kpis: PeriodKpis[] }>();
@@ -136,9 +175,10 @@ function callersFromSessions(
   return Array.from(grouped.entries())
     .map(([user_id, row]) => {
       const base = baseById.get(user_id);
+      const rawLabel = row.label;
       return {
         user_id,
-        label: row.label,
+        label: teamNameMap ? resolveLabel(rawLabel, user_id, teamNameMap) : rawLabel,
         tracking: base?.tracking,
         sessions_active: base?.sessions_active,
         sessions_completed: base?.sessions_completed,
@@ -148,11 +188,11 @@ function callersFromSessions(
     .sort((a, b) => b.kpis.calls - a.kpis.calls || a.label.localeCompare(b.label, "fr"));
 }
 
-function dayCallersToCards(rows: CockpitDayCallerRow[]): CallerCard[] {
+function dayCallersToCards(rows: CockpitDayCallerRow[], teamNameMap?: Map<string, string>): CallerCard[] {
   return rows
     .map((row) => ({
       user_id: row.user_id,
-      label: row.label,
+      label: teamNameMap ? resolveLabel(row.label, row.user_id, teamNameMap) : row.label,
       kpis: row.kpis,
     }))
     .sort((a, b) => b.kpis.calls - a.kpis.calls || a.label.localeCompare(b.label, "fr"));
@@ -364,6 +404,7 @@ export function PilotageView({
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [selectedCallerId, setSelectedCallerId] = useState<string | null>(null);
   const [showAllRdv, setShowAllRdv] = useState(false);
+  const [team, setTeam] = useState<TeamMember[]>([]);
 
   const data = cockpitSlice.data;
   const selectedSessionIds = cockpitSlice.selectedSessionIds;
@@ -440,6 +481,22 @@ export function PilotageView({
     void load();
   }, [load]);
 
+  // Charge le répertoire d'équipe pour résoudre les emails en noms.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    fetchTeam(token)
+      .then((members) => {
+        if (!cancelled) setTeam(members);
+      })
+      .catch(() => {
+        /* best-effort — le fallback formate le préfixe email */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   // Précharge les périodes adjacentes pour que ‹ › soit instantané.
   useEffect(() => {
     if (!token || !data) return;
@@ -456,6 +513,8 @@ export function PilotageView({
   const sessions = data?.sessions ?? EMPTY_SESSIONS;
   const byDay = data?.by_day ?? EMPTY_DAYS;
 
+  const teamNameMap = useMemo(() => buildTeamNameMap(team), [team]);
+
   const selectedSessions = useMemo(() => {
     const picked = sessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
     if (selectionStaleForSessions(sessions, selectedSessionIds)) {
@@ -469,14 +528,21 @@ export function PilotageView({
       return { kpis: emptyKpis(), callers: [] as CallerCard[] };
     }
 
+    /** Resolve labels in a CockpitCallerRow[] → CallerCard[]. */
+    const resolveCallers = (rows: CockpitCallerRow[]): CallerCard[] =>
+      rows.map((row) => ({
+        ...row,
+        label: resolveLabel(row.label, row.user_id, teamNameMap),
+      }));
+
     if (detailMode === "sessions") {
       const { kpis, allCallers } = filterSessionsModeKpis(data, sessions, selectedSessionIds);
       if (allCallers) {
-        return { kpis, callers: data.by_caller as CallerCard[] };
+        return { kpis, callers: resolveCallers(data.by_caller) };
       }
       return {
         kpis,
-        callers: callersFromSessions(selectedSessions, data.by_caller),
+        callers: callersFromSessions(selectedSessions, data.by_caller, teamNameMap),
       };
     }
 
@@ -485,16 +551,16 @@ export function PilotageView({
       if (day) {
         return {
           kpis: day.kpis,
-          callers: dayCallersToCards(day.by_caller),
+          callers: dayCallersToCards(day.by_caller, teamNameMap),
         };
       }
     }
 
     return {
       kpis: data.team_kpis,
-      callers: data.by_caller as CallerCard[],
+      callers: resolveCallers(data.by_caller),
     };
-  }, [data, detailMode, sessions, selectedSessionIds, selectedSessions, expandedDay, byDay]);
+  }, [data, detailMode, sessions, selectedSessionIds, selectedSessions, expandedDay, byDay, teamNameMap]);
 
   const kpis = useMemo(() => {
     const computed = filtered.kpis;
@@ -757,7 +823,7 @@ export function PilotageView({
                             {session.shared && <Tag variant="accent">Partagée</Tag>}
                           </span>
                           <span className="pilotage-session-chip__meta">
-                            <span>{session.owner.label}</span>
+                            <span>{resolveLabel(session.owner.label, session.owner.user_id ?? session.owner.sf_user_id, teamNameMap)}</span>
                             <span className="pilotage-muted">
                               {SESSION_TYPE_LABEL[session.session_type] || session.session_type}
                             </span>
@@ -936,7 +1002,7 @@ export function PilotageView({
               <tbody>
                 {data?.by_rdv_owner.map((row) => (
                   <tr key={row.sf_user_id || row.label}>
-                    <td><strong>{row.label}</strong></td>
+                    <td><strong>{resolveLabel(row.label, row.sf_user_id, teamNameMap)}</strong></td>
                     <td className="xos-numeric">{row.rdv}</td>
                     <td className="xos-numeric">{row.from_sdr}</td>
                   </tr>
@@ -985,9 +1051,9 @@ export function PilotageView({
                         <span className="pilotage-muted"> · {row.account_name}</span>
                       )}
                     </td>
-                    <td>{row.caller.label}</td>
+                    <td>{resolveLabel(row.caller.label, row.caller.user_id ?? row.caller.sf_user_id, teamNameMap)}</td>
                     <td>
-                      <strong>{row.rdv_owner_label}</strong>
+                      <strong>{resolveLabel(row.rdv_owner_label, row.rdv_owner_sf_user_id, teamNameMap)}</strong>
                       {row.caller.sf_user_id
                         && row.rdv_owner_sf_user_id
                         && row.caller.sf_user_id !== row.rdv_owner_sf_user_id && (

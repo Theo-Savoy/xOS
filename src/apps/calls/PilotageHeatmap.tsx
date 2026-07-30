@@ -142,9 +142,6 @@ export function PilotageHeatmap({
                     onFocus={() => onPrefetchDay?.(cell.date)}
                   >
                     <span className="pilotage-heatmap__day">{dayNum}</span>
-                    {value > 0 ? (
-                      <span className="pilotage-heatmap__value xos-numeric">{value}</span>
-                    ) : null}
                   </Button>
                 );
               })}
