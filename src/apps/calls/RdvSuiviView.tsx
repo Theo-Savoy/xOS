@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "../../auth/useSession";
 import { WindowBootScreen } from "../../components/WindowBootScreen";
-import { Button, EmptyState } from "../../components/ui";
+import { Button, DatePicker, EmptyState } from "../../components/ui";
 import { todayParisIso } from "../../lib/dates";
 import {
   fetchRdvSuivi,
@@ -32,11 +32,22 @@ const STATUS_LABELS: Record<RdvSuiviStatus, string> = {
 };
 
 const STATUS_COLORS: Record<RdvSuiviStatus, string> = {
-  a_venir: "var(--rdv-status-upcoming)",
-  effectue: "var(--rdv-status-done)",
-  annule: "var(--rdv-status-cancelled)",
-  no_show: "var(--rdv-status-noshow)",
+  a_venir: "var(--xos-accent)",
+  effectue: "var(--xos-accent-success)",
+  annule: "var(--xos-accent-warning)",
+  no_show: "var(--xos-accent-danger)",
 };
+
+/** Actions du panneau de qualification — « Reporter » est une action, pas un statut. */
+const REPORT_ACTION = "report" as const;
+type FormStatus = RdvSuiviStatus | typeof REPORT_ACTION;
+
+const STATUS_ACTIONS: readonly { value: FormStatus; label: string; color: string }[] = [
+  { value: "effectue", label: "Effectué", color: "var(--xos-accent-success)" },
+  { value: "annule", label: "Annulé", color: "var(--xos-accent-warning)" },
+  { value: "no_show", label: "No-show", color: "var(--xos-accent-danger)" },
+  { value: REPORT_ACTION, label: "Reporter", color: "var(--xos-accent)" },
+];
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -48,6 +59,13 @@ function formatDateShort(iso: string): string {
 
 function dayKey(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-CA"); // YYYY-MM-DD
+}
+
+/** Heure locale HH:MM d'un ISO. */
+function isoToLocalTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function sectionLabel(key: string, today: string): string {
@@ -101,10 +119,10 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
   const [sfWarning, setSfWarning] = useState<string | null>(null);
 
   // Report form state
-  const [formStatus, setFormStatus] = useState<RdvSuiviStatus>("effectue");
+  const [formStatus, setFormStatus] = useState<FormStatus>("effectue");
   const [formNotes, setFormNotes] = useState("");
-  const [formReschedule, setFormReschedule] = useState(false);
-  const [formNewStart, setFormNewStart] = useState("");
+  const [formNewDate, setFormNewDate] = useState("");
+  const [formNewTime, setFormNewTime] = useState("");
 
   const range = useMemo(() => periodRange(period), [period]);
   const hasLoadedOnce = useRef(false);
@@ -114,9 +132,7 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
       setInitialLoading(false);
       return;
     }
-    if (hasLoadedOnce.current) {
-      // Rechargement silencieux — les données se mettent à jour en place
-    } else {
+    if (!hasLoadedOnce.current) {
       setInitialLoading(true);
     }
     setError(null);
@@ -167,8 +183,8 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
     setExpandedId(rdv.sf_event_id);
     setFormStatus(rdv.status === "a_venir" ? "effectue" : rdv.status);
     setFormNotes(rdv.notes || "");
-    setFormReschedule(false);
-    setFormNewStart("");
+    setFormNewDate("");
+    setFormNewTime(isoToLocalTime(rdv.start));
     setSaveError(null);
     setSfWarning(null);
   };
@@ -179,12 +195,20 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
     setSaveError(null);
     setSfWarning(null);
     try {
+      const isReport = formStatus === REPORT_ACTION;
+      const durationMin = rdv.end
+        ? Math.max(15, Math.round((new Date(rdv.end).getTime() - new Date(rdv.start).getTime()) / 60000))
+        : 60;
+
       const result = await reportRdv(token, {
         sf_event_id: rdv.sf_event_id,
-        status: formStatus,
+        status: isReport ? "a_venir" : formStatus,
         notes: formNotes.trim() || undefined,
-        ...(formReschedule && formNewStart
-          ? { new_start: new Date(formNewStart).toISOString(), duration_min: 60 }
+        ...(isReport && formNewDate
+          ? {
+              new_start: new Date(`${formNewDate}T${formNewTime || "09:00"}:00`).toISOString(),
+              duration_min: durationMin,
+            }
           : {}),
       });
       if (result.sf_sync_failed) {
@@ -196,7 +220,7 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
           r.sf_event_id === rdv.sf_event_id
             ? {
                 ...r,
-                status: formStatus,
+                status: isReport ? "a_venir" : formStatus,
                 notes: formNotes.trim() || null,
                 reported_at: new Date().toISOString(),
               }
@@ -267,15 +291,15 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
               onExpand={() => handleExpand(rdv)}
               formStatus={formStatus}
               formNotes={formNotes}
-              formReschedule={formReschedule}
-              formNewStart={formNewStart}
+              formNewDate={formNewDate}
+              formNewTime={formNewTime}
               saving={saving}
               saveError={saveError}
               sfWarning={sfWarning}
               onStatusChange={setFormStatus}
               onNotesChange={setFormNotes}
-              onRescheduleToggle={setFormReschedule}
-              onNewStartChange={setFormNewStart}
+              onNewDateChange={setFormNewDate}
+              onNewTimeChange={setFormNewTime}
               onSubmit={() => void handleSubmit(rdv)}
             />
           ))}
@@ -294,15 +318,15 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
               onExpand={() => handleExpand(rdv)}
               formStatus={formStatus}
               formNotes={formNotes}
-              formReschedule={formReschedule}
-              formNewStart={formNewStart}
+              formNewDate={formNewDate}
+              formNewTime={formNewTime}
               saving={saving}
               saveError={saveError}
               sfWarning={sfWarning}
               onStatusChange={setFormStatus}
               onNotesChange={setFormNotes}
-              onRescheduleToggle={setFormReschedule}
-              onNewStartChange={setFormNewStart}
+              onNewDateChange={setFormNewDate}
+              onNewTimeChange={setFormNewTime}
               onSubmit={() => void handleSubmit(rdv)}
             />
           ))}
@@ -330,17 +354,17 @@ type RdvRowProps = {
   rdv: RdvSuiviItem;
   expanded: boolean;
   onExpand: () => void;
-  formStatus: RdvSuiviStatus;
+  formStatus: FormStatus;
   formNotes: string;
-  formReschedule: boolean;
-  formNewStart: string;
+  formNewDate: string;
+  formNewTime: string;
   saving: boolean;
   saveError: string | null;
   sfWarning: string | null;
-  onStatusChange: (s: RdvSuiviStatus) => void;
+  onStatusChange: (s: FormStatus) => void;
   onNotesChange: (v: string) => void;
-  onRescheduleToggle: (v: boolean) => void;
-  onNewStartChange: (v: string) => void;
+  onNewDateChange: (v: string) => void;
+  onNewTimeChange: (v: string) => void;
   onSubmit: () => void;
 };
 
@@ -350,19 +374,21 @@ function RdvRow({
   onExpand,
   formStatus,
   formNotes,
-  formReschedule,
-  formNewStart,
+  formNewDate,
+  formNewTime,
   saving,
   saveError,
   sfWarning,
   onStatusChange,
   onNotesChange,
-  onRescheduleToggle,
-  onNewStartChange,
+  onNewDateChange,
+  onNewTimeChange,
   onSubmit,
 }: RdvRowProps) {
   const isPast = dayKey(rdv.start) < todayParisIso();
   const needsAttention = isPast && rdv.status === "a_venir";
+  const isReport = formStatus === REPORT_ACTION;
+  const reportDisabled = isReport && !formNewDate;
 
   return (
     <div className={`rdv-row ${expanded ? "rdv-row--expanded" : ""} ${needsAttention ? "rdv-row--attention" : ""}`}>
@@ -383,51 +409,53 @@ function RdvRow({
       {expanded && (
         <div className="rdv-row__detail">
           <div className="rdv-row__status-picker">
-            {(["effectue", "annule", "no_show"] as RdvSuiviStatus[]).map((s) => (
+            {STATUS_ACTIONS.map((action) => (
               <button
-                key={s}
+                key={action.value}
                 type="button"
-                className={`rdv-row__status-btn ${formStatus === s ? "rdv-row__status-btn--active" : ""}`}
-                style={{ "--rdv-btn-color": STATUS_COLORS[s] } as React.CSSProperties}
-                onClick={() => onStatusChange(s)}
+                className={`rdv-row__status-btn ${formStatus === action.value ? "rdv-row__status-btn--active" : ""}`}
+                style={{ "--rdv-btn-color": action.color } as React.CSSProperties}
+                onClick={() => onStatusChange(action.value)}
               >
-                {STATUS_LABELS[s]}
+                {action.label}
               </button>
             ))}
           </div>
 
+          {isReport && (
+            <div className="rdv-row__reschedule">
+              <DatePicker
+                label="Nouvelle date"
+                value={formNewDate}
+                onChange={onNewDateChange}
+                triggerClassName="calls-input"
+              />
+              <div className="calls-field rdv-row__time-field">
+                <span>Heure</span>
+                <input
+                  type="time"
+                  className="calls-input"
+                  value={formNewTime}
+                  onChange={(e) => onNewTimeChange(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
           <textarea
-            className="rdv-row__notes"
+            className="calls-textarea rdv-row__notes"
             placeholder="Compte-rendu du RDV…"
             value={formNotes}
             onChange={(e) => onNotesChange(e.target.value)}
             rows={3}
           />
 
-          <label className="rdv-row__reschedule-toggle">
-            <input
-              type="checkbox"
-              checked={formReschedule}
-              onChange={(e) => onRescheduleToggle(e.target.checked)}
-            />
-            Reporter le RDV
-          </label>
-
-          {formReschedule && (
-            <input
-              type="datetime-local"
-              className="rdv-row__new-start"
-              value={formNewStart}
-              onChange={(e) => onNewStartChange(e.target.value)}
-            />
-          )}
-
           {saveError && <p className="rdv-row__error" role="alert">{saveError}</p>}
           {sfWarning && <p className="rdv-row__warning" role="status">{sfWarning}</p>}
 
           <div className="rdv-row__actions">
-            <Button size="sm" onClick={onSubmit} disabled={saving}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
+            <Button size="sm" onClick={onSubmit} disabled={saving || reportDisabled}>
+              {saving ? "Enregistrement…" : isReport ? "Reporter le RDV" : "Enregistrer"}
             </Button>
           </div>
         </div>
