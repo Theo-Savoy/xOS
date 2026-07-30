@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterSessionsModeKpis } from "./pilotageKpis";
+import { filterSessionsModeKpis, sessionHasActivity } from "./pilotageKpis";
 import type { CockpitSessionRow, ProspectionCockpit } from "./pilotageApi";
 import type { PeriodKpis } from "./types";
 
@@ -69,5 +69,19 @@ describe("filterSessionsModeKpis", () => {
     const result = filterSessionsModeKpis(data, data.sessions, new Set());
     expect(result.kpis).toEqual(data.team_kpis);
     expect(result.allCallers).toBe(true);
+  });
+});
+
+describe("sessionHasActivity", () => {
+  it("is false when no calls nor RDV", () => {
+    expect(sessionHasActivity(teamKpis({ calls: 0, rdv: 0 }))).toBe(false);
+  });
+
+  it("is true with calls only", () => {
+    expect(sessionHasActivity(teamKpis({ calls: 3, rdv: 0 }))).toBe(true);
+  });
+
+  it("is true with RDV only", () => {
+    expect(sessionHasActivity(teamKpis({ calls: 0, rdv: 1 }))).toBe(true);
   });
 });

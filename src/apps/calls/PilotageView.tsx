@@ -13,6 +13,7 @@ import {
   mergeKpis,
   normalizeSessionId,
   selectionStaleForSessions,
+  sessionHasActivity,
 } from "./pilotageKpis";
 import type { PeriodKpis, TeamMember } from "./types";
 import { fetchTeam } from "./api";
@@ -50,7 +51,12 @@ type CockpitSliceAction =
 function cockpitSliceReducer(state: CockpitSlice, action: CockpitSliceAction): CockpitSlice {
   switch (action.type) {
     case "apply": {
-      const nextIds = (action.cockpit.sessions ?? []).map((s) => normalizeSessionId(s.id));
+      // En vue « jour », les séances sans activité ne sont pas affichées :
+      // la sélection ne doit contenir que les séances visibles.
+      const visible = (action.cockpit.sessions ?? []).filter(
+        (s) => action.cockpit.period !== "day" || sessionHasActivity(s.kpis),
+      );
+      const nextIds = visible.map((s) => normalizeSessionId(s.id));
       const nextSet = new Set(nextIds);
       let selectedSessionIds: Set<number>;
       if (action.resetSelection || !state.data) {
@@ -513,15 +519,24 @@ export function PilotageView({
   const sessions = data?.sessions ?? EMPTY_SESSIONS;
   const byDay = data?.by_day ?? EMPTY_DAYS;
 
+  /**
+   * Les KPIs d'une séance sont relatifs à la période active : en vue « jour »,
+   * une séance sans appel ni RDV ce jour-là n'a pas de raison d'apparaître.
+   */
+  const visibleSessions = useMemo(() => {
+    if (period !== "day") return sessions;
+    return sessions.filter((s) => sessionHasActivity(s.kpis));
+  }, [sessions, period]);
+
   const teamNameMap = useMemo(() => buildTeamNameMap(team), [team]);
 
   const selectedSessions = useMemo(() => {
-    const picked = sessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
-    if (selectionStaleForSessions(sessions, selectedSessionIds)) {
-      return sessions;
+    const picked = visibleSessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
+    if (selectionStaleForSessions(visibleSessions, selectedSessionIds)) {
+      return visibleSessions;
     }
     return picked;
-  }, [sessions, selectedSessionIds]);
+  }, [visibleSessions, selectedSessionIds]);
 
   const filtered = useMemo(() => {
     if (!data) {
@@ -536,7 +551,7 @@ export function PilotageView({
       }));
 
     if (detailMode === "sessions") {
-      const { kpis, allCallers } = filterSessionsModeKpis(data, sessions, selectedSessionIds);
+      const { kpis, allCallers } = filterSessionsModeKpis(data, visibleSessions, selectedSessionIds);
       if (allCallers) {
         return { kpis, callers: resolveCallers(data.by_caller) };
       }
@@ -560,7 +575,7 @@ export function PilotageView({
       kpis: data.team_kpis,
       callers: resolveCallers(data.by_caller),
     };
-  }, [data, detailMode, sessions, selectedSessionIds, selectedSessions, expandedDay, byDay, teamNameMap]);
+  }, [data, detailMode, visibleSessions, selectedSessionIds, selectedSessions, expandedDay, byDay, teamNameMap]);
 
   const kpis = useMemo(() => {
     const computed = filtered.kpis;
@@ -579,7 +594,7 @@ export function PilotageView({
   const selectAllSessions = () => {
     dispatchCockpit({
       type: "selectAll",
-      sessionIds: sessions.map((s) => normalizeSessionId(s.id)),
+      sessionIds: visibleSessions.map((s) => normalizeSessionId(s.id)),
     });
   };
 
@@ -786,7 +801,7 @@ export function PilotageView({
                   type="button"
                   className="calls-seg__btn"
                   onClick={selectAllSessions}
-                  disabled={sessions.length === 0 || selectedSessionIds.size === sessions.length}
+                  disabled={visibleSessions.length === 0 || selectedSessionIds.size === visibleSessions.length}
                 >
                   Tout
                 </Button>
@@ -794,18 +809,22 @@ export function PilotageView({
                   type="button"
                   className="calls-seg__btn"
                   onClick={selectNoSessions}
-                  disabled={sessions.length === 0 || selectedSessionIds.size === 0}
+                  disabled={visibleSessions.length === 0 || selectedSessionIds.size === 0}
                 >
                   Aucun
                 </Button>
               </div>
             </div>
 
-            {sessions.length === 0 ? (
-              <p className="pilotage-empty">Aucune séance sur la période.</p>
+            {visibleSessions.length === 0 ? (
+              <p className="pilotage-empty">
+                {period === "day"
+                  ? "Aucune séance active sur ce jour."
+                  : "Aucune séance sur la période."}
+              </p>
             ) : (
               <ul className="pilotage-session-list pilotage-sessions-compact__list">
-                {sessions.map((session) => {
+                {visibleSessions.map((session) => {
                   const checked = selectedSessionIds.has(session.id);
                   return (
                     <li key={session.id}>
@@ -915,11 +934,11 @@ export function PilotageView({
           kpis={kpis}
           extras={
             <>
-              {detailMode === "sessions" && sessions.length > 0 && (
+              {detailMode === "sessions" && visibleSessions.length > 0 && (
                 <>
                   <span aria-hidden="true"> · </span>
-                  {selectedSessions.length}/{sessions.length} séance
-                  {sessions.length > 1 ? "s" : ""}
+                  {selectedSessions.length}/{visibleSessions.length} séance
+                  {visibleSessions.length > 1 ? "s" : ""}
                 </>
               )}
               {detailMode === "days" && expandedDay && (

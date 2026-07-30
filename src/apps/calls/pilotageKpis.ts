@@ -41,6 +41,11 @@ export function mergeKpis(list: PeriodKpis[]): PeriodKpis {
   };
 }
 
+/** Une séance a de l'activité si des appels ou des RDV sont comptés. */
+export function sessionHasActivity(kpis: PeriodKpis): boolean {
+  return kpis.calls > 0 || kpis.rdv > 0;
+}
+
 export function normalizeSessionId(id: number | string): number {
   return typeof id === "number" ? id : Number(id);
 }
