@@ -1633,7 +1633,11 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
       )}
 
       {view === "pilotage" && (
-        <PilotageView onBack={goToSessions} onPin={handlePinPilotage} />
+        <PilotageView
+          onBack={goToSessions}
+          onPin={handlePinPilotage}
+          onOpenSuivi={() => setView("rdv-suivi")}
+        />
       )}
 
       {view === "rdv-suivi" && (

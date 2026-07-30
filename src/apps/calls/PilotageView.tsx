@@ -6,6 +6,7 @@ import { todayParisIso as todayParisDate } from "../../lib/dates";
 import { CallFunnelCard } from "./CallFunnelCard";
 import { stagesFromPeriodKpis } from "./CallFunnelCard.helpers";
 import { PilotageHeatmap } from "./PilotageHeatmap";
+import { RdvStatusPanel } from "./RdvStatusPanel";
 import {
   cockpitDataInSync,
   emptyKpis,
@@ -387,9 +388,11 @@ function CommercialCard({
 export function PilotageView({
   onBack,
   onPin,
+  onOpenSuivi,
 }: {
   onBack: () => void;
   onPin?: () => Promise<void>;
+  onOpenSuivi?: () => void;
 }) {
   const { session, loading: sessionLoading } = useSession();
   const token = session?.access_token ?? null;
@@ -529,6 +532,12 @@ export function PilotageView({
   }, [sessions, period]);
 
   const teamNameMap = useMemo(() => buildTeamNameMap(team), [team]);
+
+  /** IDs Salesforce de l'équipe, pour requêter les RDV de tout le monde (vue manager). */
+  const teamSfUserIds = useMemo(
+    () => team.map((m) => m.sf_user_id).filter((id): id is string => Boolean(id)),
+    [team],
+  );
 
   const selectedSessions = useMemo(() => {
     const picked = visibleSessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
@@ -951,6 +960,16 @@ export function PilotageView({
           }
         />
       </div>
+
+      {token && (
+        <RdvStatusPanel
+          token={token}
+          period={period}
+          anchor={effectiveAnchor}
+          teamSfUserIds={teamSfUserIds}
+          onOpenSuivi={onOpenSuivi}
+        />
+      )}
 
       <GlassCard className="pilotage-panel">
         <h3>Équipe</h3>
