@@ -474,3 +474,57 @@ export async function createPreset(
 export async function deletePreset(token: string, id: number): Promise<void> {
   await apiFetch(token, `/api/calls?resource=presets&id=${id}`, { method: "DELETE" });
 }
+
+// ─── Suivi RDV ───────────────────────────────────────────────────────────────
+
+export type RdvSuiviStatus = "a_venir" | "effectue" | "annule" | "no_show";
+
+export type RdvSuiviItem = {
+  sf_event_id: string;
+  subject: string;
+  start: string;
+  end: string | null;
+  description: string | null;
+  contact_name: string | null;
+  contact_id: string | null;
+  account_name: string | null;
+  account_id: string | null;
+  owner_name: string | null;
+  owner_id: string | null;
+  status: RdvSuiviStatus;
+  notes: string | null;
+  reported_by: string | null;
+  reported_at: string | null;
+  via_combo: boolean;
+};
+
+export async function fetchRdvSuivi(
+  token: string,
+  options: { teamSfUserIds?: string[]; rangeStart?: string; rangeEnd?: string } = {},
+): Promise<{ rdvs: RdvSuiviItem[]; pending_count: number }> {
+  return apiFetch(token, "/api/calls", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "list_rdvs",
+      ...(options.teamSfUserIds?.length ? { team_sf_user_ids: options.teamSfUserIds } : {}),
+      ...(options.rangeStart ? { range_start: options.rangeStart } : {}),
+      ...(options.rangeEnd ? { range_end: options.rangeEnd } : {}),
+    }),
+  });
+}
+
+export async function reportRdv(
+  token: string,
+  payload: {
+    sf_event_id: string;
+    status: RdvSuiviStatus;
+    notes?: string;
+    new_start?: string;
+    duration_min?: number;
+  },
+): Promise<{ ok: boolean; sf_sync_failed?: boolean; sf_error?: string }> {
+  return apiFetch(token, "/api/calls", {
+    method: "POST",
+    body: JSON.stringify({ action: "report_rdv", ...payload }),
+  });
+}

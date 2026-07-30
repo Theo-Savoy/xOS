@@ -1,0 +1,254 @@
+/* ─── Suivi RDV ─────────────────────────────────────────────────────────────── */
+
+.rdv-suivi {
+  --rdv-status-upcoming: #7c9aff;
+  --rdv-status-done: #4ade80;
+  --rdv-status-cancelled: #f59e0b;
+  --rdv-status-noshow: #f87171;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rdv-suivi__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rdv-suivi__title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--xos-text);
+  margin: 0;
+}
+
+.rdv-suivi__error {
+  color: var(--rdv-status-noshow);
+  font-size: 0.85rem;
+}
+
+.rdv-suivi__banner {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: #fbbf24;
+}
+
+.rdv-suivi__empty {
+  color: var(--xos-text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ─── Sections ─────────────────────────────────────────────────────────────── */
+
+.rdv-suivi__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rdv-suivi__section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--xos-text-muted);
+  margin: 0 0 4px;
+  padding-left: 2px;
+}
+
+/* ─── Row ──────────────────────────────────────────────────────────────────── */
+
+.rdv-row {
+  border-radius: 8px;
+  border: 1px solid var(--xos-border);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.15s;
+}
+
+.rdv-row:hover {
+  border-color: rgba(124, 154, 255, 0.3);
+}
+
+.rdv-row--attention {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.rdv-row--expanded {
+  border-color: rgba(124, 154, 255, 0.4);
+}
+
+.rdv-row__main {
+  display: grid;
+  grid-template-columns: 48px 1fr 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--xos-text);
+}
+
+.rdv-row__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.rdv-row__contact {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rdv-row__account {
+  color: var(--xos-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rdv-row__subject {
+  color: var(--xos-text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.rdv-row__badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(124, 154, 255, 0.15);
+  color: var(--rdv-status-upcoming);
+}
+
+.rdv-row__status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─── Detail panel ─────────────────────────────────────────────────────────── */
+
+.rdv-row__detail {
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--xos-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rdv-row__status-picker {
+  display: flex;
+  gap: 8px;
+}
+
+.rdv-row__status-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--xos-border);
+  background: transparent;
+  color: var(--xos-text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rdv-row__status-btn:hover {
+  border-color: var(--rdv-btn-color);
+  color: var(--rdv-btn-color);
+}
+
+.rdv-row__status-btn--active {
+  border-color: var(--rdv-btn-color);
+  background: color-mix(in srgb, var(--rdv-btn-color) 12%, transparent);
+  color: var(--rdv-btn-color);
+  font-weight: 600;
+}
+
+.rdv-row__notes {
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--xos-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--xos-text);
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.rdv-row__notes:focus {
+  outline: none;
+  border-color: rgba(124, 154, 255, 0.5);
+}
+
+.rdv-row__reschedule-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--xos-text-muted);
+  cursor: pointer;
+}
+
+.rdv-row__new-start {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--xos-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--xos-text);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.rdv-row__error {
+  color: var(--rdv-status-noshow);
+  font-size: 0.8rem;
+}
+
+.rdv-row__warning {
+  color: #fbbf24;
+  font-size: 0.8rem;
+}
+
+.rdv-row__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .rdv-row__main {
+    grid-template-columns: 44px 1fr auto;
+    grid-template-rows: auto auto;
+  }
+
+  .rdv-row__account,
+  .rdv-row__subject {
+    display: none;
+  }
+}

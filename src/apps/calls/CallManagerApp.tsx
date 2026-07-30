@@ -35,6 +35,7 @@ import { addShortcut } from "../../os/shortcuts";
 import { resolveContextContactId, pendingContactsAhead } from "./runnerContext";
 import { recordLogCall, recordRdv, recordSessionComplete } from "./comboEvents";
 import { PilotageView } from "./PilotageView";
+import { RdvSuiviView } from "./RdvSuiviView";
 import { supabase } from "../../lib/supabase";
 import type { AppRole } from "../../os/registry";
 import { createDialerLogQueue } from "./dialerLogQueue";
@@ -67,7 +68,7 @@ const CONTEXT_PREFETCH_AHEAD = 3;
 const CONTEXT_CACHE_MAX = 32;
 const FILTER_DEBOUNCE_MS = 500;
 
-type View = "sessions" | "new" | "account-search" | "pre-session" | "runner" | "recap" | "recalls" | "pilotage" | "loading-params";
+type View = "sessions" | "new" | "account-search" | "pre-session" | "runner" | "recap" | "recalls" | "pilotage" | "rdv-suivi" | "loading-params";
 
 function viewFromParams(view?: string, sessionId?: string): View {
   if (sessionId) return "loading-params";
@@ -80,6 +81,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
       return "account-search";
     case "recalls":
       return "recalls";
+    case "rdv-suivi":
+      return "rdv-suivi";
     case "runner":
     case "recap":
       return sessionId ? "loading-params" : "sessions";
@@ -1622,6 +1625,7 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
           onOpenSession={(id, contactId) => void openSession(id, contactId)}
           onOpenRecalls={() => void openRecalls()}
           onOpenPilotage={() => setView("pilotage")}
+          onOpenRdvSuivi={() => setView("rdv-suivi")}
           onUpdateSession={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
           onShareSession={(id) => setShareSessionId(id)}
@@ -1630,6 +1634,10 @@ export default function CallManagerApp({ params, onParamsChange }: CallManagerAp
 
       {view === "pilotage" && (
         <PilotageView onBack={goToSessions} onPin={handlePinPilotage} />
+      )}
+
+      {view === "rdv-suivi" && (
+        <RdvSuiviView onBack={goToSessions} />
       )}
 
       {view === "new" && (

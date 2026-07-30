@@ -24,6 +24,7 @@ type SessionsViewProps = {
   onOpenSession: (sessionId: number, contactId?: number) => void;
   onOpenRecalls: () => void;
   onOpenPilotage?: () => void;
+  onOpenRdvSuivi?: () => void;
   onUpdateSession: (
     sessionId: number,
     patch: { name?: string; scheduled_for?: string | null; session_type?: SessionType },
@@ -115,6 +116,7 @@ export function SessionsView({
   onOpenSession,
   onOpenRecalls,
   onOpenPilotage,
+  onOpenRdvSuivi,
   onUpdateSession,
   onDeleteSession,
   onShareSession,
@@ -240,6 +242,11 @@ export function SessionsView({
           <h2>Prospection</h2>
         </div>
         <div className="calls-view__actions">
+          {onOpenRdvSuivi && (
+            <Button variant="secondary" onClick={onOpenRdvSuivi}>
+              Suivi RDV
+            </Button>
+          )}
           {canPilotage && onOpenPilotage && (
             <Button variant="secondary" onClick={onOpenPilotage}>
               Pilotage

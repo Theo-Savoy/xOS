@@ -3,6 +3,7 @@ import { searchAccounts } from "./_calls/accountsSearch.js";
 import { listContacts } from "./_calls/listContacts.js";
 import { deletePreset, listPresets, savePreset } from "./_calls/presets.js";
 import { handleLogging } from "./_calls/logging.js";
+import { handleRdvSuivi } from "./_calls/rdvSuivi.js";
 import { handleSessionsRead } from "./_calls/sessionsRead.js";
 import { handleSessionWrite } from "./_calls/sessionsWrite.js";
 import { getServiceClient, jsonResponse } from "./_calls/http.js";
@@ -92,6 +93,7 @@ export async function POST(request) {
   return (await handleBuiltInAction(body.action, body, context.user, context.client))
     || (await handleSessionWrite(args))
     || (await handleLogging(args))
+    || (await handleRdvSuivi(args))
     || response(400, { error: "invalid_action" });
 }
 
