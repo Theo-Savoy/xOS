@@ -7,14 +7,6 @@ import {
 import { getProfile } from "./profileCache.js";
 import { journalAction } from "./http.js";
 
-const RDV_SUBJECTS = [
-  "Rdv découverte prospect",
-  "Rdv détection enjeux client",
-  "Soutenance",
-  "Point suivi client",
-  "Point suivi opportunité",
-];
-
 const VALID_STATUSES = ["a_venir", "effectue", "annule", "no_show"];
 
 const STATUS_TO_SF = {
@@ -53,7 +45,6 @@ async function handleListRdvs({ body, user, client, headers }) {
   const rangeStart = body.range_start || new Date(now.getTime() - 7 * 86400_000).toISOString();
   const rangeEnd = body.range_end || new Date(now.getTime() + 30 * 86400_000).toISOString();
 
-  const subjectClause = escapedList(RDV_SUBJECTS);
   const ownerClause = escapedList(ownerIds);
   const soql = [
     "SELECT Id, Subject, StartDateTime, EndDateTime, Description,",
@@ -62,7 +53,6 @@ async function handleListRdvs({ body, user, client, headers }) {
     `WHERE OwnerId IN (${ownerClause})`,
     `AND StartDateTime >= ${rangeStart.replace(/'/g, "\\'")}`,
     `AND StartDateTime <= ${rangeEnd.replace(/'/g, "\\'")}`,
-    `AND Subject IN (${subjectClause})`,
     "ORDER BY StartDateTime ASC",
     "LIMIT 200",
   ].join(" ");

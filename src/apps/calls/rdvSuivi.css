@@ -30,36 +30,9 @@
   margin: 0;
 }
 
-/* Sélecteur de période */
+/* Sélecteur de période — positionnement (styles via calls-seg) */
 .rdv-suivi__periods {
-  display: flex;
-  gap: 2px;
   margin-left: auto;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 3px;
-}
-
-.rdv-suivi__period-btn {
-  padding: 5px 14px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--xos-text-muted);
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.rdv-suivi__period-btn:hover {
-  color: var(--xos-text);
-}
-
-.rdv-suivi__period-btn--active {
-  background: rgba(124, 154, 255, 0.18);
-  color: var(--rdv-status-upcoming);
-  font-weight: 600;
 }
 
 .rdv-suivi__error {
@@ -74,45 +47,6 @@
   padding: 10px 14px;
   font-size: 0.85rem;
   color: #fbbf24;
-}
-
-.rdv-suivi__empty {
-  color: var(--xos-text-muted);
-  font-size: 0.9rem;
-  text-align: center;
-  padding: 40px 0;
-}
-
-/* Empty state — interface visible même sans données */
-.rdv-suivi__empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 56px 24px;
-  border: 1px dashed var(--xos-border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.015);
-  text-align: center;
-}
-
-.rdv-suivi__empty-icon {
-  font-size: 2rem;
-  opacity: 0.7;
-}
-
-.rdv-suivi__empty-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--xos-text);
-  margin: 0;
-}
-
-.rdv-suivi__empty-hint {
-  font-size: 0.82rem;
-  color: var(--xos-text-muted);
-  margin: 0;
-  max-width: 320px;
 }
 
 /* ─── Sections ─────────────────────────────────────────────────────────────── */

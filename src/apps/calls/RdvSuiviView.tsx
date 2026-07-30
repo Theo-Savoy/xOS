@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "../../auth/useSession";
 import { WindowBootScreen } from "../../components/WindowBootScreen";
-import { Button } from "../../components/ui";
+import { Button, EmptyState } from "../../components/ui";
 import { todayParisIso } from "../../lib/dates";
 import {
   fetchRdvSuivi,
@@ -18,11 +18,11 @@ type RdvSuiviViewProps = {
 
 type Period = "week" | "month" | "all";
 
-const PERIOD_LABELS: Record<Period, string> = {
-  week: "Cette semaine",
-  month: "Ce mois",
-  all: "Tout",
-};
+const PERIOD_OPTIONS: readonly { value: Period; label: string }[] = [
+  { value: "week", label: "Semaine" },
+  { value: "month", label: "Mois" },
+  { value: "all", label: "Tout" },
+];
 
 const STATUS_LABELS: Record<RdvSuiviStatus, string> = {
   a_venir: "À venir",
@@ -93,7 +93,7 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
   const [period, setPeriod] = useState<Period>("week");
   const [rdvs, setRdvs] = useState<RdvSuiviItem[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -107,13 +107,18 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
   const [formNewStart, setFormNewStart] = useState("");
 
   const range = useMemo(() => periodRange(period), [period]);
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     if (!token) {
-      setLoading(false);
+      setInitialLoading(false);
       return;
     }
-    setLoading(true);
+    if (hasLoadedOnce.current) {
+      // Rechargement silencieux — les données se mettent à jour en place
+    } else {
+      setInitialLoading(true);
+    }
     setError(null);
     try {
       const result = await fetchRdvSuivi(token, {
@@ -123,10 +128,11 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
       });
       setRdvs(result.rdvs);
       setPendingCount(result.pending_count);
+      hasLoadedOnce.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur de chargement");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   }, [token, teamSfUserIds, range?.start, range?.end]);
 
@@ -209,7 +215,8 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
 
   const hasData = rdvs.length > 0;
 
-  if (loading) {
+  // Chargement initial uniquement — les changements de période restent in-place
+  if (initialLoading) {
     return (
       <div className="calls-app">
         <WindowBootScreen label="Chargement du suivi RDV…" />
@@ -223,19 +230,21 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
         <Button variant="ghost" size="sm" onClick={onBack}>← Retour</Button>
         <h1 className="rdv-suivi__title">Suivi RDV</h1>
 
-        {/* Sélecteur de temporalité */}
-        <nav className="rdv-suivi__periods" aria-label="Période">
-          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-            <button
-              key={p}
+        {/* Sélecteur de période — pattern standard calls-seg */}
+        <div className="calls-seg rdv-suivi__periods" role="group" aria-label="Période">
+          {PERIOD_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              variant="ghost"
               type="button"
-              className={`rdv-suivi__period-btn${period === p ? " rdv-suivi__period-btn--active" : ""}`}
-              onClick={() => setPeriod(p)}
+              className={`calls-seg__btn${period === opt.value ? " calls-seg__btn--active" : ""}`}
+              aria-pressed={period === opt.value}
+              onClick={() => setPeriod(opt.value)}
             >
-              {PERIOD_LABELS[p]}
-            </button>
+              {opt.label}
+            </Button>
           ))}
-        </nav>
+        </div>
       </header>
 
       {error && <p className="rdv-suivi__error" role="alert">{error}</p>}
@@ -300,17 +309,16 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
         </section>
       ))}
 
-      {/* Empty state — l'interface reste visible */}
+      {/* Empty state — composant standard */}
       {!error && !hasData && (
-        <div className="rdv-suivi__empty-state">
-          <div className="rdv-suivi__empty-icon">📅</div>
-          <p className="rdv-suivi__empty-title">Aucun RDV {PERIOD_LABELS[period].toLowerCase()}</p>
-          <p className="rdv-suivi__empty-hint">
-            {period === "all"
+        <EmptyState
+          title={`Aucun RDV ${period === "week" ? "cette semaine" : period === "month" ? "ce mois" : ""}`}
+          description={
+            period === "all"
               ? "Les RDV créés dans Combo ou Salesforce apparaîtront ici."
-              : "Changez de période ou créez un RDV depuis une session d'appel."}
-          </p>
-        </div>
+              : "Changez de période ou créez un RDV depuis une session d'appel."
+          }
+        />
       )}
     </div>
   );
