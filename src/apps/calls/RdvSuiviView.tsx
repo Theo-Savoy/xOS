@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "../../auth/useSession";
 import { WindowBootScreen } from "../../components/WindowBootScreen";
-import { Button, DatePicker, EmptyState } from "../../components/ui";
+import { Button, DatePicker, EmptyState, TimePicker } from "../../components/ui";
 import { todayParisIso } from "../../lib/dates";
 import {
   fetchRdvSuivi,
@@ -428,17 +428,12 @@ function RdvRow({
                 label="Nouvelle date"
                 value={formNewDate}
                 onChange={onNewDateChange}
-                triggerClassName="calls-input"
               />
-              <div className="calls-field rdv-row__time-field">
-                <span>Heure</span>
-                <input
-                  type="time"
-                  className="calls-input"
-                  value={formNewTime}
-                  onChange={(e) => onNewTimeChange(e.target.value)}
-                />
-              </div>
+              <TimePicker
+                label="Heure"
+                value={formNewTime}
+                onChange={onNewTimeChange}
+              />
             </div>
           )}
 

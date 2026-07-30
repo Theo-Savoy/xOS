@@ -16,4 +16,5 @@ export type {
 export { SegmentedControl } from './SegmentedControl';
 export { Skeleton } from './Skeleton';
 export { Tag } from './Tag';
+export { TimePicker } from './TimePicker';
 export { getFocusableElements, useComboOverlay } from './useComboOverlay';
