@@ -200,6 +200,15 @@
   margin-bottom: 0;
 }
 
+/* Le trigger du DatePicker est un <button>, le champ heure un <input> natif :
+   sans ça leurs métriques UA diffèrent et les boîtes ne s'alignent pas. */
+.rdv-row__reschedule .calls-input,
+.rdv-row__reschedule .calls-datepicker__trigger {
+  box-sizing: border-box;
+  height: 2.4rem;
+  line-height: 1.2;
+}
+
 .rdv-row__time-field {
   min-width: 7rem;
 }
