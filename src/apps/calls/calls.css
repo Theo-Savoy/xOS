@@ -1154,6 +1154,10 @@
 
 /* ─── TimePicker custom (colonnes heures / minutes) ─────────────────────────── */
 
+.calls-timepicker {
+  position: relative;
+}
+
 .calls-timepicker__trigger {
   text-align: left;
   cursor: pointer;
