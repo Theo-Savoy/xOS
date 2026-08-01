@@ -9,9 +9,6 @@ import {
 } from 'react';
 import { Button, GlassCard, Tag } from '../../../../components/ui';
 import {
-  DEFAULT_RECALL_DAYS,
-  PIPE_ARGUMENTE,
-  PIPE_DECROCHE,
   RECALL_ELIGIBLE_RESULTATS,
   RELANCE_DEFAULT_RESULTATS,
   type ResultatCall,
@@ -60,7 +57,7 @@ import {
   formatIsoDateFr,
   todayParisIso,
 } from '../../formControls.helpers';
-import { LinkedInRecordLink, SalesforceRecordLink } from '../../BrandLinks';
+import { SalesforceRecordLink } from '../../BrandLinks';
 import { ProgressBar } from '../../ProgressBar';
 import {
   countRecallDateFilters,
@@ -73,20 +70,29 @@ import {
 import { nextContinuationName } from '../sessions/sessionNaming';
 import type {
   ContactContext,
-  ContactEventItem,
-  ContactOpportunityItem,
   SessionContact,
   SessionDetail,
   SessionSummary,
   TeamMember,
 } from '../../types';
 import { RESULTAT_OPTIONS, sessionTypeLabel } from '../../types';
+import {
+  addDaysIso,
+  readDefaultRecallDays,
+  formatAttemptLabel,
+  formatPreviousCallersBadge,
+  formatRelativeDaysFr,
+  sortOpportunities,
+  sortEvents,
+  listStatusDisplay,
+  computeKpis,
+  RECALL_DAYS_KEY,
+} from './runnerFormatters';
+import { ContactCardPanel } from './ContactCardPanel';
 import { ResultButtons } from '../../ResultButtons';
 import { RecallFields } from '../rdv/RecallFields';
 import { ContextSideSkeleton } from '../../ContextSideSkeleton';
 import type { DeferPayload, LogPayload } from './RunnerView.types';
-
-const RECALL_DAYS_KEY = 'xos-calls-default-recall-days';
 
 /** Textes des toasts de nudge apprentissage — terrain, sobre, jamais culpabilisant. */
 const NUDGE_TOAST_MESSAGES: Partial<Record<ShortcutId, string>> = {
@@ -166,298 +172,6 @@ type RunnerViewProps = {
   currentUserId?: string | null;
 };
 
-function addDaysIso(days: number): string {
-  const [y, m, d] = todayParisIso().split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d + days));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
-}
-
-function readDefaultRecallDays(): number {
-  try {
-    const raw = localStorage.getItem(RECALL_DAYS_KEY);
-    const value = raw ? Number(raw) : DEFAULT_RECALL_DAYS;
-    return Number.isInteger(value) && value >= 0 && value <= 90
-      ? value
-      : DEFAULT_RECALL_DAYS;
-  } catch {
-    return DEFAULT_RECALL_DAYS;
-  }
-}
-
-/** `completedAttempts` = appels déjà journalisés ; on affiche le n° de la prochaine tentative. */
-function formatAttemptLabel(completedAttempts: number): string {
-  const next = Math.max(1, completedAttempts + 1);
-  if (next === 1) return '1re tentative';
-  return `${next}e tentative`;
-}
-
-function formatPreviousCallersBadge(
-  previousCallers: SessionContact['previous_callers'],
-): string | null {
-  if (!previousCallers || previousCallers.length === 0) return null;
-  const [last] = previousCallers;
-  const relative = formatRelativeDaysFr(last.called_at);
-  const outcome = last.outcome ?? '—';
-  const prefix =
-    previousCallers.length === 1
-      ? 'Tenté 1 fois'
-      : `Tenté ${previousCallers.length} fois · dernier`;
-  return `${prefix} · ${last.user_label} il y a ${relative} · ${outcome}`;
-}
-
-function formatRelativeDaysFr(
-  iso: string | null | undefined,
-  today = todayParisIso(),
-): string {
-  const value = String(iso ?? '').slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !/^\d{4}-\d{2}-\d{2}$/.test(today))
-    return '';
-  const from = new Date(`${value}T12:00:00Z`).getTime();
-  const to = new Date(`${today}T12:00:00Z`).getTime();
-  const days = Math.max(0, Math.round((to - from) / 86_400_000));
-  if (days === 0) return 'aujourd’hui';
-  if (days === 1) return 'hier';
-  return `il y a ${days} j`;
-}
-
-function sortOpportunities(
-  opportunities: ContactOpportunityItem[],
-): ContactOpportunityItem[] {
-  return [...opportunities].sort((a, b) => {
-    const link =
-      Number(Boolean(b.linked_to_contact)) -
-      Number(Boolean(a.linked_to_contact));
-    if (link !== 0) return link;
-    return Number(a.is_closed) - Number(b.is_closed);
-  });
-}
-
-function sortEvents(events: ContactEventItem[]): ContactEventItem[] {
-  return [...events].sort((a, b) => {
-    const link =
-      Number(Boolean(b.linked_to_contact)) -
-      Number(Boolean(a.linked_to_contact));
-    if (link !== 0) return link;
-    return String(b.start_date_time || '').localeCompare(
-      String(a.start_date_time || ''),
-    );
-  });
-}
-
-function listStatusDisplay(contact: SessionContact): {
-  label: string;
-  variant: 'success' | 'warning' | 'accent' | 'muted' | 'default';
-} {
-  if (
-    contact.status === 'pending' &&
-    contact.claim_active &&
-    contact.claimed_by_label
-  ) {
-    return { label: `Pris · ${contact.claimed_by_label}`, variant: 'warning' };
-  }
-  if (contact.status === 'pending')
-    return { label: 'À faire', variant: 'accent' };
-  if (contact.status === 'skipped')
-    return { label: 'Non contacté', variant: 'warning' };
-  if (contact.outcome === 'RDV planifié')
-    return { label: contact.outcome, variant: 'success' };
-  if (
-    contact.outcome === 'Appel non décroché' ||
-    contact.outcome === 'Message répondeur'
-  ) {
-    return { label: contact.outcome, variant: 'warning' };
-  }
-  if (contact.outcome) return { label: contact.outcome, variant: 'accent' };
-  return { label: 'Appelé', variant: 'default' };
-}
-
-function computeKpis(contacts: SessionContact[]) {
-  const total = contacts.length;
-  const remaining = contacts.filter((c) => c.status === 'pending').length;
-  const calledRows = contacts.filter((c) => c.status === 'called');
-  const called = calledRows.length;
-  const decroches = calledRows.filter(
-    (c) => c.outcome && PIPE_DECROCHE.includes(c.outcome),
-  ).length;
-  // Cohérence avec computeHubKpis (api/_calls/http.js) : un RDV planifié
-  // est un appel argumenté qui a abouti, il doit compter dans les 2.
-  const argumentes = calledRows.filter(
-    (c) => c.outcome && PIPE_ARGUMENTE.includes(c.outcome),
-  ).length;
-  const rdv = calledRows.filter((c) => c.outcome === 'RDV planifié').length;
-  return { total, remaining, called, decroches, argumentes, rdv };
-}
-
-type ContactCardPanelProps = {
-  contact: SessionContact;
-  className: string;
-  showCheckmark: boolean;
-  displayTitle: string | null;
-  displayEmail: string | null;
-  sfContactUrl: string | null;
-  contextApplies: boolean;
-  contextBusy: boolean;
-  contactContext: ContactContext | null;
-  isRecallQueue: boolean;
-  onUpdateRecall: (ids: number[], date: string) => void;
-  'aria-hidden'?: boolean;
-};
-
-function ContactCardPanel({
-  contact,
-  className,
-  showCheckmark,
-  displayTitle,
-  displayEmail,
-  sfContactUrl,
-  contextApplies,
-  contextBusy,
-  contactContext,
-  isRecallQueue,
-  onUpdateRecall,
-  'aria-hidden': ariaHidden,
-}: ContactCardPanelProps) {
-  return (
-    <GlassCard className={className} aria-hidden={ariaHidden}>
-      {/* Contenu fadable : le GlassCard reste fixe, seul le texte change d'opacité. */}
-      <div className="calls-contact-card__fade">
-        {showCheckmark && (
-          <div className="calls-log-checkmark" aria-hidden="true">
-            ✓
-          </div>
-        )}
-        <div className="calls-contact-card__main">
-          <div className="calls-contact-card__who">
-            <div className="calls-contact-card__chips">
-              {contact.claim_active && contact.claimed_by_label && (
-                <Tag variant="alert">Pris par {contact.claimed_by_label}</Tag>
-              )}
-              {isRecallQueue && contact.origin_session_name && (
-                <Tag variant="accent">{contact.origin_session_name}</Tag>
-              )}
-              {(contact.attempt_count ?? 0) > 0 && (
-                <Tag variant={isRecallQueue ? 'accent' : 'muted'}>
-                  {formatAttemptLabel(contact.attempt_count ?? 0)}
-                </Tag>
-              )}
-              {contact.status !== 'pending' && (
-                <Tag variant={listStatusDisplay(contact).variant}>
-                  {listStatusDisplay(contact).label}
-                </Tag>
-              )}
-              {!contextBusy && contextApplies && contactContext?.npa && (
-                <Tag variant="alert">Ne pas rappeler (NPA)</Tag>
-              )}
-            </div>
-            <h3>{contact.contact_name}</h3>
-            <p className="calls-contact-card__role">
-              {[displayTitle, contact.account_name || 'Compte inconnu']
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-            <div
-              className={`calls-contact-card__context-meta${contextBusy ? ' calls-contact-card__context-meta--loading' : ''}`}
-            >
-              {contextApplies && contactContext?.industry && (
-                <p className="calls-contact-card__industry">
-                  Secteur · {contactContext.industry}
-                </p>
-              )}
-              {contextApplies &&
-                contactContext?.peer_clients &&
-                contactContext.peer_clients.length > 0 && (
-                  <div
-                    className="calls-contact-card__peers"
-                    aria-label="Références clients"
-                  >
-                    <span className="calls-contact-card__peers-label">
-                      Refs
-                    </span>
-                    <ul className="calls-contact-card__peers-list">
-                      {contactContext.peer_clients.map((peer) => (
-                        <li key={peer.id}>
-                          {peer.record_url ? (
-                            <a
-                              className="calls-contact-card__peer"
-                              href={peer.record_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={peer.name}
-                            >
-                              {peer.name}
-                            </a>
-                          ) : (
-                            <span
-                              className="calls-contact-card__peer calls-contact-card__peer--static"
-                              title={peer.name}
-                            >
-                              {peer.name}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-            </div>
-            {(isRecallQueue || contact.status !== 'pending') &&
-              contact.recall_at && (
-                <div className="calls-contact-card__recall-meta">
-                  <span>Rappel</span>
-                  <DatePicker
-                    compact
-                    label="Modifier la date de rappel"
-                    value={contact.recall_at}
-                    onChange={(next) => {
-                      if (next !== contact.recall_at) {
-                        onUpdateRecall([contact.id], next);
-                      }
-                    }}
-                    triggerClassName="calls-inline-link"
-                  />
-                </div>
-              )}
-          </div>
-          <div className="calls-contact-card__links">
-            {sfContactUrl && <SalesforceRecordLink href={sfContactUrl} />}
-            {contact.linkedin_url && (
-              <LinkedInRecordLink href={contact.linkedin_url} />
-            )}
-          </div>
-        </div>
-
-        <div className="calls-contact-card__cta">
-          <div className="calls-contact-card__cta-copy">
-            {contact.phone ? (
-              <a
-                href={`tel:${contact.phone}`}
-                className="calls-phone-link xos-numeric"
-              >
-                {contact.phone}
-              </a>
-            ) : (
-              <p className="calls-contact-card__no-phone">Aucun numéro</p>
-            )}
-            {displayEmail ? (
-              <a href={`mailto:${displayEmail}`} className="calls-email-link">
-                {displayEmail}
-              </a>
-            ) : (
-              <p className="calls-contact-card__no-email">Aucun email</p>
-            )}
-          </div>
-          {contact.phone && (
-            <Button
-              onClick={() => window.open(`tel:${contact.phone}`, '_self')}
-            >
-              Appeler
-            </Button>
-          )}
-        </div>
-      </div>
-    </GlassCard>
-  );
-}
 
 /** Phases du micro-fade texte entre deux fiches (conteneur unique). */
 type CardTextPhase =
