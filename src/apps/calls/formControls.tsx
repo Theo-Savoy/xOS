@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { Button } from '../../components/ui/Button';
-import { RDV_GOAL_PRESETS } from './rdvCelebrate';
+import { RDV_GOAL_PRESETS } from './modules/gamification/rdvCelebrate';
 import type { SessionType } from './types';
 import { SESSION_TYPE_OPTIONS } from './types';
 

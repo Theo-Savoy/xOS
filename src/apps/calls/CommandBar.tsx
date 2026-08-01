@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, GlassCard } from '../../components/ui';
-import { ComboSoundSettings } from './ComboSoundSettings';
+import { ComboSoundSettings } from './modules/gamification/ComboSoundSettings';
 import {
   type ComboActionDef,
   type ComboActionId,
   filterComboActions,
-} from './comboKeyboard';
-import type { ComboSoundPrefs } from './comboSoundPrefs';
-import { INTENSE_STREAK_THRESHOLD } from './comboStreaks';
-import { useComboOverlay } from './comboOverlay';
+} from './modules/gamification/comboKeyboard';
+import type { ComboSoundPrefs } from './modules/gamification/comboSoundPrefs';
+import { INTENSE_STREAK_THRESHOLD } from './modules/gamification/comboStreaks';
+import { useComboOverlay } from './modules/gamification/comboOverlay';
 import {
   summarizeComboStreaks,
   useComboXp,
   type ComboStreakSummary,
-} from './comboXp';
+} from './modules/gamification/comboXp';
 
 type CommandBarProps = {
   open: boolean;

@@ -40,33 +40,43 @@ import {
   CallsApiError,
 } from './api';
 import { addShortcut } from '../../os/shortcuts';
-import { resolveContextContactId, pendingContactsAhead } from './runnerContext';
-import { recordLogCall, recordRdv, recordSessionComplete } from './comboEvents';
-import { PilotageView } from './PilotageView';
-import { RdvSuiviView } from './RdvSuiviView';
+import {
+  resolveContextContactId,
+  pendingContactsAhead,
+} from './modules/runner/runnerContext';
+import {
+  recordLogCall,
+  recordRdv,
+  recordSessionComplete,
+} from './modules/gamification/comboEvents';
+import { PilotageView } from './modules/pilotage/PilotageView';
+import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { supabase } from '../../lib/supabase';
 import type { AppRole } from '../../os/registry';
-import { createDialerLogQueue } from './dialerLogQueue';
-import { NewSessionView } from './NewSessionView';
-import { RecapView } from './RecapView';
-import { RECALL_QUEUE_SESSION, recallsToSessionContacts } from './recallQueue';
-import { RunnerView } from './RunnerView';
-import type { LogPayload } from './RunnerView.types';
-import { SessionsView } from './SessionsView';
-import { PreSessionFlow } from './PreSessionFlow';
-import { ShareSessionPanel } from './ShareSessionPanel';
+import { createDialerLogQueue } from './modules/runner/dialerLogQueue';
+import { NewSessionView } from './modules/sessions/NewSessionView';
+import { RecapView } from './modules/runner/RecapView';
+import {
+  RECALL_QUEUE_SESSION,
+  recallsToSessionContacts,
+} from './modules/rdv/recallQueue';
+import { RunnerView } from './modules/runner/RunnerView';
+import type { LogPayload } from './modules/runner/RunnerView.types';
+import { SessionsView } from './modules/sessions/SessionsView';
+import { PreSessionFlow } from './modules/runner/PreSessionFlow';
+import { ShareSessionPanel } from './modules/sessions/ShareSessionPanel';
 import {
   shouldShowPreSession,
   isStaleSession,
   sessionDayKey,
   computeDaysSinceLastSession,
-} from './sessionLifecycle';
+} from './modules/sessions/sessionLifecycle';
 import {
   RolloverDecisionView,
   type RolloverDecision,
-} from './RolloverDecisionView';
+} from './modules/runner/RolloverDecisionView';
 import type { AudienceSessionGroup } from './api';
-import { nextContinuationName } from './sessionNaming';
+import { nextContinuationName } from './modules/sessions/sessionNaming';
 import type {
   CallStats,
   ContactContext,

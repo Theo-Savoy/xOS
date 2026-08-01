@@ -2,9 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandBar, ShortcutHelp } from './CommandBar';
-import { DEFAULT_SOUND_PREFS } from './comboSoundPrefs';
-import { comboStreaksStorageKey } from './comboStreaks';
-import { comboXpStorageKey } from './comboXp';
+import { DEFAULT_SOUND_PREFS } from './modules/gamification/comboSoundPrefs';
+import { comboStreaksStorageKey } from './modules/gamification/comboStreaks';
+import { comboXpStorageKey } from './modules/gamification/comboXp';
 
 function installLocalStorage() {
   const store: Record<string, string> = {};

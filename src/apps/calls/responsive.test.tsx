@@ -2,7 +2,7 @@
 
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SessionsView } from './SessionsView';
+import { SessionsView } from './modules/sessions/SessionsView';
 
 // jsdom's loader rejects `node:fs`; instead we expose the CSS through a
 // hoisted helper that vitest evaluates before jsdom wraps the module graph.

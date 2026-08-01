@@ -13,10 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventPanel } from './EventPanel';
 import { DedupBanner } from './DedupBanner';
 import { FilterBuilder } from './FilterBuilder';
-import { NewSessionView } from './NewSessionView';
-import { RecapView } from './RecapView';
-import { RunnerView } from './RunnerView';
-import { SessionsView } from './SessionsView';
+import { NewSessionView } from './modules/sessions/NewSessionView';
+import { RecapView } from './modules/runner/RecapView';
+import { RunnerView } from './modules/runner/RunnerView';
+import { SessionsView } from './modules/sessions/SessionsView';
 import { PicklistMultiSelect } from './filterControls';
 import type { SessionContact, SessionDetail } from './types';
 import { emptyFilterTree, normalizeFilterTree } from '../../crm';
@@ -1007,7 +1007,8 @@ describe('RunnerView', () => {
   });
 
   it('marks the combo demo as seen when dismissed with Escape', async () => {
-    const { ComboOnboardingDemo } = await import('./ComboOnboardingDemo');
+    const { ComboOnboardingDemo } =
+      await import('./modules/gamification/ComboOnboardingDemo');
     const store: Record<string, string> = {};
     Object.defineProperty(window, 'localStorage', {
       configurable: true,

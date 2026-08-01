@@ -14,7 +14,7 @@ import {
   rdvSubjectById,
   rdvSubjectsForSession,
   type RdvSubjectId,
-} from './rdvSubjects';
+} from './modules/rdv/rdvSubjects';
 import type { SessionType, TeamMember } from './types';
 
 export type EventDraft = {
