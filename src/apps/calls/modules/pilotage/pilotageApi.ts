@@ -1,7 +1,8 @@
 import { apiFetch, ApiError } from '../../../../lib/apiClient';
+import type { CockpitPeriod } from '../../../../crm';
 import type { PeriodKpis } from '../../types';
 
-export type CockpitPeriod = 'day' | 'week' | 'month';
+export type { CockpitPeriod };
 
 export type CockpitPerson = {
   user_id: string | null;

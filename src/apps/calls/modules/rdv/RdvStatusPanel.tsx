@@ -5,7 +5,7 @@ import {
   type RdvSuiviItem,
   type RdvSuiviStatus,
 } from '../../api';
-import type { CockpitPeriod } from '../pilotage/pilotageApi';
+import type { CockpitPeriod } from '../../../../crm';
 import './rdvSuivi.css';
 
 type RdvStatusPanelProps = {

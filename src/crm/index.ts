@@ -2,6 +2,8 @@
 // Aucun nom de champ SF ici : uniquement la forme métier de l'arbre de filtres et les
 // valeurs de picklist nécessaires à l'UI (le mapping des noms de champs vit côté serveur).
 
+export type CockpitPeriod = 'day' | 'week' | 'month';
+
 export const EFFECTIF_TRANCHES = [
   '1 - 50',
   '51 - 250',
