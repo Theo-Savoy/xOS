@@ -27,9 +27,34 @@ export default tseslint.config(
   },
   {
     files: [
-      'src/apps/**/*.{ts,tsx}',
       'src/os/**/*.{ts,tsx}',
       'src/auth/**/*.{ts,tsx}',
+    ],
+    rules: {
+      // Frontière modules Combo: interdire les deep imports depuis l'extérieur
+      // de apps/calls/. CallManagerApp.tsx et modules/* sont exempted (entry
+      // point + boundary interne).
+      // Évite la dérive pendant Phase 11 (8-9 semaines, agents parallèles).
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/apps/calls/modules/*/**',
+                '**/apps/calls/modules/*',
+              ],
+              message:
+                'Cross-module deep imports into apps/calls/modules/* are forbidden. Import only from CallManagerApp.tsx (entry point).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/apps/**/*.{ts,tsx}',
     ],
     rules: {
       'no-restricted-syntax': [
