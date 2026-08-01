@@ -1,7 +1,7 @@
-import { apiFetch, ApiError } from "../../lib/apiClient";
-import type { PeriodKpis } from "./types";
+import { apiFetch, ApiError } from '../../lib/apiClient';
+import type { PeriodKpis } from './types';
 
-export type CockpitPeriod = "day" | "week" | "month";
+export type CockpitPeriod = 'day' | 'week' | 'month';
 
 export type CockpitPerson = {
   user_id: string | null;
@@ -44,7 +44,7 @@ export type CockpitRdvOwnerRow = {
 export type CockpitSessionRow = {
   id: number;
   name: string;
-  status: "active" | "completed";
+  status: 'active' | 'completed';
   session_type: string;
   scheduled_for: string | null;
   created_at: string;
@@ -84,7 +84,7 @@ export type CockpitRange = {
 };
 
 export type ProspectionCockpit = {
-  view: "team";
+  view: 'team';
   period: CockpitPeriod;
   range?: CockpitRange;
   heatmap?: CockpitHeatmapDay[];
@@ -103,7 +103,7 @@ export class PilotageApiError extends Error {
     public code: string,
   ) {
     super(code);
-    this.name = "PilotageApiError";
+    this.name = 'PilotageApiError';
   }
 }
 
@@ -117,8 +117,11 @@ type CockpitCacheEntry = {
 const COCKPIT_CACHE_TTL_MS = 60_000;
 const cockpitCache = new Map<string, CockpitCacheEntry>();
 
-function cockpitCacheKey(period: CockpitPeriod, anchor?: string | null): string {
-  return `${period}:${anchor ?? "default"}`;
+function cockpitCacheKey(
+  period: CockpitPeriod,
+  anchor?: string | null,
+): string {
+  return `${period}:${anchor ?? 'default'}`;
 }
 
 export function prefetchProspectionCockpit(
@@ -144,11 +147,11 @@ export async function fetchProspectionCockpit(
   const cached = cockpitCache.get(key);
 
   if (
-    !force
-    && cached
-    && cached.token === token
-    && cached.data
-    && now - cached.at < COCKPIT_CACHE_TTL_MS
+    !force &&
+    cached &&
+    cached.token === token &&
+    cached.data &&
+    now - cached.at < COCKPIT_CACHE_TTL_MS
   ) {
     return cached.data;
   }
@@ -157,21 +160,26 @@ export async function fetchProspectionCockpit(
   }
 
   const params = new URLSearchParams({
-    resource: "prospection_cockpit",
+    resource: 'prospection_cockpit',
     period,
   });
-  if (anchor) params.set("anchor", anchor);
+  if (anchor) params.set('anchor', anchor);
 
-  const promise = apiFetch<ProspectionCockpit>(token, `/api/calls?${params}`).then((data) => {
-    cockpitCache.set(key, { token, at: Date.now(), data });
-    return data;
-  }).catch((err) => {
-    if (err instanceof ApiError) {
-      const body = err.body as { error?: string } | undefined;
-      throw new PilotageApiError(err.status, typeof body?.error === "string" ? body.error : `http_${err.status}`);
-    }
-    throw err;
-  });
+  const promise = apiFetch<ProspectionCockpit>(token, `/api/calls?${params}`)
+    .then((data) => {
+      cockpitCache.set(key, { token, at: Date.now(), data });
+      return data;
+    })
+    .catch((err) => {
+      if (err instanceof ApiError) {
+        const body = err.body as { error?: string } | undefined;
+        throw new PilotageApiError(
+          err.status,
+          typeof body?.error === 'string' ? body.error : `http_${err.status}`,
+        );
+      }
+      throw err;
+    });
 
   cockpitCache.set(key, { token, at: now, promise });
   try {

@@ -6,9 +6,10 @@
 
 Le cockpit **prescriptif** du commercial. Weekly Perf regarde en arrière (ce qui s'est passé), Call Manager exécute (les appels du jour) ; Copilot répond à la question quotidienne : **« comment piloter mon activité commerciale aujourd'hui ? »**.
 
-**Vue strictement personnelle** *(décision Théo 2026-07-11)* : chaque utilisateur — commercial ou manager — ne voit que **ses propres** opportunités, alertes et indicateurs. Pas de vue équipe, pas de sélecteur de commercial, sinon l'app devient illisible ; le pilotage d'équipe reste dans Weekly Perf (et la gamification dans Arena).
+**Vue strictement personnelle** _(décision Théo 2026-07-11)_ : chaque utilisateur — commercial ou manager — ne voit que **ses propres** opportunités, alertes et indicateurs. Pas de vue équipe, pas de sélecteur de commercial, sinon l'app devient illisible ; le pilotage d'équipe reste dans Weekly Perf (et la gamification dans Arena).
 
 Quatre volets :
+
 1. **Pipeline de travail** — mes opportunités ouvertes, triées par urgence.
 2. **Alertes & prochaines actions** — détection de risques + action en 1 clic.
 3. **Stratégies de prospection** — suggestions de ciblage concrètes (presets Call Manager).
@@ -19,6 +20,7 @@ Quatre volets :
 ## 2. Périmètre fonctionnel
 
 ### 2.1 Pipeline de travail
+
 - Liste des opps **ouvertes** dont l'utilisateur est Owner, triée par urgence : CloseDate dépassée, puis CloseDate ≤ `closing_window_days` (défaut 30 j), puis le reste (tri secondaire : montant décroissant).
 - Bandeau « À clôturer sous 30 jours » en tête (compte + montant total).
 - CloseDate dépassée = signal d'hygiène → lien « traiter dans le Cleaner » (`?open=cleaner`, pré-filtre si supporté).
@@ -27,25 +29,28 @@ Quatre volets :
 
 Moteur de **règles déterministes** calculées depuis Tasks, Events, `OpportunityHistory` et les champs d'opp. Chaque alerte = `{rule_id, sévérité, référence (opp/contact/compte), explication courte, action suggérée}`.
 
-| `rule_id` | Condition (opp ouverte sauf mention) | Seuil défaut *(à caler 9.0)* | Action 1-clic suggérée |
-|---|---|---|---|
-| `opp_dormante` | aucune Task/Event lié depuis N jours | `dormant_days` = 21 | Task de relance (`OwnerId` = commercial) |
-| `opp_bloquee` | aucune progression d'étape depuis N semaines (logique `OpportunityHistory` de 3.1) | `stuck_weeks` = 6 | revue de l'opp : planifier Task ou Event |
-| `proposition_sans_suite` | entrée en étape « Proposition envoyée » il y a > N jours, sans activité postérieure ni Task ouverte | `proposal_followup_days` = 10 | Task de relance à J+0 |
-| `rdv_sans_next_step` | Event passé sans Task ouverte ni Event futur sur l'opp/le contact | fenêtre = 3 j après l'Event | créer la Task de suivi ou le prochain RDV |
-| `close_date_depassee` | CloseDate < aujourd'hui | — | mettre à jour dans SF / pont Cleaner |
-| `montant_manquant` | Amount vide ou 0 | — | compléter la fiche (deep link SF) |
-| `champs_critiques_manquants` | champs critiques vides (voir § 5) sur opp/contact/compte dont l'utilisateur est Owner | — | compléter la fiche (deep link SF / Launcher) |
+| `rule_id`                    | Condition (opp ouverte sauf mention)                                                                | Seuil défaut _(à caler 9.0)_  | Action 1-clic suggérée                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------- | -------------------------------------------- |
+| `opp_dormante`               | aucune Task/Event lié depuis N jours                                                                | `dormant_days` = 21           | Task de relance (`OwnerId` = commercial)     |
+| `opp_bloquee`                | aucune progression d'étape depuis N semaines (logique `OpportunityHistory` de 3.1)                  | `stuck_weeks` = 6             | revue de l'opp : planifier Task ou Event     |
+| `proposition_sans_suite`     | entrée en étape « Proposition envoyée » il y a > N jours, sans activité postérieure ni Task ouverte | `proposal_followup_days` = 10 | Task de relance à J+0                        |
+| `rdv_sans_next_step`         | Event passé sans Task ouverte ni Event futur sur l'opp/le contact                                   | fenêtre = 3 j après l'Event   | créer la Task de suivi ou le prochain RDV    |
+| `close_date_depassee`        | CloseDate < aujourd'hui                                                                             | —                             | mettre à jour dans SF / pont Cleaner         |
+| `montant_manquant`           | Amount vide ou 0                                                                                    | —                             | compléter la fiche (deep link SF)            |
+| `champs_critiques_manquants` | champs critiques vides (voir § 5) sur opp/contact/compte dont l'utilisateur est Owner               | —                             | compléter la fiche (deep link SF / Launcher) |
 
 **Actions 1-clic** : réutilisent les chemins d'écriture existants — logging Call Manager (`log_call`, follow-up, `log_event`), Launcher `/log`, ouverture d'une séance Call Manager pré-ciblée. Attribution niveau 1 garantie (`OwnerId` = commercial connecté) ; niveau 2 si son refresh token SF est lié (8.1b). Copilot lui-même n'écrit **jamais** dans SF.
 
 ### 2.3 Stratégies de prospection
+
 - Analyse du portefeuille : segments (secteur × effectif) à meilleur taux de gain, comptes à opp perdue ré-attaquables, contacts jamais appelés dans les segments porteurs.
 - Chaque suggestion = un **preset de séance Call Manager pré-rempli** (payload de filtres v2 existant) : « 20 contacts secteur X jamais appelés » → bouton « Lancer la séance ». On capitalise sur le moteur de ciblage v2, rien de nouveau côté écriture.
-- **Analyse des séances passées** *(précision Théo 2026-07-11)* : l'historique **de mes séances** Call Manager (sessions Postgres + résultats d'appels SF `Resultat_call__c`) alimente les recommandations — taux de décroché/RDV par segment et par créneau, audiences qui ont marché → « refaire une séance comme celle du 3/07 », relances des contacts « à rappeler » échus. Lecture seule des tables sessions existantes, aucune nouvelle collecte.
+- **Analyse des séances passées** _(précision Théo 2026-07-11)_ : l'historique **de mes séances** Call Manager (sessions Postgres + résultats d'appels SF `Resultat_call__c`) alimente les recommandations — taux de décroché/RDV par segment et par créneau, audiences qui ont marché → « refaire une séance comme celle du 3/07 », relances des contacts « à rappeler » échus. Lecture seule des tables sessions existantes, aucune nouvelle collecte.
 
-### 2.4 Adoption & qualité CRM *(ajout validé 2026-07-11)*
+### 2.4 Adoption & qualité CRM _(ajout validé 2026-07-11)_
+
 Répond à : **le CRM est-il bien utilisé ?**
+
 - **Volumes d'usage par commercial**, fenêtre glissante (semaine courante + `adoption_window_weeks` = 4 semaines) : appels loggés (Tasks type appel — **définition Weekly Perf**), RDV (Events), **contacts créés**, **comptes créés**. Comparaison : sa propre période précédente + médiane équipe.
 - **Complétude des champs critiques** : % de remplissage par objet, sur les enregistrements dont le commercial est Owner (opps ouvertes, contacts, comptes actifs). Liste des champs dans le **mapping CRM** (§ 5), jamais en dur.
 - **Vue strictement personnelle** (cf. § 1) : mes volumes, mes jauges. Seule référence externe autorisée : la **médiane équipe anonyme** (agrégat calculé côté serveur, jamais les chiffres d'un collègue). La lecture équipe de ces indicateurs vit dans Weekly Perf ; le classement, dans Arena (lot 5.1).
@@ -55,12 +60,12 @@ Répond à : **le CRM est-il bien utilisé ?**
 
 **Endpoint** : `GET /api/copilot?resource=…` — routeur unique (pattern `api/calls.js`), helpers dans `api/_copilot/` (non exposés). 8ᵉ fonction Vercel (plafond Hobby 12).
 
-| Resource | Rôle | Params |
-|---|---|---|
-| `pipeline` | mes opps ouvertes triées par urgence + bandeau closing | — |
-| `alerts` | mes alertes par règle, triées par sévérité | `rules` (filtre optionnel) |
-| `adoption` | mes volumes d'usage + complétude champs critiques (+ médiane équipe anonyme) | `weeks` |
-| `strategies` | suggestions {label, explication, preset_payload} depuis mon portefeuille + mes séances passées | — |
+| Resource     | Rôle                                                                                           | Params                     |
+| ------------ | ---------------------------------------------------------------------------------------------- | -------------------------- |
+| `pipeline`   | mes opps ouvertes triées par urgence + bandeau closing                                         | —                          |
+| `alerts`     | mes alertes par règle, triées par sévérité                                                     | `rules` (filtre optionnel) |
+| `adoption`   | mes volumes d'usage + complétude champs critiques (+ médiane équipe anonyme)                   | `weeks`                    |
+| `strategies` | suggestions {label, explication, preset_payload} depuis mon portefeuille + mes séances passées | —                          |
 
 - **Authz** : JWT Supabase requis (`api/_auth.js`) ; **toutes les resources sont scoping JWT** — aucun paramètre ne permet de viser un autre utilisateur (vue strictement personnelle, y compris pour manager/admin).
 - **Cache** : `s-maxage=900` (aligné analytics). Pas d'écriture → pas d'invalidation à gérer.
@@ -73,7 +78,7 @@ Voir `docs/xos_implementation_plan.md` Phase 9 : **9.0 audit SOQL** (volumétrie
 ## 5. Config & mapping (rien en dur)
 
 - **Seuils** → table `settings` (Supabase), éditables dans le Hub (manager+admin) : `copilot.dormant_days`, `copilot.stuck_weeks`, `copilot.proposal_followup_days`, `copilot.closing_window_days`, `copilot.adoption_window_weeks`. Défauts en code, valeurs `settings` prioritaires.
-- **Champs critiques** → `api/_crm/mapping.js`, nouvelle clé `critical_fields` par objet (les *valeurs* XOS sont de la config mission ; le *format* est du socle). Candidats à valider en 9.0 : Opportunity — Amount, CloseDate, étape cohérente ; Contact — téléphone, fonction/niveau de décision ; Account — secteur, effectif.
+- **Champs critiques** → `api/_crm/mapping.js`, nouvelle clé `critical_fields` par objet (les _valeurs_ XOS sont de la config mission ; le _format_ est du socle). Candidats à valider en 9.0 : Opportunity — Amount, CloseDate, étape cohérente ; Contact — téléphone, fonction/niveau de décision ; Account — secteur, effectif.
 - **Étape « Proposition envoyée »**, types de Task appel, etc. : déjà dans le mapping (Weekly Perf / Call Manager) — réutiliser, ne pas dupliquer.
 - Un « moteur de recommandations à règles » configurable est un actif du **socle générique** (cf. § Trajectoire produit du plan) : les règles sont agnostiques, les valeurs sont XOS.
 

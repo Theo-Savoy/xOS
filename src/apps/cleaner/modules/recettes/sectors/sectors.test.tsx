@@ -3,14 +3,17 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchSectorRecipe, bulkApplySectors, getSectorJobStatus, fetchSectorJournal } = vi.hoisted(
-  () => ({
-    fetchSectorRecipe: vi.fn(),
-    bulkApplySectors: vi.fn(),
-    getSectorJobStatus: vi.fn(),
-    fetchSectorJournal: vi.fn(),
-  }),
-);
+const {
+  fetchSectorRecipe,
+  bulkApplySectors,
+  getSectorJobStatus,
+  fetchSectorJournal,
+} = vi.hoisted(() => ({
+  fetchSectorRecipe: vi.fn(),
+  bulkApplySectors: vi.fn(),
+  getSectorJobStatus: vi.fn(),
+  fetchSectorJournal: vi.fn(),
+}));
 
 vi.mock('./api', () => ({
   fetchSectorRecipe,
@@ -65,9 +68,7 @@ describe('SectorsRecipeView (V17d dry-run only)', () => {
 
     render(<SectorsRecipeView accessToken="token" />);
 
-    expect(
-      await screen.findByText(/Résultats partiels/i),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Résultats partiels/i)).toBeTruthy();
   });
 
   it('shows an empty-state card when no obsolete sectors exist', async () => {
@@ -82,7 +83,9 @@ describe('SectorsRecipeView (V17d dry-run only)', () => {
     render(<SectorsRecipeView accessToken="token" />);
 
     await waitFor(() =>
-      expect(screen.getAllByText(/Aucun secteur obsolète/).length).toBeGreaterThan(0),
+      expect(
+        screen.getAllByText(/Aucun secteur obsolète/).length,
+      ).toBeGreaterThan(0),
     );
   });
 

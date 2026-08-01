@@ -13,13 +13,13 @@
 
 Les 5 chiffres qui résument :
 
-| Constat | Mesure |
-|---|---|
-| Boutons natifs improvisés dans les apps | **134** (calls 68, cleaner 41, os 25) vs `Button` partagé utilisé dans 23 fichiers |
-| Systèmes CSS parallèles | calls **428 classes** + pilotage 85, cleaner **166**, weekly **154**, ui partagé… **29** |
-| Clients HTTP réinventés | **12 fichiers** construisent le header `Authorization: Bearer` à la main |
-| CSS orphelin (borne haute) | **~104 classes** jamais référencées (41 calls, 33 cleaner, 23 weekly, 7 pilotage) |
-| Code TS mort confirmé | ~15 exports (RdvGoalPicker, rdvCelebrate, APP_ICONS…) + `api/__pycache__` |
+| Constat                                 | Mesure                                                                                   |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Boutons natifs improvisés dans les apps | **134** (calls 68, cleaner 41, os 25) vs `Button` partagé utilisé dans 23 fichiers       |
+| Systèmes CSS parallèles                 | calls **428 classes** + pilotage 85, cleaner **166**, weekly **154**, ui partagé… **29** |
+| Clients HTTP réinventés                 | **12 fichiers** construisent le header `Authorization: Bearer` à la main                 |
+| CSS orphelin (borne haute)              | **~104 classes** jamais référencées (41 calls, 33 cleaner, 23 weekly, 7 pilotage)        |
+| Code TS mort confirmé                   | ~15 exports (RdvGoalPicker, rdvCelebrate, APP_ICONS…) + `api/__pycache__`                |
 
 ---
 
@@ -65,12 +65,12 @@ api               20 119 / 76  (_calls, _cleaner, _crm, _weekly, _config)
 
 ### 3.2 Adoption réelle par app
 
-| App | Button | GlassCard | Tag | `<button>` natifs | `<input>` natifs |
-|---|---|---|---|---|---|
-| calls | 15 fichiers | 17 | 10 | **68** | 35 |
-| cleaner | 3 | 3 | 3 | **41** | 5 |
-| weekly | 1 | 1 | 1 | 1 | 0 |
-| os | 1 | 1 | 1 | **25** | 6 |
+| App     | Button      | GlassCard | Tag | `<button>` natifs | `<input>` natifs |
+| ------- | ----------- | --------- | --- | ----------------- | ---------------- |
+| calls   | 15 fichiers | 17        | 10  | **68**            | 35               |
+| cleaner | 3           | 3         | 3   | **41**            | 5                |
+| weekly  | 1           | 1         | 1   | 1                 | 0                |
+| os      | 1           | 1         | 1   | **25**            | 6                |
 
 Lecture : calls utilise le vivier **et** improvise massivement à côté (13 classes `.calls-*btn*` custom). weekly n'improvise pas de boutons mais a réécrit tout le reste (154 classes CSS, tooltips, skeleton). os improvise pour le dock/launcher/control center.
 
@@ -78,7 +78,7 @@ Lecture : calls utilise le vivier **et** improvise massivement à côté (13 cla
 
 C'est la liste concrète de ce que les apps ont déjà payé 2-3 fois et qui doit monter dans `components/ui` :
 
-1. **Boutons** : variants manquants (`ghost`, `danger`, `icon-only`, tailles) — c'est *parce que* Button n'a que primary/secondary que les 134 natifs existent.
+1. **Boutons** : variants manquants (`ghost`, `danger`, `icon-only`, tailles) — c'est _parce que_ Button n'a que primary/secondary que les 134 natifs existent.
 2. **Modal/overlay** : 3 implémentations — `ui/Modal` (portal, complet), `calls-modal` + `useComboOverlay` (maison, plein écran glass), `ScoreHelpModal` (cleaner, inline). → un seul Modal avec variant `glass`/plein écran, `useComboOverlay` fusionné dedans.
 3. **Pickers** (`calls/formControls.tsx`) : `DatePicker`, `SessionTypePicker`, `ChipGroup` (filterControls) — génériques à 90 %, seuls les libellés sont métier.
 4. **Chips / segmented control** : `ChipGroup` (calls), `ReasonChips` (cleaner), chips d'objectif du wizard — même pattern, 3 CSS.
@@ -128,8 +128,8 @@ C'est la liste concrète de ce que les apps ont déjà payé 2-3 fois et qui doi
 
 ### Lot 1 — Fondations (≈ 1 jour, à faire avant tout nouveau dev)
 
-1. **`src/lib/apiClient.ts`** : `apiFetch<T>` unique (Bearer, erreurs, JSON typé), calqué sur celui de calls. Migrer les 12 call-sites. *Vérifié par : grep « Authorization » = 1 seul fichier client.*
-2. **`src/lib/dates.ts`** (+ `api/_lib/dates.js`) : `todayParisIso`, `formatIsoDateFr`, `parisDayKey`… *Vérifié par : plus d'`Intl.DateTimeFormat` hors lib.*
+1. **`src/lib/apiClient.ts`** : `apiFetch<T>` unique (Bearer, erreurs, JSON typé), calqué sur celui de calls. Migrer les 12 call-sites. _Vérifié par : grep « Authorization » = 1 seul fichier client._
+2. **`src/lib/dates.ts`** (+ `api/_lib/dates.js`) : `todayParisIso`, `formatIsoDateFr`, `parisDayKey`… _Vérifié par : plus d'`Intl.DateTimeFormat` hors lib._
 3. **Tokens** : enrichir `theme.css` (surfaces, glass, sémantique) — remplacement des rgba durs au fil de l'eau, pas de big-bang.
 
 ### Lot 2 — Le vivier (≈ 2-3 jours, mergeable app par app)

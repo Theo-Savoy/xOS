@@ -1,21 +1,21 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock("./auth/useSession", () => ({
+vi.mock('./auth/useSession', () => ({
   useSession: vi.fn(),
 }));
 
-vi.mock("./os/Desktop", () => ({
+vi.mock('./os/Desktop', () => ({
   Desktop: () => <div data-testid="desktop" />,
 }));
 
-vi.mock("./components/BootScreen", () => ({
+vi.mock('./components/BootScreen', () => ({
   BootScreen: () => <div data-testid="boot-screen" />,
 }));
 
-vi.mock("./auth/LoginScreen", () => ({
+vi.mock('./auth/LoginScreen', () => ({
   LoginScreen: () => <div data-testid="login-screen" />,
 }));
 
@@ -32,8 +32,8 @@ const defaultMatchMedia = (query: string): MediaQueryList => ({
 });
 window.matchMedia = vi.fn().mockImplementation(defaultMatchMedia);
 
-import App from "./App";
-import { useSession } from "./auth/useSession";
+import App from './App';
+import { useSession } from './auth/useSession';
 
 const mockUseSession = vi.mocked(useSession);
 
@@ -42,8 +42,8 @@ afterEach(() => {
   vi.mocked(window.matchMedia).mockImplementation(defaultMatchMedia);
 });
 
-describe("App — loading state", () => {
-  it("renders boot screen while session is loading", () => {
+describe('App — loading state', () => {
+  it('renders boot screen while session is loading', () => {
     mockUseSession.mockReturnValue({
       session: null,
       loading: true,
@@ -52,14 +52,14 @@ describe("App — loading state", () => {
 
     render(<App />);
 
-    expect(screen.getByTestId("boot-screen")).toBeTruthy();
-    expect(screen.queryByTestId("desktop")).toBeNull();
-    expect(screen.queryByTestId("login-screen")).toBeNull();
+    expect(screen.getByTestId('boot-screen')).toBeTruthy();
+    expect(screen.queryByTestId('desktop')).toBeNull();
+    expect(screen.queryByTestId('login-screen')).toBeNull();
   });
 });
 
-describe("App — bridgeError state", () => {
-  it("renders error message and retry button when bridgeError is true", () => {
+describe('App — bridgeError state', () => {
+  it('renders error message and retry button when bridgeError is true', () => {
     mockUseSession.mockReturnValue({
       session: null,
       loading: false,
@@ -68,11 +68,13 @@ describe("App — bridgeError state", () => {
 
     render(<App />);
 
-    expect(screen.getByText("Impossible de préparer l'accès au CRM.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Réessayer" })).toBeTruthy();
+    expect(
+      screen.getByText("Impossible de préparer l'accès au CRM."),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeTruthy();
   });
 
-  it("does not render Desktop or LoginScreen when bridgeError is true", () => {
+  it('does not render Desktop or LoginScreen when bridgeError is true', () => {
     mockUseSession.mockReturnValue({
       session: null,
       loading: false,
@@ -81,11 +83,11 @@ describe("App — bridgeError state", () => {
 
     render(<App />);
 
-    expect(screen.queryByTestId("desktop")).toBeNull();
-    expect(screen.queryByTestId("login-screen")).toBeNull();
+    expect(screen.queryByTestId('desktop')).toBeNull();
+    expect(screen.queryByTestId('login-screen')).toBeNull();
   });
 
-  it("renders LoginScreen when not loading, no error, no session", () => {
+  it('renders LoginScreen when not loading, no error, no session', () => {
     mockUseSession.mockReturnValue({
       session: null,
       loading: false,
@@ -94,25 +96,28 @@ describe("App — bridgeError state", () => {
 
     render(<App />);
 
-    expect(screen.getByTestId("login-screen")).toBeTruthy();
-    expect(screen.queryByTestId("desktop")).toBeNull();
+    expect(screen.getByTestId('login-screen')).toBeTruthy();
+    expect(screen.queryByTestId('desktop')).toBeNull();
   });
 
-  it("renders Desktop when session is ready", () => {
+  it('renders Desktop when session is ready', () => {
     mockUseSession.mockReturnValue({
-      session: { user: { id: "u1", email: "theo@xos-learning.fr" }, access_token: "tok" } as never,
+      session: {
+        user: { id: 'u1', email: 'theo@xos-learning.fr' },
+        access_token: 'tok',
+      } as never,
       loading: false,
       bridgeError: false,
     });
 
     render(<App />);
 
-    expect(screen.getByTestId("desktop")).toBeTruthy();
+    expect(screen.getByTestId('desktop')).toBeTruthy();
   });
 
-  it("reveals desktop immediately when prefers-reduced-motion is reduce", async () => {
+  it('reveals desktop immediately when prefers-reduced-motion is reduce', async () => {
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-      matches: query.includes("prefers-reduced-motion"),
+      matches: query.includes('prefers-reduced-motion'),
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -123,7 +128,10 @@ describe("App — bridgeError state", () => {
     }));
 
     mockUseSession.mockReturnValue({
-      session: { user: { id: "u1", email: "theo@xos-learning.fr" }, access_token: "tok" } as never,
+      session: {
+        user: { id: 'u1', email: 'theo@xos-learning.fr' },
+        access_token: 'tok',
+      } as never,
       loading: false,
       bridgeError: false,
     });
@@ -131,14 +139,14 @@ describe("App — bridgeError state", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("boot-screen")).toBeNull();
+      expect(screen.queryByTestId('boot-screen')).toBeNull();
     });
-    expect(screen.getByTestId("desktop")).toBeTruthy();
+    expect(screen.getByTestId('desktop')).toBeTruthy();
   });
 
-  it("keeps desktop revealed when session object identity changes for same user", async () => {
+  it('keeps desktop revealed when session object identity changes for same user', async () => {
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-      matches: query.includes("prefers-reduced-motion"),
+      matches: query.includes('prefers-reduced-motion'),
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -149,7 +157,10 @@ describe("App — bridgeError state", () => {
     }));
 
     mockUseSession.mockReturnValue({
-      session: { user: { id: "u1", email: "theo@xos-learning.fr" }, access_token: "tok-1" } as never,
+      session: {
+        user: { id: 'u1', email: 'theo@xos-learning.fr' },
+        access_token: 'tok-1',
+      } as never,
       loading: false,
       bridgeError: false,
     });
@@ -157,17 +168,20 @@ describe("App — bridgeError state", () => {
     const { rerender } = render(<App />);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("boot-screen")).toBeNull();
+      expect(screen.queryByTestId('boot-screen')).toBeNull();
     });
 
     mockUseSession.mockReturnValue({
-      session: { user: { id: "u1", email: "theo@xos-learning.fr" }, access_token: "tok-2" } as never,
+      session: {
+        user: { id: 'u1', email: 'theo@xos-learning.fr' },
+        access_token: 'tok-2',
+      } as never,
       loading: false,
       bridgeError: false,
     });
     rerender(<App />);
 
-    expect(screen.queryByTestId("boot-screen")).toBeNull();
-    expect(screen.getByTestId("desktop")).toBeTruthy();
+    expect(screen.queryByTestId('boot-screen')).toBeNull();
+    expect(screen.getByTestId('desktop')).toBeTruthy();
   });
 });

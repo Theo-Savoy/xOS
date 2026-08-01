@@ -14,31 +14,52 @@ export function titlePriority(title: string | null | undefined): number {
   if (!title) return 0;
   const normalized = title
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
 
-  if (/\b(pdg|ceo|president|gerant|fondateur|fondatrice|chief executive)\b/.test(normalized)) {
+  if (
+    /\b(pdg|ceo|president|gerant|fondateur|fondatrice|chief executive)\b/.test(
+      normalized,
+    )
+  ) {
     return 100;
   }
-  if (/\b(directeur|directrice|drh|df\b|dg\b|vp\b|vice[- ]president)\b/.test(normalized)) {
+  if (
+    /\b(directeur|directrice|drh|df\b|dg\b|vp\b|vice[- ]president)\b/.test(
+      normalized,
+    )
+  ) {
     return 90;
   }
-  if (/\b(head of|responsable)\b/.test(normalized) && !/\badjoint/.test(normalized)) {
+  if (
+    /\b(head of|responsable)\b/.test(normalized) &&
+    !/\badjoint/.test(normalized)
+  ) {
     return 70;
   }
-  if (/\b(manager|lead)\b/.test(normalized) && !/\b(project|projet)\b/.test(normalized)) {
+  if (
+    /\b(manager|lead)\b/.test(normalized) &&
+    !/\b(project|projet)\b/.test(normalized)
+  ) {
     return 65;
   }
   if (/\badjoint/.test(normalized)) {
     return 55;
   }
-  if (/\b(charge|chef de projet|coordinateur|coordinatrice|gestionnaire)\b/.test(normalized)) {
+  if (
+    /\b(charge|chef de projet|coordinateur|coordinatrice|gestionnaire)\b/.test(
+      normalized,
+    )
+  ) {
     return 30;
   }
   return 20;
 }
 
-function compareByTitlePriority(a: SelectableContact, b: SelectableContact): number {
+function compareByTitlePriority(
+  a: SelectableContact,
+  b: SelectableContact,
+): number {
   const delta = titlePriority(b.title) - titlePriority(a.title);
   if (delta !== 0) return delta;
   return a.sf_contact_id.localeCompare(b.sf_contact_id);
@@ -87,7 +108,11 @@ export function buildPreviewContactList<T extends SelectableContact>(
   }
 
   const result: T[] = [];
-  for (let round = 0; round < maxPerCompany && result.length < totalLimit; round += 1) {
+  for (
+    let round = 0;
+    round < maxPerCompany && result.length < totalLimit;
+    round += 1
+  ) {
     for (const key of companyOrder) {
       if (result.length >= totalLimit) break;
       const ranked = rankedByAccount.get(key);
@@ -145,13 +170,16 @@ export function canSelectContact(
 ): boolean {
   if (maxPerCompany === null || maxPerCompany <= 0) return true;
   if (selectedIds.has(contactId)) return true;
-  const target = contacts.find((contact) => contact.sf_contact_id === contactId);
+  const target = contacts.find(
+    (contact) => contact.sf_contact_id === contactId,
+  );
   if (!target) return false;
   const key = target.sf_account_id || `contact:${target.sf_contact_id}`;
   let count = 0;
   for (const contact of contacts) {
     if (!selectedIds.has(contact.sf_contact_id)) continue;
-    const otherKey = contact.sf_account_id || `contact:${contact.sf_contact_id}`;
+    const otherKey =
+      contact.sf_account_id || `contact:${contact.sf_contact_id}`;
     if (otherKey === key) count += 1;
   }
   return count < maxPerCompany;

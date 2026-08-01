@@ -2,7 +2,7 @@
 
 Compagnon opérationnel de `xos_portal_plan.md` (v3). Découpage en **lots délégables** : un lot = un agent = un worktree Orca ; PR/merge après gate QC et accord. Repo GitHub canonique : **`Theo-Savoy/xOS`**, projet Vercel renommé : **`xos`**.
 
-**Dernière synchro statut** : 2026-07-12 matin (socle, Hub, Weekly, Call Manager et OAuth SF conservés ; **Phase 10 Labo ajoutée comme chantier prioritaire courant** — architecture et UX validées avec Théo, contrats `docs/specs/labo.md` et `docs/plans/labo-implementation.md`).
+**Dernière synchro statut** : 2026-08-01 (audit conseil Foederati Opus 5 + Grok 4.5 — `docs/audits/audit-architecture-2026-08-01.md`, `docs/audits/audit-strategie-produit-execution-2026-08-01.md`). **Décision produit : Combo au centre, Telnyx prioritaire, Arena gelée.** Corrections majeures : Phase 10 Labo livrée à ~90% (marquée ⬜ à tort), Phase 6 Bilan codée en untracked (non testée/non commitée), Vercel à 9/12 et non 7/12, Basic Auth déjà éteint, migrations 014 sans doublon. Lint était rouge sur main (corrigé), BUG-07 fixé (RangeError comboStreaks), dead code useNudgeLearning supprimé, prettier aligné.
 
 ## Organisation
 
@@ -154,6 +154,60 @@ Compagnon opérationnel de `xos_portal_plan.md` (v3). Découpage en **lots dél�
 
 > **Direction révisée 2026-07-17** : Arena reste l'app challenges d'équipe mais **abandonne le leaderboard** au profit d'une dynamique collaborative + reconnaissance anonyme. Voir `docs/specs/combo-gamification-v1.md` pour la couche personnelle (XP/paliers/badges/streaks/nudges) déjà couverte par Combo V1. Voir §5 du plan portail pour la nouvelle direction.
 
+---
+
+## Combo V1 — Gamification & Nudges _(livré 2026-07-19/20, sprints G.10–G.16)_ — ✅
+
+> Spec : `docs/specs/combo-gamification-v1.md`. Moteurs XP/badges/streaks/nudge learning écrits, testés (59 tests), **câblés aux événements réels** via l'orchestrateur `comboEvents.ts`. Design system consolidé (Button, Skeleton, EmptyState, GlassCard).
+
+### Moteurs & orchestrateur — ✅
+
+- `comboXp.ts` : XP 3 axes (Vitesse/Impact/Régularité), 18 seuils Bronze→Challenger, dédup anti-abus par actionId+jour, Impact = 10 XP/RDV.
+- `comboBadges.ts` : 8 badges one-timer, `checkBadges` pur appelé depuis l'orchestrateur.
+- `comboStreaks.ts` : 3 streaks (classique, productif, intense), paliers dérivés.
+- `comboEvents.ts` : **orchestrateur unique** post-succès — `recordShortcut`, `recordRdv`, `recordLogCall`, `recordSessionComplete`. Appelé depuis RunnerView + CallManagerApp.
+- Doublon `useComboXp.ts` supprimé — hook exporté depuis `comboXp.ts:304`.
+
+### Nudge learning — ✅
+
+- Machine d'état 4 phases (intensive → régulière → espacée → acceptée), seuils par raccourci (L/F=3, autres=5), cumul 30 total, `markAdopted()` sur usage clavier, `cmd-k` exclu.
+- Câblé dans RunnerView via `registerMouseClick`, `markNudgeSeen`, `markAdopted`.
+- Toast d'apprentissage affiché dans le runner.
+- ⚠️ Reste : `useNudgeLearning.ts` = dead code (hook jamais importé, fonctions appelées directement). À supprimer.
+- ⚠️ Reste : BUG-07 (validation dates comboStreaks) + BUG-08/10 (sessionStorage + validation runtime) non fixés.
+
+### UI Combo — ✅
+
+- Toasts de déblocage : `xp_palier_atteint`, `badge_one_timer`, `streak_palier_atteint` dans DesktopToasts.
+- CommandBar : axes XP + 3 streaks + dernier badge.
+- RecapView : ligne paliers + badge gagné en fin de séance.
+- PreSessionFlow : nudge cadrage (rappels dus + inactivité >7j).
+- Chips MEDDIC contextualisées par outcome (5 max, pas 12 fixes).
+- MyTrophies : badges restants avec critères + hiérarchie visuelle des paliers.
+- MEDDIC masqué du rendu (code conservé).
+
+### Retours test utilisateur (2026-07-17) — 6/8 DONE
+
+| #   | Item                                  | Statut                                                                            |
+| --- | ------------------------------------- | --------------------------------------------------------------------------------- |
+| F.1 | Sticky nom séance                     | ✅                                                                                |
+| F.2 | Preview live filtres (debounce 300ms) | ✅                                                                                |
+| F.3 | Timeline appels/contact               | ⚠️ Partiel (badge rappel + events panel, pas de timeline visuelle en mode normal) |
+| F.4 | Séance ABM : sélecteur date           | ✅                                                                                |
+| F.5 | Remove optimiste + séance 2           | ⚠️ Partiel (perfs OK, bouton relance via defer pas adjacent)                      |
+| F.6 | Picklist raison de perte Labo         | ✅                                                                                |
+| F.7 | Forecast sur Pace                     | ⏭️ Skip (décision archivée)                                                       |
+| F.8 | Breakdown CA Lundi                    | ✅                                                                                |
+
+### Design system — ✅
+
+- Composants partagés `src/components/ui/` : Button, Skeleton, EmptyState, GlassCard, Tag, Select, Modal, ProgressBar, SegmentedControl, DatePicker, Checkbox + barrel.
+- 65 boutons natifs migrés vers Button.
+- Glassmorphism débloqué (backdrop-filter retiré de `.xos-window`).
+- Crossfade 150ms entre fiches + `prefers-reduced-motion`.
+
+---
+
 ### Lot 5.1 — Moteur de challenges — ⬜
 
 - CRUD challenges (managers) sur catalogue de métriques (réutilise les agrégations 3.1/4.1 + `action_journal`, incluant des indicateurs de qualité de remplissage du CRM : complétude des fiches, CloseDate valide, raisons de perte renseignées) ; cron Vercel de recalcul → snapshots `challenge_results`, attribution `badges`.
@@ -186,11 +240,13 @@ Compagnon opérationnel de `xos_portal_plan.md` (v3). Découpage en **lots dél�
 
 ---
 
-> **Décision deux apps (2026-07-11)** : Weekly Perf garde le micro hebdo (rituel d'équipe) ; Business Review porte le macro — portage X OS du dashboard V6 Hermes (`/Users/theosavoy/xos-dashboard`) : granularité Semaine/Mois/Trimestre/Année, navigation historique, comparaison auto N-1 (et N-2), filtres par commercial, CA par type de vente, funnel SDR, opps à l'attention. **Partage d'analyses** manager/admin → commercial (config + note, données recalculées ; table `shared_analyses`).
+> **Décision deux apps (2026-07-11)** : Lundi garde le micro hebdo (rituel d'équipe) ; **Bilan** (ex-Business Review) porte le macro — portage X OS du dashboard V6 Hermes (`/Users/theosavoy/xos-dashboard`) : granularité Semaine/Mois/Trimestre/Année, navigation historique, comparaison auto N-1 (et N-2), filtres par commercial, CA par type de vente, funnel SDR, opps à l'attention. **Partage d'analyses** manager/admin → commercial (config + note, données recalculées ; table `shared_analyses`).
+>
+> **Branding (2026-07-23)** : l'app s'appelle **Bilan** — la régie théâtre, l'endroit d'où le metteur en scène monitore tout le spectacle. Cohérent avec la famille Labo / Combo / Lundi / Coulisses. ID registry `"review"` conservé pour les deep links. **Spec dev-ready** : `docs/specs/business-review.md` v2 (architecture, SOQL porté du V6, composants, lots).
 
-- **Lot 6.0 — Audit macro** — ⬜ : FY XOS, définitions CA signé, profondeur N-2, valeurs picklist réelles, volumétrie SOQL ; réutilise les `references/` du skill Hermes (SOQL + pièges déjà documentés : OwnerId vs CreatedById, ISO week, double comptage Global, Sur-mesure 6 mois glissants). **Validation Théo** — bloque 6.1. _(L'ancien volet OpportunityLineItem/Product2 + motifs gain/perte reste au périmètre de l'audit.)_
-- **Lot 6.1 — `api/review.js`** — ⬜ : routeur `?resource=kpis|breakdown|funnel|attention|shared`, cache 1 h, migration `shared_analyses` + RLS, authz commercial = analyses partagées uniquement.
-- **Lot 6.2 — UI `src/apps/review/`** — ⬜ : sélecteur période/granularité, comparatifs explicites, sections V6, onglet « Partagées avec moi », partage bout en bout.
+- **Lot 6.0 — Audit macro** — ⬜ (partiel) : ~~FY XOS~~ **acté juillet→juin**, ~~picklists~~ **vérifiées** (`Type_de_vente__c`, `Resultat_call__c`). Reste : profondeur N-2, volumétrie SOQL, `sf_user_map` complet. **Validation Théo** sur les sections prioritaires — bloque 6.1.
+- **Lot 6.1 — `api/review.js`** — ⬜ : routeur `?resource=kpis|breakdown|funnel|attention|calls|shared`, helpers `api/_review/{soql,kpis,breakdown,funnel,attention,calls,shared}.js`, cache 1 h, migration `shared_analyses` + RLS, authz commercial = analyses partagées uniquement.
+- **Lot 6.2 — UI `src/apps/review/`** — ⬜ : shell + 6 sections (Cockpit, Activité, Performance, Funnel, Attention, Appels), PeriodSelector, OwnerFilter, ShareModal, SharedList, registry `"Bilan"`, deep link `?open=review&shared=<id>`, partage bout en bout.
 
 ## Phase 7 — Agent XOS (chat + Slack + Hermes) — ⬜
 
@@ -266,13 +322,13 @@ _X OS et Hermes se connectent chacun à Slack ; ils ne se connectent jamais l'un
 
 ---
 
-## Phase 8 — Login Salesforce _(lot dédié, indépendant)_ — 🟡
+## Phase 8 — Login Salesforce _(lot dédié, indépendant)_ — ✅
 
 Ajoute **« Se connecter avec Salesforce »** sur l'écran de login **EN PLUS** du lien magique — deux options coexistent, aucune ne remplace l'autre. Prépare aussi l'attribution niveau 2 (actions SF sous le nom de chacun, pas seulement `OwnerId` posé par l'utilisateur d'intégration).
 
-- **Lot 8.1 — OAuth Salesforce (login + liaison user)** — 🟡 : login Salesforce livré via le provider OIDC custom Supabase. Après ce login, `provider_refresh_token` est automatiquement transmis au backend, validé contre l'email + `sf_user_id`, puis chiffré AES-256-GCM ; le bouton « Lier Salesforce » reste un secours pour les sessions magic-link/reconnexions. Le flow dédié (`POST ?flow=salesforce-link` puis `GET ?flow=salesforce-callback`) utilise un état hashé/expirant. Migration 015, `SF_TOKEN_ENCRYPTION_KEY` et déploiement Production effectués le 2026-07-11. **Reste** : smoke-test `CreatedById` après un nouveau login Salesforce.
-- **Lot 8.1b — Attribution niveau 2 (écritures sous l'identité du commercial)** — 🟡 _(code prêt, activation prod à valider)_ : Call Manager, Launcher et Labo utilisent le refresh token SF **du commercial** quand il existe, avec fallback intégration. Cache 30 min par user + retry 401 sous la même identité. **Reste** : lier un compte test et vérifier `CreatedById` en live.
-- **Lot 8.2 — UI login à deux options** — ✅ _(avancé)_ : écran `src/auth/LoginScreen.tsx` aligné charte X OS (wallpaper boot, glass card, logo), bouton **« Se connecter avec Salesforce »** + séparateur + lien magique, gestion `?auth_error=…`. _(Chemin réel : `src/auth/`, pas `src/apps/auth/`.)_
+- **Lot 8.1 — OAuth Salesforce (login + liaison user)** — ✅ : login Salesforce livré via le provider OIDC custom Supabase. Après ce login, `provider_refresh_token` est automatiquement transmis au backend, validé contre l'email + `sf_user_id`, puis chiffré AES-256-GCM ; le bouton « Lier Salesforce » reste un secours pour les sessions magic-link/reconnexions. Le flow dédié (`POST ?flow=salesforce-link` puis `GET ?flow=salesforce-callback`) utilise un état hashé/expirant. Migration 015, `SF_TOKEN_ENCRYPTION_KEY` et déploiement Production effectués le 2026-07-11. **Validé par Théo le 2026-07-23.**
+- **Lot 8.1b — Attribution niveau 2 (écritures sous l'identité du commercial)** — ✅ : Call Manager, Launcher et Labo utilisent le refresh token SF **du commercial** quand il existe, avec fallback intégration. Cache 30 min par user + retry 401 sous la même identité. **Validé par Théo le 2026-07-23.**
+- **Lot 8.2 — UI login à deux options** — ✅ : écran `src/auth/LoginScreen.tsx` aligné charte X OS (wallpaper boot, glass card, logo), bouton **« Se connecter avec Salesforce »** + séparateur + lien magique, gestion `?auth_error=…`.
 - **Vérifié par** : login via SF → session X OS active, `sf_user_id` mappé ; login via lien magique inchangé ; un compte hors `xos-learning.fr` refusé.
 
 ## Phase 9 — Copilot _(pilotage pipeline & adoption CRM)_ — ⬜
@@ -366,6 +422,37 @@ Ajoute **« Se connecter avec Salesforce »** sur l'écran de login **EN PLUS** 
 
 ---
 
+## Phase 11 — Combo Power Prospection _(Telnyx + IA)_ — ⬜
+
+> **Spec complète** : `docs/specs/combo-prospection-autonome.md` v2 (2026-07-23).
+> **Sources** : `docs/audits/lot-11.0-telnyx.md`, `docs/prospecting-ux-pattern-catalog.md`, `docs/power-dialer-research.md`.
+
+### Vision
+
+Minari/Flunter + la touche Combo. Power dialer 3-5 lignes, enregistrement, transcription, résumé IA, ACW pré-rempli validé en 1 clic → Salesforce. Gamification branchée sur la prospection réelle (différenciateur unique). Pas de niveau autonome, pas de Bloctel (B2B), pas de séquences multi-canal.
+
+### Lots (7 lots, 8-9 semaines)
+
+| Lot  | Contenu                                                                    | Dépendance                |
+| ---- | -------------------------------------------------------------------------- | ------------------------- |
+| 11.0 | Audit & cadrage                                                            | ✅ Fait 2026-07-23        |
+| 11.1 | Infrastructure Telnyx (REST, webhooks Ed25519, migrations)                 | Compte Telnyx + numéro FR |
+| 11.2 | Moteur parallèle + UI live (orchestrator, SSE, PowerDialerView)            | 11.1                      |
+| 11.3 | Enregistrement + transcription + résumé IA (GPT-4o-mini)                   | 11.1                      |
+| 11.4 | ACW & consignation CRM (ACWOverlay, validation 1 clic, Task/Event/Note SF) | 11.2 + 11.3               |
+| 11.5 | Gamification power (XP, badges, streaks)                                   | 11.4                      |
+| 11.6 | Récap & stats (session, manager, Bilan)                                    | 11.4                      |
+
+### Coût : ~1,41€/session → ~310€/mois pour 5 commerciaux
+
+### Prérequis humains
+
+- Compte Telnyx + KYC FR + numéro(s) outbound + crédits
+- PSTN callback confirmé (V1)
+- Clé API LLM (GPT-4o-mini)
+
+---
+
 ### Compléments plan à prévoir (hors lots initiaux)
 
 | Sujet                                  | Pourquoi                                                                      | Suggestion                                                                  |
@@ -380,39 +467,59 @@ Ajoute **« Se connecter avec Salesforce »** sur l'écran de login **EN PLUS** 
 
 ## Suivi
 
-| Phase | Lots               | Statut                                                         | Parallélisme                                               | Jalon                                                  |
-| ----- | ------------------ | -------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| 0     | 0.1 → 0.2          | ✅                                                             | séquentiel                                                 | Socle déployé, auth lien magique OK                    |
-| 1     | 1.1 ∥ 1.2 ∥ 1.3    | ✅                                                             | 3 agents                                                   | **V1 : bureau + Cleaner**                              |
-| 2     | 2.1 → 2.2, ∥ 2.3   | ✅                                                             | 2-3 agents                                                 | **Launcher + Hub livrés**                              |
-| 3     | 3.0 → 3.3          | ✅                                                             | séquentiel                                                 | **Weekly Perf complet en prod (rituel équipe inclus)** |
-| 4     | 4.0 → 4.2 + v2.A–C | ✅                                                             | —                                                          | **Call Manager v1+v2**                                 |
-| 5     | 5.1 → 5.2          | ⬜                                                             | séquentiel                                                 | Arena                                                  |
-| 6     | 6.0 → 6.1 → 6.2    | ⬜                                                             | séquentiel                                                 | Business Review                                        |
-| 7     | 7.0 → 7.4          | ⬜                                                             | séquentiel (7.4 = Hermes)                                  | Agent XOS                                              |
-| 8     | 8.1 → 8.2          | 🟡 (8.1/8.1b/8.2 livrés ; reste smoke-test `CreatedById` live) | indépendant                                                | Login Salesforce                                       |
-| 9     | 9.0 → 9.1 → 9.2    | ⬜                                                             | séquentiel — **à exécuter avant la 5**                     | Copilot                                                |
-| 10    | 10.0 → 10.7        | ⬜                                                             | contrats figés puis backend/front partiellement parallèles | **Labo natif et modulaire**                            |
+| Phase | Lots               | Statut                                                                                                                                                                                  | Parallélisme                          | Jalon                                                  |
+| ----- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------ |
+| 0     | 0.1 → 0.2          | ✅                                                                                                                                                                                      | séquentiel                            | Socle déployé, auth lien magique OK                    |
+| 1     | 1.1 ∥ 1.2 ∥ 1.3    | ✅                                                                                                                                                                                      | 3 agents                              | **V1 : bureau + Cleaner**                              |
+| 2     | 2.1 → 2.2, ∥ 2.3   | ✅                                                                                                                                                                                      | 2-3 agents                            | **Launcher + Hub livrés**                              |
+| 3     | 3.0 → 3.3          | ✅                                                                                                                                                                                      | séquentiel                            | **Weekly Perf complet en prod (rituel équipe inclus)** |
+| 4     | 4.0 → 4.2 + v2.A–C | ✅                                                                                                                                                                                      | —                                     | **Call Manager v1+v2**                                 |
+| C1    | Combo V1           | ✅ (BUG-07 ✅ fixé 2026-08-01, useNudgeLearning ✅ supprimé, reste F.3/F.5b polish)                                                                                                     | —                                     | **Gamification câblée + design system**                |
+| 5     | 5.1 → 5.2          | ❄️ **Gelée** (décision Théo 2026-08-01 — Combo au centre, Arena non prioritaire. Débloquer nécessite migration gamification localStorage → Supabase, ~2 sem.)                           | —                                     | Arena                                                  |
+| 6     | 6.0 → 6.1 → 6.2    | 🟡 **Code 6.1+6.2 existant en untracked** (API + UI, ~1700 LOC). Non testé, non commité. Reste : lot 6.0 audit macro (validation seuils Théo), tests, gate QC.                          | séquentiel                            | Bilan (cockpit macro)                                  |
+| 7     | 7.0 → 7.4          | ❄️ **Gelée** (bloque sur workspace Slack + app Hermes)                                                                                                                                  | séquentiel (7.4 = Hermes)             | Agent XOS                                              |
+| 8     | 8.1 → 8.2          | ✅ (validé Théo 2026-07-23)                                                                                                                                                             | indépendant                           | Login Salesforce                                       |
+| 9     | 9.0 → 9.1 → 9.2    | ⬜                                                                                                                                                                                      | séquentiel — **priorité après Bilan** | Copilot                                                |
+| 10    | 10.0 → 10.7        | 🟡 **Livré à ~90%** (shell modulaire + modules Opportunités + Recettes, legacy retiré, ~8600 LOC UI + ~5700 LOC API). Reste : lot 10.7 gate parité formel + doc cutover, ~demi-semaine. | —                                     | **Labo natif et modulaire**                            |
+| 11    | 11.0 → 11.6        | ⬜ (audit 11.0 ✅ fait 2026-07-23. **Prérequis technique : découper Combo** (21K LOC à plat, RunnerView 2529 LOC) avant lots 11.2+. Bloque aussi sur compte Telnyx.)                    | backend/UI partiellement ∥            | **Telnyx Power Dialing**                               |
 
-### Priorisation suggérée (prochains lots)
+### Priorisation actualisée (décision Théo 2026-08-01)
 
-1. ~~**Consolidation Vercel B/C**~~ ✅ · ~~**2.3 Hub**~~ ✅ · ~~**3.1 api/perf**~~ ✅ · ~~**8.1/8.1b/8.2 OAuth SF**~~ ✅ (reste smoke-test).
-2. **10 Labo** (10.0 audit/parité → 10.7 cutover) — chantier prioritaire courant, contrats validés le 2026-07-12.
-3. **Smoke-test attribution niveau 2** : login SF réel + vérifier `CreatedById` sur une Task de test (action Théo ; utile avant les writes live du lot 10.7).
-4. **9 Copilot** (9.0 audit → 9.1 API → 9.2 UI) — après Labo, avant Arena ; contrat `docs/specs/copilot.md`.
-5. **5 Arena / 6 Business Review** ensuite selon priorité produit ; **extinction Basic Auth** (décision humaine, équipe basculée ?).
+> **Stratégie** : Combo est le produit avec le plus de potentiel. Consolider et construire autour de Combo (Telnyx, Copilot, Bilan). Arena gelée.
 
-Défauts actés (véto possible) : Supabase région `eu-west` ; **Labo migre complètement l'ancien journal Blob vers `action_journal` avant la bascule** ; un lot = un worktree isolé, PR/merge après gate QC et accord ; cron Arena horaire en période de challenge ; **Slack = transport/persistance des messages** ; **Hermes = app Slack multi-user** (mémoire + skills), infra opaque ; X OS = UI + transport Slack, **jamais d'appel direct à Hermes**, pas de LLM embarqué ; écritures SF restent sur `api/` protégé JWT.
+1. ~~Phases 0-4, Combo V1, Phase 8~~ ✅ · ~~BUG-07~~ ✅ · ~~useNudgeLearning~~ ✅ · ~~lint rouge~~ ✅ · ~~prettier aligné~~ ✅.
+2. **6 Bilan** — committer le code existant, tester, gate QC. Priorité produit immédiate (analytique différenciante).
+3. **10.7 Labo gate parité** — demi-semaine, finir le chantier.
+4. **11 Telnyx Power Dialing** — transformation de Combo en power dialer réel. **Prérequis technique : découper `src/apps/calls/`** (modulaire comme Labo) avant 11.2. Prérequis externe : compte Telnyx + numéro FR.
+5. **9 Copilot** — intégration naturelle avec Combo (« next action » pour le commercial).
+6. **5 Arena** — ❄️ gelée (Combo V1 couvre la gamification personnelle ; Arena collaborative non prioritaire).
+7. **7 Agent XOS** — ❄️ gelée (bloque Slack).
+8. **Polish Combo résiduel** : F.3 (timeline visuelle), F.5b (bouton relance adjacent).
+9. **Migration gamification localStorage → Supabase** — prérequis dur pour Arena (non planifié dans la fenêtre actuelle).
+
+Défauts actés (véto possible) : Supabase région `eu-west` ; un lot = un worktree isolé, PR/merge après gate QC et accord ; **Slack = transport/persistance des messages** ; **Hermes = app Slack multi-user** (mémoire + skills), infra opaque ; X OS = UI + transport Slack, **jamais d'appel direct à Hermes**, pas de LLM embarqué ; écritures SF restent sur `api/` protégé JWT.
+
+### Risques techniques identifiés (audit 2026-08-01)
+
+- **Gamification 100% localStorage** : non portable entre machines, non auditable, Set de dédup sans borne. Bloque Arena. Migration Supabase = ~2 sem (non planifiée).
+- **Combo 21K LOC à plat** : RunnerView 2529 LOC, 0 sous-dossiers. Pré-requis au découpage modulaire avant Telnyx (Phase 11).
+- **`api/perf.js` 1630 LOC** : plus gros handler, non décomposé. Bilan (Phase 6) va dupliquer la logique de périodes si pas refactoré avant.
+- **Pas de CI** : gates QC déclaratifs exécutés à la main. Le lint était rouge sur main (corrigé 2026-08-01).
+- **Résolution du rôle dupliquée 3× côté front** : Desktop, CleanerApp, CallManagerApp — un `RoleContext` coûte 40 lignes.
+- **`src/components/ui` testé à 11%** : design system partagé par 5 apps, 0 test sur DatePicker/TimePicker/Select/etc.
+- **Vercel Hobby 9/12** (10/12 après Bilan commit). Voir `docs/ops/vercel-functions.md`.
 
 Décisions humaines attendues en cours de route :
 
 - ~~Domaine email autorisé pour le lien magique~~ → **`xos-learning.fr`** (acté le 2026-07-10).
 - ~~Création du CNAME `xos.hellotheo.fr`~~ et configuration DNS du domaine sur le projet Vercel renommé **xos** → **Fait (actif)**.
-- **Configuration de la redirect URL Supabase** : ajouter `https://xos.hellotheo.fr` dans la console d'administration Supabase (requis pour la redirection après connexion OTP).
+- ~~Configuration de la redirect URL Supabase~~ → **Fait** (Phase 8 validée 2026-07-23).
 - ~~Liste des emails managers / admin~~ → **actée 2026-07-11** (voir `api/_config/access.js`).
 - ~~Validation des définitions Weekly Perf (3.0)~~ → **actée 2026-07-11** (`docs/specs/weekly-perf.md`).
-- **URL de callback OAuth à ajouter sur la Connected App Salesforce** (Setup → App Manager) : `https://xos.hellotheo.fr/api/auth?flow=salesforce-callback` — bloque 8.1.
+- ~~URL de callback OAuth à ajouter sur la Connected App Salesforce~~ → **Fait** (Phase 8 validée 2026-07-23).
+- ~~Basic Auth legacy~~ → **Déjà éteint** (middleware.js 100% JWT Supabase, audit 2026-08-01).
+- ~~Migrations 014 en double~~ → **Faux** (un seul `014_sf_user_map_roles.sql`, audit 2026-08-01).
 - **Workspace Slack XOS** + validation du flux « un DM agent par commercial » (lot 7.0) — bloque 7.1.
 - **App Slack Hermes installée dans le workspace XOS** (scopes, mémoire, skills — côté Théo) — bloque 7.0/7.2.
-- Fin de phase 2 : feu vert pour l'extinction du Basic Auth legacy.
-- **Hobby vs Pro Vercel** : si Agent + Arena partent sans consolidation C, envisager upgrade Pro.
+- **Hobby vs Pro Vercel** : 9/12 utilisé, 10/12 après Bilan. Pro reporté par Théo (2026-08-01) — consolider si besoin.
+- **Telnyx** : création compte, numéro outbound FR, crédits, décision WebRTC vs PSTN callback — bloque 11.1.

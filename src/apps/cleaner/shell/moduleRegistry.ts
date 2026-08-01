@@ -17,7 +17,9 @@ export type CleanerModuleDefinition = {
   label: string;
   criticality: 'critical' | 'warning' | 'healthy';
   roles?: readonly AppRole[];
-  component: LazyExoticComponent<FC<CleanerModuleProps>> | ComponentType<CleanerModuleProps>;
+  component:
+    | LazyExoticComponent<FC<CleanerModuleProps>>
+    | ComponentType<CleanerModuleProps>;
 };
 
 export const moduleRegistry = [

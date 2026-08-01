@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   boundedLimit,
   buildTargetQuery,
@@ -11,125 +11,169 @@ import {
   SOQL_FETCH_CAP,
   __resetSFTokenCache,
   __resetOpportunityAccountCache,
-} from "./_crm/salesforce.js";
-import mapping from "./_crm/mapping.js";
-import { FONCTION_PRESETS } from "../src/crm/index.ts";
-import { parseAccountsSearchBody } from "./_calls/accountsSearch.js";
-import { parseListContactsBody } from "./_calls/listContacts.js";
-import { buildPreviewContactList } from "./_calls/selection.js";
-import { __resetProfileCache } from "./_calls/profileCache.js";
-import { encryptRefreshToken } from "./_crm/tokenEncryption.js";
-import { POST } from "./calls.js";
+} from './_crm/salesforce.js';
+import mapping from './_crm/mapping.js';
+import { FONCTION_PRESETS } from '../src/crm/index.ts';
+import { parseAccountsSearchBody } from './_calls/accountsSearch.js';
+import { parseListContactsBody } from './_calls/listContacts.js';
+import { buildPreviewContactList } from './_calls/selection.js';
+import { __resetProfileCache } from './_calls/profileCache.js';
+import { encryptRefreshToken } from './_crm/tokenEncryption.js';
+import { POST } from './calls.js';
 
 const { mockVerifyJWT } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
 }));
 
-vi.mock("./_auth.js", () => ({
+vi.mock('./_auth.js', () => ({
   verifyJWT: mockVerifyJWT,
   respond: (status, body) =>
     new Response(JSON.stringify(body), {
       status,
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     }),
 }));
 
 const mockMaybeSingle = vi.fn();
-const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle, eq: mockEq, in: () => mockChain, or: () => mockChain }));
+const mockEq = vi.fn(() => ({
+  maybeSingle: mockMaybeSingle,
+  eq: mockEq,
+  in: () => mockChain,
+  or: () => mockChain,
+}));
 const mockIn = vi.fn(() => mockChain);
-const mockSelect = vi.fn(() => ({ eq: mockEq, in: mockIn, select: mockSelect }));
-const mockChain = { eq: mockEq, in: mockIn, select: mockSelect, or: () => mockChain, limit: () => mockChain };
+const mockSelect = vi.fn(() => ({
+  eq: mockEq,
+  in: mockIn,
+  select: mockSelect,
+}));
+const mockChain = {
+  eq: mockEq,
+  in: mockIn,
+  select: mockSelect,
+  or: () => mockChain,
+  limit: () => mockChain,
+};
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
-vi.mock("@supabase/supabase-js", () => ({
+vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mockFrom }),
 }));
 
-function makeReq(body, token = "supabase-jwt-token") {
+function makeReq(body, token = 'supabase-jwt-token') {
   const headers = new Headers({
     Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   });
-  return new Request("http://localhost/api/calls", {
-    method: "POST",
+  return new Request('http://localhost/api/calls', {
+    method: 'POST',
     headers,
-    body: body === undefined ? undefined : JSON.stringify({ action: "list_contacts", ...body }),
+    body:
+      body === undefined
+        ? undefined
+        : JSON.stringify({ action: 'list_contacts', ...body }),
   });
 }
 
 function makeRawReq(rawBody) {
   const headers = new Headers({
-    Authorization: "Bearer supabase-jwt-token",
-    "Content-Type": "application/json",
+    Authorization: 'Bearer supabase-jwt-token',
+    'Content-Type': 'application/json',
   });
-  return new Request("http://localhost/api/calls", {
-    method: "POST",
+  return new Request('http://localhost/api/calls', {
+    method: 'POST',
     headers,
     body: rawBody,
   });
 }
 
 const baseFilters = {
-  entreprise: { secteurs: ["Finance"] },
+  entreprise: { secteurs: ['Finance'] },
   contact: { a_telephone: true },
   relance: {},
 };
 
 const SF_RECORDS = [
   {
-    Id: "003000000000001AAA",
-    Name: "Marie Dupont",
-    Phone: "+33123456789",
-    Title: "Responsable formation",
-    Profil_Linkedin__c: "https://linkedin.com/in/marie",
-    Email: "marie@acme.fr",
-    MobilePhone: "+33600000000",
-    AccountId: "001000000000001AAA",
-    Account: { Id: "001000000000001AAA", Name: "ACME" },
-    Tasks: { totalSize: 1, records: [{ ActivityDate: "2026-07-01", Resultat_call__c: "Appel décroché", CallDurationInSeconds: 60 }] },
+    Id: '003000000000001AAA',
+    Name: 'Marie Dupont',
+    Phone: '+33123456789',
+    Title: 'Responsable formation',
+    Profil_Linkedin__c: 'https://linkedin.com/in/marie',
+    Email: 'marie@acme.fr',
+    MobilePhone: '+33600000000',
+    AccountId: '001000000000001AAA',
+    Account: { Id: '001000000000001AAA', Name: 'ACME' },
+    Tasks: {
+      totalSize: 1,
+      records: [
+        {
+          ActivityDate: '2026-07-01',
+          Resultat_call__c: 'Appel décroché',
+          CallDurationInSeconds: 60,
+        },
+      ],
+    },
   },
 ];
 
-describe("adapter exports", () => {
-  it("fonctionPresets mirror front FONCTION_PRESETS ids and labels", () => {
+describe('adapter exports', () => {
+  it('fonctionPresets mirror front FONCTION_PRESETS ids and labels', () => {
     const backend = mapping.objects.contact.fonctionPresets;
-    expect(FONCTION_PRESETS.map((preset) => preset.id)).toEqual(backend.map((preset) => preset.id));
-    expect(FONCTION_PRESETS.map((preset) => preset.label)).toEqual(backend.map((preset) => preset.label));
+    expect(FONCTION_PRESETS.map((preset) => preset.id)).toEqual(
+      backend.map((preset) => preset.id),
+    );
+    expect(FONCTION_PRESETS.map((preset) => preset.label)).toEqual(
+      backend.map((preset) => preset.label),
+    );
   });
 
-  it("escapeSOQL escapes quotes and backslashes", () => {
+  it('escapeSOQL escapes quotes and backslashes', () => {
     expect(escapeSOQL("O'Brien")).toBe("O\\'Brien");
-    expect(escapeSOQL("path\\to")).toBe("path\\\\to");
+    expect(escapeSOQL('path\\to')).toBe('path\\\\to');
   });
 
-  it("buildTargetQuery uses mapping field names for v2 filter tree", () => {
-    const soql = buildTargetQuery(baseFilters, mapping, "005000000000001AAA");
-    expect(soql).toContain(`Account.${mapping.objects.account.fields.industry} IN ('Finance')`);
-    expect(soql).toContain(`${mapping.objects.contact.fields.mobilePhone} != null`);
-    expect(soql).toContain(`${mapping.objects.contact.fields.doNotCall} = false`);
-    expect(soql).toContain(`${mapping.objects.contact.fields.inactive} = false`);
+  it('buildTargetQuery uses mapping field names for v2 filter tree', () => {
+    const soql = buildTargetQuery(baseFilters, mapping, '005000000000001AAA');
+    expect(soql).toContain(
+      `Account.${mapping.objects.account.fields.industry} IN ('Finance')`,
+    );
+    expect(soql).toContain(
+      `${mapping.objects.contact.fields.mobilePhone} != null`,
+    );
+    expect(soql).toContain(
+      `${mapping.objects.contact.fields.doNotCall} = false`,
+    );
+    expect(soql).toContain(
+      `${mapping.objects.contact.fields.inactive} = false`,
+    );
     expect(soql).toContain(`${mapping.objects.contact.fields.title}`);
     expect(soql).toContain(`${mapping.objects.contact.fields.linkedin}`);
     expect(soql).not.toMatch(/NOT IN \(SELECT .* FROM Task/);
-    expect(soql).toContain("LIMIT 200");
+    expect(soql).toContain('LIMIT 200');
   });
 
-  it("buildTargetQuery adds Account tier filter", () => {
+  it('buildTargetQuery adds Account tier filter', () => {
     const soql = buildTargetQuery(
-      { ...baseFilters, entreprise: { ...baseFilters.entreprise, tiers: ["A", "B"] } },
+      {
+        ...baseFilters,
+        entreprise: { ...baseFilters.entreprise, tiers: ['A', 'B'] },
+      },
       mapping,
       null,
     );
-    expect(soql).toContain(`Account.${mapping.objects.account.fields.tier} IN ('A', 'B')`);
+    expect(soql).toContain(
+      `Account.${mapping.objects.account.fields.tier} IN ('A', 'B')`,
+    );
   });
 
-  it("buildTargetQuery adds Account owner filter", () => {
+  it('buildTargetQuery adds Account owner filter', () => {
     const soql = buildTargetQuery(
       {
         ...baseFilters,
         entreprise: {
           ...baseFilters.entreprise,
-          proprietaires: ["005000000000001AAA", "005000000000002AAA"],
+          proprietaires: ['005000000000001AAA', '005000000000002AAA'],
         },
       },
       mapping,
@@ -140,17 +184,23 @@ describe("adapter exports", () => {
     );
   });
 
-  it("buildTargetQuery still supports legacy ownerOnly flag", () => {
-    const soql = buildTargetQuery({ ...baseFilters, ownerOnly: true }, mapping, "005000000000003AAA");
-    expect(soql).toContain(`Account.${mapping.objects.account.fields.ownerId} = '005000000000003AAA'`);
+  it('buildTargetQuery still supports legacy ownerOnly flag', () => {
+    const soql = buildTargetQuery(
+      { ...baseFilters, ownerOnly: true },
+      mapping,
+      '005000000000003AAA',
+    );
+    expect(soql).toContain(
+      `Account.${mapping.objects.account.fields.ownerId} = '005000000000003AAA'`,
+    );
   });
 
-  it("mapping exposes Account tier picklist A–D", () => {
-    expect(mapping.objects.account.tiers).toEqual(["A", "B", "C", "D"]);
-    expect(mapping.objects.account.fields.tier).toBe("Tier__c");
+  it('mapping exposes Account tier picklist A–D', () => {
+    expect(mapping.objects.account.tiers).toEqual(['A', 'B', 'C', 'D']);
+    expect(mapping.objects.account.fields.tier).toBe('Tier__c');
   });
 
-  it("buildTargetQuery fetches wide when relance predicates need JS filtering", () => {
+  it('buildTargetQuery fetches wide when relance predicates need JS filtering', () => {
     const soql = buildTargetQuery(
       { ...baseFilters, relance: { jamais_appele: true }, limit: 50 },
       mapping,
@@ -158,21 +208,40 @@ describe("adapter exports", () => {
     );
     expect(soql).not.toMatch(/LAST_N_DAYS/);
     expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
-    expect(hasRelanceQueryFilters({ relance: { jamais_appele: true } })).toBe(true);
-    expect(hasRelanceQueryFilters({ relance: { dernier_resultat: ["Appel décroché"] } })).toBe(true);
-    expect(hasRelanceQueryFilters({ relance: { exclure_si_plus_de: { appels: 2, sur_jours: 7 } } })).toBe(true);
-    expect(buildTargetQuery({ ...baseFilters, relance: { dernier_resultat: ["Appel décroché"] }, limit: 20 }, mapping)).toContain("LIMIT 2000");
-    expect(soql).not.toContain("Resultat_call__c != null");
+    expect(hasRelanceQueryFilters({ relance: { jamais_appele: true } })).toBe(
+      true,
+    );
+    expect(
+      hasRelanceQueryFilters({
+        relance: { dernier_resultat: ['Appel décroché'] },
+      }),
+    ).toBe(true);
+    expect(
+      hasRelanceQueryFilters({
+        relance: { exclure_si_plus_de: { appels: 2, sur_jours: 7 } },
+      }),
+    ).toBe(true);
+    expect(
+      buildTargetQuery(
+        {
+          ...baseFilters,
+          relance: { dernier_resultat: ['Appel décroché'] },
+          limit: 20,
+        },
+        mapping,
+      ),
+    ).toContain('LIMIT 2000');
+    expect(soql).not.toContain('Resultat_call__c != null');
   });
 
-  it("boundedLimit accepts up to the SOQL fetch cap", () => {
+  it('boundedLimit accepts up to the SOQL fetch cap', () => {
     expect(boundedLimit(2000)).toBe(2000);
     expect(boundedLimit(9000)).toBe(SOQL_FETCH_CAP);
   });
 
-  it("buildTargetQuery adds fonction preset clauses", () => {
+  it('buildTargetQuery adds fonction preset clauses', () => {
     const soql = buildTargetQuery(
-      { ...baseFilters, contact: { fonctions: ["responsable_formation"] } },
+      { ...baseFilters, contact: { fonctions: ['responsable_formation'] } },
       mapping,
       null,
     );
@@ -180,9 +249,9 @@ describe("adapter exports", () => {
     expect(soql).toContain("Title IN ('RF')");
   });
 
-  it("buildTargetQuery adds responsable_rh preset clauses", () => {
+  it('buildTargetQuery adds responsable_rh preset clauses', () => {
     const soql = buildTargetQuery(
-      { ...baseFilters, contact: { fonctions: ["responsable_rh"] } },
+      { ...baseFilters, contact: { fonctions: ['responsable_rh'] } },
       mapping,
       null,
     );
@@ -191,55 +260,86 @@ describe("adapter exports", () => {
     expect(soql).toContain("Title IN ('RRH', 'HRBP', 'Cadre RH')");
   });
 
-  it("buildTargetQuery ignores unknown fonction presets without crashing", () => {
+  it('buildTargetQuery ignores unknown fonction presets without crashing', () => {
     const soql = buildTargetQuery(
-      { ...baseFilters, contact: { fonctions: ["preset_inexistant", "responsable_formation"] } },
+      {
+        ...baseFilters,
+        contact: { fonctions: ['preset_inexistant', 'responsable_formation'] },
+      },
       mapping,
       null,
     );
     expect(soql).toContain("Title LIKE '%responsable%formation%'");
-    expect(soql).not.toContain("preset_inexistant");
+    expect(soql).not.toContain('preset_inexistant');
   });
 
-  it("buildTargetQuery does not embed opportunity semi-joins in Contact SOQL", () => {
+  it('buildTargetQuery does not embed opportunity semi-joins in Contact SOQL', () => {
     const soql = buildTargetQuery(
       {
         ...baseFilters,
-        entreprise: { ...baseFilters.entreprise, opp_ouverte: true, opp_perdue: true },
+        entreprise: {
+          ...baseFilters.entreprise,
+          opp_ouverte: true,
+          opp_perdue: true,
+        },
       },
       mapping,
       null,
     );
     expect(soql).not.toMatch(/FROM Opportunity/);
-    expect(hasOpportunityQueryFilters({
-      entreprise: { opp_ouverte: true, opp_perdue: true },
-    })).toBe(true);
+    expect(
+      hasOpportunityQueryFilters({
+        entreprise: { opp_ouverte: true, opp_perdue: true },
+      }),
+    ).toBe(true);
   });
 
-  it("filterByOpportunityAccounts applies open / lost account predicates", () => {
+  it('filterByOpportunityAccounts applies open / lost account predicates', () => {
     const records = [
-      { Id: "003open", AccountId: "001open", Account: { Id: "001open" } },
-      { Id: "003lost", AccountId: "001lost", Account: { Id: "001lost" } },
-      { Id: "003both", AccountId: "001both", Account: { Id: "001both" } },
-      { Id: "003none", AccountId: "001none", Account: { Id: "001none" } },
+      { Id: '003open', AccountId: '001open', Account: { Id: '001open' } },
+      { Id: '003lost', AccountId: '001lost', Account: { Id: '001lost' } },
+      { Id: '003both', AccountId: '001both', Account: { Id: '001both' } },
+      { Id: '003none', AccountId: '001none', Account: { Id: '001none' } },
     ];
     const sets = {
-      open: new Set(["001open", "001both"]),
-      lost: new Set(["001lost", "001both"]),
+      open: new Set(['001open', '001both']),
+      lost: new Set(['001lost', '001both']),
     };
 
     expect(
-      filterByOpportunityAccounts(records, { entreprise: { opp_ouverte: true } }, mapping, sets).map((r) => r.Id),
-    ).toEqual(["003open", "003both"]);
+      filterByOpportunityAccounts(
+        records,
+        { entreprise: { opp_ouverte: true } },
+        mapping,
+        sets,
+      ).map((r) => r.Id),
+    ).toEqual(['003open', '003both']);
     expect(
-      filterByOpportunityAccounts(records, { entreprise: { opp_ouverte: false } }, mapping, sets).map((r) => r.Id),
-    ).toEqual(["003lost", "003none"]);
+      filterByOpportunityAccounts(
+        records,
+        { entreprise: { opp_ouverte: false } },
+        mapping,
+        sets,
+      ).map((r) => r.Id),
+    ).toEqual(['003lost', '003none']);
     expect(
-      filterByOpportunityAccounts(records, { entreprise: { opp_perdue: true } }, mapping, sets).map((r) => r.Id),
-    ).toEqual(["003lost"]);
+      filterByOpportunityAccounts(
+        records,
+        { entreprise: { opp_perdue: true } },
+        mapping,
+        sets,
+      ).map((r) => r.Id),
+    ).toEqual(['003lost']);
     expect(
-      filterByOpportunityAccounts(records, { entreprise: { opp_perdue: false } }, mapping, sets).map((r) => r.Id).sort(),
-    ).toEqual(["003none", "003open"]);
+      filterByOpportunityAccounts(
+        records,
+        { entreprise: { opp_perdue: false } },
+        mapping,
+        sets,
+      )
+        .map((r) => r.Id)
+        .sort(),
+    ).toEqual(['003none', '003open']);
     expect(
       filterByOpportunityAccounts(
         records,
@@ -247,7 +347,7 @@ describe("adapter exports", () => {
         mapping,
         sets,
       ).map((r) => r.Id),
-    ).toEqual(["003both"]);
+    ).toEqual(['003both']);
     expect(
       filterByOpportunityAccounts(
         records,
@@ -255,62 +355,101 @@ describe("adapter exports", () => {
         mapping,
         sets,
       ).map((r) => r.Id),
-    ).toEqual(["003lost"]);
+    ).toEqual(['003lost']);
   });
 
-  it("opportunityAccountSetNeeds fetches only the required account-id sets", () => {
-    expect(opportunityAccountSetNeeds({ entreprise: { opp_ouverte: true } })).toEqual({
+  it('opportunityAccountSetNeeds fetches only the required account-id sets', () => {
+    expect(
+      opportunityAccountSetNeeds({ entreprise: { opp_ouverte: true } }),
+    ).toEqual({
       needOpen: true,
       needLost: false,
     });
-    expect(opportunityAccountSetNeeds({ entreprise: { opp_perdue: false } })).toEqual({
+    expect(
+      opportunityAccountSetNeeds({ entreprise: { opp_perdue: false } }),
+    ).toEqual({
       needOpen: false,
       needLost: true,
     });
-    expect(opportunityAccountSetNeeds({ entreprise: { opp_ouverte: true, opp_perdue: true } })).toEqual({
+    expect(
+      opportunityAccountSetNeeds({
+        entreprise: { opp_ouverte: true, opp_perdue: true },
+      }),
+    ).toEqual({
       needOpen: true,
       needLost: true,
     });
-    expect(opportunityAccountSetNeeds({ entreprise: { opp_perdue: true } })).toEqual({
+    expect(
+      opportunityAccountSetNeeds({ entreprise: { opp_perdue: true } }),
+    ).toEqual({
       needOpen: true,
       needLost: true,
     });
   });
 
-  it("buildTargetQuery opp filters use wide fetch cap", () => {
+  it('buildTargetQuery opp filters use wide fetch cap', () => {
     const soql = buildTargetQuery(
-      { ...baseFilters, entreprise: { ...baseFilters.entreprise, opp_ouverte: true }, limit: 20 },
+      {
+        ...baseFilters,
+        entreprise: { ...baseFilters.entreprise, opp_ouverte: true },
+        limit: 20,
+      },
       mapping,
       null,
     );
     expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
   });
 
-  it("filterTargetContacts applies relance predicates from Tasks child records", () => {
-    const now = new Date("2026-07-10T12:00:00Z");
+  it('filterTargetContacts applies relance predicates from Tasks child records', () => {
+    const now = new Date('2026-07-10T12:00:00Z');
     const records = [
-      { Id: "never", Tasks: null },
+      { Id: 'never', Tasks: null },
       {
-        Id: "recent",
-        Tasks: { records: [{ ActivityDate: "2026-07-09", Resultat_call__c: "Appel décroché" }] },
+        Id: 'recent',
+        Tasks: {
+          records: [
+            { ActivityDate: '2026-07-09', Resultat_call__c: 'Appel décroché' },
+          ],
+        },
       },
       {
-        Id: "old",
-        Tasks: { records: [{ ActivityDate: "2026-05-01", Resultat_call__c: "Appel décroché" }] },
+        Id: 'old',
+        Tasks: {
+          records: [
+            { ActivityDate: '2026-05-01', Resultat_call__c: 'Appel décroché' },
+          ],
+        },
       },
     ];
     expect(
-      filterTargetContacts(records, { relance: { jamais_appele: true } }, mapping, now).map((r) => r.Id),
-    ).toEqual(["never"]);
+      filterTargetContacts(
+        records,
+        { relance: { jamais_appele: true } },
+        mapping,
+        now,
+      ).map((r) => r.Id),
+    ).toEqual(['never']);
     expect(
-      filterTargetContacts(records, { relance: { dernier_appel_avant_jours: 30 } }, mapping, now).map((r) => r.Id).sort(),
-    ).toEqual(["never", "old"]);
+      filterTargetContacts(
+        records,
+        { relance: { dernier_appel_avant_jours: 30 } },
+        mapping,
+        now,
+      )
+        .map((r) => r.Id)
+        .sort(),
+    ).toEqual(['never', 'old']);
     expect(
-      filterTargetContacts(records, { relance: { dernier_appel_dans_jours: 7 } }, mapping, now).map((r) => r.Id),
-    ).toEqual(["recent"]);
+      filterTargetContacts(
+        records,
+        { relance: { dernier_appel_dans_jours: 7 } },
+        mapping,
+        now,
+      ).map((r) => r.Id),
+    ).toEqual(['recent']);
   });
 
-  it("filterTargetContacts ignores legacy duration keys from old presets", () => {
+  it('filterTargetContacts ignores legacy duration keys from old presets', () => {
     const filtered = filterTargetContacts(
       SF_RECORDS,
       { relance: { duree_min_sec: 9999, duree_max_sec: 1 } },
@@ -319,44 +458,63 @@ describe("adapter exports", () => {
     expect(filtered).toHaveLength(1);
   });
 
-  it("filterTargetContacts applies dernier_resultat from relance filters", () => {
+  it('filterTargetContacts applies dernier_resultat from relance filters', () => {
     const filtered = filterTargetContacts(
       SF_RECORDS,
-      { relance: { dernier_resultat: [mapping.objects.task.resultSemantic.followUpNoAnswer] } },
+      {
+        relance: {
+          dernier_resultat: [
+            mapping.objects.task.resultSemantic.followUpNoAnswer,
+          ],
+        },
+      },
       mapping,
     );
     expect(filtered).toHaveLength(0);
   });
 
-  it("filterTargetContacts uses the latest call with a result while all calls remain attempts", () => {
-    const now = new Date("2026-07-10T12:00:00Z");
+  it('filterTargetContacts uses the latest call with a result while all calls remain attempts', () => {
+    const now = new Date('2026-07-10T12:00:00Z');
     const records = [
       {
-        Id: "future-then-result",
+        Id: 'future-then-result',
         Tasks: {
           totalSize: 2,
           records: [
-            { ActivityDate: "2026-07-11", Resultat_call__c: null },
-            { ActivityDate: "2026-07-09", Resultat_call__c: "Appel argumenté" },
+            { ActivityDate: '2026-07-11', Resultat_call__c: null },
+            { ActivityDate: '2026-07-09', Resultat_call__c: 'Appel argumenté' },
           ],
         },
       },
       {
-        Id: "no-result",
-        Tasks: { totalSize: 1, records: [{ ActivityDate: "2026-07-09", Resultat_call__c: "" }] },
+        Id: 'no-result',
+        Tasks: {
+          totalSize: 1,
+          records: [{ ActivityDate: '2026-07-09', Resultat_call__c: '' }],
+        },
       },
     ];
 
     expect(
-      filterTargetContacts(records, { relance: { dernier_resultat: ["Appel argumenté"] } }, mapping, now).map((record) => record.Id),
-    ).toEqual(["future-then-result"]);
+      filterTargetContacts(
+        records,
+        { relance: { dernier_resultat: ['Appel argumenté'] } },
+        mapping,
+        now,
+      ).map((record) => record.Id),
+    ).toEqual(['future-then-result']);
     expect(
-      filterTargetContacts(records, { relance: { jamais_appele: true } }, mapping, now),
+      filterTargetContacts(
+        records,
+        { relance: { jamais_appele: true } },
+        mapping,
+        now,
+      ),
     ).toEqual([]);
   });
 });
 
-describe("POST /api/calls action=list_contacts", () => {
+describe('POST /api/calls action=list_contacts', () => {
   beforeEach(async () => {
     __resetProfileCache();
     vi.restoreAllMocks();
@@ -365,97 +523,103 @@ describe("POST /api/calls action=list_contacts", () => {
     mockMaybeSingle.mockReset();
     mockFrom.mockClear();
 
-    vi.stubEnv("SF_CLIENT_ID", "test-client-id");
-    vi.stubEnv("SF_CLIENT_SECRET", "test-client-secret");
-    vi.stubEnv("SF_REFRESH_TOKEN", "test-refresh-token");
-    vi.stubEnv("SF_LOGIN_URL", "https://login.test.salesforce.com");
-    vi.stubEnv("SF_INSTANCE_URL", "https://test.my.salesforce.com");
-    vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
-    vi.stubEnv("SF_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 3).toString("base64"));
+    vi.stubEnv('SF_CLIENT_ID', 'test-client-id');
+    vi.stubEnv('SF_CLIENT_SECRET', 'test-client-secret');
+    vi.stubEnv('SF_REFRESH_TOKEN', 'test-refresh-token');
+    vi.stubEnv('SF_LOGIN_URL', 'https://login.test.salesforce.com');
+    vi.stubEnv('SF_INSTANCE_URL', 'https://test.my.salesforce.com');
+    vi.stubEnv('SUPABASE_URL', 'https://test-supabase-url.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
+    vi.stubEnv(
+      'SF_TOKEN_ENCRYPTION_KEY',
+      Buffer.alloc(32, 3).toString('base64'),
+    );
 
-    mockVerifyJWT.mockResolvedValue({ id: "user-123", email: "test@xos-learning.fr" });
-    const ciphertext = await encryptRefreshToken("user-refresh-token");
+    mockVerifyJWT.mockResolvedValue({
+      id: 'user-123',
+      email: 'test@xos-learning.fr',
+    });
+    const ciphertext = await encryptRefreshToken('user-refresh-token');
     mockMaybeSingle.mockResolvedValue({
       data: {
-        sf_user_id: "005000000000001AAA",
-        role: "commercial",
+        sf_user_id: '005000000000001AAA',
+        role: 'commercial',
         sf_refresh_token_encrypted: ciphertext,
-        sf_auth_connected_at: "2026-07-01T00:00:00.000Z",
+        sf_auth_connected_at: '2026-07-01T00:00:00.000Z',
       },
       error: null,
     });
   });
 
-  it("returns 401 when unauthorized", async () => {
+  it('returns 401 when unauthorized', async () => {
     mockVerifyJWT.mockResolvedValue(null);
     const res = await POST(makeReq({ filters: {} }));
     expect(res.status).toBe(401);
-    expect((await res.json()).error).toBe("unauthorized");
+    expect((await res.json()).error).toBe('unauthorized');
   });
 
-  it("returns 400 when body is invalid JSON", async () => {
-    const res = await POST(makeRawReq("{invalid"));
+  it('returns 400 when body is invalid JSON', async () => {
+    const res = await POST(makeRawReq('{invalid'));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_json");
+    expect((await res.json()).error).toBe('invalid_json');
   });
 
-  it("returns 400 invalid_body when body is null", async () => {
-    const res = await POST(makeRawReq("null"));
+  it('returns 400 invalid_body when body is null', async () => {
+    const res = await POST(makeRawReq('null'));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_body");
+    expect((await res.json()).error).toBe('invalid_body');
   });
 
-  it("returns 400 when filters is missing", async () => {
+  it('returns 400 when filters is missing', async () => {
     const res = await POST(makeReq({}));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_filters");
+    expect((await res.json()).error).toBe('invalid_filters');
   });
 
-  it("returns 400 when filters is not an object", async () => {
+  it('returns 400 when filters is not an object', async () => {
     const res = await POST(makeReq({ filters: [] }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_filters");
+    expect((await res.json()).error).toBe('invalid_filters');
   });
 
-  it("returns 400 when entreprise family is not an object", async () => {
+  it('returns 400 when entreprise family is not an object', async () => {
     const res = await POST(makeReq({ filters: { entreprise: [] } }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_filters");
+    expect((await res.json()).error).toBe('invalid_filters');
   });
 
-  it("returns 400 when relance family is not an object", async () => {
+  it('returns 400 when relance family is not an object', async () => {
     const res = await POST(makeReq({ filters: { relance: [] } }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_filters");
+    expect((await res.json()).error).toBe('invalid_filters');
   });
 
-  it("returns 400 for invalid limit", async () => {
+  it('returns 400 for invalid limit', async () => {
     const res = await POST(makeReq({ filters: {}, limit: 0 }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_limit");
+    expect((await res.json()).error).toBe('invalid_limit');
   });
 
-  it("returns 400 for invalid preset_id", async () => {
+  it('returns 400 for invalid preset_id', async () => {
     const res = await POST(makeReq({ filters: {}, preset_id: -1 }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_preset_id");
+    expect((await res.json()).error).toBe('invalid_preset_id');
   });
 
-  it("returns 400 for invalid max_per_company", async () => {
+  it('returns 400 for invalid max_per_company', async () => {
     const res = await POST(makeReq({ filters: {}, max_per_company: 9 }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_max_per_company");
+    expect((await res.json()).error).toBe('invalid_max_per_company');
   });
 
-  it("buildPreviewContactList fills total limit with per-company cap", () => {
+  it('buildPreviewContactList fills total limit with per-company cap', () => {
     const contacts = [];
     for (let company = 0; company < 40; company += 1) {
       for (let slot = 0; slot < 5; slot += 1) {
         contacts.push({
           sf_contact_id: `c-${company}-${slot}`,
           sf_account_id: `a-${company}`,
-          title: slot === 0 ? "Directeur" : `Chargé ${slot}`,
+          title: slot === 0 ? 'Directeur' : `Chargé ${slot}`,
         });
       }
     }
@@ -463,14 +627,17 @@ describe("POST /api/calls action=list_contacts", () => {
     expect(preview).toHaveLength(100);
     const counts = new Map();
     for (const contact of preview) {
-      counts.set(contact.sf_account_id, (counts.get(contact.sf_account_id) ?? 0) + 1);
+      counts.set(
+        contact.sf_account_id,
+        (counts.get(contact.sf_account_id) ?? 0) + 1,
+      );
     }
     for (const count of counts.values()) {
       expect(count).toBeLessThanOrEqual(3);
     }
   });
 
-  it("parseListContactsBody accepts max_per_company", () => {
+  it('parseListContactsBody accepts max_per_company', () => {
     expect(parseListContactsBody({ filters: {}, max_per_company: 3 })).toEqual({
       filters: { limit: undefined },
       maxPerCompany: 3,
@@ -478,11 +645,17 @@ describe("POST /api/calls action=list_contacts", () => {
     });
   });
 
-  it("returns count_only without contact payloads", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns count_only without contact payloads', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }),
+      );
 
     const res = await POST(makeReq({ filters: baseFilters, count_only: true }));
     expect(res.status).toBe(200);
@@ -492,43 +665,71 @@ describe("POST /api/calls action=list_contacts", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("returns count_only with opportunity filters via separate Opportunity queries", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns count_only with opportunity filters via separate Opportunity queries', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        records: [{ AccountId: "001000000000001AAA" }],
-      }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [{ AccountId: '001000000000001AAA' }],
+          }),
+          { status: 200 },
+        ),
+      );
 
-    const res = await POST(makeReq({
-      filters: {
-        ...baseFilters,
-        entreprise: { ...baseFilters.entreprise, opp_ouverte: true },
-      },
-      count_only: true,
-    }));
+    const res = await POST(
+      makeReq({
+        filters: {
+          ...baseFilters,
+          entreprise: { ...baseFilters.entreprise, opp_ouverte: true },
+        },
+        count_only: true,
+      }),
+    );
     expect(res.status).toBe(200);
     expect((await res.json()).count).toBe(1);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it("returns 500 when profile lookup fails", async () => {
-    mockMaybeSingle.mockResolvedValue({ data: null, error: { message: "db error" } });
+  it('returns 500 when profile lookup fails', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'db error' },
+    });
     const res = await POST(makeReq({ filters: {} }));
     expect(res.status).toBe(500);
-    expect((await res.json()).error).toBe("profile_lookup_failed");
+    expect((await res.json()).error).toBe('profile_lookup_failed');
   });
 
-  it("returns contacts and dedup from adapter-backed query", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns contacts and dedup from adapter-backed query', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
       }
       return { select: mockSelect };
     });
@@ -538,161 +739,237 @@ describe("POST /api/calls action=list_contacts", () => {
     const body = await res.json();
     expect(body.contacts).toHaveLength(1);
     expect(body.contacts[0]).toMatchObject({
-      title: "Responsable formation",
-      linkedin_url: "https://linkedin.com/in/marie",
-      email: "marie@acme.fr",
-      mobile_phone: "+33600000000",
+      title: 'Responsable formation',
+      linkedin_url: 'https://linkedin.com/in/marie',
+      email: 'marie@acme.fr',
+      mobile_phone: '+33600000000',
     });
     expect(body.dedup).toEqual([]);
     expect(body.truncated).toBe(false);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("returns truncated=true when the Salesforce fetch hits the SOQL cap", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns truncated=true when the Salesforce fetch hits the SOQL cap', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const records = Array.from({ length: SOQL_FETCH_CAP }, (_, index) => ({
-      Id: `003${String(index).padStart(15, "0")}`,
+      Id: `003${String(index).padStart(15, '0')}`,
       Name: `Contact ${index}`,
-      MobilePhone: "+33600000000",
-      Title: "Chargé de formation",
-      AccountId: `001${String(index).padStart(15, "0")}`,
-      Account: { Id: `001${String(index).padStart(15, "0")}`, Name: `Compte ${index}` },
+      MobilePhone: '+33600000000',
+      Title: 'Chargé de formation',
+      AccountId: `001${String(index).padStart(15, '0')}`,
+      Account: {
+        Id: `001${String(index).padStart(15, '0')}`,
+        Name: `Compte ${index}`,
+      },
       Tasks: { totalSize: 0, records: [] },
     }));
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records }), { status: 200 }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
       }
       return { select: mockSelect };
     });
 
-    const res = await POST(makeReq({ filters: baseFilters, max_per_company: 1 }));
+    const res = await POST(
+      makeReq({ filters: baseFilters, max_per_company: 1 }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.truncated).toBe(true);
   });
 
-  it("uses the latest non-future task for last_call_at", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('uses the latest non-future task for last_call_at', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const records = [
       {
         ...SF_RECORDS[0],
-        Id: "past-and-future",
+        Id: 'past-and-future',
         Tasks: {
           totalSize: 2,
-          records: [{ ActivityDate: "2099-01-01" }, { ActivityDate: "2020-01-01" }],
+          records: [
+            { ActivityDate: '2099-01-01' },
+            { ActivityDate: '2020-01-01' },
+          ],
         },
       },
       {
         ...SF_RECORDS[0],
-        Id: "only-future",
-        Tasks: { totalSize: 1, records: [{ ActivityDate: "2099-01-01" }] },
+        Id: 'only-future',
+        Tasks: { totalSize: 1, records: [{ ActivityDate: '2099-01-01' }] },
       },
     ];
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records }), { status: 200 }),
+      );
     mockFrom.mockImplementation((table) => {
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
       }
       return { select: mockSelect };
     });
 
     const res = await POST(makeReq({ filters: baseFilters }));
     const body = await res.json();
-    expect(body.contacts.find((contact) => contact.sf_contact_id === "past-and-future")).toMatchObject({
-      last_call_at: "2020-01-01",
+    expect(
+      body.contacts.find(
+        (contact) => contact.sf_contact_id === 'past-and-future',
+      ),
+    ).toMatchObject({
+      last_call_at: '2020-01-01',
       call_count: 2,
     });
-    expect(body.contacts.find((contact) => contact.sf_contact_id === "only-future")).not.toHaveProperty("last_call_at");
+    expect(
+      body.contacts.find((contact) => contact.sf_contact_id === 'only-future'),
+    ).not.toHaveProperty('last_call_at');
   });
 
-  it("applies max_per_company before the contact limit on wide fetch", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('applies max_per_company before the contact limit on wide fetch', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const records = [
       {
-        Id: "003000000000001AAA",
-        Name: "Alice Martin",
-        MobilePhone: "+33600000001",
-        Title: "Chargé de formation",
-        AccountId: "001000000000001AAA",
-        Account: { Id: "001000000000001AAA", Name: "ACME" },
+        Id: '003000000000001AAA',
+        Name: 'Alice Martin',
+        MobilePhone: '+33600000001',
+        Title: 'Chargé de formation',
+        AccountId: '001000000000001AAA',
+        Account: { Id: '001000000000001AAA', Name: 'ACME' },
         Tasks: { totalSize: 0, records: [] },
       },
       {
-        Id: "003000000000002AAA",
-        Name: "Bob Durand",
-        MobilePhone: "+33600000002",
-        Title: "Directeur formation",
-        AccountId: "001000000000001AAA",
-        Account: { Id: "001000000000001AAA", Name: "ACME" },
+        Id: '003000000000002AAA',
+        Name: 'Bob Durand',
+        MobilePhone: '+33600000002',
+        Title: 'Directeur formation',
+        AccountId: '001000000000001AAA',
+        Account: { Id: '001000000000001AAA', Name: 'ACME' },
         Tasks: { totalSize: 0, records: [] },
       },
       {
-        Id: "003000000000003AAA",
-        Name: "Carla Petit",
-        MobilePhone: "+33600000003",
+        Id: '003000000000003AAA',
+        Name: 'Carla Petit',
+        MobilePhone: '+33600000003',
         Title: null,
-        AccountId: "001000000000002AAA",
-        Account: { Id: "001000000000002AAA", Name: "BETA" },
+        AccountId: '001000000000002AAA',
+        Account: { Id: '001000000000002AAA', Name: 'BETA' },
         Tasks: { totalSize: 0, records: [] },
       },
     ];
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records }), { status: 200 }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
       }
       return { select: mockSelect };
     });
 
-    const res = await POST(makeReq({ filters: baseFilters, limit: 2, max_per_company: 1 }));
+    const res = await POST(
+      makeReq({ filters: baseFilters, limit: 2, max_per_company: 1 }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.contacts).toHaveLength(2);
-    expect(body.contacts.map((contact) => contact.sf_contact_id).sort()).toEqual([
-      "003000000000002AAA",
-      "003000000000003AAA",
-    ]);
-    const soql = decodeURIComponent(String(fetchSpy.mock.calls[1][0]).replace(/\+/g, " "));
+    expect(
+      body.contacts.map((contact) => contact.sf_contact_id).sort(),
+    ).toEqual(['003000000000002AAA', '003000000000003AAA']);
+    const soql = decodeURIComponent(
+      String(fetchSpy.mock.calls[1][0]).replace(/\+/g, ' '),
+    );
     expect(soql).toContain(`LIMIT ${SOQL_FETCH_CAP}`);
   });
 
-  it("returns dedup entries for contacts already in active sessions", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns dedup entries for contacts already in active sessions', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: SF_RECORDS }), { status: 200 }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "profiles") {
+      if (table === 'profiles') {
         return {
           select: () => ({
             eq: () => ({ maybeSingle: mockMaybeSingle }),
-            in: () => Promise.resolve({ data: [{ id: "user-456", full_name: "Paul" }], error: null }),
+            in: () =>
+              Promise.resolve({
+                data: [{ id: 'user-456', full_name: 'Paul' }],
+                error: null,
+              }),
           }),
         };
       }
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [{ id: 9, owner: "user-456" }], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () =>
+                Promise.resolve({
+                  data: [{ id: 9, owner: 'user-456' }],
+                  error: null,
+                }),
+            }),
+          }),
+        };
       }
-      if (table === "call_session_contacts") {
+      if (table === 'call_session_contacts') {
         return {
           select: () => ({
             in: () => ({
               in: () => ({
-                limit: () => Promise.resolve({
-                  data: [{ sf_contact_id: "003000000000001AAA", session_id: 9 }],
-                  error: null,
-                }),
+                limit: () =>
+                  Promise.resolve({
+                    data: [
+                      { sf_contact_id: '003000000000001AAA', session_id: 9 },
+                    ],
+                    error: null,
+                  }),
               }),
             }),
           }),
@@ -704,111 +981,153 @@ describe("POST /api/calls action=list_contacts", () => {
     const res = await POST(makeReq({ filters: baseFilters }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.dedup).toEqual([{ sf_contact_id: "003000000000001AAA", in_session_of: "Paul" }]);
+    expect(body.dedup).toEqual([
+      { sf_contact_id: '003000000000001AAA', in_session_of: 'Paul' },
+    ]);
     expect(body.excluded_count).toBe(1);
     expect(body.contacts).toEqual([]);
   });
 
-  it("sets Cache-Control: no-store on success", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('sets Cache-Control: no-store on success', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: [] }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
       }
       return { select: mockSelect };
     });
 
     const res = await POST(makeReq({ filters: {} }));
-    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 
-  it("returns 502 when SF OAuth fails", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(new Response("invalid_grant", { status: 400 }));
+  it('returns 502 when SF OAuth fails', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    fetchSpy.mockResolvedValueOnce(
+      new Response('invalid_grant', { status: 400 }),
+    );
 
     const res = await POST(makeReq({ filters: {} }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("sf_auth_error");
+    expect((await res.json()).error).toBe('sf_auth_error');
   });
 
-  it("returns 502 when SOQL query fails", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns 502 when SOQL query fails', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response("MALFORMED_QUERY", { status: 400 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response('MALFORMED_QUERY', { status: 400 }));
 
     const res = await POST(makeReq({ filters: {} }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("sf_query_error");
+    expect((await res.json()).error).toBe('sf_query_error');
   });
 });
 
-describe("parseAccountsSearchBody", () => {
-  it("rejects a query shorter than 2 characters with no filters", () => {
-    expect(parseAccountsSearchBody({ q: "a" })).toEqual({ error: "invalid_query" });
-    expect(parseAccountsSearchBody({})).toEqual({ error: "invalid_query" });
-    expect(parseAccountsSearchBody({ q: "a", filters: {} })).toEqual({ error: "invalid_query" });
+describe('parseAccountsSearchBody', () => {
+  it('rejects a query shorter than 2 characters with no filters', () => {
+    expect(parseAccountsSearchBody({ q: 'a' })).toEqual({
+      error: 'invalid_query',
+    });
+    expect(parseAccountsSearchBody({})).toEqual({ error: 'invalid_query' });
+    expect(parseAccountsSearchBody({ q: 'a', filters: {} })).toEqual({
+      error: 'invalid_query',
+    });
   });
 
-  it("accepts a short/empty query when at least one refine filter is set", () => {
-    expect(parseAccountsSearchBody({ filters: { tiers: ["A"] } })).toEqual({ q: "", filters: { tiers: ["A"] }, limit: 25 });
-    expect(parseAccountsSearchBody({ q: "", filters: { secteurs: ["Finance"] } })).toEqual({
-      q: "",
-      filters: { secteurs: ["Finance"] },
+  it('accepts a short/empty query when at least one refine filter is set', () => {
+    expect(parseAccountsSearchBody({ filters: { tiers: ['A'] } })).toEqual({
+      q: '',
+      filters: { tiers: ['A'] },
+      limit: 25,
+    });
+    expect(
+      parseAccountsSearchBody({ q: '', filters: { secteurs: ['Finance'] } }),
+    ).toEqual({
+      q: '',
+      filters: { secteurs: ['Finance'] },
       limit: 25,
     });
   });
 
-  it("defaults filters and caps limit at 25", () => {
-    expect(parseAccountsSearchBody({ q: "ACME" })).toEqual({ q: "ACME", filters: {}, limit: 25 });
-    expect(parseAccountsSearchBody({ q: "ACME", limit: 100 })).toEqual({ q: "ACME", filters: {}, limit: 25 });
+  it('defaults filters and caps limit at 25', () => {
+    expect(parseAccountsSearchBody({ q: 'ACME' })).toEqual({
+      q: 'ACME',
+      filters: {},
+      limit: 25,
+    });
+    expect(parseAccountsSearchBody({ q: 'ACME', limit: 100 })).toEqual({
+      q: 'ACME',
+      filters: {},
+      limit: 25,
+    });
   });
 
-  it("rejects non-object filters and invalid limit", () => {
-    expect(parseAccountsSearchBody({ q: "ACME", filters: [] })).toEqual({ error: "invalid_filters" });
-    expect(parseAccountsSearchBody({ q: "ACME", limit: 0 })).toEqual({ error: "invalid_limit" });
+  it('rejects non-object filters and invalid limit', () => {
+    expect(parseAccountsSearchBody({ q: 'ACME', filters: [] })).toEqual({
+      error: 'invalid_filters',
+    });
+    expect(parseAccountsSearchBody({ q: 'ACME', limit: 0 })).toEqual({
+      error: 'invalid_limit',
+    });
   });
 });
 
-describe("POST /api/calls action=accounts_search", () => {
-  function makeAccountsReq(body, token = "supabase-jwt-token") {
+describe('POST /api/calls action=accounts_search', () => {
+  function makeAccountsReq(body, token = 'supabase-jwt-token') {
     const headers = new Headers({
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     });
-    return new Request("http://localhost/api/calls", {
-      method: "POST",
+    return new Request('http://localhost/api/calls', {
+      method: 'POST',
       headers,
-      body: JSON.stringify({ action: "accounts_search", ...body }),
+      body: JSON.stringify({ action: 'accounts_search', ...body }),
     });
   }
 
   const ACCOUNT_RECORDS = [
     {
-      Id: "001000000000001AAA",
-      Name: "ACME",
-      Industry: "Services informatiques",
-      Owner: { Name: "Paul Martin" },
-      Type_de_client__c: "Client",
-      Tier__c: "A",
-      Nombre_employes__c: "251 - 500",
+      Id: '001000000000001AAA',
+      Name: 'ACME',
+      Industry: 'Services informatiques',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Client',
+      Tier__c: 'A',
+      Nombre_employes__c: '251 - 500',
     },
   ];
 
   const CONTACT_RECORDS = [
     {
-      Id: "003000000000001AAA",
-      Name: "Marie Dupont",
-      Title: "Responsable formation",
-      Phone: "+33123456789",
-      MobilePhone: "+33600000000",
-      Email: "marie@acme.fr",
-      Niveau_de_d_cision__c: "+",
-      AccountId: "001000000000001AAA",
+      Id: '003000000000001AAA',
+      Name: 'Marie Dupont',
+      Title: 'Responsable formation',
+      Phone: '+33123456789',
+      MobilePhone: '+33600000000',
+      Email: 'marie@acme.fr',
+      Niveau_de_d_cision__c: '+',
+      AccountId: '001000000000001AAA',
     },
   ];
 
@@ -820,70 +1139,88 @@ describe("POST /api/calls action=accounts_search", () => {
     mockMaybeSingle.mockReset();
     mockFrom.mockClear();
 
-    vi.stubEnv("SF_CLIENT_ID", "test-client-id");
-    vi.stubEnv("SF_CLIENT_SECRET", "test-client-secret");
-    vi.stubEnv("SF_REFRESH_TOKEN", "test-refresh-token");
-    vi.stubEnv("SF_LOGIN_URL", "https://login.test.salesforce.com");
-    vi.stubEnv("SF_INSTANCE_URL", "https://test.my.salesforce.com");
-    vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
-    vi.stubEnv("SF_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 3).toString("base64"));
+    vi.stubEnv('SF_CLIENT_ID', 'test-client-id');
+    vi.stubEnv('SF_CLIENT_SECRET', 'test-client-secret');
+    vi.stubEnv('SF_REFRESH_TOKEN', 'test-refresh-token');
+    vi.stubEnv('SF_LOGIN_URL', 'https://login.test.salesforce.com');
+    vi.stubEnv('SF_INSTANCE_URL', 'https://test.my.salesforce.com');
+    vi.stubEnv('SUPABASE_URL', 'https://test-supabase-url.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
+    vi.stubEnv(
+      'SF_TOKEN_ENCRYPTION_KEY',
+      Buffer.alloc(32, 3).toString('base64'),
+    );
 
-    mockVerifyJWT.mockResolvedValue({ id: "user-123", email: "test@xos-learning.fr" });
-    const ciphertext = await encryptRefreshToken("user-refresh-token");
+    mockVerifyJWT.mockResolvedValue({
+      id: 'user-123',
+      email: 'test@xos-learning.fr',
+    });
+    const ciphertext = await encryptRefreshToken('user-refresh-token');
     mockMaybeSingle.mockResolvedValue({
       data: {
-        sf_user_id: "005000000000001AAA",
-        role: "commercial",
+        sf_user_id: '005000000000001AAA',
+        role: 'commercial',
         sf_refresh_token_encrypted: ciphertext,
-        sf_auth_connected_at: "2026-07-01T00:00:00.000Z",
+        sf_auth_connected_at: '2026-07-01T00:00:00.000Z',
       },
       error: null,
     });
   });
 
-  it("returns 401 when unauthorized", async () => {
+  it('returns 401 when unauthorized', async () => {
     mockVerifyJWT.mockResolvedValue(null);
-    const res = await POST(makeAccountsReq({ q: "ACME" }));
+    const res = await POST(makeAccountsReq({ q: 'ACME' }));
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 for a too-short query", async () => {
-    const res = await POST(makeAccountsReq({ q: "A" }));
+  it('returns 400 for a too-short query', async () => {
+    const res = await POST(makeAccountsReq({ q: 'A' }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_query");
+    expect((await res.json()).error).toBe('invalid_query');
   });
 
-  it("searches accounts via SOSL then hydrates contacts per account", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('searches accounts via SOSL then hydrates contacts per account', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: CONTACT_RECORDS }), {
+          status: 200,
+        }),
+      );
 
-    const res = await POST(makeAccountsReq({ q: "ACME" }));
+    const res = await POST(makeAccountsReq({ q: 'ACME' }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.truncated).toBe(false);
     expect(body.accounts).toHaveLength(1);
     expect(body.accounts[0]).toMatchObject({
-      id: "001000000000001AAA",
-      name: "ACME",
-      industry: "Services informatiques",
-      owner_name: "Paul Martin",
-      type_client: "Client",
-      tier: "A",
-      effectif: "251 - 500",
+      id: '001000000000001AAA',
+      name: 'ACME',
+      industry: 'Services informatiques',
+      owner_name: 'Paul Martin',
+      type_client: 'Client',
+      tier: 'A',
+      effectif: '251 - 500',
     });
     expect(body.accounts[0].contacts).toEqual([
       {
-        sf_contact_id: "003000000000001AAA",
-        contact_name: "Marie Dupont",
-        title: "Responsable formation",
-        phone: "+33123456789",
-        mobile_phone: "+33600000000",
-        email: "marie@acme.fr",
-        decision_level: "+",
+        sf_contact_id: '003000000000001AAA',
+        contact_name: 'Marie Dupont',
+        title: 'Responsable formation',
+        phone: '+33123456789',
+        mobile_phone: '+33600000000',
+        email: 'marie@acme.fr',
+        decision_level: '+',
       },
     ]);
     expect(body.excluded_count).toBe(0);
@@ -891,34 +1228,63 @@ describe("POST /api/calls action=accounts_search", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it("excludes contacts already in an active session but keeps the emptied account", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('excludes contacts already in an active session but keeps the emptied account', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: CONTACT_RECORDS }), {
+          status: 200,
+        }),
+      );
 
     mockFrom.mockImplementation((table) => {
-      if (table === "profiles") {
+      if (table === 'profiles') {
         return {
           select: () => ({
             eq: () => ({ maybeSingle: mockMaybeSingle }),
-            in: () => Promise.resolve({ data: [{ id: "user-456", full_name: "Paul" }], error: null }),
+            in: () =>
+              Promise.resolve({
+                data: [{ id: 'user-456', full_name: 'Paul' }],
+                error: null,
+              }),
           }),
         };
       }
-      if (table === "call_sessions") {
-        return { select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: [{ id: 9, owner: "user-456" }], error: null }) }) }) };
+      if (table === 'call_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              or: () =>
+                Promise.resolve({
+                  data: [{ id: 9, owner: 'user-456' }],
+                  error: null,
+                }),
+            }),
+          }),
+        };
       }
-      if (table === "call_session_contacts") {
+      if (table === 'call_session_contacts') {
         return {
           select: () => ({
             in: () => ({
               in: () => ({
-                limit: () => Promise.resolve({
-                  data: [{ sf_contact_id: "003000000000001AAA", session_id: 9 }],
-                  error: null,
-                }),
+                limit: () =>
+                  Promise.resolve({
+                    data: [
+                      { sf_contact_id: '003000000000001AAA', session_id: 9 },
+                    ],
+                    error: null,
+                  }),
               }),
             }),
           }),
@@ -927,106 +1293,201 @@ describe("POST /api/calls action=accounts_search", () => {
       return { select: mockSelect };
     });
 
-    const res = await POST(makeAccountsReq({ q: "ACME" }));
+    const res = await POST(makeAccountsReq({ q: 'ACME' }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.accounts).toHaveLength(1);
-    expect(body.accounts[0].id).toBe("001000000000001AAA");
+    expect(body.accounts[0].id).toBe('001000000000001AAA');
     expect(body.accounts[0].contacts).toEqual([]);
     expect(body.excluded_count).toBe(1);
   });
 
-  it("returns an empty account list without querying contacts when SOSL finds nothing", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns an empty account list without querying contacts when SOSL finds nothing', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: [] }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: [] }), { status: 200 }),
+      );
 
-    const res = await POST(makeAccountsReq({ q: "INCONNU" }));
+    const res = await POST(makeAccountsReq({ q: 'INCONNU' }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ accounts: [], excluded_count: 0, truncated: false });
+    expect(await res.json()).toEqual({
+      accounts: [],
+      excluded_count: 0,
+      truncated: false,
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("refines with a SOQL account query when entreprise filters are provided", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('refines with a SOQL account query when entreprise filters are provided', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: [{ Id: "001000000000001AAA" }] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ records: [{ Id: '001000000000001AAA' }] }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: CONTACT_RECORDS }), {
+          status: 200,
+        }),
+      );
 
-    const res = await POST(makeAccountsReq({ q: "ACME", filters: { tiers: ["A"] } }));
+    const res = await POST(
+      makeAccountsReq({ q: 'ACME', filters: { tiers: ['A'] } }),
+    );
     expect(res.status).toBe(200);
     expect((await res.json()).accounts).toHaveLength(1);
-    const refineSoql = decodeURIComponent(String(fetchSpy.mock.calls[2][0]).replace(/\+/g, " "));
-    expect(refineSoql).toContain(`${mapping.objects.account.fields.tier} IN ('A')`);
+    const refineSoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[2][0]).replace(/\+/g, ' '),
+    );
+    expect(refineSoql).toContain(
+      `${mapping.objects.account.fields.tier} IN ('A')`,
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(4);
   });
 
-  it("refines with a SOQL owner condition when filters.proprietaires is provided", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('refines with a SOQL owner condition when filters.proprietaires is provided', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: [{ Id: "001000000000001AAA" }] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ records: [{ Id: '001000000000001AAA' }] }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: CONTACT_RECORDS }), {
+          status: 200,
+        }),
+      );
 
-    const res = await POST(makeAccountsReq({ q: "ACME", filters: { proprietaires: ["005000000000001AAA"] } }));
+    const res = await POST(
+      makeAccountsReq({
+        q: 'ACME',
+        filters: { proprietaires: ['005000000000001AAA'] },
+      }),
+    );
     expect(res.status).toBe(200);
     expect((await res.json()).accounts).toHaveLength(1);
-    const refineSoql = decodeURIComponent(String(fetchSpy.mock.calls[2][0]).replace(/\+/g, " "));
-    expect(refineSoql).toContain(`${mapping.objects.account.fields.ownerId} IN ('005000000000001AAA')`);
+    const refineSoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[2][0]).replace(/\+/g, ' '),
+    );
+    expect(refineSoql).toContain(
+      `${mapping.objects.account.fields.ownerId} IN ('005000000000001AAA')`,
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(4);
   });
 
-  it("filters out accounts excluded by the refine query", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('filters out accounts excluded by the refine query', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: [] }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ searchRecords: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
 
-    const res = await POST(makeAccountsReq({ q: "ACME", filters: { tiers: ["D"] } }));
+    const res = await POST(
+      makeAccountsReq({ q: 'ACME', filters: { tiers: ['D'] } }),
+    );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ accounts: [], excluded_count: 0, truncated: false });
+    expect(await res.json()).toEqual({
+      accounts: [],
+      excluded_count: 0,
+      truncated: false,
+    });
   });
 
-  it("searches accounts via SOQL (no SOSL) when q is empty but filters are set", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('searches accounts via SOQL (no SOSL) when q is empty but filters are set', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: ACCOUNT_RECORDS }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ records: CONTACT_RECORDS }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: CONTACT_RECORDS }), {
+          status: 200,
+        }),
+      );
 
-    const res = await POST(makeAccountsReq({ filters: { tiers: ["A"] } }));
+    const res = await POST(makeAccountsReq({ filters: { tiers: ['A'] } }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.accounts).toHaveLength(1);
-    expect(body.accounts[0].id).toBe("001000000000001AAA");
+    expect(body.accounts[0].id).toBe('001000000000001AAA');
 
-    const accountSoql = decodeURIComponent(String(fetchSpy.mock.calls[1][0]).replace(/\+/g, " "));
-    expect(accountSoql).toContain("SELECT");
-    expect(accountSoql).not.toContain("FIND {");
-    expect(accountSoql).toContain(`${mapping.objects.account.fields.tier} IN ('A')`);
+    const accountSoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[1][0]).replace(/\+/g, ' '),
+    );
+    expect(accountSoql).toContain('SELECT');
+    expect(accountSoql).not.toContain('FIND {');
+    expect(accountSoql).toContain(
+      `${mapping.objects.account.fields.tier} IN ('A')`,
+    );
     // 3 calls total : token + account SOQL + contact SOQL (no separate refine query, already filtered).
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it("returns 400 when q is empty and no filters are set", async () => {
+  it('returns 400 when q is empty and no filters are set', async () => {
     const res = await POST(makeAccountsReq({}));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_query");
+    expect((await res.json()).error).toBe('invalid_query');
   });
 
-  it("returns 502 when the SOSL search fails", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+  it('returns 502 when the SOSL search fails', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "sf-token" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response("MALFORMED_SOSL", { status: 400 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response('MALFORMED_SOSL', { status: 400 }));
 
-    const res = await POST(makeAccountsReq({ q: "ACME" }));
+    const res = await POST(makeAccountsReq({ q: 'ACME' }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("sf_query_error");
+    expect((await res.json()).error).toBe('sf_query_error');
   });
 });

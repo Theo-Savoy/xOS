@@ -1,5 +1,5 @@
 /** Target list (ex /api/calls-list) — absorbed into /api/calls. */
-import mapping from "../_crm/mapping.js";
+import mapping from '../_crm/mapping.js';
 import {
   buildTargetQuery,
   boundedLimit,
@@ -12,37 +12,44 @@ import {
   parisToday,
   searchContacts,
   SOQL_FETCH_CAP,
-} from "../_crm/salesforce.js";
-import { buildPreviewContactList } from "./selection.js";
-import { findActiveSessionConflicts } from "./activeSessionConflicts.js";
-import { getProfile } from "./profileCache.js";
+} from '../_crm/salesforce.js';
+import { buildPreviewContactList } from './selection.js';
+import { findActiveSessionConflicts } from './activeSessionConflicts.js';
+import { getProfile } from './profileCache.js';
 
 const MAX_PER_COMPANY_OPTIONS = [1, 2, 3, 5];
 
 function isObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function parseListContactsBody(body) {
-  if (!isObject(body)) return { error: "invalid_body" };
-  if (!isObject(body.filters)) return { error: "invalid_filters" };
-  for (const family of ["entreprise", "contact", "relance"]) {
+  if (!isObject(body)) return { error: 'invalid_body' };
+  if (!isObject(body.filters)) return { error: 'invalid_filters' };
+  for (const family of ['entreprise', 'contact', 'relance']) {
     if (body.filters[family] !== undefined && !isObject(body.filters[family])) {
-      return { error: "invalid_filters" };
+      return { error: 'invalid_filters' };
     }
   }
-  if (body.limit !== undefined && (!Number.isInteger(body.limit) || body.limit < 1)) {
-    return { error: "invalid_limit" };
-  }
-  if (body.preset_id !== undefined && (!Number.isInteger(body.preset_id) || body.preset_id < 1)) {
-    return { error: "invalid_preset_id" };
+  if (
+    body.limit !== undefined &&
+    (!Number.isInteger(body.limit) || body.limit < 1)
+  ) {
+    return { error: 'invalid_limit' };
   }
   if (
-    body.max_per_company !== undefined
-    && body.max_per_company !== null
-    && (!Number.isInteger(body.max_per_company) || !MAX_PER_COMPANY_OPTIONS.includes(body.max_per_company))
+    body.preset_id !== undefined &&
+    (!Number.isInteger(body.preset_id) || body.preset_id < 1)
   ) {
-    return { error: "invalid_max_per_company" };
+    return { error: 'invalid_preset_id' };
+  }
+  if (
+    body.max_per_company !== undefined &&
+    body.max_per_company !== null &&
+    (!Number.isInteger(body.max_per_company) ||
+      !MAX_PER_COMPANY_OPTIONS.includes(body.max_per_company))
+  ) {
+    return { error: 'invalid_max_per_company' };
   }
   return {
     filters: { ...body.filters, limit: body.limit ?? body.filters.limit },
@@ -59,19 +66,23 @@ function normalizeContacts(records) {
   // en date Paris pour ne pas basculer une tentative du jour dans le futur après minuit.
   const today = parisToday();
   return records
-    .filter((record) => typeof record?.[contact.id] === "string")
+    .filter((record) => typeof record?.[contact.id] === 'string')
     .map((record) => {
       const tasks = record[task.childRelationship];
       const lastCall = Array.isArray(tasks?.records)
         ? tasks.records.find((record) => {
-          const activityDate = record[task.fields.activityDate];
-          return typeof activityDate === "string" && activityDate.slice(0, 10) <= today;
-        })
+            const activityDate = record[task.fields.activityDate];
+            return (
+              typeof activityDate === 'string' &&
+              activityDate.slice(0, 10) <= today
+            );
+          })
         : null;
       return {
         sf_contact_id: record[contact.id],
-        sf_account_id: record.Account?.[account.id] ?? record[contact.accountId] ?? null,
-        contact_name: record[contact.name] || "",
+        sf_account_id:
+          record.Account?.[account.id] ?? record[contact.accountId] ?? null,
+        contact_name: record[contact.name] || '',
         account_name: record.Account?.[account.name] ?? null,
         // Prefer mobile for dialing — filter "a_telephone" means has MobilePhone.
         phone: record[contact.mobilePhone] ?? record[contact.phone] ?? null,
@@ -79,8 +90,12 @@ function normalizeContacts(records) {
         linkedin_url: record[contact.linkedin] ?? null,
         email: record[contact.email] ?? null,
         mobile_phone: record[contact.mobilePhone] ?? null,
-        ...(lastCall?.[task.fields.activityDate] ? { last_call_at: lastCall[task.fields.activityDate] } : {}),
-        ...(typeof tasks?.totalSize === "number" ? { call_count: tasks.totalSize } : {}),
+        ...(lastCall?.[task.fields.activityDate]
+          ? { last_call_at: lastCall[task.fields.activityDate] }
+          : {}),
+        ...(typeof tasks?.totalSize === 'number'
+          ? { call_count: tasks.totalSize }
+          : {}),
       };
     });
 }
@@ -102,15 +117,27 @@ export async function listContacts(client, userId, body) {
   const requestedLimit = boundedLimit(parsed.filters.limit);
   const countOnly = parsed.countOnly;
   const opportunityFilters = hasOpportunityQueryFilters(parsed.filters);
-  const wideFetch = countOnly || hasRelanceQueryFilters(parsed.filters) || opportunityFilters || maxPerCompany !== null;
-  const queryFilters = wideFetch ? { ...parsed.filters, limit: SOQL_FETCH_CAP } : parsed.filters;
+  const wideFetch =
+    countOnly ||
+    hasRelanceQueryFilters(parsed.filters) ||
+    opportunityFilters ||
+    maxPerCompany !== null;
+  const queryFilters = wideFetch
+    ? { ...parsed.filters, limit: SOQL_FETCH_CAP }
+    : parsed.filters;
   const includeTasks = !countOnly || hasRelanceQueryFilters(parsed.filters);
 
-  const soql = buildTargetQuery(queryFilters, mapping, profile.sfUserId, { includeTasks });
+  const soql = buildTargetQuery(queryFilters, mapping, profile.sfUserId, {
+    includeTasks,
+  });
   const [search, opportunitySetsResult] = await Promise.all([
     searchContacts(tokenResult.accessToken, soql),
     opportunityFilters
-      ? fetchOpportunityAccountIdSets(tokenResult.accessToken, mapping, parsed.filters)
+      ? fetchOpportunityAccountIdSets(
+          tokenResult.accessToken,
+          mapping,
+          parsed.filters,
+        )
       : Promise.resolve(null),
   ]);
   if (search.error) {
@@ -120,33 +147,57 @@ export async function listContacts(client, userId, body) {
   let opportunitySets = null;
   if (opportunitySetsResult) {
     if (opportunitySetsResult.error) {
-      return { error: opportunitySetsResult.error, message: opportunitySetsResult.message, status: 502 };
+      return {
+        error: opportunitySetsResult.error,
+        message: opportunitySetsResult.message,
+        status: 502,
+      };
     }
     opportunitySets = opportunitySetsResult;
   }
 
   let filtered = filterTargetContacts(search.records, parsed.filters, mapping);
   if (opportunitySets) {
-    filtered = filterByOpportunityAccounts(filtered, parsed.filters, mapping, opportunitySets);
+    filtered = filterByOpportunityAccounts(
+      filtered,
+      parsed.filters,
+      mapping,
+      opportunitySets,
+    );
   }
   if (countOnly) {
     return {
       count: filtered.length,
-      capped: filtered.length >= SOQL_FETCH_CAP || (search.records?.length ?? 0) >= SOQL_FETCH_CAP,
+      capped:
+        filtered.length >= SOQL_FETCH_CAP ||
+        (search.records?.length ?? 0) >= SOQL_FETCH_CAP,
     };
   }
 
   const normalized = normalizeContacts(filtered);
-  const contacts = maxPerCompany !== null
-    ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
-    : hasRelanceQueryFilters(parsed.filters)
-      ? normalized.slice(0, requestedLimit)
-      : normalized;
+  const contacts =
+    maxPerCompany !== null
+      ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
+      : hasRelanceQueryFilters(parsed.filters)
+        ? normalized.slice(0, requestedLimit)
+        : normalized;
   // Exclusion stricte : les contacts déjà dans une séance active sont défiltrés
   // du résultat, sans opt-in. `dedup` reste renvoyé pour rétro-compat.
-  const dedup = await findActiveSessionConflicts(client, contacts.map((contact) => contact.sf_contact_id), parisToday());
+  const dedup = await findActiveSessionConflicts(
+    client,
+    contacts.map((contact) => contact.sf_contact_id),
+    parisToday(),
+  );
   const excludedIds = new Set(dedup.map((entry) => entry.sf_contact_id));
-  const filteredContacts = contacts.filter((contact) => !excludedIds.has(contact.sf_contact_id));
-  const truncated = search.truncated === true || (opportunitySets?.truncated === true);
-  return { contacts: filteredContacts, dedup, excluded_count: dedup.length, truncated };
+  const filteredContacts = contacts.filter(
+    (contact) => !excludedIds.has(contact.sf_contact_id),
+  );
+  const truncated =
+    search.truncated === true || opportunitySets?.truncated === true;
+  return {
+    contacts: filteredContacts,
+    dedup,
+    excluded_count: dedup.length,
+    truncated,
+  };
 }

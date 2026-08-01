@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from "react";
-import { Button } from "./components/ui/Button";
-import { LoginScreen } from "./auth/LoginScreen";
-import { useSession } from "./auth/useSession";
-import { BootScreen } from "./components/BootScreen";
-import { Desktop } from "./os/Desktop";
-import "./app.css";
-import "./components/boot.css";
+import { useEffect, useRef, useState } from 'react';
+import { Button } from './components/ui/Button';
+import { LoginScreen } from './auth/LoginScreen';
+import { useSession } from './auth/useSession';
+import { BootScreen } from './components/BootScreen';
+import { Desktop } from './os/Desktop';
+import './app.css';
+import './components/boot.css';
 
 const BOOT_HOLD_MS = 520;
 const BOOT_EXIT_MS = 820;
 
-function sessionKey(session: { user: { id?: string; email?: string | null } } | null) {
+function sessionKey(
+  session: { user: { id?: string; email?: string | null } } | null,
+) {
   if (!session) return null;
-  return session.user.id ?? session.user.email ?? "authenticated";
+  return session.user.id ?? session.user.email ?? 'authenticated';
 }
 
 function App() {
@@ -38,7 +40,9 @@ function App() {
       return;
     }
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
 
     if (reducedMotion) {
       bootedFor.current = key;
@@ -47,7 +51,10 @@ function App() {
       return;
     }
 
-    const revealTimer = window.setTimeout(() => setRevealDesktop(true), BOOT_HOLD_MS);
+    const revealTimer = window.setTimeout(
+      () => setRevealDesktop(true),
+      BOOT_HOLD_MS,
+    );
     const hideTimer = window.setTimeout(() => {
       bootedFor.current = key;
       setHideBoot(true);
@@ -67,7 +74,11 @@ function App() {
     return (
       <div className="xos-app-error">
         <p>Impossible de préparer l'accès au CRM.</p>
-        <Button type="button" variant="primary" onClick={() => window.location.reload()}>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => window.location.reload()}
+        >
           Réessayer
         </Button>
       </div>
@@ -80,10 +91,10 @@ function App() {
 
   return (
     <div className="xos-boot-container">
-      {!hideBoot && <BootScreen phase={revealDesktop ? "exit" : "ready"} />}
+      {!hideBoot && <BootScreen phase={revealDesktop ? 'exit' : 'ready'} />}
       <div className="xos-desktop-stage">
         <Desktop
-          userEmail={session.user.email ?? "Utilisateur X OS"}
+          userEmail={session.user.email ?? 'Utilisateur X OS'}
           accessToken={session.access_token}
         />
       </div>

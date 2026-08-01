@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   GET,
   POST,
@@ -9,11 +9,19 @@ import {
   isValidEventStart,
   isValidScheduledFor,
   isValidSessionType,
-} from "./calls.js";
-import mapping from "./_crm/mapping.js";
-import { __resetProfileCache } from "./_calls/profileCache.js";
+} from './calls.js';
+import mapping from './_crm/mapping.js';
+import { __resetProfileCache } from './_calls/profileCache.js';
 
-const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetchContactBasicsByIds, mockUpdateContactDoNotCall, mockUpsert } = vi.hoisted(() => ({
+const {
+  mockVerifyJWT,
+  mockFetchSFToken,
+  mockLogCall,
+  mockCreateEvent,
+  mockFetchContactBasicsByIds,
+  mockUpdateContactDoNotCall,
+  mockUpsert,
+} = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
   mockFetchSFToken: vi.fn(),
   mockLogCall: vi.fn(),
@@ -23,23 +31,24 @@ const { mockVerifyJWT, mockFetchSFToken, mockLogCall, mockCreateEvent, mockFetch
   mockUpsert: vi.fn(),
 }));
 
-vi.mock("./_auth.js", () => ({
+vi.mock('./_auth.js', () => ({
   verifyJWT: mockVerifyJWT,
   respond: (status, body) =>
     new Response(JSON.stringify(body), {
       status,
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     }),
 }));
 
-vi.mock("./_crm/salesforce.js", () => ({
+vi.mock('./_crm/salesforce.js', () => ({
   fetchSFToken: mockFetchSFToken,
   logCall: mockLogCall,
   createEvent: mockCreateEvent,
   updateContactDoNotCall: mockUpdateContactDoNotCall,
   fetchContactBasicsByIds: mockFetchContactBasicsByIds,
   fetchContactContext: vi.fn().mockResolvedValue({
-    contact_record_url: "https://example.salesforce.com/lightning/r/Contact/003/view",
+    contact_record_url:
+      'https://example.salesforce.com/lightning/r/Contact/003/view',
     account_record_url: null,
     email: null,
     title: null,
@@ -48,7 +57,9 @@ vi.mock("./_crm/salesforce.js", () => ({
     opportunities: [],
   }),
   buildLightningUrl: (objectType, recordId) =>
-    recordId ? `https://example.salesforce.com/lightning/r/${objectType}/${recordId}/view` : null,
+    recordId
+      ? `https://example.salesforce.com/lightning/r/${objectType}/${recordId}/view`
+      : null,
 }));
 
 const mockDb = vi.fn();
@@ -57,36 +68,66 @@ const mockChain = {
   then(onFulfilled, onRejected) {
     return Promise.resolve(mockDb()).then(onFulfilled, onRejected);
   },
-  select() { return this; },
-  insert: vi.fn(function insert() { return this; }),
-  upsert: vi.fn(function upsert(...args) { mockUpsert(...args); return this; }),
-  update() { return this; },
-  delete() { return this; },
-  eq() { return this; },
-  in() { return this; },
-  not() { return this; },
-  gte() { return this; },
-  order() { return this; },
-  single() { return mockDb(); },
-  maybeSingle() { return mockDb(); },
+  select() {
+    return this;
+  },
+  insert: vi.fn(function insert() {
+    return this;
+  }),
+  upsert: vi.fn(function upsert(...args) {
+    mockUpsert(...args);
+    return this;
+  }),
+  update() {
+    return this;
+  },
+  delete() {
+    return this;
+  },
+  eq() {
+    return this;
+  },
+  in() {
+    return this;
+  },
+  not() {
+    return this;
+  },
+  gte() {
+    return this;
+  },
+  order() {
+    return this;
+  },
+  single() {
+    return mockDb();
+  },
+  maybeSingle() {
+    return mockDb();
+  },
   // head+count queries resolve via then → mockDb()
 };
 
 const mockFrom = vi.fn(() => mockChain);
-const mockRpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "no rpc" } }));
+const mockRpc = vi.fn(() =>
+  Promise.resolve({ data: null, error: { message: 'no rpc' } }),
+);
 
-vi.mock("@supabase/supabase-js", () => ({
+vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
 const RESULTS = mapping.objects.task.results;
 const SEMANTIC = mapping.objects.task.resultSemantic;
-const PGRST116 = { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" };
+const PGRST116 = {
+  code: 'PGRST116',
+  message: 'JSON object requested, multiple (or no) rows returned',
+};
 
-function makeReq(method, body, url = "http://localhost/api/calls") {
+function makeReq(method, body, url = 'http://localhost/api/calls') {
   const headers = new Headers();
-  headers.set("Authorization", "Bearer supabase-jwt-token");
-  headers.set("Content-Type", "application/json");
+  headers.set('Authorization', 'Bearer supabase-jwt-token');
+  headers.set('Content-Type', 'application/json');
   return new Request(url, {
     method,
     headers,
@@ -94,17 +135,17 @@ function makeReq(method, body, url = "http://localhost/api/calls") {
   });
 }
 
-function makeRawReq(method, rawBody, url = "http://localhost/api/calls") {
+function makeRawReq(method, rawBody, url = 'http://localhost/api/calls') {
   const headers = new Headers();
-  headers.set("Authorization", "Bearer supabase-jwt-token");
-  headers.set("Content-Type", "application/json");
+  headers.set('Authorization', 'Bearer supabase-jwt-token');
+  headers.set('Content-Type', 'application/json');
   return new Request(url, { method, headers, body: rawBody });
 }
 
 const defaultUser = {
-  id: "user-123",
-  email: "test@xos-learning.fr",
-  user_metadata: { full_name: "Jean Dupont" },
+  id: 'user-123',
+  email: 'test@xos-learning.fr',
+  user_metadata: { full_name: 'Jean Dupont' },
 };
 
 beforeEach(() => {
@@ -113,7 +154,7 @@ beforeEach(() => {
   mockDb.mockReset();
   mockFrom.mockClear();
   mockRpc.mockReset();
-  mockRpc.mockResolvedValue({ data: null, error: { message: "no rpc" } });
+  mockRpc.mockResolvedValue({ data: null, error: { message: 'no rpc' } });
   mockChain.insert.mockClear();
   mockChain.upsert.mockClear();
   mockUpsert.mockClear();
@@ -122,47 +163,47 @@ beforeEach(() => {
   mockCreateEvent.mockReset();
   mockUpdateContactDoNotCall.mockReset();
 
-  vi.stubEnv("SUPABASE_URL", "https://test-supabase-url.supabase.co");
-  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
+  vi.stubEnv('SUPABASE_URL', 'https://test-supabase-url.supabase.co');
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
 
   mockVerifyJWT.mockResolvedValue(defaultUser);
-  mockFetchSFToken.mockResolvedValue({ accessToken: "sf-token" });
+  mockFetchSFToken.mockResolvedValue({ accessToken: 'sf-token' });
   mockUpdateContactDoNotCall.mockResolvedValue({ ok: true });
   mockDb.mockResolvedValue({ data: null, error: null });
 });
 
-describe("helpers", () => {
-  it("isNotFoundError recognizes PGRST116", () => {
+describe('helpers', () => {
+  it('isNotFoundError recognizes PGRST116', () => {
     expect(isNotFoundError(PGRST116)).toBe(true);
-    expect(isNotFoundError({ code: "XX000" })).toBe(false);
+    expect(isNotFoundError({ code: 'XX000' })).toBe(false);
   });
 
-  it("getFollowUpOutcomes reads semantic mapping keys", () => {
+  it('getFollowUpOutcomes reads semantic mapping keys', () => {
     expect(getFollowUpOutcomes()).toEqual([
       SEMANTIC.followUpNoAnswer,
       SEMANTIC.followUpVoicemail,
     ]);
   });
 
-  it("filterContactsForFollowUp keeps relance outcomes, skipped and pending contacts", () => {
+  it('filterContactsForFollowUp keeps relance outcomes, skipped and pending contacts', () => {
     const contacts = [
-      { outcome: SEMANTIC.followUpNoAnswer, status: "called" },
-      { outcome: SEMANTIC.followUpVoicemail, status: "called" },
-      { outcome: "Appel décroché", status: "called" },
-      { outcome: SEMANTIC.rdv, status: "called" },
-      { outcome: null, status: "skipped" },
-      { outcome: null, status: "pending" },
+      { outcome: SEMANTIC.followUpNoAnswer, status: 'called' },
+      { outcome: SEMANTIC.followUpVoicemail, status: 'called' },
+      { outcome: 'Appel décroché', status: 'called' },
+      { outcome: SEMANTIC.rdv, status: 'called' },
+      { outcome: null, status: 'skipped' },
+      { outcome: null, status: 'pending' },
     ];
     expect(filterContactsForFollowUp(contacts)).toHaveLength(4);
   });
 
-  it("computeHubKpis derives rates and NPA", () => {
+  it('computeHubKpis derives rates and NPA', () => {
     const kpis = computeHubKpis([
-      { status: "called", outcome: "Appel décroché", marked_npa: false },
-      { status: "called", outcome: "Appel argumenté", marked_npa: false },
-      { status: "called", outcome: "RDV planifié", marked_npa: false },
-      { status: "called", outcome: "Appel non décroché", marked_npa: true },
-      { status: "skipped", outcome: null, marked_npa: false },
+      { status: 'called', outcome: 'Appel décroché', marked_npa: false },
+      { status: 'called', outcome: 'Appel argumenté', marked_npa: false },
+      { status: 'called', outcome: 'RDV planifié', marked_npa: false },
+      { status: 'called', outcome: 'Appel non décroché', marked_npa: true },
+      { status: 'skipped', outcome: null, marked_npa: false },
     ]);
     expect(kpis.calls).toBe(4);
     expect(kpis.decroche).toBe(3);
@@ -175,165 +216,240 @@ describe("helpers", () => {
     expect(kpis.rate_rdv_per_argumente).toBe(50);
   });
 
-  it("isValidSessionType accepts known kinds", () => {
-    expect(isValidSessionType("prospection")).toBe(true);
-    expect(isValidSessionType("relance")).toBe(true);
-    expect(isValidSessionType("autre")).toBe(false);
+  it('isValidSessionType accepts known kinds', () => {
+    expect(isValidSessionType('prospection')).toBe(true);
+    expect(isValidSessionType('relance')).toBe(true);
+    expect(isValidSessionType('autre')).toBe(false);
   });
 
-  it("isValidScheduledFor accepts strict YYYY-MM-DD dates", () => {
-    expect(isValidScheduledFor("2026-07-10")).toBe(true);
-    expect(isValidScheduledFor("2026-02-30")).toBe(false);
-    expect(isValidScheduledFor("10-07-2026")).toBe(false);
+  it('isValidScheduledFor accepts strict YYYY-MM-DD dates', () => {
+    expect(isValidScheduledFor('2026-07-10')).toBe(true);
+    expect(isValidScheduledFor('2026-02-30')).toBe(false);
+    expect(isValidScheduledFor('10-07-2026')).toBe(false);
   });
 
-  it("isValidEventStart accepts ISO with minutes or seconds and timezone", () => {
-    expect(isValidEventStart("2026-07-10T14:30Z")).toBe(true);
-    expect(isValidEventStart("2026-07-10T14:30:00Z")).toBe(true);
-    expect(isValidEventStart("2026-07-10T14:30:00+02:00")).toBe(true);
+  it('isValidEventStart accepts ISO with minutes or seconds and timezone', () => {
+    expect(isValidEventStart('2026-07-10T14:30Z')).toBe(true);
+    expect(isValidEventStart('2026-07-10T14:30:00Z')).toBe(true);
+    expect(isValidEventStart('2026-07-10T14:30:00+02:00')).toBe(true);
   });
 
-  it("isValidEventStart rejects impossible dates and invalid offsets", () => {
-    expect(isValidEventStart("2026-02-30T10:00:00Z")).toBe(false);
-    expect(isValidEventStart("2026-07-10T25:00:00Z")).toBe(false);
-    expect(isValidEventStart("2026-07-10T10:60:00Z")).toBe(false);
-    expect(isValidEventStart("2026-07-10T10:00:00+25:00")).toBe(false);
-    expect(isValidEventStart("")).toBe(false);
-    expect(isValidEventStart("not-a-date")).toBe(false);
+  it('isValidEventStart rejects impossible dates and invalid offsets', () => {
+    expect(isValidEventStart('2026-02-30T10:00:00Z')).toBe(false);
+    expect(isValidEventStart('2026-07-10T25:00:00Z')).toBe(false);
+    expect(isValidEventStart('2026-07-10T10:60:00Z')).toBe(false);
+    expect(isValidEventStart('2026-07-10T10:00:00+25:00')).toBe(false);
+    expect(isValidEventStart('')).toBe(false);
+    expect(isValidEventStart('not-a-date')).toBe(false);
   });
 });
 
-describe("GET /api/calls", () => {
-  it("returns 401 when unauthorized", async () => {
+describe('GET /api/calls', () => {
+  it('returns 401 when unauthorized', async () => {
     mockVerifyJWT.mockResolvedValue(null);
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(401);
   });
 
-  it("returns Salesforce-enabled team members with display labels", async () => {
+  it('returns Salesforce-enabled team members with display labels', async () => {
     mockDb
       .mockResolvedValueOnce({
         data: [
-          { id: "user-1", full_name: "Alice Martin", email: "alice@example.com", sf_user_id: "005000000000001" },
-          { id: "user-2", full_name: null, email: "bob@example.com", sf_user_id: "005000000000002" },
-          { id: "user-3", full_name: "Sans Salesforce", email: "none@example.com", sf_user_id: null },
           {
-            id: "user-chris",
-            full_name: null,
-            email: null,
-            sf_user_id: "0055I000002lY9QQAU",
+            id: 'user-1',
+            full_name: 'Alice Martin',
+            email: 'alice@example.com',
+            sf_user_id: '005000000000001',
           },
           {
-            id: "user-paul",
+            id: 'user-2',
+            full_name: null,
+            email: 'bob@example.com',
+            sf_user_id: '005000000000002',
+          },
+          {
+            id: 'user-3',
+            full_name: 'Sans Salesforce',
+            email: 'none@example.com',
+            sf_user_id: null,
+          },
+          {
+            id: 'user-chris',
             full_name: null,
             email: null,
-            sf_user_id: "005AZ000000fLYkYAM",
+            sf_user_id: '0055I000002lY9QQAU',
+          },
+          {
+            id: 'user-paul',
+            full_name: null,
+            email: null,
+            sf_user_id: '005AZ000000fLYkYAM',
           },
         ],
         error: null,
       })
       .mockResolvedValueOnce({
         data: [
-          { email: "christophe.hirtz@xos-learning.fr", sf_user_id: "0055I000002lY9QQAU" },
-          { email: "paul.rathouin@xos-learning.fr", sf_user_id: "005AZ000000fLYkYAM" },
-          { email: "alice@example.com", sf_user_id: "005000000000001" },
+          {
+            email: 'christophe.hirtz@xos-learning.fr',
+            sf_user_id: '0055I000002lY9QQAU',
+          },
+          {
+            email: 'paul.rathouin@xos-learning.fr',
+            sf_user_id: '005AZ000000fLYkYAM',
+          },
+          { email: 'alice@example.com', sf_user_id: '005000000000001' },
         ],
         error: null,
       });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?resource=team"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?resource=team'),
+    );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       team: [
-        { user_id: "user-1", label: "Alice Martin", sf_user_id: "005000000000001" },
-        { user_id: "user-2", label: "Bob", sf_user_id: "005000000000002" },
-        { user_id: "user-chris", label: "Christophe Hirtz", sf_user_id: "0055I000002lY9QQAU" },
-        { user_id: "user-paul", label: "Paul Rathouin", sf_user_id: "005AZ000000fLYkYAM" },
+        {
+          user_id: 'user-1',
+          label: 'Alice Martin',
+          sf_user_id: '005000000000001',
+        },
+        { user_id: 'user-2', label: 'Bob', sf_user_id: '005000000000002' },
+        {
+          user_id: 'user-chris',
+          label: 'Christophe Hirtz',
+          sf_user_id: '0055I000002lY9QQAU',
+        },
+        {
+          user_id: 'user-paul',
+          label: 'Paul Rathouin',
+          sf_user_id: '005AZ000000fLYkYAM',
+        },
       ],
     });
-    expect(mockFrom).toHaveBeenCalledWith("profiles");
-    expect(mockFrom).toHaveBeenCalledWith("sf_user_map");
+    expect(mockFrom).toHaveBeenCalledWith('profiles');
+    expect(mockFrom).toHaveBeenCalledWith('sf_user_map');
   });
 
-  it("returns 500 when the team lookup fails", async () => {
-    mockDb.mockResolvedValueOnce({ data: null, error: { message: "profiles failed" } });
+  it('returns 500 when the team lookup fails', async () => {
+    mockDb.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'profiles failed' },
+    });
     // sf_user_map may still resolve in parallel
     mockDb.mockResolvedValueOnce({ data: [], error: null });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?resource=team"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?resource=team'),
+    );
 
     expect(res.status).toBe(500);
-    expect((await res.json()).error).toBe("team_lookup_failed");
+    expect((await res.json()).error).toBe('team_lookup_failed');
   });
 
-  it("returns empty sessions list on successful empty query", async () => {
+  it('returns empty sessions list on successful empty query', async () => {
     mockDb.mockResolvedValueOnce({ data: [], error: null });
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.sessions).toEqual([]);
   });
 
-  it("returns 500 when sessions list query fails", async () => {
-    mockDb.mockResolvedValueOnce({ data: null, error: { message: "db down" } });
-    const res = await GET(makeReq("GET", undefined));
+  it('returns 500 when sessions list query fails', async () => {
+    mockDb.mockResolvedValueOnce({ data: null, error: { message: 'db down' } });
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("sessions_lookup_failed");
+    expect(body.error).toBe('sessions_lookup_failed');
   });
 
-  it("returns sessions with aggregated counts", async () => {
+  it('returns sessions with aggregated counts', async () => {
     mockDb
       .mockResolvedValueOnce({ data: [{ id: 1 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({
-        data: [{ id: 1, owner: "user-123", name: "Prospection", status: "active", created_at: "2026-01-01" }],
+        data: [
+          {
+            id: 1,
+            owner: 'user-123',
+            name: 'Prospection',
+            status: 'active',
+            created_at: '2026-01-01',
+          },
+        ],
         error: null,
       })
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({
         data: [
-          { session_id: 1, status: "called" },
-          { session_id: 1, status: "pending" },
+          { session_id: 1, status: 'called' },
+          { session_id: 1, status: 'pending' },
         ],
         error: null,
       });
 
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.sessions[0]).toMatchObject({ id: 1, total: 2, called: 1, pending: 1 });
+    expect(body.sessions[0]).toMatchObject({
+      id: 1,
+      total: 2,
+      called: 1,
+      pending: 1,
+    });
   });
 
-  it("falls back when legacy RPC shape returns done instead of called", async () => {
+  it('falls back when legacy RPC shape returns done instead of called', async () => {
     mockRpc.mockResolvedValueOnce({
-      data: [{ session_id: 1, total: 2, pending: 1, done: 0, skipped: 0, do_not_call: 0 }],
+      data: [
+        {
+          session_id: 1,
+          total: 2,
+          pending: 1,
+          done: 0,
+          skipped: 0,
+          do_not_call: 0,
+        },
+      ],
       error: null,
     });
     mockDb
       .mockResolvedValueOnce({ data: [{ id: 1 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({
-        data: [{ id: 1, owner: "user-123", name: "Prospection", status: "active", created_at: "2026-01-01" }],
+        data: [
+          {
+            id: 1,
+            owner: 'user-123',
+            name: 'Prospection',
+            status: 'active',
+            created_at: '2026-01-01',
+          },
+        ],
         error: null,
       })
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({
         data: [
-          { session_id: 1, status: "called" },
-          { session_id: 1, status: "pending" },
+          { session_id: 1, status: 'called' },
+          { session_id: 1, status: 'pending' },
         ],
         error: null,
       });
 
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.sessions[0]).toMatchObject({ id: 1, total: 2, called: 1, pending: 1 });
+    expect(body.sessions[0]).toMatchObject({
+      id: 1,
+      total: 2,
+      called: 1,
+      pending: 1,
+    });
   });
 
-  it("uses RPC counts when called column is present", async () => {
+  it('uses RPC counts when called column is present', async () => {
     mockRpc.mockResolvedValueOnce({
       data: [{ session_id: 1, total: 3, called: 2, skipped: 0, pending: 1 }],
       error: null,
@@ -342,150 +458,263 @@ describe("GET /api/calls", () => {
       .mockResolvedValueOnce({ data: [{ id: 1 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({
-        data: [{ id: 1, owner: "user-123", name: "Prospection", status: "active", created_at: "2026-01-01" }],
+        data: [
+          {
+            id: 1,
+            owner: 'user-123',
+            name: 'Prospection',
+            status: 'active',
+            created_at: '2026-01-01',
+          },
+        ],
         error: null,
       })
       .mockResolvedValueOnce({ data: [], error: null });
 
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.sessions[0]).toMatchObject({ id: 1, total: 3, called: 2, pending: 1 });
-    expect(mockFrom).not.toHaveBeenCalledWith("call_session_contacts");
+    expect(body.sessions[0]).toMatchObject({
+      id: 1,
+      total: 3,
+      called: 2,
+      pending: 1,
+    });
+    expect(mockFrom).not.toHaveBeenCalledWith('call_session_contacts');
   });
 
-  it("returns 500 when contacts aggregation fails", async () => {
+  it('returns 500 when contacts aggregation fails', async () => {
     mockDb
       .mockResolvedValueOnce({ data: [{ id: 1 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [{ id: 1, owner: "user-123", name: "X", status: "active", created_at: "2026-01-01" }], error: null })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 1,
+            owner: 'user-123',
+            name: 'X',
+            status: 'active',
+            created_at: '2026-01-01',
+          },
+        ],
+        error: null,
+      })
       .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: null, error: { message: "contacts failed" } });
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'contacts failed' },
+      });
 
-    const res = await GET(makeReq("GET", undefined));
+    const res = await GET(makeReq('GET', undefined));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("contacts_lookup_failed");
+    expect(body.error).toBe('contacts_lookup_failed');
   });
 
-  it("returns 400 for invalid session_id", async () => {
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=abc"));
+  it('returns 400 for invalid session_id', async () => {
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=abc'),
+    );
     expect(res.status).toBe(400);
   });
 
-  it("returns 404 when session absent (PGRST116)", async () => {
+  it('returns 404 when session absent (PGRST116)', async () => {
     mockDb.mockResolvedValueOnce({ data: null, error: PGRST116 });
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(404);
   });
 
-  it("returns 404 when session owned by another user", async () => {
+  it('returns 404 when session owned by another user', async () => {
     mockDb.mockResolvedValueOnce({
-      data: { id: 1, owner: "other-user", name: "Test", status: "active", created_at: "2026-01-01" },
+      data: {
+        id: 1,
+        owner: 'other-user',
+        name: 'Test',
+        status: 'active',
+        created_at: '2026-01-01',
+      },
       error: null,
     });
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(404);
   });
 
-  it("returns 404 for another owner even when the parallel contacts lookup has completed", async () => {
+  it('returns 404 for another owner even when the parallel contacts lookup has completed', async () => {
     mockDb
-      .mockResolvedValueOnce({ data: { id: 1, owner: "other-user", name: "Test", status: "active" }, error: null })
-      .mockResolvedValueOnce({ data: [{ id: 101, session_id: 1 }], error: null })
-      .mockResolvedValueOnce({ data: { id: 1, owner: "other-user", name: "Test", status: "active" }, error: null })
+      .mockResolvedValueOnce({
+        data: { id: 1, owner: 'other-user', name: 'Test', status: 'active' },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 101, session_id: 1 }],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: 1, owner: 'other-user', name: 'Test', status: 'active' },
+        error: null,
+      })
       .mockResolvedValueOnce({ data: null, error: null });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(404);
     expect(mockDb).toHaveBeenCalledTimes(4);
   });
 
-  it("returns session detail with contacts", async () => {
-    mockFetchSFToken.mockResolvedValue({ accessToken: "sf-token" });
+  it('returns session detail with contacts', async () => {
+    mockFetchSFToken.mockResolvedValue({ accessToken: 'sf-token' });
     mockFetchContactBasicsByIds.mockResolvedValue({ byId: new Map() });
     mockDb
       .mockResolvedValueOnce({
-        data: { id: 1, owner: "user-123", name: "Prospection", status: "active", created_at: "2026-01-01" },
+        data: {
+          id: 1,
+          owner: 'user-123',
+          name: 'Prospection',
+          status: 'active',
+          created_at: '2026-01-01',
+        },
         error: null,
       })
       .mockResolvedValueOnce({
-        data: [{ id: 101, position: 0, sf_contact_id: "003000000000001", contact_name: "Marie", status: "pending", email: "marie@acme.fr", title: "DRH" }],
+        data: [
+          {
+            id: 101,
+            position: 0,
+            sf_contact_id: '003000000000001',
+            contact_name: 'Marie',
+            status: 'pending',
+            email: 'marie@acme.fr',
+            title: 'DRH',
+          },
+        ],
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { id: 1, owner: "user-123", name: "Prospection", status: "active" },
+        data: {
+          id: 1,
+          owner: 'user-123',
+          name: 'Prospection',
+          status: 'active',
+        },
         error: null,
       })
       .mockResolvedValueOnce({ data: [], error: null });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.session.name).toBe("Prospection");
+    expect(body.session.name).toBe('Prospection');
     expect(body.contacts).toHaveLength(1);
-    expect(body.contacts[0].email).toBe("marie@acme.fr");
+    expect(body.contacts[0].email).toBe('marie@acme.fr');
   });
 
-  it("hydrates missing email from CRM when opening a session", async () => {
-    mockFetchSFToken.mockResolvedValue({ accessToken: "sf-token" });
+  it('hydrates missing email from CRM when opening a session', async () => {
+    mockFetchSFToken.mockResolvedValue({ accessToken: 'sf-token' });
     mockFetchContactBasicsByIds.mockResolvedValue({
-      byId: new Map([["003000000000001", { email: "marie@acme.fr", title: "DRH" }]]),
+      byId: new Map([
+        ['003000000000001', { email: 'marie@acme.fr', title: 'DRH' }],
+      ]),
     });
     mockDb
       .mockResolvedValueOnce({
-        data: { id: 1, owner: "user-123", name: "Prospection", status: "active", created_at: "2026-01-01" },
+        data: {
+          id: 1,
+          owner: 'user-123',
+          name: 'Prospection',
+          status: 'active',
+          created_at: '2026-01-01',
+        },
         error: null,
       })
       .mockResolvedValueOnce({
-        data: [{
-          id: 101,
-          position: 0,
-          sf_contact_id: "003000000000001",
-          contact_name: "Marie",
-          status: "pending",
-          email: null,
-          title: null,
-        }],
+        data: [
+          {
+            id: 101,
+            position: 0,
+            sf_contact_id: '003000000000001',
+            contact_name: 'Marie',
+            status: 'pending',
+            email: null,
+            title: null,
+          },
+        ],
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { id: 1, owner: "user-123", name: "Prospection", status: "active" },
+        data: {
+          id: 1,
+          owner: 'user-123',
+          name: 'Prospection',
+          status: 'active',
+        },
         error: null,
       })
       .mockResolvedValue({ data: null, error: null });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.contacts[0].email).toBe("marie@acme.fr");
-    expect(body.contacts[0].title).toBe("DRH");
+    expect(body.contacts[0].email).toBe('marie@acme.fr');
+    expect(body.contacts[0].title).toBe('DRH');
     expect(mockFetchContactBasicsByIds).toHaveBeenCalled();
   });
 
-  it("returns 500 when detail contacts lookup fails", async () => {
+  it('returns 500 when detail contacts lookup fails', async () => {
     mockDb
-      .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "X", status: "active", created_at: "2026-01-01" }, error: null })
-      .mockResolvedValueOnce({ data: null, error: { message: "contacts failed" } })
-      .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "X", status: "active" }, error: null });
+      .mockResolvedValueOnce({
+        data: {
+          id: 1,
+          owner: 'user-123',
+          name: 'X',
+          status: 'active',
+          created_at: '2026-01-01',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'contacts failed' },
+      })
+      .mockResolvedValueOnce({
+        data: { id: 1, owner: 'user-123', name: 'X', status: 'active' },
+        error: null,
+      });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?session_id=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?session_id=1'),
+    );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("contacts_lookup_failed");
+    expect(body.error).toBe('contacts_lookup_failed');
   });
 
-  it("returns stats on success", async () => {
+  it('returns stats on success', async () => {
     mockDb
       .mockResolvedValueOnce({ data: [{ id: 1 }, { id: 2 }], error: null })
       .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [{ id: 1, status: "active" }, { id: 2, status: "completed" }], error: null })
+      .mockResolvedValueOnce({
+        data: [
+          { id: 1, status: 'active' },
+          { id: 2, status: 'completed' },
+        ],
+        error: null,
+      })
       .mockResolvedValueOnce({
         data: [
           {
             session_id: 1,
-            logged_by: "user-123",
-            status: "called",
-            outcome: "RDV planifié",
+            logged_by: 'user-123',
+            status: 'called',
+            outcome: 'RDV planifié',
             called_at: new Date().toISOString(),
             marked_npa: false,
           },
@@ -493,7 +722,9 @@ describe("GET /api/calls", () => {
         error: null,
       });
 
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?stats=1"));
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?stats=1'),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.stats.sessions_active).toBe(1);
@@ -503,1005 +734,1727 @@ describe("GET /api/calls", () => {
     expect(body.stats.month.rdv).toBeGreaterThanOrEqual(1);
   });
 
-  it("returns 500 when stats sessions lookup fails", async () => {
-    mockDb.mockResolvedValueOnce({ data: null, error: { message: "stats failed" } });
-    const res = await GET(makeReq("GET", undefined, "http://localhost/api/calls?stats=1"));
+  it('returns 500 when stats sessions lookup fails', async () => {
+    mockDb.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'stats failed' },
+    });
+    const res = await GET(
+      makeReq('GET', undefined, 'http://localhost/api/calls?stats=1'),
+    );
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("sessions_lookup_failed");
+    expect(body.error).toBe('sessions_lookup_failed');
   });
 });
 
-describe("POST /api/calls", () => {
-  it("returns 401 when unauthorized", async () => {
+describe('POST /api/calls', () => {
+  it('returns 401 when unauthorized', async () => {
     mockVerifyJWT.mockResolvedValue(null);
-    const res = await POST(makeReq("POST", { action: "create_session" }));
+    const res = await POST(makeReq('POST', { action: 'create_session' }));
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 on invalid JSON", async () => {
-    const res = await POST(makeRawReq("POST", "{invalid"));
+  it('returns 400 on invalid JSON', async () => {
+    const res = await POST(makeRawReq('POST', '{invalid'));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("invalid_json");
+    expect(body.error).toBe('invalid_json');
   });
 
-  it("returns 400 invalid_body on null body", async () => {
-    const res = await POST(makeRawReq("POST", "null"));
+  it('returns 400 invalid_body on null body', async () => {
+    const res = await POST(makeRawReq('POST', 'null'));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("invalid_body");
+    expect(body.error).toBe('invalid_body');
   });
 
-  it("returns 400 on missing action", async () => {
-    const res = await POST(makeReq("POST", {}));
+  it('returns 400 on missing action', async () => {
+    const res = await POST(makeReq('POST', {}));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("missing_action");
+    expect(body.error).toBe('missing_action');
   });
 
-  it("returns 400 on invalid action", async () => {
-    const res = await POST(makeReq("POST", { action: "nonexistent" }));
+  it('returns 400 on invalid action', async () => {
+    const res = await POST(makeReq('POST', { action: 'nonexistent' }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("invalid_action");
+    expect(body.error).toBe('invalid_action');
   });
 
-  describe("create_session", () => {
-    it("returns 400 when name is missing", async () => {
-      const res = await POST(makeReq("POST", { action: "create_session", contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie" }] }));
+  describe('create_session', () => {
+    it('returns 400 when name is missing', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          contacts: [
+            { sf_contact_id: '003000000000001', contact_name: 'Marie' },
+          ],
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_name");
+      expect((await res.json()).error).toBe('invalid_name');
     });
 
-    it("returns 400 when contacts is empty", async () => {
-      const res = await POST(makeReq("POST", { action: "create_session", name: "Test", contacts: [] }));
+    it('returns 400 when contacts is empty', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Test',
+          contacts: [],
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_contacts");
+      expect((await res.json()).error).toBe('invalid_contacts');
     });
 
-    it("returns 400 for invalid sf_contact_id", async () => {
-      const res = await POST(makeReq("POST", { action: "create_session", name: "Test", contacts: [{ sf_contact_id: "bad", contact_name: "Marie" }] }));
+    it('returns 400 for invalid sf_contact_id', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Test',
+          contacts: [{ sf_contact_id: 'bad', contact_name: 'Marie' }],
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_sf_contact_id");
+      expect((await res.json()).error).toBe('invalid_sf_contact_id');
     });
 
-    it("creates session and contacts successfully", async () => {
+    it('creates session and contacts successfully', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 12, name: "Prospection Lyon", status: "active", created_at: "2026-01-01T00:00:00Z" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ id: 201, position: 0, sf_contact_id: "003000000000001", contact_name: "Marie Dupont", status: "pending" }],
+          data: {
+            id: 12,
+            name: 'Prospection Lyon',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 201,
+              position: 0,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Marie Dupont',
+              status: 'pending',
+            },
+          ],
           error: null,
         });
 
-      const res = await POST(makeReq("POST", {
-        action: "create_session",
-        name: "Prospection Lyon",
-        contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie Dupont" }],
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Prospection Lyon',
+          contacts: [
+            { sf_contact_id: '003000000000001', contact_name: 'Marie Dupont' },
+          ],
+        }),
+      );
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.session.id).toBe(12);
     });
 
-    it("returns 500 and compensates when contact insert fails", async () => {
+    it('returns 500 and compensates when contact insert fails', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 12, name: "Prospection", status: "active", created_at: "2026-01-01T00:00:00Z" }, error: null })
-        .mockResolvedValueOnce({ data: null, error: { message: "insert failed" } })
+        .mockResolvedValueOnce({
+          data: {
+            id: 12,
+            name: 'Prospection',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'insert failed' },
+        })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      const res = await POST(makeReq("POST", {
-        action: "create_session",
-        name: "Prospection",
-        contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie" }],
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Prospection',
+          contacts: [
+            { sf_contact_id: '003000000000001', contact_name: 'Marie' },
+          ],
+        }),
+      );
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("session_contacts_insert_failed");
+      expect((await res.json()).error).toBe('session_contacts_insert_failed');
     });
 
-    it("returns 400 for invalid scheduled_for", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "create_session",
-        name: "Test",
-        scheduled_for: "2026-02-30",
-        contacts: [{ sf_contact_id: "003000000000001", contact_name: "Marie" }],
-      }));
+    it('returns 400 for invalid scheduled_for', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Test',
+          scheduled_for: '2026-02-30',
+          contacts: [
+            { sf_contact_id: '003000000000001', contact_name: 'Marie' },
+          ],
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_scheduled_for");
+      expect((await res.json()).error).toBe('invalid_scheduled_for');
     });
 
-    it("persists title, email and linkedin_url on session contacts", async () => {
+    it('persists title, email and linkedin_url on session contacts', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 12, name: "Prospection Lyon", status: "active", created_at: "2026-01-01T00:00:00Z", scheduled_for: "2026-07-10" }, error: null })
         .mockResolvedValueOnce({
-          data: [{
-            id: 201,
-            position: 0,
-            sf_contact_id: "003000000000001",
-            contact_name: "Marie Dupont",
-            title: "RF",
-            email: "marie@acme.fr",
-            linkedin_url: "https://linkedin.com/in/marie",
-            status: "pending",
-          }],
+          data: {
+            id: 12,
+            name: 'Prospection Lyon',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+            scheduled_for: '2026-07-10',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 201,
+              position: 0,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Marie Dupont',
+              title: 'RF',
+              email: 'marie@acme.fr',
+              linkedin_url: 'https://linkedin.com/in/marie',
+              status: 'pending',
+            },
+          ],
           error: null,
         });
 
-      const res = await POST(makeReq("POST", {
-        action: "create_session",
-        name: "Prospection Lyon",
-        scheduled_for: "2026-07-10",
-        contacts: [{
-          sf_contact_id: "003000000000001",
-          contact_name: "Marie Dupont",
-          title: "RF",
-          email: "marie@acme.fr",
-          linkedin_url: "https://linkedin.com/in/marie",
-        }],
-      }));
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.contacts[0].title).toBe("RF");
-      expect(body.contacts[0].email).toBe("marie@acme.fr");
-      expect(body.contacts[0].linkedin_url).toBe("https://linkedin.com/in/marie");
-    });
-  });
-
-  describe("set_session_members notifications", () => {
-    it("notifies only recipients newly added to the session", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 12, owner: "user-123", name: "Prospection Lyon", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: [{ id: "user-2" }, { id: "user-3" }], error: null })
-        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }, { user_id: "user-3" }], error: null })
-        .mockResolvedValueOnce({ data: [{ id: "user-2", full_name: "Bob", email: null, sf_user_id: null }, { id: "user-3", full_name: "Cleo", email: null, sf_user_id: null }], error: null });
-
-      const res = await POST(makeReq("POST", {
-        action: "set_session_members",
-        session_id: 12,
-        member_user_ids: ["user-2", "user-3"],
-      }));
-
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.members.map((member) => member.user_id)).toEqual(["user-2", "user-3"]);
-      expect(mockChain.insert).toHaveBeenCalledWith(expect.objectContaining({
-        recipient_id: "user-3",
-        kind: "session_shared",
-        payload: expect.objectContaining({
-          session_name: "Prospection Lyon",
-          action: "open_session",
-          params: { view: "runner", session_id: "12" },
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Prospection Lyon',
+          scheduled_for: '2026-07-10',
+          contacts: [
+            {
+              sf_contact_id: '003000000000001',
+              contact_name: 'Marie Dupont',
+              title: 'RF',
+              email: 'marie@acme.fr',
+              linkedin_url: 'https://linkedin.com/in/marie',
+            },
+          ],
         }),
-      }));
-      expect(mockChain.insert).not.toHaveBeenCalledWith(expect.objectContaining({ recipient_id: "user-2" }));
-    });
-
-    it("does not notify unchanged members", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 12, owner: "user-123", name: "Prospection Lyon", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: [{ id: "user-2" }], error: null })
-        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({ data: [{ user_id: "user-2" }], error: null })
-        .mockResolvedValueOnce({ data: [{ id: "user-2", full_name: "Bob", email: null, sf_user_id: null }], error: null });
-
-      const res = await POST(makeReq("POST", {
-        action: "set_session_members",
-        session_id: 12,
-        member_user_ids: ["user-2"],
-      }));
-
+      );
       expect(res.status).toBe(200);
-      expect(mockChain.insert).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "session_shared" }));
-    });
-  });
-
-  describe("celebrate_goal notifications", () => {
-    it("uses a stable dedupe key when a goal celebration is retried", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 12, owner: "owner-1", name: "Prospection Lyon", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: { user_id: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: null, full_name: "Ada", role: "commercial" }, error: null })
-        .mockResolvedValueOnce({ data: [], error: null })
-        .mockResolvedValueOnce({ data: [{ id: "owner-1" }], error: null })
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      const body = { action: "celebrate_goal", session_id: 12, goal: 3, rdv_count: 3 };
-      expect((await POST(makeReq("POST", body))).status).toBe(200);
-
-      expect(mockUpsert).toHaveBeenCalledTimes(1);
-      expect(mockUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({ dedupe_key: "goal:12:3:user-123" }),
-        { onConflict: "recipient_id,dedupe_key", ignoreDuplicates: true },
+      const body = await res.json();
+      expect(body.contacts[0].title).toBe('RF');
+      expect(body.contacts[0].email).toBe('marie@acme.fr');
+      expect(body.contacts[0].linkedin_url).toBe(
+        'https://linkedin.com/in/marie',
       );
     });
   });
 
-  describe("create_audience_sessions", () => {
-    const group1 = {
-      account_ids: ["001000000000001AAA"],
-      contacts: [{ sf_contact_id: "003000000000001AAA", contact_name: "Marie Dupont", sf_account_id: "001000000000001AAA" }],
-    };
-    const group2 = {
-      account_ids: ["001000000000002AAA"],
-      contacts: [{ sf_contact_id: "003000000000002AAA", contact_name: "Jean Petit", sf_account_id: "001000000000002AAA" }],
-    };
-
-    it("returns 400 when groups is missing or empty", async () => {
-      const res = await POST(makeReq("POST", { action: "create_audience_sessions", groups: [] }));
-      expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_groups");
-    });
-
-    it("returns 400 when a group has no account_ids or no contacts", async () => {
-      const res = await POST(makeReq("POST", { action: "create_audience_sessions", groups: [{ account_ids: [], contacts: group1.contacts }] }));
-      expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_groups");
-
-      const res2 = await POST(makeReq("POST", { action: "create_audience_sessions", groups: [{ account_ids: group1.account_ids, contacts: [] }] }));
-      expect(res2.status).toBe(400);
-      expect((await res2.json()).error).toBe("invalid_groups");
-    });
-
-    it("returns 400 for a malformed sf_account_id in a group", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "create_audience_sessions",
-        groups: [{ account_ids: ["not-a-sf-id"], contacts: group1.contacts }],
-      }));
-      expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_groups");
-    });
-
-    it("returns 400 for a malformed sf_contact_id inside a group", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "create_audience_sessions",
-        groups: [{ account_ids: group1.account_ids, contacts: [{ sf_contact_id: "bad", contact_name: "Marie" }] }],
-      }));
-      expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_sf_contact_id");
-    });
-
-    it("creates one session per group, named from name_prefix", async () => {
+  describe('set_session_members notifications', () => {
+    it('notifies only recipients newly added to the session', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 101, name: "ACME T1 #1", status: "active", created_at: "2026-07-01T00:00:00Z" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ id: 1, position: 0, sf_contact_id: "003000000000001AAA", contact_name: "Marie Dupont", status: "pending" }],
+          data: {
+            id: 12,
+            owner: 'user-123',
+            name: 'Prospection Lyon',
+            status: 'active',
+          },
           error: null,
         })
-        .mockResolvedValueOnce({ data: { id: 102, name: "ACME T1 #2", status: "active", created_at: "2026-07-01T00:00:00Z" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ id: 2, position: 0, sf_contact_id: "003000000000002AAA", contact_name: "Jean Petit", status: "pending" }],
+          data: [{ id: 'user-2' }, { id: 'user-3' }],
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: [{ user_id: 'user-2' }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: [{ user_id: 'user-2' }, { user_id: 'user-3' }],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            { id: 'user-2', full_name: 'Bob', email: null, sf_user_id: null },
+            { id: 'user-3', full_name: 'Cleo', email: null, sf_user_id: null },
+          ],
           error: null,
         });
 
-      const res = await POST(makeReq("POST", {
-        action: "create_audience_sessions",
-        groups: [group1, group2],
-        target_size: 50,
-        max_sessions: 5,
-        name_prefix: "ACME T1",
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'set_session_members',
+          session_id: 12,
+          member_user_ids: ['user-2', 'user-3'],
+        }),
+      );
+
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.sessions).toEqual([
-        { id: 101, name: "ACME T1 #1", contact_count: 1, account_ids: group1.account_ids },
-        { id: 102, name: "ACME T1 #2", contact_count: 1, account_ids: group2.account_ids },
+      expect(body.members.map((member) => member.user_id)).toEqual([
+        'user-2',
+        'user-3',
       ]);
+      expect(mockChain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipient_id: 'user-3',
+          kind: 'session_shared',
+          payload: expect.objectContaining({
+            session_name: 'Prospection Lyon',
+            action: 'open_session',
+            params: { view: 'runner', session_id: '12' },
+          }),
+        }),
+      );
+      expect(mockChain.insert).not.toHaveBeenCalledWith(
+        expect.objectContaining({ recipient_id: 'user-2' }),
+      );
     });
 
-    it("falls back to a sequential name when name_prefix is omitted", async () => {
+    it('does not notify unchanged members', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 201, name: "Audience #1", status: "active", created_at: "2026-07-01T00:00:00Z" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ id: 1, position: 0, sf_contact_id: "003000000000001AAA", contact_name: "Marie Dupont", status: "pending" }],
+          data: {
+            id: 12,
+            owner: 'user-123',
+            name: 'Prospection Lyon',
+            status: 'active',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: [{ id: 'user-2' }], error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: 'user-2' }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: [{ user_id: 'user-2' }], error: null })
+        .mockResolvedValueOnce({
+          data: [
+            { id: 'user-2', full_name: 'Bob', email: null, sf_user_id: null },
+          ],
           error: null,
         });
 
-      const res = await POST(makeReq("POST", { action: "create_audience_sessions", groups: [group1] }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'set_session_members',
+          session_id: 12,
+          member_user_ids: ['user-2'],
+        }),
+      );
+
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.sessions[0].name).toBe("Audience #1");
-    });
-
-    it("stops and returns already-created sessions when a session insert fails midway", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 101, name: "ACME T1 #1", status: "active", created_at: "2026-07-01T00:00:00Z" }, error: null })
-        .mockResolvedValueOnce({
-          data: [{ id: 1, position: 0, sf_contact_id: "003000000000001AAA", contact_name: "Marie Dupont", status: "pending" }],
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: null, error: { message: "insert failed" } });
-
-      const res = await POST(makeReq("POST", {
-        action: "create_audience_sessions",
-        groups: [group1, group2],
-        name_prefix: "ACME T1",
-      }));
-      expect(res.status).toBe(500);
-      const body = await res.json();
-      expect(body.error).toBe("session_creation_failed");
-      expect(body.sessions).toEqual([
-        { id: 101, name: "ACME T1 #1", contact_count: 1, account_ids: group1.account_ids },
-      ]);
-    });
-
-    it("returns 400 for an invalid scheduled_for", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "create_audience_sessions",
-        groups: [group1],
-        scheduled_for: "2026-02-30",
-      }));
-      expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_scheduled_for");
+      expect(mockChain.insert).not.toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'session_shared' }),
+      );
     });
   });
 
-  describe("log_call", () => {
-    const sessionRow = { id: 1, owner: "user-123", name: "Test", status: "active" };
-    const contactRow = { id: 101, session_id: 1, sf_contact_id: "003000000000001", sf_account_id: "001000000000001", status: "pending" };
+  describe('celebrate_goal notifications', () => {
+    it('uses a stable dedupe key when a goal celebration is retried', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: {
+            id: 12,
+            owner: 'owner-1',
+            name: 'Prospection Lyon',
+            status: 'active',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: { user_id: 'user-123' }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: null, full_name: 'Ada', role: 'commercial' },
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [{ id: 'owner-1' }], error: null })
+        .mockResolvedValueOnce({ data: null, error: null });
 
-    it("returns 400 for invalid session_id", async () => {
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: "abc", contact_id: 1, resultat: RESULTS[0] }));
+      const body = {
+        action: 'celebrate_goal',
+        session_id: 12,
+        goal: 3,
+        rdv_count: 3,
+      };
+      expect((await POST(makeReq('POST', body))).status).toBe(200);
+
+      expect(mockUpsert).toHaveBeenCalledTimes(1);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ dedupe_key: 'goal:12:3:user-123' }),
+        { onConflict: 'recipient_id,dedupe_key', ignoreDuplicates: true },
+      );
+    });
+  });
+
+  describe('create_audience_sessions', () => {
+    const group1 = {
+      account_ids: ['001000000000001AAA'],
+      contacts: [
+        {
+          sf_contact_id: '003000000000001AAA',
+          contact_name: 'Marie Dupont',
+          sf_account_id: '001000000000001AAA',
+        },
+      ],
+    };
+    const group2 = {
+      account_ids: ['001000000000002AAA'],
+      contacts: [
+        {
+          sf_contact_id: '003000000000002AAA',
+          contact_name: 'Jean Petit',
+          sf_account_id: '001000000000002AAA',
+        },
+      ],
+    };
+
+    it('returns 400 when groups is missing or empty', async () => {
+      const res = await POST(
+        makeReq('POST', { action: 'create_audience_sessions', groups: [] }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_groups');
+    });
+
+    it('returns 400 when a group has no account_ids or no contacts', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [{ account_ids: [], contacts: group1.contacts }],
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_groups');
+
+      const res2 = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [{ account_ids: group1.account_ids, contacts: [] }],
+        }),
+      );
+      expect(res2.status).toBe(400);
+      expect((await res2.json()).error).toBe('invalid_groups');
+    });
+
+    it('returns 400 for a malformed sf_account_id in a group', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [{ account_ids: ['not-a-sf-id'], contacts: group1.contacts }],
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_groups');
+    });
+
+    it('returns 400 for a malformed sf_contact_id inside a group', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [
+            {
+              account_ids: group1.account_ids,
+              contacts: [{ sf_contact_id: 'bad', contact_name: 'Marie' }],
+            },
+          ],
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_sf_contact_id');
+    });
+
+    it('creates one session per group, named from name_prefix', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            name: 'ACME T1 #1',
+            status: 'active',
+            created_at: '2026-07-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 1,
+              position: 0,
+              sf_contact_id: '003000000000001AAA',
+              contact_name: 'Marie Dupont',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 102,
+            name: 'ACME T1 #2',
+            status: 'active',
+            created_at: '2026-07-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 2,
+              position: 0,
+              sf_contact_id: '003000000000002AAA',
+              contact_name: 'Jean Petit',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [group1, group2],
+          target_size: 50,
+          max_sessions: 5,
+          name_prefix: 'ACME T1',
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sessions).toEqual([
+        {
+          id: 101,
+          name: 'ACME T1 #1',
+          contact_count: 1,
+          account_ids: group1.account_ids,
+        },
+        {
+          id: 102,
+          name: 'ACME T1 #2',
+          contact_count: 1,
+          account_ids: group2.account_ids,
+        },
+      ]);
+    });
+
+    it('falls back to a sequential name when name_prefix is omitted', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: {
+            id: 201,
+            name: 'Audience #1',
+            status: 'active',
+            created_at: '2026-07-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 1,
+              position: 0,
+              sf_contact_id: '003000000000001AAA',
+              contact_name: 'Marie Dupont',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [group1],
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sessions[0].name).toBe('Audience #1');
+    });
+
+    it('stops and returns already-created sessions when a session insert fails midway', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            name: 'ACME T1 #1',
+            status: 'active',
+            created_at: '2026-07-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 1,
+              position: 0,
+              sf_contact_id: '003000000000001AAA',
+              contact_name: 'Marie Dupont',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'insert failed' },
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [group1, group2],
+          name_prefix: 'ACME T1',
+        }),
+      );
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toBe('session_creation_failed');
+      expect(body.sessions).toEqual([
+        {
+          id: 101,
+          name: 'ACME T1 #1',
+          contact_count: 1,
+          account_ids: group1.account_ids,
+        },
+      ]);
+    });
+
+    it('returns 400 for an invalid scheduled_for', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_audience_sessions',
+          groups: [group1],
+          scheduled_for: '2026-02-30',
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_scheduled_for');
+    });
+  });
+
+  describe('log_call', () => {
+    const sessionRow = {
+      id: 1,
+      owner: 'user-123',
+      name: 'Test',
+      status: 'active',
+    };
+    const contactRow = {
+      id: 101,
+      session_id: 1,
+      sf_contact_id: '003000000000001',
+      sf_account_id: '001000000000001',
+      status: 'pending',
+    };
+
+    it('returns 400 for invalid session_id', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 'abc',
+          contact_id: 1,
+          resultat: RESULTS[0],
+        }),
+      );
       expect(res.status).toBe(400);
     });
 
-    it("returns 400 for invalid resultat", async () => {
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 1, resultat: "bad" }));
+    it('returns 400 for invalid resultat', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 1,
+          resultat: 'bad',
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_resultat");
+      expect((await res.json()).error).toBe('invalid_resultat');
     });
 
-    it("returns 400 for invalid duration_sec", async () => {
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 1, resultat: RESULTS[0], duration_sec: -1 }));
+    it('returns 400 for invalid duration_sec', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 1,
+          resultat: RESULTS[0],
+          duration_sec: -1,
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_duration_sec");
+      expect((await res.json()).error).toBe('invalid_duration_sec');
     });
 
-    it("returns 404 when session absent (PGRST116)", async () => {
+    it('returns 404 when session absent (PGRST116)', async () => {
       mockDb.mockResolvedValueOnce({ data: null, error: PGRST116 });
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 1, resultat: RESULTS[2] }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 1,
+          resultat: RESULTS[2],
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("returns 404 when session owned by other user", async () => {
-      mockDb.mockResolvedValueOnce({ data: { ...sessionRow, owner: "other-user" }, error: null });
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 1, resultat: RESULTS[2] }));
+    it('returns 404 when session owned by other user', async () => {
+      mockDb.mockResolvedValueOnce({
+        data: { ...sessionRow, owner: 'other-user' },
+        error: null,
+      });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 1,
+          resultat: RESULTS[2],
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("returns 404 when contact belongs to another session", async () => {
+    it('returns 404 when contact belongs to another session', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
-        .mockResolvedValueOnce({ data: { ...contactRow, session_id: 99 }, error: null });
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
+        .mockResolvedValueOnce({
+          data: { ...contactRow, session_id: 99 },
+          error: null,
+        });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[2],
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("rejects a previously processed contact before writing Salesforce", async () => {
+    it('rejects a previously processed contact before writing Salesforce', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
-        .mockResolvedValueOnce({ data: { ...contactRow, status: "called" }, error: null });
+        .mockResolvedValueOnce({
+          data: { ...contactRow, status: 'called' },
+          error: null,
+        });
 
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[2],
+        }),
+      );
 
       expect(res.status).toBe(409);
-      expect(await res.json()).toEqual({ error: "contact_already_processed" });
+      expect(await res.json()).toEqual({ error: 'contact_already_processed' });
       expect(mockLogCall).not.toHaveBeenCalled();
     });
 
-    it("allows a queued recall from the recalls view to be logged again", async () => {
+    it('allows a queued recall from the recalls view to be logged again', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
-        .mockResolvedValueOnce({ data: { ...contactRow, status: "called", recall_at: "2026-07-20" }, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { ...contactRow, status: 'called', recall_at: '2026-07-20' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
-      mockLogCall.mockResolvedValue({ record: { id: "00T789" } });
+      mockLogCall.mockResolvedValue({ record: { id: '00T789' } });
 
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[2] }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[2],
+        }),
+      );
 
       expect(res.status).toBe(200);
       expect(mockLogCall).toHaveBeenCalledOnce();
     });
 
-    it("returns 500 on real session lookup DB error", async () => {
-      mockDb.mockResolvedValueOnce({ data: null, error: { code: "XX000", message: "db down" } });
-      const res = await POST(makeReq("POST", { action: "log_call", session_id: 1, contact_id: 1, resultat: RESULTS[2] }));
+    it('returns 500 on real session lookup DB error', async () => {
+      mockDb.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'XX000', message: 'db down' },
+      });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 1,
+          resultat: RESULTS[2],
+        }),
+      );
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("session_lookup_failed");
+      expect((await res.json()).error).toBe('session_lookup_failed');
     });
 
-    it("logs call via adapter and returns needs_event for RDV", async () => {
+    it('logs call via adapter and returns needs_event for RDV', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      mockLogCall.mockResolvedValue({ record: { id: "00T123" } });
+      mockLogCall.mockResolvedValue({ record: { id: '00T123' } });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call",
-        session_id: 1,
-        contact_id: 101,
-        resultat: SEMANTIC.rdv,
-        comments: "RDV fixé",
-        duration_sec: 120,
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: SEMANTIC.rdv,
+          comments: 'RDV fixé',
+          duration_sec: 120,
+        }),
+      );
 
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.needs_event).toBe(true);
-      expect(body.sf_task_id).toBe("00T123");
+      expect(body.sf_task_id).toBe('00T123');
     });
 
-    it("stores recall_at without creating a Salesforce recall task", async () => {
+    it('stores recall_at without creating a Salesforce recall task', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      mockLogCall.mockResolvedValue({ record: { id: "00T456" } });
+      mockLogCall.mockResolvedValue({ record: { id: '00T456' } });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call",
-        session_id: 1,
-        contact_id: 101,
-        resultat: SEMANTIC.followUpNoAnswer,
-        recall_at: "2026-07-20",
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: SEMANTIC.followUpNoAnswer,
+          recall_at: '2026-07-20',
+        }),
+      );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toMatchObject({ ok: true, sf_task_id: "00T456" });
+      expect(await res.json()).toMatchObject({
+        ok: true,
+        sf_task_id: '00T456',
+      });
       expect(mockLogCall).toHaveBeenCalledTimes(1);
     });
 
-    it("returns npa_failed while retaining the local call log when Salesforce rejects NPA", async () => {
+    it('returns npa_failed while retaining the local call log when Salesforce rejects NPA', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
-      mockLogCall.mockResolvedValue({ record: { id: "00T456" } });
-      mockUpdateContactDoNotCall.mockResolvedValue({ error: "sf_write_error" });
+      mockLogCall.mockResolvedValue({ record: { id: '00T456' } });
+      mockUpdateContactDoNotCall.mockResolvedValue({ error: 'sf_write_error' });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call", session_id: 1, contact_id: 101, resultat: RESULTS[0], do_not_call: true,
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[0],
+          do_not_call: true,
+        }),
+      );
 
       expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({ ok: true, npa_failed: true });
-      expect(mockFrom).toHaveBeenCalledWith("action_journal");
-      expect(mockChain.insert).toHaveBeenCalledWith(expect.objectContaining({
-        result: expect.objectContaining({ npa_failed: true }),
-      }));
+      expect(mockFrom).toHaveBeenCalledWith('action_journal');
+      expect(mockChain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: expect.objectContaining({ npa_failed: true }),
+        }),
+      );
     });
 
-    it("returns 500 when local persistence fails after SF success", async () => {
+    it('returns 500 when local persistence fails after SF success', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
         .mockResolvedValueOnce({
-          data: { id: 101, claimed_by: "user-123", claimed_at: "2026-07-12T10:00:00Z", status: "pending" },
+          data: {
+            id: 101,
+            claimed_by: 'user-123',
+            claimed_at: '2026-07-12T10:00:00Z',
+            status: 'pending',
+          },
           error: null,
         })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
-        .mockResolvedValueOnce({ data: null, error: { message: "update failed" } });
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'update failed' },
+        });
 
-      mockLogCall.mockResolvedValue({ record: { id: "00T123" } });
+      mockLogCall.mockResolvedValue({ record: { id: '00T123' } });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call",
-        session_id: 1,
-        contact_id: 101,
-        resultat: RESULTS[2],
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[2],
+        }),
+      );
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBe("contact_update_failed");
+      expect(body.error).toBe('contact_update_failed');
     });
 
-    it("returns 502 when Salesforce refuses logCall", async () => {
+    it('returns 502 when Salesforce refuses logCall', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null });
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        });
 
-      mockLogCall.mockResolvedValue({ error: "sf_write_error", message: "OWNER_ID invalid" });
+      mockLogCall.mockResolvedValue({
+        error: 'sf_write_error',
+        message: 'OWNER_ID invalid',
+      });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call",
-        session_id: 1,
-        contact_id: 101,
-        resultat: RESULTS[0],
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[0],
+        }),
+      );
       expect(res.status).toBe(502);
     });
 
-    it("returns 502 on SF auth error", async () => {
+    it('returns 502 on SF auth error', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null });
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        });
 
-      mockFetchSFToken.mockResolvedValue({ error: "sf_auth_error" });
+      mockFetchSFToken.mockResolvedValue({ error: 'sf_auth_error' });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_call",
-        session_id: 1,
-        contact_id: 101,
-        resultat: RESULTS[0],
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_call',
+          session_id: 1,
+          contact_id: 101,
+          resultat: RESULTS[0],
+        }),
+      );
       expect(res.status).toBe(502);
-      expect((await res.json()).error).toBe("sf_auth_error");
+      expect((await res.json()).error).toBe('sf_auth_error');
     });
   });
 
-  describe("log_event", () => {
-    const sessionRow = { id: 1, owner: "user-123", name: "Test", status: "active" };
-    const contactRow = { id: 101, session_id: 1, sf_contact_id: "003000000000001", sf_account_id: "001000000000001", contact_name: "Marie Dupont" };
+  describe('log_event', () => {
+    const sessionRow = {
+      id: 1,
+      owner: 'user-123',
+      name: 'Test',
+      status: 'active',
+    };
+    const contactRow = {
+      id: 101,
+      session_id: 1,
+      sf_contact_id: '003000000000001',
+      sf_account_id: '001000000000001',
+      contact_name: 'Marie Dupont',
+    };
 
-    it("returns 400 for invalid start datetime", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "log_event",
-        session_id: 1,
-        contact_id: 101,
-        subject: "Rdv découverte prospect",
-        start: "2026-02-30T10:00:00Z",
-        duration_min: 30,
-      }));
+    it('returns 400 for invalid start datetime', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_event',
+          session_id: 1,
+          contact_id: 101,
+          subject: 'Rdv découverte prospect',
+          start: '2026-02-30T10:00:00Z',
+          duration_min: 30,
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_start");
+      expect((await res.json()).error).toBe('invalid_start');
     });
 
-    it("returns 400 for invalid duration_min", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "log_event",
-        session_id: 1,
-        contact_id: 101,
-        subject: "Rdv découverte prospect",
-        start: "2026-07-15T10:00Z",
-        duration_min: 0,
-      }));
+    it('returns 400 for invalid duration_min', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_event',
+          session_id: 1,
+          contact_id: 101,
+          subject: 'Rdv découverte prospect',
+          start: '2026-07-15T10:00Z',
+          duration_min: 0,
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_duration_min");
+      expect((await res.json()).error).toBe('invalid_duration_min');
     });
 
-    it("returns 404 when session owned by other user", async () => {
-      mockDb.mockResolvedValueOnce({ data: { ...sessionRow, owner: "other" }, error: null });
-      const res = await POST(makeReq("POST", {
-        action: "log_event",
-        session_id: 1,
-        contact_id: 101,
-        subject: "Rdv découverte prospect",
-        start: "2026-07-15T10:00Z",
-        duration_min: 30,
-      }));
+    it('returns 404 when session owned by other user', async () => {
+      mockDb.mockResolvedValueOnce({
+        data: { ...sessionRow, owner: 'other' },
+        error: null,
+      });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_event',
+          session_id: 1,
+          contact_id: 101,
+          subject: 'Rdv découverte prospect',
+          start: '2026-07-15T10:00Z',
+          duration_min: 30,
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("creates event and persists sf_event_id", async () => {
+    it('creates event and persists sf_event_id', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      mockCreateEvent.mockResolvedValue({ record: { id: "00U456" } });
+      mockCreateEvent.mockResolvedValue({ record: { id: '00U456' } });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_event",
-        session_id: 1,
-        contact_id: 101,
-        subject: "Rdv découverte prospect",
-        start: "2026-07-15T10:00Z",
-        duration_min: 45,
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_event',
+          session_id: 1,
+          contact_id: 101,
+          subject: 'Rdv découverte prospect',
+          start: '2026-07-15T10:00Z',
+          duration_min: 45,
+        }),
+      );
 
       expect(res.status).toBe(200);
-      expect((await res.json()).sf_event_id).toBe("00U456");
+      expect((await res.json()).sf_event_id).toBe('00U456');
     });
 
-    it("returns 502 with sf_event_id on partial invitee failure", async () => {
+    it('returns 502 with sf_event_id on partial invitee failure', async () => {
       mockDb
         .mockResolvedValueOnce({ data: sessionRow, error: null })
         .mockResolvedValueOnce({ data: contactRow, error: null })
-        .mockResolvedValueOnce({ data: { sf_user_id: "005000000000001AAA", full_name: "Jean Dupont" }, error: null })
+        .mockResolvedValueOnce({
+          data: { sf_user_id: '005000000000001AAA', full_name: 'Jean Dupont' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      mockCreateEvent.mockResolvedValue({ record: { id: "00U456" }, inviteeError: "sf_write_error" });
+      mockCreateEvent.mockResolvedValue({
+        record: { id: '00U456' },
+        inviteeError: 'sf_write_error',
+      });
 
-      const res = await POST(makeReq("POST", {
-        action: "log_event",
-        session_id: 1,
-        contact_id: 101,
-        subject: "Rdv découverte prospect",
-        start: "2026-07-15T10:00Z",
-        duration_min: 30,
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'log_event',
+          session_id: 1,
+          contact_id: 101,
+          subject: 'Rdv découverte prospect',
+          start: '2026-07-15T10:00Z',
+          duration_min: 30,
+        }),
+      );
 
       expect(res.status).toBe(502);
       const body = await res.json();
-      expect(body.error).toBe("event_invitee_failed");
-      expect(body.sf_event_id).toBe("00U456");
+      expect(body.error).toBe('event_invitee_failed');
+      expect(body.sf_event_id).toBe('00U456');
     });
   });
 
-  describe("create_follow_up_session", () => {
-    it("returns 400 when no relance contacts", async () => {
+  describe('create_follow_up_session', () => {
+    it('returns 400 when no relance contacts', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: [{ outcome: "Appel décroché" }], error: null });
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [{ outcome: 'Appel décroché' }],
+          error: null,
+        });
 
-      const res = await POST(makeReq("POST", { action: "create_follow_up_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', { action: 'create_follow_up_session', session_id: 1 }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("no_follow_up_contacts");
+      expect((await res.json()).error).toBe('no_follow_up_contacts');
     });
 
-    it("creates relance session from follow-up outcomes", async () => {
+    it('creates relance session from follow-up outcomes', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ sf_contact_id: "003000000000001", contact_name: "Alice", outcome: SEMANTIC.followUpNoAnswer }],
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
           error: null,
         })
-        .mockResolvedValueOnce({ data: { id: 20, name: "Base #2", status: "active", created_at: "2026-01-01T00:00:00Z" }, error: null })
-        .mockResolvedValueOnce({ data: [{ id: 301, sf_contact_id: "003000000000001", contact_name: "Alice", status: "pending" }], error: null });
+        .mockResolvedValueOnce({
+          data: [
+            {
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              outcome: SEMANTIC.followUpNoAnswer,
+            },
+          ],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 20,
+            name: 'Base #2',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 301,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        });
 
-      const res = await POST(makeReq("POST", { action: "create_follow_up_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', { action: 'create_follow_up_session', session_id: 1 }),
+      );
       expect(res.status).toBe(200);
-      expect((await res.json()).session.name).toBe("Base #2");
+      expect((await res.json()).session.name).toBe('Base #2');
     });
 
-    it("returns 500 when follow-up contact lookup fails", async () => {
+    it('returns 500 when follow-up contact lookup fails', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: null, error: { message: "lookup failed" } });
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'lookup failed' },
+        });
 
-      const res = await POST(makeReq("POST", { action: "create_follow_up_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', { action: 'create_follow_up_session', session_id: 1 }),
+      );
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("session_contacts_lookup_failed");
+      expect((await res.json()).error).toBe('session_contacts_lookup_failed');
     });
 
-    it("uses the provided name and scheduled_for instead of the defaults", async () => {
+    it('uses the provided name and scheduled_for instead of the defaults', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
         .mockResolvedValueOnce({
-          data: [{ sf_contact_id: "003000000000001", contact_name: "Alice", outcome: SEMANTIC.followUpNoAnswer }],
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
           error: null,
         })
-        .mockResolvedValueOnce({ data: { id: 20, name: "Base — Relance 18 juil.", status: "active", created_at: "2026-01-01T00:00:00Z" }, error: null })
-        .mockResolvedValueOnce({ data: [{ id: 301, sf_contact_id: "003000000000001", contact_name: "Alice", status: "pending" }], error: null });
+        .mockResolvedValueOnce({
+          data: [
+            {
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              outcome: SEMANTIC.followUpNoAnswer,
+            },
+          ],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 20,
+            name: 'Base — Relance 18 juil.',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 301,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        });
 
-      const res = await POST(makeReq("POST", {
-        action: "create_follow_up_session",
-        session_id: 1,
-        name: "Base — Relance 18 juil.",
-        scheduled_for: "2026-07-18",
-      }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_follow_up_session',
+          session_id: 1,
+          name: 'Base — Relance 18 juil.',
+          scheduled_for: '2026-07-18',
+        }),
+      );
 
       expect(res.status).toBe(200);
-      expect((await res.json()).session.name).toBe("Base — Relance 18 juil.");
+      expect((await res.json()).session.name).toBe('Base — Relance 18 juil.');
       const insertedSession = mockChain.insert.mock.calls
         .map(([payload]) => payload)
-        .find((payload) => payload?.name === "Base — Relance 18 juil.");
-      expect(insertedSession?.scheduled_for).toBe("2026-07-18");
+        .find((payload) => payload?.name === 'Base — Relance 18 juil.');
+      expect(insertedSession?.scheduled_for).toBe('2026-07-18');
     });
 
-    it("returns 400 invalid_name for a blank override", async () => {
-      const res = await POST(makeReq("POST", { action: "create_follow_up_session", session_id: 1, name: "   " }));
+    it('returns 400 invalid_name for a blank override', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_follow_up_session',
+          session_id: 1,
+          name: '   ',
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_name");
+      expect((await res.json()).error).toBe('invalid_name');
     });
 
-    it("returns 400 invalid_scheduled_for for a malformed date", async () => {
-      const res = await POST(makeReq("POST", {
-        action: "create_follow_up_session",
-        session_id: 1,
-        scheduled_for: "not-a-date",
-      }));
+    it('returns 400 invalid_scheduled_for for a malformed date', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_follow_up_session',
+          session_id: 1,
+          scheduled_for: 'not-a-date',
+        }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("invalid_scheduled_for");
+      expect((await res.json()).error).toBe('invalid_scheduled_for');
     });
   });
 
-  describe("skip_contact", () => {
-    it("returns 400 invalid_session_id when session_id not a number", async () => {
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: "abc", contact_id: 1 }));
+  describe('skip_contact', () => {
+    it('returns 400 invalid_session_id when session_id not a number', async () => {
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 'abc',
+          contact_id: 1,
+        }),
+      );
       expect(res.status).toBe(400);
     });
 
-    it("returns 404 when session owned by other user", async () => {
-      mockDb.mockResolvedValueOnce({ data: { id: 1, owner: "other-user" }, error: null });
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 1 }));
+    it('returns 404 when session owned by other user', async () => {
+      mockDb.mockResolvedValueOnce({
+        data: { id: 1, owner: 'other-user' },
+        error: null,
+      });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 1,
+          contact_id: 1,
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("returns 404 when contact belongs to another session", async () => {
+    it('returns 404 when contact belongs to another session', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 99 }, error: null });
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 99 },
+          error: null,
+        });
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 1,
+          contact_id: 101,
+        }),
+      );
       expect(res.status).toBe(404);
     });
 
-    it("rejects a previously processed contact", async () => {
+    it('rejects a previously processed contact', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "skipped" }, error: null });
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 1, status: 'skipped' },
+          error: null,
+        });
 
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 1,
+          contact_id: 101,
+        }),
+      );
 
       expect(res.status).toBe(409);
-      expect(await res.json()).toEqual({ error: "contact_already_processed" });
+      expect(await res.json()).toEqual({ error: 'contact_already_processed' });
     });
 
-    it("skips contact successfully", async () => {
+    it('skips contact successfully', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "pending" }, error: null })
         .mockResolvedValueOnce({
-          data: { id: 101, claimed_by: "user-123", claimed_at: "2026-07-12T10:00:00Z", status: "pending" },
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 1, status: 'pending' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            claimed_by: 'user-123',
+            claimed_at: '2026-07-12T10:00:00Z',
+            status: 'pending',
+          },
           error: null,
         })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 1,
+          contact_id: 101,
+        }),
+      );
       expect(res.status).toBe(200);
       expect((await res.json()).success).toBe(true);
     });
 
-    it("returns 500 when skip update fails", async () => {
+    it('returns 500 when skip update fails', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "pending" }, error: null })
         .mockResolvedValueOnce({
-          data: { id: 101, claimed_by: "user-123", claimed_at: "2026-07-12T10:00:00Z", status: "pending" },
+          data: { id: 1, owner: 'user-123' },
           error: null,
         })
-        .mockResolvedValueOnce({ data: null, error: { message: "update failed" } });
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 1, status: 'pending' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            claimed_by: 'user-123',
+            claimed_at: '2026-07-12T10:00:00Z',
+            status: 'pending',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'update failed' },
+        });
 
-      const res = await POST(makeReq("POST", { action: "skip_contact", session_id: 1, contact_id: 101 }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'skip_contact',
+          session_id: 1,
+          contact_id: 101,
+        }),
+      );
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("contact_update_failed");
+      expect((await res.json()).error).toBe('contact_update_failed');
     });
   });
 
-  describe("remove_contact", () => {
-    it("deletes a pending contact from the session", async () => {
+  describe('remove_contact', () => {
+    it('deletes a pending contact from the session', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "pending" }, error: null })
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 1, status: 'pending' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      const res = await POST(makeReq("POST", { action: "remove_contact", session_id: 1, contact_id: 101 }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'remove_contact',
+          session_id: 1,
+          contact_id: 101,
+        }),
+      );
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
     });
 
-    it("rejects a called contact", async () => {
+    it('rejects a called contact', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "called", recall_at: "2026-07-20" }, error: null });
-
-      const res = await POST(makeReq("POST", { action: "remove_contact", session_id: 1, contact_id: 101 }));
-      expect(res.status).toBe(409);
-      expect(await res.json()).toEqual({ error: "contact_not_removable" });
-    });
-  });
-
-  describe("update_recall", () => {
-    it("reschedules a recall date", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
         .mockResolvedValueOnce({
-          data: { id: 101, session_id: 1, status: "called", recall_at: "2026-07-12" },
+          data: { id: 1, owner: 'user-123' },
           error: null,
         })
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      const res = await POST(
-        makeReq("POST", { action: "update_recall", session_id: 1, contact_id: 101, recall_at: "2026-07-20" }),
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true, recall_at: "2026-07-20" });
-    });
-
-    it("clears a recall from the queue", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({
-          data: { id: 101, session_id: 1, status: "called", recall_at: "2026-07-12" },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: null, error: null });
-
-      const res = await POST(
-        makeReq("POST", { action: "update_recall", session_id: 1, contact_id: 101, recall_at: null }),
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true, recall_at: null });
-    });
-
-    it("rejects update on a pending contact", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123" }, error: null })
-        .mockResolvedValueOnce({ data: { id: 101, session_id: 1, status: "pending" }, error: null });
-
-      const res = await POST(
-        makeReq("POST", { action: "update_recall", session_id: 1, contact_id: 101, recall_at: "2026-07-20" }),
-      );
-      expect(res.status).toBe(409);
-      expect(await res.json()).toEqual({ error: "contact_not_called" });
-    });
-  });
-
-  describe("update_session / delete_session", () => {
-    it("updates session metadata", async () => {
-      mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Old", status: "active" }, error: null })
         .mockResolvedValueOnce({
           data: {
-            id: 1,
-            name: "New",
-            status: "active",
-            created_at: "2026-01-01T00:00:00Z",
-            scheduled_for: "2026-07-12",
-            session_type: "suivi_clients",
+            id: 101,
+            session_id: 1,
+            status: 'called',
+            recall_at: '2026-07-20',
           },
           error: null,
         });
 
       const res = await POST(
-        makeReq("POST", {
-          action: "update_session",
+        makeReq('POST', {
+          action: 'remove_contact',
           session_id: 1,
-          name: "New",
-          scheduled_for: "2026-07-12",
-          session_type: "suivi_clients",
+          contact_id: 101,
+        }),
+      );
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: 'contact_not_removable' });
+    });
+  });
+
+  describe('update_recall', () => {
+    it('reschedules a recall date', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            session_id: 1,
+            status: 'called',
+            recall_at: '2026-07-12',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: null, error: null });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'update_recall',
+          session_id: 1,
+          contact_id: 101,
+          recall_at: '2026-07-20',
         }),
       );
       expect(res.status).toBe(200);
-      expect((await res.json()).session.name).toBe("New");
+      expect(await res.json()).toEqual({ ok: true, recall_at: '2026-07-20' });
     });
 
-    it("deletes a session", async () => {
+    it('clears a recall from the queue', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "X", status: "active" }, error: null })
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 101,
+            session_id: 1,
+            status: 'called',
+            recall_at: '2026-07-12',
+          },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      const res = await POST(makeReq("POST", { action: "delete_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', {
+          action: 'update_recall',
+          session_id: 1,
+          contact_id: 101,
+          recall_at: null,
+        }),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, recall_at: null });
+    });
+
+    it('rejects update on a pending contact', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { id: 101, session_id: 1, status: 'pending' },
+          error: null,
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'update_recall',
+          session_id: 1,
+          contact_id: 101,
+          recall_at: '2026-07-20',
+        }),
+      );
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: 'contact_not_called' });
+    });
+  });
+
+  describe('update_session / delete_session', () => {
+    it('updates session metadata', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', name: 'Old', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            id: 1,
+            name: 'New',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+            scheduled_for: '2026-07-12',
+            session_type: 'suivi_clients',
+          },
+          error: null,
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'update_session',
+          session_id: 1,
+          name: 'New',
+          scheduled_for: '2026-07-12',
+          session_type: 'suivi_clients',
+        }),
+      );
+      expect(res.status).toBe(200);
+      expect((await res.json()).session.name).toBe('New');
+    });
+
+    it('deletes a session', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', name: 'X', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: null, error: null });
+
+      const res = await POST(
+        makeReq('POST', { action: 'delete_session', session_id: 1 }),
+      );
       expect(res.status).toBe(200);
       expect((await res.json()).ok).toBe(true);
     });
   });
 
-  describe("defer_contacts", () => {
-    it("creates a prospecting session when never-contacted pending contacts are deferred", async () => {
+  describe('defer_contacts', () => {
+    it('creates a prospecting session when never-contacted pending contacts are deferred', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
         .mockResolvedValueOnce({
-          data: [{
-            id: 101,
-            sf_contact_id: "003000000000001",
-            contact_name: "Alice",
-            status: "pending",
-            attempt_count: 0,
-          }],
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 101,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+              attempt_count: 0,
+            },
+          ],
           error: null,
         })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({
           data: {
             id: 20,
-            name: "Base #2",
-            status: "active",
-            created_at: "2026-01-01T00:00:00Z",
-            scheduled_for: "2026-07-15",
-            session_type: "prospection",
+            name: 'Base #2',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+            scheduled_for: '2026-07-15',
+            session_type: 'prospection',
           },
           error: null,
         })
         .mockResolvedValueOnce({
-          data: [{ id: 301, sf_contact_id: "003000000000001", contact_name: "Alice", status: "pending", attempt_count: 0 }],
+          data: [
+            {
+              id: 301,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+              attempt_count: 0,
+            },
+          ],
           error: null,
         });
 
       const res = await POST(
-        makeReq("POST", {
-          action: "defer_contacts",
+        makeReq('POST', {
+          action: 'defer_contacts',
           session_id: 1,
           contact_ids: [101],
-          scheduled_for: "2026-07-15",
+          scheduled_for: '2026-07-15',
         }),
       );
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.target_session.session_type).toBe("prospection");
-      expect(body.target_session.name).toBe("Base #2");
+      expect(body.target_session.session_type).toBe('prospection');
+      expect(body.target_session.name).toBe('Base #2');
     });
 
-    it("uses an explicit continuation name when provided", async () => {
+    it('uses an explicit continuation name when provided', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", name: "Base", status: "active" }, error: null })
         .mockResolvedValueOnce({
-          data: [{
-            id: 101,
-            sf_contact_id: "003000000000001",
-            contact_name: "Alice",
-            status: "pending",
-            attempt_count: 0,
-          }],
+          data: { id: 1, owner: 'user-123', name: 'Base', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 101,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+              attempt_count: 0,
+            },
+          ],
           error: null,
         })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({
           data: {
             id: 21,
-            name: "Prospection Lyon #2",
-            status: "active",
-            created_at: "2026-01-01T00:00:00Z",
-            scheduled_for: "2026-07-11",
-            session_type: "relance",
+            name: 'Prospection Lyon #2',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+            scheduled_for: '2026-07-11',
+            session_type: 'relance',
           },
           error: null,
         })
         .mockResolvedValueOnce({
-          data: [{ id: 302, sf_contact_id: "003000000000001", contact_name: "Alice", status: "pending", attempt_count: 0 }],
+          data: [
+            {
+              id: 302,
+              sf_contact_id: '003000000000001',
+              contact_name: 'Alice',
+              status: 'pending',
+              attempt_count: 0,
+            },
+          ],
           error: null,
         });
 
       const res = await POST(
-        makeReq("POST", {
-          action: "defer_contacts",
+        makeReq('POST', {
+          action: 'defer_contacts',
           session_id: 1,
           contact_ids: [101],
-          scheduled_for: "2026-07-11",
-          name: "Prospection Lyon #2",
+          scheduled_for: '2026-07-11',
+          name: 'Prospection Lyon #2',
         }),
       );
       expect(res.status).toBe(200);
-      expect((await res.json()).target_session.name).toBe("Prospection Lyon #2");
+      expect((await res.json()).target_session.name).toBe(
+        'Prospection Lyon #2',
+      );
     });
   });
 
-  describe("complete_session", () => {
-    it("returns 400 when session already completed", async () => {
-      mockDb.mockResolvedValueOnce({ data: { id: 1, owner: "user-123", status: "completed" }, error: null });
-      const res = await POST(makeReq("POST", { action: "complete_session", session_id: 1 }));
+  describe('complete_session', () => {
+    it('returns 400 when session already completed', async () => {
+      mockDb.mockResolvedValueOnce({
+        data: { id: 1, owner: 'user-123', status: 'completed' },
+        error: null,
+      });
+      const res = await POST(
+        makeReq('POST', { action: 'complete_session', session_id: 1 }),
+      );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("already_completed");
+      expect((await res.json()).error).toBe('already_completed');
     });
 
-    it("completes session successfully", async () => {
+    it('completes session successfully', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", status: "active" }, error: null })
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', status: 'active' },
+          error: null,
+        })
         .mockResolvedValueOnce({ data: null, error: null });
 
-      const res = await POST(makeReq("POST", { action: "complete_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', { action: 'complete_session', session_id: 1 }),
+      );
       expect(res.status).toBe(200);
       expect((await res.json()).success).toBe(true);
     });
 
-    it("returns 500 when complete update fails", async () => {
+    it('returns 500 when complete update fails', async () => {
       mockDb
-        .mockResolvedValueOnce({ data: { id: 1, owner: "user-123", status: "active" }, error: null })
-        .mockResolvedValueOnce({ data: null, error: { message: "update failed" } });
+        .mockResolvedValueOnce({
+          data: { id: 1, owner: 'user-123', status: 'active' },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'update failed' },
+        });
 
-      const res = await POST(makeReq("POST", { action: "complete_session", session_id: 1 }));
+      const res = await POST(
+        makeReq('POST', { action: 'complete_session', session_id: 1 }),
+      );
       expect(res.status).toBe(500);
-      expect((await res.json()).error).toBe("session_update_failed");
+      expect((await res.json()).error).toBe('session_update_failed');
     });
   });
 });

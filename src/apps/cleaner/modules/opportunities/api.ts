@@ -322,7 +322,9 @@ async function fetchOpportunityGet<T>(
   try {
     let body: unknown;
     try {
-      body = await apiFetch<unknown>(accessToken, path, { signal: controller.signal });
+      body = await apiFetch<unknown>(accessToken, path, {
+        signal: controller.signal,
+      });
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401)
@@ -334,7 +336,8 @@ async function fetchOpportunityGet<T>(
           );
         const code =
           isRecord(error.body) &&
-          (error.body.error === 'schema_cache' || error.body.code === 'schema_cache')
+          (error.body.error === 'schema_cache' ||
+            error.body.code === 'schema_cache')
             ? 'schema_cache'
             : 'http_error';
         throw new OpportunityApiError(

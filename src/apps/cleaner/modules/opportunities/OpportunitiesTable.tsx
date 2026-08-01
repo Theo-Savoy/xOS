@@ -227,67 +227,71 @@ function ReasonChips({
 
 function ScoreHelpModal({ onClose }: { onClose: () => void }) {
   return (
-    <Modal open variant="glass" title="📊 Calcul du Score d'Hygiène" onClose={onClose}>
-        <div className="cleaner-opportunities__score-content">
-          <p>
-            Le score permet de prioriser le nettoyage du CRM. Plus le score est
-            élevé, plus le besoin de traitement est urgent.
-          </p>
-          <h3>1. Retard de CloseDate (jusqu&apos;à +12 pts)</h3>
-          <p>
-            +1 pt par mois de retard (30 jours), plafonné à 12 pts (1 an et
-            plus).
-          </p>
-          <h3>2. Inactivité de l&apos;opportunité</h3>
-          <ul>
-            <li>
-              Aucune activité enregistrée : <strong>+8 pts</strong>
-            </li>
-            <li>
-              Inactivité &gt; 1 an : <strong>+5 pts</strong>
-            </li>
-            <li>
-              Inactivité &gt; 3 mois : <strong>+5 pts</strong>
-            </li>
-            <li>
-              Inactivité &gt; 30 jours : <strong>+2 pts</strong>
-            </li>
-          </ul>
-          <h3>3. Informations manquantes ou incohérentes</h3>
-          <ul>
-            <li>
-              Montant incohérent (&le; 100€) : <strong>+10 pts</strong>
-            </li>
-            <li>
-              Aucun montant renseigné (0€) : <strong>+6 pts</strong>
-            </li>
-            <li>
-              Probabilité à 0% : <strong>+3 pts</strong>
-            </li>
-            <li>
-              Étape « Suspect enlisé » : <strong>+3 pts</strong>
-            </li>
-          </ul>
-          <h3>4. Propriétaire (Owner)</h3>
-          <ul>
-            <li>
-              Propriétaire inactif dans Salesforce : <strong>+10 pts</strong>
-            </li>
-            <li>
-              Ancien commercial (départ de l&apos;entreprise) :{' '}
-              <strong>+8 pts</strong>
-            </li>
-          </ul>
-          <h3>5. Importance du montant (Pondération)</h3>
-          <p>
-            +1 pt supplémentaire par tranche de 10k€ de budget à risque,
-            plafonné à <strong>+5 pts</strong> (pour traiter d&apos;abord les
-            plus gros montants).
-          </p>
-        </div>
-        <div className="cleaner-opportunities__score-footer">
-          <Button onClick={onClose}>Fermer</Button>
-        </div>
+    <Modal
+      open
+      variant="glass"
+      title="📊 Calcul du Score d'Hygiène"
+      onClose={onClose}
+    >
+      <div className="cleaner-opportunities__score-content">
+        <p>
+          Le score permet de prioriser le nettoyage du CRM. Plus le score est
+          élevé, plus le besoin de traitement est urgent.
+        </p>
+        <h3>1. Retard de CloseDate (jusqu&apos;à +12 pts)</h3>
+        <p>
+          +1 pt par mois de retard (30 jours), plafonné à 12 pts (1 an et plus).
+        </p>
+        <h3>2. Inactivité de l&apos;opportunité</h3>
+        <ul>
+          <li>
+            Aucune activité enregistrée : <strong>+8 pts</strong>
+          </li>
+          <li>
+            Inactivité &gt; 1 an : <strong>+5 pts</strong>
+          </li>
+          <li>
+            Inactivité &gt; 3 mois : <strong>+5 pts</strong>
+          </li>
+          <li>
+            Inactivité &gt; 30 jours : <strong>+2 pts</strong>
+          </li>
+        </ul>
+        <h3>3. Informations manquantes ou incohérentes</h3>
+        <ul>
+          <li>
+            Montant incohérent (&le; 100€) : <strong>+10 pts</strong>
+          </li>
+          <li>
+            Aucun montant renseigné (0€) : <strong>+6 pts</strong>
+          </li>
+          <li>
+            Probabilité à 0% : <strong>+3 pts</strong>
+          </li>
+          <li>
+            Étape « Suspect enlisé » : <strong>+3 pts</strong>
+          </li>
+        </ul>
+        <h3>4. Propriétaire (Owner)</h3>
+        <ul>
+          <li>
+            Propriétaire inactif dans Salesforce : <strong>+10 pts</strong>
+          </li>
+          <li>
+            Ancien commercial (départ de l&apos;entreprise) :{' '}
+            <strong>+8 pts</strong>
+          </li>
+        </ul>
+        <h3>5. Importance du montant (Pondération)</h3>
+        <p>
+          +1 pt supplémentaire par tranche de 10k€ de budget à risque, plafonné
+          à <strong>+5 pts</strong> (pour traiter d&apos;abord les plus gros
+          montants).
+        </p>
+      </div>
+      <div className="cleaner-opportunities__score-footer">
+        <Button onClick={onClose}>Fermer</Button>
+      </div>
     </Modal>
   );
 }
@@ -390,30 +394,34 @@ export function OpportunitiesTable({
                 </td>
                 <td>
                   <div className="cleaner-opportunities__category-cell">
-                  <Tag
-                    variant={
-                      severity === 'critical'
-                        ? 'alert'
-                        : severity === 'warning'
-                          ? 'warning'
-                          : severity === 'healthy'
-                            ? 'success'
-                            : 'muted'
-                    }
-                    title={display(item.category)}
-                  >
-                    <span>
-                      {severity === 'critical'
-                        ? 'Critique'
-                        : severity === 'warning'
-                          ? 'Avertissement'
-                          : severity === 'healthy'
-                            ? 'Sain'
-                            : 'À vérifier'}
-                    </span>
-                    {familyLabel ? <span aria-hidden="true"> · {familyLabel}</span> : null}
-                  </Tag>
-                  {wasTreated(item) ? <Tag variant="muted">Traitée</Tag> : null}
+                    <Tag
+                      variant={
+                        severity === 'critical'
+                          ? 'alert'
+                          : severity === 'warning'
+                            ? 'warning'
+                            : severity === 'healthy'
+                              ? 'success'
+                              : 'muted'
+                      }
+                      title={display(item.category)}
+                    >
+                      <span>
+                        {severity === 'critical'
+                          ? 'Critique'
+                          : severity === 'warning'
+                            ? 'Avertissement'
+                            : severity === 'healthy'
+                              ? 'Sain'
+                              : 'À vérifier'}
+                      </span>
+                      {familyLabel ? (
+                        <span aria-hidden="true"> · {familyLabel}</span>
+                      ) : null}
+                    </Tag>
+                    {wasTreated(item) ? (
+                      <Tag variant="muted">Traitée</Tag>
+                    ) : null}
                   </div>
                 </td>
                 <td>{display(item.score)}</td>

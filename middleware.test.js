@@ -1,7 +1,11 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest';
-import middleware, { isAuthBridge, isProtected, isPublic } from './middleware.js';
+import middleware, {
+  isAuthBridge,
+  isProtected,
+  isPublic,
+} from './middleware.js';
 
 describe('middleware route classifiers', () => {
   it('treats /api/auth as the public JWT bridge (ex sso-bridge)', () => {

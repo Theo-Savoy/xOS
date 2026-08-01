@@ -1,4 +1,4 @@
-const RDV_GOAL_KEY_PREFIX = "xos-combo-rdv-goal:";
+const RDV_GOAL_KEY_PREFIX = 'xos-combo-rdv-goal:';
 
 export type RdvHeat = 1 | 2 | 3 | 4 | 5;
 
@@ -39,6 +39,8 @@ export function rdvHeatLevel(count: number, goalJustHit: boolean): RdvHeat {
   return 1;
 }
 
-export function countSessionRdvs(contacts: { outcome: string | null }[]): number {
-  return contacts.filter((c) => c.outcome === "RDV planifié").length;
+export function countSessionRdvs(
+  contacts: { outcome: string | null }[],
+): number {
+  return contacts.filter((c) => c.outcome === 'RDV planifié').length;
 }

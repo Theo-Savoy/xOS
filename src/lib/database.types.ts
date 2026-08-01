@@ -1,4 +1,10 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
 
 export interface Database {
   public: {
@@ -13,7 +19,7 @@ export interface Database {
           sf_auth_connected_at: string | null;
           sf_oauth_state_hash: string | null;
           sf_oauth_state_expires_at: string | null;
-          role: "commercial" | "manager" | "admin";
+          role: 'commercial' | 'manager' | 'admin';
           created_at: string;
           updated_at: string;
         };
@@ -26,7 +32,7 @@ export interface Database {
           sf_auth_connected_at?: string | null;
           sf_oauth_state_hash?: string | null;
           sf_oauth_state_expires_at?: string | null;
-          role?: "commercial" | "manager" | "admin";
+          role?: 'commercial' | 'manager' | 'admin';
           created_at?: string;
           updated_at?: string;
         };
@@ -39,7 +45,7 @@ export interface Database {
           sf_auth_connected_at?: string | null;
           sf_oauth_state_hash?: string | null;
           sf_oauth_state_expires_at?: string | null;
-          role?: "commercial" | "manager" | "admin";
+          role?: 'commercial' | 'manager' | 'admin';
           created_at?: string;
           updated_at?: string;
         };
@@ -98,8 +104,8 @@ export interface Database {
           id: number;
           title: string;
           metric: string;
-          period: "weekly" | "monthly" | "custom";
-          status: "draft" | "active" | "archived";
+          period: 'weekly' | 'monthly' | 'custom';
+          status: 'draft' | 'active' | 'archived';
           creator: string;
           created_at: string;
           updated_at: string;
@@ -108,8 +114,8 @@ export interface Database {
           id?: number;
           title: string;
           metric: string;
-          period?: "weekly" | "monthly" | "custom";
-          status?: "draft" | "active" | "archived";
+          period?: 'weekly' | 'monthly' | 'custom';
+          status?: 'draft' | 'active' | 'archived';
           creator: string;
           created_at?: string;
           updated_at?: string;
@@ -118,18 +124,18 @@ export interface Database {
           id?: number;
           title?: string;
           metric?: string;
-          period?: "weekly" | "monthly" | "custom";
-          status?: "draft" | "active" | "archived";
+          period?: 'weekly' | 'monthly' | 'custom';
+          status?: 'draft' | 'active' | 'archived';
           creator?: string;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "challenges_creator_fkey";
-            columns: ["creator"];
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: 'challenges_creator_fkey';
+            columns: ['creator'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -160,16 +166,16 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "challenge_results_challenge_id_fkey";
-            columns: ["challenge_id"];
-            referencedRelation: "challenges";
-            referencedColumns: ["id"];
+            foreignKeyName: 'challenge_results_challenge_id_fkey';
+            columns: ['challenge_id'];
+            referencedRelation: 'challenges';
+            referencedColumns: ['id'];
           },
           {
-            foreignKeyName: "challenge_results_profile_id_fkey";
-            columns: ["profile_id"];
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: 'challenge_results_profile_id_fkey';
+            columns: ['profile_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -197,10 +203,10 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "badges_profile_id_fkey";
-            columns: ["profile_id"];
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: 'badges_profile_id_fkey';
+            columns: ['profile_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -234,10 +240,10 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "action_journal_actor_fkey";
-            columns: ["actor"];
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: 'action_journal_actor_fkey';
+            columns: ['actor'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -268,10 +274,10 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "desktop_shortcuts_owner_fkey";
-            columns: ["owner"];
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: 'desktop_shortcuts_owner_fkey';
+            columns: ['owner'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
           },
         ];
       };

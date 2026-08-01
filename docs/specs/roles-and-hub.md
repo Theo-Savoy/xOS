@@ -4,15 +4,16 @@
 
 ## Trois rôles (hiérarchie)
 
-| Rôle | Qui (config XOS) | Intention |
-|---|---|---|
-| **`commercial`** | Tout le monde par défaut (ex. Yanis, Christophe) | Faire son job : appeler, logger, voir *sa* perf |
-| **`manager`** | `jerome.bosio@…`, `paul.rathouin@…` | Piloter l'équipe : perf équipe, seuils, challenges |
-| **`admin`** | `theo.savoy@…` | Super-utilisateur produit : tout manager + gestion des rôles / accès |
+| Rôle             | Qui (config XOS)                                 | Intention                                                            |
+| ---------------- | ------------------------------------------------ | -------------------------------------------------------------------- |
+| **`commercial`** | Tout le monde par défaut (ex. Yanis, Christophe) | Faire son job : appeler, logger, voir _sa_ perf                      |
+| **`manager`**    | `jerome.bosio@…`, `paul.rathouin@…`              | Piloter l'équipe : perf équipe, seuils, challenges                   |
+| **`admin`**      | `theo.savoy@…`                                   | Super-utilisateur produit : tout manager + gestion des rôles / accès |
 
 Hiérarchie d'accès : `admin` ⊃ `manager` ⊃ `commercial`.
 
 Implémentation actuelle :
+
 - Colonne `profiles.role` (`commercial` \| `manager` \| `admin`) — migration `008`
 - Bootstrap email → rôle : `api/_config/access.js` (**config tenant**, pas du cœur produit)
 - Helpers : `roleAtLeast`, `canManageSettings`, `canManageRoles`, `canViewTeamPerf`
@@ -25,11 +26,11 @@ Le Hub est le **panneau système** du bureau X OS — pas un dashboard métier. 
 
 ### Pour un commercial
 
-| Panneau | Contenu |
-|---|---|
-| **Compte** | Email, nom, rôle affiché, mapping Salesforce (`sf_user_id`) si présent, bouton **Déconnexion** |
-| **Statut** | Connexion API SF OK/KO, quotas d'appels restants (lecture), fraîcheur des caches (Cleaner / analytics) |
-| **Préférences perso** *(v1 légère)* | Rien de critique ; éventuel thème plus tard |
+| Panneau                             | Contenu                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Compte**                          | Email, nom, rôle affiché, mapping Salesforce (`sf_user_id`) si présent, bouton **Déconnexion**         |
+| **Statut**                          | Connexion API SF OK/KO, quotas d'appels restants (lecture), fraîcheur des caches (Cleaner / analytics) |
+| **Préférences perso** _(v1 légère)_ | Rien de critique ; éventuel thème plus tard                                                            |
 
 Il **ne peut pas** modifier les seuils globaux ni les rôles des collègues.
 
@@ -37,37 +38,37 @@ Il **ne peut pas** modifier les seuils globaux ni les rôles des collègues.
 
 Tout le commercial, plus :
 
-| Panneau | Contenu |
-|---|---|
+| Panneau                  | Contenu                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Configuration équipe** | Seuils de retard Cleaner, exclusions de comptes, éventuels paramètres Weekly Perf (commerciaux inclus dans le classement) — CRUD `settings` |
-| **Équipe** *(lien)* | Raccourci vers Weekly Perf en vue équipe ; liste des profils (lecture) |
+| **Équipe** _(lien)_      | Raccourci vers Weekly Perf en vue équipe ; liste des profils (lecture)                                                                      |
 
 ### Pour un admin
 
 Tout le manager, plus :
 
-| Panneau | Contenu |
-|---|---|
-| **Accès & rôles** | Liste des `profiles`, changement de rôle (`commercial` / `manager` / `admin`), invalidation session si besoin |
-| **Santé plateforme** | Même statut SF, plus indicateurs utiles au prestataire (dernière erreur auth, version déployée) |
-| **Bootstrap** | Voir / éditer plus tard la table d'accès tenant (aujourd'hui : module `access.js`) |
+| Panneau              | Contenu                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Accès & rôles**    | Liste des `profiles`, changement de rôle (`commercial` / `manager` / `admin`), invalidation session si besoin |
+| **Santé plateforme** | Même statut SF, plus indicateurs utiles au prestataire (dernière erreur auth, version déployée)               |
+| **Bootstrap**        | Voir / éditer plus tard la table d'accès tenant (aujourd'hui : module `access.js`)                            |
 
 ---
 
 ## Matrice permissions (cœur produit)
 
-| Capacité | commercial | manager | admin |
-|---|---|---|---|
-| Apps opérationnelles (Cleaner, Call Manager, Launcher) | ✅ | ✅ | ✅ |
-| Weekly Perf — vue « moi » | ✅ | ✅ | ✅ |
-| Weekly Perf — vue équipe | ❌ | ✅ | ✅ |
-| Hub — statut / compte / logout | ✅ | ✅ | ✅ |
-| Hub — CRUD `settings` | ❌ | ✅ | ✅ |
-| Hub — changer les rôles | ❌ | ❌ | ✅ |
-| Arena — créer un challenge | ❌ | ✅ | ✅ |
-| Arena — feed des réussites équipe (anonyme) | ✅ | ✅ | ✅ |
-| Arena — opt-in signature des réussites | ✅ (soi-même) | ✅ (soi-même) | ✅ (soi-même) |
-| Extinction Basic Auth / ops sensibles | ❌ | ❌ | ✅ (humain + code) |
+| Capacité                                               | commercial    | manager       | admin              |
+| ------------------------------------------------------ | ------------- | ------------- | ------------------ |
+| Apps opérationnelles (Cleaner, Call Manager, Launcher) | ✅            | ✅            | ✅                 |
+| Weekly Perf — vue « moi »                              | ✅            | ✅            | ✅                 |
+| Weekly Perf — vue équipe                               | ❌            | ✅            | ✅                 |
+| Hub — statut / compte / logout                         | ✅            | ✅            | ✅                 |
+| Hub — CRUD `settings`                                  | ❌            | ✅            | ✅                 |
+| Hub — changer les rôles                                | ❌            | ❌            | ✅                 |
+| Arena — créer un challenge                             | ❌            | ✅            | ✅                 |
+| Arena — feed des réussites équipe (anonyme)            | ✅            | ✅            | ✅                 |
+| Arena — opt-in signature des réussites                 | ✅ (soi-même) | ✅ (soi-même) | ✅ (soi-même)      |
+| Extinction Basic Auth / ops sensibles                  | ❌            | ❌            | ✅ (humain + code) |
 
 Le dock peut filtrer via `AppManifest.roles` (ex. Hub visible à tous ; panneau config seulement si `canManageSettings`).
 
@@ -84,12 +85,12 @@ Le dock peut filtrer via `AppManifest.roles` (ex. Hub visible à tous ; panneau 
 
 ### Ce qui est **config tenant** (remplaçable)
 
-| Aujourd'hui (XOS) | Demain (multi-tenant) |
-|---|---|
+| Aujourd'hui (XOS)                          | Demain (multi-tenant)                                           |
+| ------------------------------------------ | --------------------------------------------------------------- |
 | `api/_config/access.js` → emails hardcodés | Table `tenant_access` ou claim JWT `role` poussé à l'onboarding |
-| Domaine magique `xos-learning.fr` | Domaine(s) autorisés par tenant |
-| Login SF OAuth (Phase 8) + magic link | Même dual-option ; IdP / consumer key par tenant |
-| Charte / logo | Tokens thème par tenant |
+| Domaine magique `xos-learning.fr`          | Domaine(s) autorisés par tenant                                 |
+| Login SF OAuth (Phase 8) + magic link      | Même dual-option ; IdP / consumer key par tenant                |
+| Charte / logo                              | Tokens thème par tenant                                         |
 
 ### Login & permissions — étape d'après
 

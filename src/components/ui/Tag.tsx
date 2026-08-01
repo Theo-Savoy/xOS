@@ -1,18 +1,18 @@
-import type { HTMLAttributes } from "react";
-import "./ui.css";
+import type { HTMLAttributes } from 'react';
+import './ui.css';
 
 type TagProps = HTMLAttributes<HTMLSpanElement> & {
-  variant?: "default" | "accent" | "alert" | "success" | "warning" | "muted";
+  variant?: 'default' | 'accent' | 'alert' | 'success' | 'warning' | 'muted';
 };
 
-export function Tag({ variant = "default", className, ...props }: TagProps) {
+export function Tag({ variant = 'default', className, ...props }: TagProps) {
   const classes = [
-    "xos-tag",
-    variant !== "default" && `xos-tag--${variant}`,
+    'xos-tag',
+    variant !== 'default' && `xos-tag--${variant}`,
     className,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 
   return <span className={classes} {...props} />;
 }

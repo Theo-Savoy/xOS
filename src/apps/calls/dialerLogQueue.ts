@@ -42,7 +42,6 @@ export function createDialerLogQueue(
         });
     },
     getPending: () => pending,
-    whenIdle: () =>
-      chain.then(() => undefined).catch(() => undefined),
+    whenIdle: () => chain.then(() => undefined).catch(() => undefined),
   };
 }

@@ -15,16 +15,17 @@ Les 7 nouveaux presets RH/org, les enrichissements v2.1 et l'opacité du contenu
 
 ### 1. Presets Fonction élargis + enrichissement v2.1
 
-| Test ciblé | RED | GREEN |
-|---|---|---|
-| `api/calls-list.test.js -t "mirrors front FONCTION_PRESETS"` | 4 presets seulement | 11 presets synchrones backend ↔ `src/crm/index.ts` |
-| `api/calls-list.test.js -t "responsable_rh preset clauses"` | Pas de clause `%responsable rh%` / IN RRH,HRBP | `fonctionPresets` enrichi dans `mapping.js` + miroir front |
-| `api/calls-list.test.js -t "unknown fonction presets"` | (passait déjà — comportement documenté) | `buildFonctionConditions` ignore les ids inconnus sans crash |
-| `scripts/call-target-query.check.js` | Pas d'assertions RH | Assertions `responsable_rh`, `directeur_rh`, preset inconnu |
+| Test ciblé                                                   | RED                                            | GREEN                                                        |
+| ------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------ |
+| `api/calls-list.test.js -t "mirrors front FONCTION_PRESETS"` | 4 presets seulement                            | 11 presets synchrones backend ↔ `src/crm/index.ts`           |
+| `api/calls-list.test.js -t "responsable_rh preset clauses"`  | Pas de clause `%responsable rh%` / IN RRH,HRBP | `fonctionPresets` enrichi dans `mapping.js` + miroir front   |
+| `api/calls-list.test.js -t "unknown fonction presets"`       | (passait déjà — comportement documenté)        | `buildFonctionConditions` ignore les ids inconnus sans crash |
+| `scripts/call-target-query.check.js`                         | Pas d'assertions RH                            | Assertions `responsable_rh`, `directeur_rh`, preset inconnu  |
 
 **Nouveaux presets** : `responsable_rh`, `developpement_rh`, `directeur_rh`, `pedagogie`, `sirh`, `recrutement`, `direction_generale`.
 
 **Enrichissements v2.1** :
+
 - `charge_formation` : +5 likes (`training project manager`, `coordinat%formation%`, etc.)
 - `directeur_formation` : + `%training director%`, `%head of learning%`
 - `digital_learning_manager` : + exact `DLM`
@@ -33,12 +34,12 @@ Variantes accentuées/non accentuées fournies pour SOQL (ex. `%développement r
 
 ### 2. Fenêtres XOS — contenu opaque, titlebar verre
 
-| Aspect | Avant (v2.1) | Après (v2.2 final) |
-|---|---|---|
-| `.xos-window` | `background: rgba(5,9,31,0.9)` + `backdrop-filter: blur(24px)` sur toute la fenêtre | **Inchangé sur la coque** : `--xos-window-shell-bg` (= `rgba(5,9,31,0.9)`) + `backdrop-filter` — le verre reste actif sur la titlebar |
-| `.xos-window__titlebar` | `background: rgba(255,255,255,0.035)` (translucide, blur hérité du parent) | **Inchangé** : même fond léger ; le blur du parent `.xos-window` floute le wallpaper visible à travers |
-| `.xos-window__content` | Héritait la transparence (wallpaper visible, lisibilité faible) | `background: var(--xos-window-content-bg)` (#0a1129, 100 % opaque) — masque le fond, le blur parent ne s'applique pas visuellement au contenu |
-| Variables | — | `--xos-window-shell-bg` (coque translucide), `--xos-window-content-bg` (zone contenu) dans `theme.css` |
+| Aspect                  | Avant (v2.1)                                                                        | Après (v2.2 final)                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.xos-window`           | `background: rgba(5,9,31,0.9)` + `backdrop-filter: blur(24px)` sur toute la fenêtre | **Inchangé sur la coque** : `--xos-window-shell-bg` (= `rgba(5,9,31,0.9)`) + `backdrop-filter` — le verre reste actif sur la titlebar         |
+| `.xos-window__titlebar` | `background: rgba(255,255,255,0.035)` (translucide, blur hérité du parent)          | **Inchangé** : même fond léger ; le blur du parent `.xos-window` floute le wallpaper visible à travers                                        |
+| `.xos-window__content`  | Héritait la transparence (wallpaper visible, lisibilité faible)                     | `background: var(--xos-window-content-bg)` (#0a1129, 100 % opaque) — masque le fond, le blur parent ne s'applique pas visuellement au contenu |
+| Variables               | —                                                                                   | `--xos-window-shell-bg` (coque translucide), `--xos-window-content-bg` (zone contenu) dans `theme.css`                                        |
 
 Pas de changement DOM. `overflow: hidden` et `border-radius` conservés. États **focus** (`.xos-rnd-window:focus-within .xos-window` → bordure plus claire) et **maximisé** (`.xos-rnd-window--maximized .xos-window` → `border-radius: 0`, pas de bordure) : aucune règle de fond modifiée, comportement identique.
 
@@ -72,8 +73,8 @@ git diff --check                                 # succès
 
 ### I1 — Fond opaque sur `.xos-window` tuait le verre de la titlebar
 
-| Problème | Correctif |
-|---|---|
+| Problème                                                                                                                                                      | Correctif                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Première implémentation posait `--xos-window-content-bg` (opaque) sur `.xos-window` entier → `backdrop-filter` de la titlebar sans wallpaper visible derrière | Coque restaurée : `--xos-window-shell-bg` translucide + `backdrop-filter` sur `.xos-window` ; opacité 100 % uniquement sur `.xos-window__content` |
 
 ### M1 — Double fond redondant

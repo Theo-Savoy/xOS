@@ -29,10 +29,13 @@ async function fetchSalesforceStatus({ client, userId }) {
     const connected = Boolean(liveToken.accessToken && !liveToken.error);
     if (!connected) return empty;
 
-    const response = await fetch(`${instanceUrl()}/services/data/v67.0/limits`, {
-      headers: { Authorization: `Bearer ${liveToken.accessToken}` },
-      signal: AbortSignal.timeout(10_000),
-    });
+    const response = await fetch(
+      `${instanceUrl()}/services/data/v67.0/limits`,
+      {
+        headers: { Authorization: `Bearer ${liveToken.accessToken}` },
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
     if (!response.ok) return empty;
     const limits = await response.json();
     const daily = limits.DailyApiRequests;

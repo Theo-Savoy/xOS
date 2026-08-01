@@ -1,5 +1,5 @@
-import type { AppWindow } from "./windowState";
-import type { AppManifest } from "./registry";
+import type { AppWindow } from './windowState';
+import type { AppManifest } from './registry';
 
 type DockProps = {
   apps: AppManifest[];
@@ -12,7 +12,7 @@ export function Dock({ apps, windows, onOpen }: DockProps) {
     <nav className="xos-dock" aria-label="Applications X OS">
       {apps.map((app) => {
         const appWindow = windows.find((window) => window.appId === app.id);
-        const action = appWindow?.minimized ? "Restaurer" : "Ouvrir";
+        const action = appWindow?.minimized ? 'Restaurer' : 'Ouvrir';
 
         return (
           <button

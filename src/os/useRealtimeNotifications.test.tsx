@@ -3,15 +3,24 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRealtimeNotifications } from './useRealtimeNotifications';
-import { NotificationsProvider, useNotificationsStore } from './notificationsStore';
+import {
+  NotificationsProvider,
+  useNotificationsStore,
+} from './notificationsStore';
 
 const { getSession, channel, on, subscribe, unsubscribe } = vi.hoisted(() => {
   const callbacks: Array<(payload: { new: unknown }) => void> = [];
   const channelObject = {
-    on: vi.fn((_event: string, _filter: unknown, callback: (payload: { new: unknown }) => void) => {
-      callbacks.push(callback);
-      return channelObject;
-    }),
+    on: vi.fn(
+      (
+        _event: string,
+        _filter: unknown,
+        callback: (payload: { new: unknown }) => void,
+      ) => {
+        callbacks.push(callback);
+        return channelObject;
+      },
+    ),
     subscribe: vi.fn(() => channelObject),
     unsubscribe: vi.fn().mockResolvedValue('ok'),
   };
@@ -50,7 +59,11 @@ function Harness() {
       setNotifications((previous) => [notification, ...previous]);
     },
   });
-  return <output>{notifications.map((notification) => notification.title).join(',')}</output>;
+  return (
+    <output>
+      {notifications.map((notification) => notification.title).join(',')}
+    </output>
+  );
 }
 
 function StatusHarness({
@@ -99,8 +112,7 @@ describe('useRealtimeNotifications', () => {
     });
 
     const callback = on.mock.calls[0]?.[2] as
-      | ((payload: { new: unknown }) => void)
-      | undefined;
+      ((payload: { new: unknown }) => void) | undefined;
     expect(callback).toBeDefined();
     act(() => callback?.({ new: incoming }));
     vi.advanceTimersByTime(100);
@@ -120,18 +132,18 @@ describe('useRealtimeNotifications', () => {
     );
 
     await waitFor(() => expect(on).toHaveBeenCalled());
-    const subscribeCall = (subscribe as unknown as {
-      mock: { calls: unknown[][] };
-    }).mock.calls[0];
+    const subscribeCall = (
+      subscribe as unknown as {
+        mock: { calls: unknown[][] };
+      }
+    ).mock.calls[0];
     const subscribeCallback = subscribeCall?.[0] as
-      | ((status: string) => void)
-      | undefined;
+      ((status: string) => void) | undefined;
     subscribeCallback?.('SUBSCRIBED');
     expect(onStatus).toHaveBeenCalledWith('SUBSCRIBED');
 
     const insertCallback = on.mock.calls[0]?.[2] as
-      | ((payload: { new: unknown }) => void)
-      | undefined;
+      ((payload: { new: unknown }) => void) | undefined;
     act(() => insertCallback?.({ new: incoming }));
     expect(onEvent).toHaveBeenCalledTimes(1);
   });

@@ -21,13 +21,13 @@ Le modèle de données (XP, badges, streaks, machine d'état du nudge d'apprenti
 
 ## Notation par nudge (terrain / sobriété / actionnable / découvrable, sur 10)
 
-| # | Nudge | Terrain | Sobriété | Actionnable | Découvrable | **Score global** |
-|---|---|---|---|---|---|---|
-| 1 | Cadrage pré-séance (§2.1) | — | — | 0 | 2 | **1/10** |
-| 2 | Saisie / chips MEDDIC lite (§2.2) | 8 | 8 | 6 | 7 | **6/10** |
-| 3 | Fin de séance / RecapView (§2.3) | 8 | 9 | 6 | 8 | **6/10** |
-| 4 | Streak command bar (§2.4) | — | — | 1 | 0 | **1/10** |
-| 5 | Apprentissage progressif (§2.5) | — | — | 0 | 0 | **0/10** |
+| #   | Nudge                             | Terrain | Sobriété | Actionnable | Découvrable | **Score global** |
+| --- | --------------------------------- | ------- | -------- | ----------- | ----------- | ---------------- |
+| 1   | Cadrage pré-séance (§2.1)         | —       | —        | 0           | 2           | **1/10**         |
+| 2   | Saisie / chips MEDDIC lite (§2.2) | 8       | 8        | 6           | 7           | **6/10**         |
+| 3   | Fin de séance / RecapView (§2.3)  | 8       | 9        | 6           | 8           | **6/10**         |
+| 4   | Streak command bar (§2.4)         | —       | —        | 1           | 0           | **1/10**         |
+| 5   | Apprentissage progressif (§2.5)   | —       | —        | 0           | 0           | **0/10**         |
 
 **Moyenne des 5 nudges : 2,8/10.**
 
@@ -62,10 +62,12 @@ Le seul point positif : le wording de `PreSessionFlow.tsx` lui-même est propre 
 **Bien exécuté sur le ton, incomplet sur le contenu.**
 
 Points forts :
+
 - Les 4 fonctions (`computePaceNudge`, `computeRecordNudge`, `computeFollowUpNudge`, `computeAbandonedNudge`) respectent strictement la règle de sobriété : aucune formulation négative, pas de "tu n'as pas battu ton record". Le fallback "Tu es dans ta moyenne, X appels/min" applique bien le principe "si dans la moyenne, on l'affiche aussi, pas de frustration".
 - Le nudge "séance 2" est actionnable : un formulaire (nom + date + bouton "Préparer la relance") apparaît directement sous le nudge dès que `followUpCount > 0`.
 
 Écarts :
+
 - **La ligne XP/palier/badge de séance est absente.** Spec §1.6 : "Récap de séance → 1 ligne par axe + palier actuel + badge one-timer gagné dans la séance". `RecapView.tsx` n'importe ni `useComboXp` ni aucun résumé combo — j'ai relu le fichier en entier, rien.
 - Le "Top résultat" (`% appels décrochés — au-dessus de ta moyenne`) décrit en spec comme une ligne distincte n'est pas implémenté : `computeRecordNudge` conflate un fallback sur le débit d'appels/min à la place, ce n'est pas la même métrique que le taux de décroché vs médiane des 4 dernières séances.
 
@@ -98,6 +100,7 @@ C'est le lot que la spec elle-même désigne comme "le plus risqué côté UX" (
 ## Liste des problèmes par sévérité
 
 ### Bloquant
+
 1. **Moteur XP/badges/streaks jamais invoqué depuis l'UI réelle** — `comboXp.ts`/`comboBadges.ts`/`comboStreaks.ts` ne sont appelés par aucun handler d'événement (raccourci, RDV, log du jour). L'XP affichée reste à zéro en usage réel.
 2. **Nudge d'apprentissage totalement débranché** — `useNudgeLearning` n'est appelé par aucun composant ; aucun toast d'apprentissage clavier n'apparaît jamais.
 3. **Aucun toast de déblocage** — `DesktopToasts.tsx` ne reconnaît pas les kinds `xp_palier_atteint`/`badge_one_timer`/`streak_palier_atteint` ; le "bon moment" de célébration prévu §1.6 n'existe pas.
@@ -105,6 +108,7 @@ C'est le lot que la spec elle-même désigne comme "le plus risqué côté UX" (
 5. **Tag streak absent de la command bar** — `CommandBar.tsx` n'affiche que les 3 axes XP, jamais les streaks (🔥/🎯/⚡), contrairement à §2.4.
 
 ### Gênant
+
 6. **Chips de note non contextualisées et en excès** — 12 chips fixes au lieu de 5 max contextualisés par résultat d'appel (§2.2).
 7. **Récap de séance sans ligne XP/badge** — la célébration sobre post-effort prévue en §1.6 pour le récap n'est pas rendue.
 8. **Métrique "Top résultat" non implémentée** — seul un fallback approximatif sur le débit d'appels/min tient lieu de comparaison au taux de décroché.
@@ -112,6 +116,7 @@ C'est le lot que la spec elle-même désigne comme "le plus risqué côté UX" (
 10. **Pas de hiérarchie visuelle des paliers** — Bronze et Challenger rendus de façon identique (texte brut).
 
 ### Nice-to-have
+
 11. **Pas de toggle opt-in streak** dans les préférences (§2.4 prévoit un toggle par défaut ON).
 12. **`useComboXp.ts` est un doublon temporaire marqué `ponytail:`** en attendant un merge de modèle — risque de divergence à surveiller si le vrai moteur (`comboXp.ts`) est branché sans supprimer ce doublon.
 

@@ -69,7 +69,11 @@ describe('OpportunitiesCleaningView', () => {
   afterEach(cleanup);
 
   it('renders KPI buttons with counts derived from the filtered items', () => {
-    renderView([item('critical', 'critical'), item('warning', 'warning'), item('healthy')]);
+    renderView([
+      item('critical', 'critical'),
+      item('warning', 'warning'),
+      item('healthy'),
+    ]);
 
     expect(
       screen.getByRole('button', { name: /3 opportunités à examiner/i }),
@@ -89,7 +93,11 @@ describe('OpportunitiesCleaningView', () => {
 
   it("sets the criticality filter when clicking the 'Critiques' KPI", () => {
     const onStateChange = vi.fn();
-    renderView([item('critical', 'critical'), item('healthy')], initialState(), onStateChange);
+    renderView(
+      [item('critical', 'critical'), item('healthy')],
+      initialState(),
+      onStateChange,
+    );
 
     fireEvent.click(
       screen.getByRole('button', { name: /Opportunités critiques \(1\)/i }),
@@ -105,8 +113,6 @@ describe('OpportunitiesCleaningView', () => {
   it('renders the clean empty state when no filtered opportunities need cleaning', () => {
     renderView([]);
 
-    expect(
-      screen.getByText(/Tout est propre/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Tout est propre/)).toBeTruthy();
   });
 });

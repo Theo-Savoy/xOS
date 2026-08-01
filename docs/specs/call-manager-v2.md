@@ -5,10 +5,11 @@
 ## Principe directeur : surcouche agnostique (réutilisabilité + juridique)
 
 Le produit est un **outil générique**, XOS n'en est qu'une **configuration**. Deux règles non négociables :
-1. **Adapter CRM** : toute logique Salesforce vit derrière une interface fine `src/crm/` (côté front) / `api/_crm/` (côté serveur). Salesforce = une implémentation. Aucun nom de champ SF en dur ailleurs.
-2. **Mapping piloté par config** : les noms de champs / picklists / valeurs spécifiques à l'org vivent dans un **module de config** (`api/_crm/mapping.js`), pas dispersés en dur dans le code. Le moteur lit le mapping pour construire les requêtes. *(Un jour multi-tenant → table `crm_mapping` ; YAGNI aujourd'hui, le seam est le même.)*
 
-**Hors périmètre v2** (YAGNI) : multi-CRM réel, multi-tenant complet, onboarding. Mais le code doit rester *prêt* pour ça (seam + config).
+1. **Adapter CRM** : toute logique Salesforce vit derrière une interface fine `src/crm/` (côté front) / `api/_crm/` (côté serveur). Salesforce = une implémentation. Aucun nom de champ SF en dur ailleurs.
+2. **Mapping piloté par config** : les noms de champs / picklists / valeurs spécifiques à l'org vivent dans un **module de config** (`api/_crm/mapping.js`), pas dispersés en dur dans le code. Le moteur lit le mapping pour construire les requêtes. _(Un jour multi-tenant → table `crm_mapping` ; YAGNI aujourd'hui, le seam est le même.)_
+
+**Hors périmètre v2** (YAGNI) : multi-CRM réel, multi-tenant complet, onboarding. Mais le code doit rester _prêt_ pour ça (seam + config).
 
 ---
 
@@ -39,6 +40,7 @@ create table public.call_target_presets (
   created_at timestamptz not null default now()
 );
 ```
+
 RLS : select authenticated, write service_role (comme l'existant). `call_sessions`/`call_session_contacts` (v1) inchangés, servent aussi à la dédup.
 
 ---
@@ -70,14 +72,16 @@ RLS : select authenticated, write service_role (comme l'existant). `call_session
   }
 }
 ```
+
 - **Comptage appels = tous commerciaux confondus** (pas seulement le mien).
-- Défaut relance « follow-up » : `dernier_resultat ∈ {non décroché, répondeur}` (les *décroché/argumenté/RDV* sortent).
+- Défaut relance « follow-up » : `dernier_resultat ∈ {non décroché, répondeur}` (les _décroché/argumenté/RDV_ sortent).
 
 ---
 
 ## Adapter CRM — `api/_crm/salesforce.js` (lot v2.A)
 
 Interface (implémentée pour SF, extensible) :
+
 - `buildTargetQuery(filters, mapping, sfUserId)` → SOQL Contact avec sous-requêtes/jointures Account + agrégations Task (relance) + Opportunity (opp ouverte/perdue). Échappement SOQL, `LIMIT` borné.
 - `searchContacts(token, soql)` → records.
 - `logCall(token, { contactId, accountId, resultat, comments, durationSec, ownerId })` → crée Task (`TaskSubtype='Call'`, `Resultat_call__c`, `WhoId`, `WhatId`, `Status='Completed'`, `ActivityDate=aujourd'hui (Paris)`, **`OwnerId = ownerId`** — attribution niveau 1, `Subject='Appel — <resultat>'`, description + `[via X OS par {nom}]`).
@@ -91,8 +95,8 @@ Le mapping (noms de champs) vient de `api/_crm/mapping.js`, jamais en dur.
 
 ## API
 
-- **`POST /api/calls` `{ action: "list_contacts", filters, preset_id?, limit? }`** → `{ contacts: […], dedup: […] }` *(ex-`/api/calls-list`, consolidé Vercel B)*.
-- **Presets** : `GET|DELETE /api/calls?resource=presets` + `POST` `{ action: "save_preset" | "delete_preset" }` *(ex-`/api/presets`)*.
+- **`POST /api/calls` `{ action: "list_contacts", filters, preset_id?, limit? }`** → `{ contacts: […], dedup: […] }` _(ex-`/api/calls-list`, consolidé Vercel B)_.
+- **Presets** : `GET|DELETE /api/calls?resource=presets` + `POST` `{ action: "save_preset" | "delete_preset" }` _(ex-`/api/presets`)_.
 - **`POST /api/calls`** — actions v2 :
   - `log_call` étendu : `{ session_id, contact_id, resultat, comments, duration_sec }` → `logCall` avec `OwnerId = sf_user_id du user` ; si `resultat='RDV planifié'` la réponse signale `needs_event: true`.
   - `log_event` (nouveau) : `{ session_id, contact_id, start, duration_min, invitees[] }` → `createEvent`.
@@ -105,24 +109,25 @@ Le mapping (noms de champs) vient de `api/_crm/mapping.js`, jamais en dur.
 ## UI (`src/apps/calls/` v2)
 
 - **Filter builder modulaire** : sections repliables Entreprise / Contact / Relance ; multi-select (OU) ; compteur live d'aperçu ; **presets** (charger/sauver/partager).
-- **Dédup** : bandeau « X contacts déjà en séance » → toggle *avertir* / *exclure*.
+- **Dédup** : bandeau « X contacts déjà en séance » → toggle _avertir_ / _exclure_.
 - **Runner v2** : formulaire d'appel avec `Resultat_call__c` (les 5 valeurs), durée, 1-clic → suivant. Si **RDV planifié** → panneau **Event** (date/heure, invités). Bouton « Créer une séance de relance » depuis le récap.
 - Charte glassmorphism, `components/ui`. Design soigné (effet waouh).
 
 ---
 
 ## Attribution
+
 **Niveau 1 (v2)** : `OwnerId` de la Task/Event = `sf_user_id` du commercial connecté (mapping fait). Vérifier en prod que l'utilisateur d'intégration peut assigner à un autre owner.
 
 ---
 
 ## Découpage en lots (orchestration)
 
-| Lot | Fichiers | Agent |
-|---|---|---|
-| **v2.A** Adapter + mapping + moteur SOQL | `api/_crm/mapping.js`, `api/_crm/salesforce.js`, migration `005_call_target_presets`, `api/calls-list.js` (réécrit) | Command Code / DeepSeek |
-| **v2.B** Log enrichi + Event + presets | `api/calls.js` (log_call v2, log_event), `api/presets.js` | Cursor |
-| **v2.C** UI builder + runner v2 | `src/apps/calls/**` (réécrit), `src/crm/` (types) | Antigravity/Cursor |
-| **v2.D** *(lot séparé)* Login Salesforce | voir `docs/xos_implementation_plan.md` Phase 8 — **UI dual-option livrée** (`src/auth/`) ; OAuth backend (8.1) à brancher | — |
+| Lot                                      | Fichiers                                                                                                                  | Agent                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **v2.A** Adapter + mapping + moteur SOQL | `api/_crm/mapping.js`, `api/_crm/salesforce.js`, migration `005_call_target_presets`, `api/calls-list.js` (réécrit)       | Command Code / DeepSeek |
+| **v2.B** Log enrichi + Event + presets   | `api/calls.js` (log_call v2, log_event), `api/presets.js`                                                                 | Cursor                  |
+| **v2.C** UI builder + runner v2          | `src/apps/calls/**` (réécrit), `src/crm/` (types)                                                                         | Antigravity/Cursor      |
+| **v2.D** _(lot séparé)_ Login Salesforce | voir `docs/xos_implementation_plan.md` Phase 8 — **UI dual-option livrée** (`src/auth/`) ; OAuth backend (8.1) à brancher | —                       |
 
 Auto-map `sf_user_id` par email : backfill + à chaque login (trigger/edge).

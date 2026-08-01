@@ -7,7 +7,7 @@ export class ApiError extends Error {
     public body: unknown,
   ) {
     super(message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
   }
 }
 
@@ -17,13 +17,15 @@ export type ApiFetchOptions = {
   signal?: AbortSignal;
 };
 
-async function readErrorMessage(res: Response): Promise<{ message: string; body: unknown }> {
+async function readErrorMessage(
+  res: Response,
+): Promise<{ message: string; body: unknown }> {
   try {
     const body: unknown = await res.json();
-    if (body && typeof body === "object") {
+    if (body && typeof body === 'object') {
       const { message, error } = body as { message?: unknown; error?: unknown };
-      if (typeof message === "string") return { message, body };
-      if (typeof error === "string") return { message: error, body };
+      if (typeof message === 'string') return { message, body };
+      if (typeof error === 'string') return { message: error, body };
     }
     return { message: `http_${res.status}`, body };
   } catch {
@@ -41,7 +43,7 @@ export async function apiFetch<T>(
     body: options.body,
     signal: options.signal,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
   });

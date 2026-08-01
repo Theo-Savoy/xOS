@@ -19,13 +19,17 @@ describe('Button', () => {
     'applies the %s variant class',
     (variant) => {
       render(<Button variant={variant}>Action</Button>);
-      expect(screen.getByRole('button').classList.contains(`xos-btn--${variant}`)).toBe(true);
+      expect(
+        screen.getByRole('button').classList.contains(`xos-btn--${variant}`),
+      ).toBe(true);
     },
   );
 
   it.each(['sm', 'md', 'lg'] as const)('applies the %s size class', (size) => {
     render(<Button size={size}>Action</Button>);
-    expect(screen.getByRole('button').classList.contains(`xos-btn--${size}`)).toBe(true);
+    expect(
+      screen.getByRole('button').classList.contains(`xos-btn--${size}`),
+    ).toBe(true);
   });
 
   it('merges a custom className with the variant/size classes', () => {
@@ -37,7 +41,10 @@ describe('Button', () => {
 
   it('forwards native button props', () => {
     render(<Button disabled>Désactivé</Button>);
-    expect((screen.getByRole('button', { name: 'Désactivé' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Désactivé' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 
   it('forwards a native button ref', () => {

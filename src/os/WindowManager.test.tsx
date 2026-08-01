@@ -1,18 +1,21 @@
 // @vitest-environment jsdom
 
-import { render } from "@testing-library/react";
-import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { WindowManager } from "./WindowManager";
-import type { AppWindow } from "./windowState";
+import { render } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import { WindowManager } from './WindowManager';
+import type { AppWindow } from './windowState';
 
 const { renderCounts, components } = vi.hoisted(() => {
   const renderCounts: Record<string, number> = {};
-  const components: Record<string, (props: { params?: Record<string, string> }) => ReactElement> = {};
+  const components: Record<
+    string,
+    (props: { params?: Record<string, string> }) => ReactElement
+  > = {};
   return { renderCounts, components };
 });
 
-vi.mock("./registry", () => ({
+vi.mock('./registry', () => ({
   getAppManifest: (appId: string) => {
     components[appId] ??= (props: { params?: Record<string, string> }) => {
       renderCounts[appId] = (renderCounts[appId] ?? 0) + 1;
@@ -24,7 +27,7 @@ vi.mock("./registry", () => ({
 
 function makeWindow(overrides: Partial<AppWindow>): AppWindow {
   return {
-    appId: "insights",
+    appId: 'insights',
     x: 0,
     y: 0,
     w: 400,
@@ -36,11 +39,11 @@ function makeWindow(overrides: Partial<AppWindow>): AppWindow {
   };
 }
 
-describe("WindowManager memoization", () => {
-  it("only re-renders the window whose props actually changed", () => {
+describe('WindowManager memoization', () => {
+  it('only re-renders the window whose props actually changed', () => {
     const dispatch = vi.fn();
-    const first = makeWindow({ appId: "insights", zIndex: 1 });
-    const second = makeWindow({ appId: "notes", zIndex: 2 });
+    const first = makeWindow({ appId: 'insights', zIndex: 1 });
+    const second = makeWindow({ appId: 'notes', zIndex: 2 });
 
     const { rerender } = render(
       <WindowManager windows={[first, second]} dispatch={dispatch} />,

@@ -212,7 +212,8 @@ function publicCapabilities(capabilities) {
 
 export async function loadSectorRecipe(context = {}, query = {}) {
   authorizeRecipeContext(context);
-  const { accounts, capabilities, truncated } = await loadScopedAccounts(context);
+  const { accounts, capabilities, truncated } =
+    await loadScopedAccounts(context);
   const groups = groupAccounts(accounts);
   const activeLabels = new Set(ACTIVE_SECTORS);
   const activeLimit = Math.min(Math.max(Number(query.limit) || 50, 1), 50);

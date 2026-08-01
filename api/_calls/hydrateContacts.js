@@ -1,4 +1,4 @@
-import { fetchContactBasicsByIds } from "../_crm/salesforce.js";
+import { fetchContactBasicsByIds } from '../_crm/salesforce.js';
 
 const hydrationAttempts = new Set();
 const MAX_HYDRATION_ATTEMPTS = 5000;
@@ -9,18 +9,27 @@ export function __resetHydrationAttempts() {
 }
 
 /** Fills missing email/title on session rows from CRM and persists updates. */
-export async function hydrateSessionContactsFromCrm(client, contacts, accessToken, mapping) {
+export async function hydrateSessionContactsFromCrm(
+  client,
+  contacts,
+  accessToken,
+  mapping,
+) {
   if (!contacts?.length || !accessToken) return contacts;
 
   const needsHydration = contacts.filter(
-    (contact) => (!contact.email || !contact.title) && !hydrationAttempts.has(contact.id),
+    (contact) =>
+      (!contact.email || !contact.title) && !hydrationAttempts.has(contact.id),
   );
   if (!needsHydration.length) return contacts;
 
-  if (hydrationAttempts.size >= MAX_HYDRATION_ATTEMPTS) hydrationAttempts.clear();
+  if (hydrationAttempts.size >= MAX_HYDRATION_ATTEMPTS)
+    hydrationAttempts.clear();
   for (const contact of needsHydration) hydrationAttempts.add(contact.id);
 
-  const ids = [...new Set(needsHydration.map((contact) => contact.sf_contact_id))];
+  const ids = [
+    ...new Set(needsHydration.map((contact) => contact.sf_contact_id)),
+  ];
   const lookup = await fetchContactBasicsByIds(accessToken, ids, mapping);
   if (lookup.error) return contacts;
 
@@ -42,7 +51,7 @@ export async function hydrateSessionContactsFromCrm(client, contacts, accessToke
     await Promise.all(
       updates.map((row) => {
         const { id, ...fields } = row;
-        return client.from("call_session_contacts").update(fields).eq("id", id);
+        return client.from('call_session_contacts').update(fields).eq('id', id);
       }),
     );
   }

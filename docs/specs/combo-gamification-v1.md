@@ -26,13 +26,14 @@ Chaque badge = **événement vérifiable** dans l'app. L'XP est **affichée comm
 
 ### 1.2 Les 3 axes d'XP
 
-| Axe | Nom terrain | Source XP | Badge emblématique | Affichage |
-|---|---|---|---|---|
-| **Vitesse** | "Boss du clavier" | 1 XP / raccourci utilisé | ⌨️ Boss du clavier (200 XP) | Compteur dans command bar |
-| **Impact** | "Cador du RDV" | 10 XP / RDV planifié | 🎯 Centurion (10 RDV = 100 XP) | Compteur dans récap séance |
-| **Régularité** | "Infernal" | 1 XP / jour de streak (≥ 1 log_call) | 🔥 30 jours d'affilée (30 XP) | Compteur dans command bar |
+| Axe            | Nom terrain       | Source XP                            | Badge emblématique             | Affichage                  |
+| -------------- | ----------------- | ------------------------------------ | ------------------------------ | -------------------------- |
+| **Vitesse**    | "Boss du clavier" | 1 XP / raccourci utilisé             | ⌨️ Boss du clavier (200 XP)    | Compteur dans command bar  |
+| **Impact**     | "Cador du RDV"    | 10 XP / RDV planifié                 | 🎯 Centurion (10 RDV = 100 XP) | Compteur dans récap séance |
+| **Régularité** | "Infernal"        | 1 XP / jour de streak (≥ 1 log_call) | 🔥 30 jours d'affilée (30 XP)  | Compteur dans command bar  |
 
 **Règles anti-abus** :
+
 - Raccourci compté une seule fois par jour par action (toggle-recall spam-exclu).
 - RDV compté si `outcome = "RDV planifié"` ET `log_call` réussi (Task SF créée).
 - Streak = jour calendaire Europe/Paris où ≥ 1 log_call validé.
@@ -41,14 +42,14 @@ Chaque badge = **événement vérifiable** dans l'app. L'XP est **affichée comm
 
 Affichés **uniquement** comme un indicateur de progression (ex. "Bronze vitesse · 30/75"), jamais comme un titre ("Tu es Bronze vitesse").
 
-| Palier | Vitesse (raccourcis cumulés) | Impact (RDV cumulés) | Régularité (streak jours) |
-|---|---|---|---|
-| Bronze | 10 | 3 | 3 |
-| Argent | 30 | 7 | 7 |
-| Or | 75 | 15 | 14 |
-| Platine | 150 | 30 | 30 |
-| Diamant | 300 | 60 | 60 |
-| Challenger | 500 | 100 | 100 |
+| Palier     | Vitesse (raccourcis cumulés) | Impact (RDV cumulés) | Régularité (streak jours) |
+| ---------- | ---------------------------- | -------------------- | ------------------------- |
+| Bronze     | 10                           | 3                    | 3                         |
+| Argent     | 30                           | 7                    | 7                         |
+| Or         | 75                           | 15                   | 14                        |
+| Platine    | 150                          | 30                   | 30                        |
+| Diamant    | 300                          | 60                   | 60                        |
+| Challenger | 500                          | 100                  | 100                       |
 
 **Pas de palier global.** Chaque axe a sa progression indépendante.
 
@@ -56,16 +57,16 @@ Affichés **uniquement** comme un indicateur de progression (ex. "Bronze vitesse
 
 Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaque badge one-timer = un comportement exceptionnel, pas une accumulation.**
 
-| Badge | Critère | Type |
-|---|---|---|
-| 🐣 Premier pas | 1ʳᵉ séance complétée | One-timer |
-| ⚡ Éclair | 50 raccourcis en une seule journée | One-timer |
-| 🎯 Trois banderilles | 3 RDV dans une même séance | One-timer |
-| 🌅 Lève-tôt | 1 séance démarrée avant 9h | One-timer |
-| 🏁 Marathon | 1 séance ≥ 50 contacts terminée | One-timer |
-| 🧊 Sang-froid | 10 NPA posées | One-timer |
-| 🤝 Relais | A contribué à un défi collectif atteint | One-timer (collectif) |
-| 🏆 Mur des réussites | A signé (opt-in) une réussite qu'un manager a épinglée | One-timer |
+| Badge                | Critère                                                | Type                  |
+| -------------------- | ------------------------------------------------------ | --------------------- |
+| 🐣 Premier pas       | 1ʳᵉ séance complétée                                   | One-timer             |
+| ⚡ Éclair            | 50 raccourcis en une seule journée                     | One-timer             |
+| 🎯 Trois banderilles | 3 RDV dans une même séance                             | One-timer             |
+| 🌅 Lève-tôt          | 1 séance démarrée avant 9h                             | One-timer             |
+| 🏁 Marathon          | 1 séance ≥ 50 contacts terminée                        | One-timer             |
+| 🧊 Sang-froid        | 10 NPA posées                                          | One-timer             |
+| 🤝 Relais            | A contribué à un défi collectif atteint                | One-timer (collectif) |
+| 🏆 Mur des réussites | A signé (opt-in) une réussite qu'un manager a épinglée | One-timer             |
 
 **Limite** : 8 badges one-timer max en V1. Au-delà, on perd la lisibilité. Si on en veut plus, c'est un lot dédié.
 
@@ -80,14 +81,15 @@ Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaqu
 
 ### 1.6 Affichage (où, quand, combien)
 
-| Endroit | Quoi | Pourquoi |
-|---|---|---|
-| **Command bar** (`⌘K`) | 3 lignes "Vitesse 30 · Impact 7 · Régularité 14" + dernier badge one-timer | L'utilisateur qui cherche à aller vite voit son état |
-| **Récap de séance** | 1 ligne par axe + palier actuel + badge one-timer gagné dans la séance | Célébration sobre post-effort |
-| **Au moment du déblocage** | Toast desktop 6s via `notificationsStore` ("Argent vitesse · 30/75 raccourcis cumulés") | Le bon moment |
-| **Centre de notifications** | Historique des badges débloqués | Persistance |
+| Endroit                     | Quoi                                                                                    | Pourquoi                                             |
+| --------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Command bar** (`⌘K`)      | 3 lignes "Vitesse 30 · Impact 7 · Régularité 14" + dernier badge one-timer              | L'utilisateur qui cherche à aller vite voit son état |
+| **Récap de séance**         | 1 ligne par axe + palier actuel + badge one-timer gagné dans la séance                  | Célébration sobre post-effort                        |
+| **Au moment du déblocage**  | Toast desktop 6s via `notificationsStore` ("Argent vitesse · 30/75 raccourcis cumulés") | Le bon moment                                        |
+| **Centre de notifications** | Historique des badges débloqués                                                         | Persistance                                          |
 
 **Jamais affiché** :
+
 - ❌ Home du bureau XOS
 - ❌ Titre de la fenêtre Combo
 - ❌ Popup bloquante au démarrage
@@ -102,12 +104,12 @@ Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaqu
 **Canal** : `PreSessionFlow.tsx`, dans l'UI uniquement (pas de notif externe).
 **Déclencheur** : ouverture de Combo et présence de données contextuelles.
 
-| Condition | Affichage | Source |
-|---|---|---|
-| ≥ 1 rappel dû aujourd'hui | "Commence par les rappels : X dûs aujourd'hui" (encart surligné léger, lien direct) | `recallQueue.ts` |
-| Dernière séance > 7 jours | "Ça fait une semaine — on reprend avec tes presets ?" | `localStorage` lastSession |
-| Défi collectif actif en cours | Affichage du compteur équipe ("47/100 RDV cette semaine") | notif push dédiée |
-| Aucune condition vraie | Rien | — |
+| Condition                     | Affichage                                                                           | Source                     |
+| ----------------------------- | ----------------------------------------------------------------------------------- | -------------------------- |
+| ≥ 1 rappel dû aujourd'hui     | "Commence par les rappels : X dûs aujourd'hui" (encart surligné léger, lien direct) | `recallQueue.ts`           |
+| Dernière séance > 7 jours     | "Ça fait une semaine — on reprend avec tes presets ?"                               | `localStorage` lastSession |
+| Défi collectif actif en cours | Affichage du compteur équipe ("47/100 RDV cette semaine")                           | notif push dédiée          |
+| Aucune condition vraie        | Rien                                                                                | —                          |
 
 **Règle** : si rien à suggérer → silence. Pas de phrase vide de remplissage.
 
@@ -118,10 +120,10 @@ Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaqu
 
 - **Templates de note** : 5 chips cliquables sous le champ commentaire, contextualisés par résultat.
 - **Templates communs** :
-  - *Intérêt produit A / B / C* (boutons toggle)
-  - *Temporalité* : "Décision ce trimestre" / "Décision Q+1" / "Pas de projet"
-  - *Niveau de maturité* : "Curieux" / "Évalue" / "Compare"
-  - *Mini MEDDIC lite* : "Métrique identifiée", "Champion identifié", "Décideur connu"
+  - _Intérêt produit A / B / C_ (boutons toggle)
+  - _Temporalité_ : "Décision ce trimestre" / "Décision Q+1" / "Pas de projet"
+  - _Niveau de maturité_ : "Curieux" / "Évalue" / "Compare"
+  - _Mini MEDDIC lite_ : "Métrique identifiée", "Champion identifié", "Décideur connu"
 - **Comportement** : clic sur un chip → ajoute le tag au commentaire avec une virgule de séparation. Pas de wizard, pas de popover.
 
 **Pourquoi c'est mieux qu'un MEDDIC complet** : MEDDIC complet = friction, abandon. Les chips = 1 clic = information collectée.
@@ -135,13 +137,13 @@ Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaqu
 
 **Affichage dans le récap** (sobre, jamais moralisateur) :
 
-| Métrique | Affichage | Condition |
-|---|---|---|
-| Rythme | "4,8 appels/min · 6 min/appel en moyenne" | Toujours |
-| Record | "Nouveau record hebdo : 124 appels cette semaine" | Si vrai, jamais "tu n'as pas battu" |
-| Top résultat | "70% des appels décrochés — au-dessus de ta moyenne (52%)" | Si au-dessus de la médiane 4 dernières |
-| Séance 2 suggérée | "5 contacts non contactés — créer la séance de relance du {date_lendemain} ?" | Si ≥ 1 contact pending/skipped |
-| Séance abandonnée | "Séance clôturée sans être terminée — X contacts à trancher" | Si status passée à completed avec > 0 pending |
+| Métrique          | Affichage                                                                     | Condition                                     |
+| ----------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| Rythme            | "4,8 appels/min · 6 min/appel en moyenne"                                     | Toujours                                      |
+| Record            | "Nouveau record hebdo : 124 appels cette semaine"                             | Si vrai, jamais "tu n'as pas battu"           |
+| Top résultat      | "70% des appels décrochés — au-dessus de ta moyenne (52%)"                    | Si au-dessus de la médiane 4 dernières        |
+| Séance 2 suggérée | "5 contacts non contactés — créer la séance de relance du {date_lendemain} ?" | Si ≥ 1 contact pending/skipped                |
+| Séance abandonnée | "Séance clôturée sans être terminée — X contacts à trancher"                  | Si status passée à completed avec > 0 pending |
 
 **Règle** : les suggestions positives uniquement. Pas de "Tu aurais pu faire mieux". Si la métrique est dans la moyenne, on l'affiche aussi ("Tu es dans ta moyenne, 47 appels/min") — pas de frustration.
 
@@ -155,16 +157,17 @@ Ajoutées pour diversifier — pas seulement de la progression cumulée. **Chaqu
 - Opt-in : dans les préférences Combo, toggle "Suivi du streak (recommandé)" — défaut ON.
 
 **Affichage streak** :
+
 - Tag compact dans la command bar : "🔥 14 jours"
 - Si streak en danger (pas encore loggué aujourd'hui, hier comptait) → **pas de notif push** pour ne pas culpabiliser. Juste l'affichage command bar.
 
 **Streaks composites (variation de mécanique)** :
 
-| Streak | Critère | Affichage |
-|---|---|---|
-| Streak classique | X jours d'affilée avec ≥ 1 log_call | 🔥 |
-| Streak "productif" | X séances avec ≥ 3 RDV chacune | 🎯 |
-| Streak "intense" | X séances à ≥ X appels | ⚡ |
+| Streak             | Critère                             | Affichage |
+| ------------------ | ----------------------------------- | --------- |
+| Streak classique   | X jours d'affilée avec ≥ 1 log_call | 🔥        |
+| Streak "productif" | X séances avec ≥ 3 RDV chacune      | 🎯        |
+| Streak "intense"   | X séances à ≥ X appels              | ⚡        |
 
 Affichés **simultanément** dans la command bar (3 lignes max). Chacun a son propre palier Bronze → Challenger.
 
@@ -177,14 +180,15 @@ Affichés **simultanément** dans la command bar (3 lignes max). Chacun a son pr
 
 Pour chaque raccourci `R` non encore adopté par l'utilisateur :
 
-| Phase | Condition d'affichage | Fréquence |
-|---|---|---|
-| **Intensive** | 5 actions souris consécutives sur la cible | À chaque occurrence |
-| **Régulière** | ≥ 10 actions souris depuis dernier nudge `R` | 1 fois / session |
-| **Espacée** | ≥ 30 actions cumulées | 1 fois / semaine |
-| **Acceptée** | ≥ 3 rappels vus sans adoption | Plus jamais (l'utilisateur a fait un choix, on respecte) |
+| Phase         | Condition d'affichage                        | Fréquence                                                |
+| ------------- | -------------------------------------------- | -------------------------------------------------------- |
+| **Intensive** | 5 actions souris consécutives sur la cible   | À chaque occurrence                                      |
+| **Régulière** | ≥ 10 actions souris depuis dernier nudge `R` | 1 fois / session                                         |
+| **Espacée**   | ≥ 30 actions cumulées                        | 1 fois / semaine                                         |
+| **Acceptée**  | ≥ 3 rappels vus sans adoption                | Plus jamais (l'utilisateur a fait un choix, on respecte) |
 
 **Implémentation** : état persistant `localStorage["xos-combo-nudge-learning:<user_id>"]` =
+
 ```
 {
   [shortcutId]: { mouseCount, lastNudgeAt, nudgesSeen, phase }
@@ -192,27 +196,30 @@ Pour chaque raccourci `R` non encore adopté par l'utilisateur :
 ```
 
 **Exemple** :
+
 - L'utilisateur clique 5 fois sur "Suivant" → toast : "Tu peux faire ça avec `K` · tape `?` pour la liste"
 - Il clique encore 5 fois → re-toast
 - À 30 clics cumulés → 1 fois cette semaine max
 - À 3 rappels vus → silence, l'utilisateur a tranché
 
 **Texte type** (terrain, jamais condescendant) :
+
 > "Tu peux passer au contact suivant avec `K` — c'est 0,3s au lieu de 0,8s à la souris."
 
 **Liste des raccourcis ciblés** (V1) :
 
-| Action souris | Raccourci | Jauge min (intensive) |
-|---|---|---|
-| Bouton "Suivant" | `K` | 5 clics |
-| Bouton "Précédent" | `J` | 5 clics |
-| Bouton "Vue liste" | `L` | 3 clics |
-| Bouton "Vue fiche" | `F` | 3 clics |
-| Bouton "Logguer & suivant" | `⌘↵` | 5 clics |
-| Bouton "Aide raccourcis" | `?` | 5 clics |
-| Clic résultat 1-5 | `1`-`5` | 5 clics |
+| Action souris              | Raccourci | Jauge min (intensive) |
+| -------------------------- | --------- | --------------------- |
+| Bouton "Suivant"           | `K`       | 5 clics               |
+| Bouton "Précédent"         | `J`       | 5 clics               |
+| Bouton "Vue liste"         | `L`       | 3 clics               |
+| Bouton "Vue fiche"         | `F`       | 3 clics               |
+| Bouton "Logguer & suivant" | `⌘↵`      | 5 clics               |
+| Bouton "Aide raccourcis"   | `?`       | 5 clics               |
+| Clic résultat 1-5          | `1`-`5`   | 5 clics               |
 
 **Pas de nudge apprentissage pour** :
+
 - Command bar (`⌘K`) — l'utilisateur le découvrira naturellement
 - Toggle sons — niche
 - Replay démo — opt-in volontaire
@@ -225,15 +232,15 @@ Pour chaque raccourci `R` non encore adopté par l'utilisateur :
 
 ### 3.1 Kinds de notifications à ajouter
 
-| `kind` | Émetteur | Condition | Payload |
-|---|---|---|---|
-| `xp_palier_atteint` | Combo (front) | `newXp >= palier && previousXp < palier` | `{ axe: "vitesse" \| "impact" \| "regularite", palier: "bronze" \| ... }` |
-| `badge_one_timer` | Combo (front) | Critère rempli une fois | `{ badgeId: string }` |
-| `streak_palier_atteint` | Combo (front) | Idem XP | `{ type: "classique" \| "productif" \| "intense", jours: number }` |
-| `rappels_du_jour` | Système (cron supabase) | À 9h30 Europe/Paris si ≥ 1 rappel dû aujourd'hui pour le user | `{ count: number }` |
-| `seance_a_trancher` | Système (cron supabase) | Séance `status=active` > 48h sans log | `{ sessionId, pendingCount }` |
-| `defi_collectif_atteint` | Système (cron supabase hebdo) | Compteur équipe atteint l'objectif | `{ defiId, total }` |
-| `mur_reussite_signee` | Manager (action manuelle) | Manager épingle une réussite avec opt-in | `{ authorName, badgeId }` |
+| `kind`                   | Émetteur                      | Condition                                                     | Payload                                                                   |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `xp_palier_atteint`      | Combo (front)                 | `newXp >= palier && previousXp < palier`                      | `{ axe: "vitesse" \| "impact" \| "regularite", palier: "bronze" \| ... }` |
+| `badge_one_timer`        | Combo (front)                 | Critère rempli une fois                                       | `{ badgeId: string }`                                                     |
+| `streak_palier_atteint`  | Combo (front)                 | Idem XP                                                       | `{ type: "classique" \| "productif" \| "intense", jours: number }`        |
+| `rappels_du_jour`        | Système (cron supabase)       | À 9h30 Europe/Paris si ≥ 1 rappel dû aujourd'hui pour le user | `{ count: number }`                                                       |
+| `seance_a_trancher`      | Système (cron supabase)       | Séance `status=active` > 48h sans log                         | `{ sessionId, pendingCount }`                                             |
+| `defi_collectif_atteint` | Système (cron supabase hebdo) | Compteur équipe atteint l'objectif                            | `{ defiId, total }`                                                       |
+| `mur_reussite_signee`    | Manager (action manuelle)     | Manager épingle une réussite avec opt-in                      | `{ authorName, badgeId }`                                                 |
 
 ### 3.2 Comportement attendu par le système de notifs
 
@@ -305,15 +312,15 @@ La modale actuelle (`PreSessionFlow.tsx`) charge trop l'utilisateur. Trois probl
 
 **Détails UX writing** :
 
-| Avant | Après |
-|---|---|
+| Avant                               | Après                                   |
+| ----------------------------------- | --------------------------------------- |
 | "Engage la séance avec un objectif" | "Combien de RDV tu vises aujourd'hui ?" |
-| "Mode ABM" | "Comptes précis (ABM)" |
-| "Filtres de ciblage" | "Qui tu appelles" |
-| "Sauvegarder comme preset" | "Garder ce filtre pour plus tard" |
-| "Audience prévisualisée" | "Aperçu — 8 contacts trouvés" |
-| "Lancer" | "Lancer la séance" |
-| "Terminer sans appeler" | "Reporter à plus tard" |
+| "Mode ABM"                          | "Comptes précis (ABM)"                  |
+| "Filtres de ciblage"                | "Qui tu appelles"                       |
+| "Sauvegarder comme preset"          | "Garder ce filtre pour plus tard"       |
+| "Audience prévisualisée"            | "Aperçu — 8 contacts trouvés"           |
+| "Lancer"                            | "Lancer la séance"                      |
+| "Terminer sans appeler"             | "Reporter à plus tard"                  |
 
 **Le bloc sticky (point 3)** contient : champ nom, compteur de contacts, bouton primaire. Toujours visible au scroll. La classe `calls-name-form--sticky` existe déjà (`AccountSearchView.tsx:274`) — on l'étend.
 
@@ -326,6 +333,7 @@ La modale actuelle (`PreSessionFlow.tsx`) charge trop l'utilisateur. Trois probl
 **Arena (Phase 5) est planifiée mais non démarrée** (`docs/xos_implementation_plan.md:153` : `Phase 5 — Arena — ⬜`). Les tables Supabase existent (`challenges`, `challenge_results`, `badges` — migration `001_initial_schema.sql`), mais aucun front ni API.
 
 **Décision V1** :
+
 - Combo expose un **mini mur des réussites local** (dans le menu Aide), limité aux réussites **personnelles** de l'utilisateur connecté.
 - Le **mur d'équipe** (réussites signées opt-in + défi collectif atteint) est **différé à Arena Phase 5**.2. Cette spec définit juste le **seam** (§5.4) pour ne pas avoir à refaire l'API plus tard.
 - **Pas de leaderboard.** Cohérent avec la décision Arena de plan portail : "le classement reste dans Arena" — on ne le duplique pas dans Combo.
@@ -335,6 +343,7 @@ La modale actuelle (`PreSessionFlow.tsx`) charge trop l'utilisateur. Trois probl
 **Accès** : menu Aide → "Mes réussites".
 
 **Contenu** (V1, personnel uniquement) :
+
 - Liste chronologique inversée des badges one-timer débloqués par l'utilisateur
 - Compteurs XP par axe (Vitesse / Impact / Régularité) + palier actuel
 - Streaks actifs (3 types)
@@ -344,11 +353,11 @@ La modale actuelle (`PreSessionFlow.tsx`) charge trop l'utilisateur. Trois probl
 
 ### 5.3 Événements alimentant le mur (personnel)
 
-| Événement | Affichage |
-|---|---|
-| Palier XP atteint | "Tu viens de passer Or vitesse · 75 raccourcis cumulés" |
-| Badge one-timer débloqué | "Badge débloqué : 🎯 Trois banderilles" |
-| Streak palier | "30 jours d'affilée · Platine régularité" |
+| Événement                | Affichage                                               |
+| ------------------------ | ------------------------------------------------------- |
+| Palier XP atteint        | "Tu viens de passer Or vitesse · 75 raccourcis cumulés" |
+| Badge one-timer débloqué | "Badge débloqué : 🎯 Trois banderilles"                 |
+| Streak palier            | "30 jours d'affilée · Platine régularité"               |
 
 **Toutes les réussites sont à la première personne** : "Tu", "ton", pas de nom, pas d'anonymat à gérer (c'est personnel).
 
@@ -358,7 +367,10 @@ Les événements publics (réussites signées, défi équipe) passent par `notif
 
 ```ts
 // Combo émet
-notificationsStore.push({ kind: "defi_collectif_atteint", payload: { defiId, total } })
+notificationsStore.push({
+  kind: 'defi_collectif_atteint',
+  payload: { defiId, total },
+});
 
 // Arena Phase 5.2 consomme les mêmes kinds depuis le store
 // Aucun changement d'API côté Combo
@@ -375,6 +387,7 @@ notificationsStore.push({ kind: "defi_collectif_atteint", payload: { defiId, tot
 Tables déjà migrées dans `001_initial_schema.sql` : `challenges`, `challenge_results`, `badges`. Aucune API ni front pour l'instant.
 
 **Ce que Combo V1 prépare pour Arena** (sans rien livrer côté défi) :
+
 - Les `kind` de notifs `defi_collectif_atteint` et `relais` sont **réservés** dans §3.1 mais **pas émis** par Combo. Ils seront émis par le moteur Arena quand il existera.
 - Le nudge de cadrage pré-séance (§2.1) mentionne le défi collectif comme un encart optionnel — **cet encart est désactivé tant qu'Arena n'existe pas**. La source de données `défi actif` est simplement absente.
 - Le badge "🤝 Relais" existe déjà dans la liste one-timer (§1.4) — il sera décerné par Arena, pas par Combo.
@@ -387,13 +400,13 @@ Tables déjà migrées dans `001_initial_schema.sql` : `challenges`, `challenge_
 
 ### 7.1 Tests unitaires (Vitest)
 
-| Fichier à créer | Couvre |
-|---|---|
-| `comboXp.test.ts` | Calcul XP, paliers, détection diff |
-| `comboBadges.test.ts` | Critères one-timer, état persistent |
-| `comboStreaks.test.ts` | Calcul jours consécutifs, reset, paliers composites |
+| Fichier à créer         | Couvre                                                                 |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `comboXp.test.ts`       | Calcul XP, paliers, détection diff                                     |
+| `comboBadges.test.ts`   | Critères one-timer, état persistent                                    |
+| `comboStreaks.test.ts`  | Calcul jours consécutifs, reset, paliers composites                    |
 | `nudgeLearning.test.ts` | Machine d'état des phases (intensive → régulière → espacée → acceptée) |
-| `nudgeRappels.test.ts` | Condition d'apparition (≥ 1 rappel dû) |
+| `nudgeRappels.test.ts`  | Condition d'apparition (≥ 1 rappel dû)                                 |
 
 ### 7.2 Critères d'acceptation
 
@@ -420,23 +433,24 @@ Tables déjà migrées dans `001_initial_schema.sql` : `challenges`, `challenge_
 
 ## 8. Découpage en lots (orchestration Combo)
 
-| Lot | Contenu | Fichiers principaux | Risque |
-|---|---|---|---|
-| **G.1** | Modèle XP + paliers + persistance | `comboXp.ts`, `comboXp.test.ts` | Faible |
-| **G.2** | Badges one-timer + détection | `comboBadges.ts`, `comboBadges.test.ts` | Faible |
-| **G.3** | Streaks (3 types) | `comboStreaks.ts`, `comboStreaks.test.ts` | Faible |
-| **G.4** | Nudge d'apprentissage (machine d'état) | `nudgeLearning.ts`, `nudgeLearning.test.ts` | Moyen (UX) |
-| **G.5** | Nudges fin de séance | `RecapView.tsx` (modifs), helpers | Faible |
-| **G.6** | Modale pré-séance UX writing + sticky | `PreSessionFlow.tsx`, `AccountSearchView.tsx` | Faible |
-| **G.7** | Templates de note (chips MEDDIC lite) | `formControls.tsx` (extension) | Moyen |
-| **G.8** | Kinds de notifs + intégration | `notifications.ts`, `notificationsStore.ts`, `DesktopToasts.tsx` | Moyen |
-| **G.9** | Mur local "Mes réussites" (V1 Combo) | `MyTrophies.tsx`, intégration menu Aide | Faible |
+| Lot     | Contenu                                | Fichiers principaux                                              | Risque     |
+| ------- | -------------------------------------- | ---------------------------------------------------------------- | ---------- |
+| **G.1** | Modèle XP + paliers + persistance      | `comboXp.ts`, `comboXp.test.ts`                                  | Faible     |
+| **G.2** | Badges one-timer + détection           | `comboBadges.ts`, `comboBadges.test.ts`                          | Faible     |
+| **G.3** | Streaks (3 types)                      | `comboStreaks.ts`, `comboStreaks.test.ts`                        | Faible     |
+| **G.4** | Nudge d'apprentissage (machine d'état) | `nudgeLearning.ts`, `nudgeLearning.test.ts`                      | Moyen (UX) |
+| **G.5** | Nudges fin de séance                   | `RecapView.tsx` (modifs), helpers                                | Faible     |
+| **G.6** | Modale pré-séance UX writing + sticky  | `PreSessionFlow.tsx`, `AccountSearchView.tsx`                    | Faible     |
+| **G.7** | Templates de note (chips MEDDIC lite)  | `formControls.tsx` (extension)                                   | Moyen      |
+| **G.8** | Kinds de notifs + intégration          | `notifications.ts`, `notificationsStore.ts`, `DesktopToasts.tsx` | Moyen      |
+| **G.9** | Mur local "Mes réussites" (V1 Combo)   | `MyTrophies.tsx`, intégration menu Aide                          | Faible     |
 
 **Dépendances** : G.8 dépend de G.1-G.7 (pour que les notifs aient du contenu à porter). G.9 dépend de G.8.
 
 **Lot critique de référence** : G.4 (nudge d'apprentissage) car c'est la mécanique la plus risquée côté UX. À tester sur 3 utilisateurs pilotes avant généralisation.
 
 **Hors scope de cette orchestration** :
+
 - **Arena Phase 5.1** (moteur challenges : CRUD + cron + snapshots) → chantier `Phase 5 / Lot 5.1`, post-Copilot.
 - **Arena Phase 5.2** (UI leaderboard) → chantier `Phase 5 / Lot 5.2`, après 5.1.
 - Ces chantiers consommeront les `kind` de notifs `defi_collectif_atteint` et `relais` définis en §3.1, sans modification de Combo.

@@ -4,15 +4,17 @@
  */
 
 const EXCLUDED_SF_PREFIXES = [
-  "005AZ000000X5nD", // Théo Savoy
-  "005Sb000007b6dW", // Yanis Agharbi (SDR)
+  '005AZ000000X5nD', // Théo Savoy
+  '005Sb000007b6dW', // Yanis Agharbi (SDR)
 ];
 
 function sfIdKey(id: string): string {
-  return String(id || "").slice(0, 15);
+  return String(id || '').slice(0, 15);
 }
 
 export function isAccountOwnerFilterCandidate(sfUserId: string): boolean {
   const key = sfIdKey(sfUserId);
-  return !EXCLUDED_SF_PREFIXES.some((prefix) => key.startsWith(sfIdKey(prefix)));
+  return !EXCLUDED_SF_PREFIXES.some((prefix) =>
+    key.startsWith(sfIdKey(prefix)),
+  );
 }

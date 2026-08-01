@@ -272,7 +272,9 @@ describe('OpportunitiesModule', () => {
     render(<OpportunitiesModule accessToken="token" />);
     expect(screen.getByRole('status')).toBeTruthy();
     await waitFor(() =>
-      expect(screen.getByText(/Aucune opport|ne nécessite|Aucune donnée/)).toBeTruthy(),
+      expect(
+        screen.getByText(/Aucune opport|ne nécessite|Aucune donnée/),
+      ).toBeTruthy(),
     );
     expect(screen.getByRole('button', { name: 'Historique' })).toBeTruthy();
 

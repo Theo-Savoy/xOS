@@ -1,39 +1,43 @@
-import js from "@eslint/js";
-import globals from "globals";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
-import tseslint from "typescript-eslint";
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ["dist", "public", "api", ".worktrees/**", "**/.worktrees/**"] },
+  { ignores: ['dist', 'public', 'api', '.worktrees/**', '**/.worktrees/**'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ["**/*.{ts,tsx}"],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
     },
     plugins: {
-      "react-hooks": reactHooks,
-      "react-refresh": reactRefresh,
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": [
-        "warn",
+      'react-refresh/only-export-components': [
+        'warn',
         { allowConstantExport: true },
       ],
     },
   },
   {
-    files: ["src/apps/**/*.{ts,tsx}", "src/os/**/*.{ts,tsx}", "src/auth/**/*.{ts,tsx}"],
+    files: [
+      'src/apps/**/*.{ts,tsx}',
+      'src/os/**/*.{ts,tsx}',
+      'src/auth/**/*.{ts,tsx}',
+    ],
     rules: {
-      "no-restricted-syntax": [
-        "warn",
+      'no-restricted-syntax': [
+        'warn',
         {
           selector: "JSXOpeningElement[name.name='button']",
           message:
-            "Use <Button> from src/components/ui instead of a native <button> (vivier UI — see docs/audits/audit-consolidation-2026-07-17.md).",
+            'Use <Button> from src/components/ui instead of a native <button> (vivier UI — see docs/audits/audit-consolidation-2026-07-17.md).',
         },
       ],
     },

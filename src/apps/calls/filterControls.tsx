@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
-import { Button } from "../../components/ui/Button";
-import type { PicklistGroup } from "./filterControls.helpers";
+import { useId, useState } from 'react';
+import { Button } from '../../components/ui/Button';
+import type { PicklistGroup } from './filterControls.helpers';
 
 /** @deprecated moved to src/components/ui/SegmentedControl — import from there in new code. */
-export { SegmentedControl as ChipGroup } from "../../components/ui/SegmentedControl";
+export { SegmentedControl as ChipGroup } from '../../components/ui/SegmentedControl';
 
 /** Bascule à trois états : peu importe / oui / non. */
 export function TriState({
@@ -20,9 +20,9 @@ export function TriState({
   disabledReasons?: Partial<Record<string, string>>;
 }) {
   const opts: { value: boolean | null; label: string }[] = [
-    { value: null, label: "Peu importe" },
-    { value: true, label: "Oui" },
-    { value: false, label: "Non" },
+    { value: null, label: 'Peu importe' },
+    { value: true, label: 'Oui' },
+    { value: false, label: 'Non' },
   ];
 
   return (
@@ -40,7 +40,7 @@ export function TriState({
               size="sm"
               key={key}
               type="button"
-              className={`calls-tristate__opt${value === opt.value ? " calls-tristate__opt--active" : ""}${disabled ? " calls-tristate__opt--disabled" : ""}`}
+              className={`calls-tristate__opt${value === opt.value ? ' calls-tristate__opt--active' : ''}${disabled ? ' calls-tristate__opt--disabled' : ''}`}
               onClick={() => !disabled && onChange(opt.value)}
               aria-pressed={value === opt.value}
               disabled={disabled}
@@ -62,7 +62,7 @@ export function PicklistMultiSelect<T extends string>({
   groups,
   value,
   onChange,
-  searchPlaceholder = "Rechercher…",
+  searchPlaceholder = 'Rechercher…',
 }: {
   label: string;
   hint?: string;
@@ -72,7 +72,7 @@ export function PicklistMultiSelect<T extends string>({
   onChange: (next: T[]) => void;
   searchPlaceholder?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     if (!groups?.length) return new Set();
     const open = new Set<string>();
@@ -130,9 +130,13 @@ export function PicklistMultiSelect<T extends string>({
     return (
       <label
         key={opt.value}
-        className={`calls-checkbox calls-checkbox--tight calls-picklist__option${checked ? " calls-picklist__option--checked" : ""}`}
+        className={`calls-checkbox calls-checkbox--tight calls-picklist__option${checked ? ' calls-picklist__option--checked' : ''}`}
       >
-        <input type="checkbox" checked={checked} onChange={() => toggle(opt.value)} />
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => toggle(opt.value)}
+        />
         <span className="calls-checkbox__label">{opt.label}</span>
       </label>
     );
@@ -150,13 +154,16 @@ export function PicklistMultiSelect<T extends string>({
       onToggleOpen?: () => void;
     },
   ) => {
-    const selectedInFamily = group.values.filter((item) => value.includes(item)).length;
-    const allSelected = selectedInFamily === group.values.length && group.values.length > 0;
+    const selectedInFamily = group.values.filter((item) =>
+      value.includes(item),
+    ).length;
+    const allSelected =
+      selectedInFamily === group.values.length && group.values.length > 0;
     const someSelected = selectedInFamily > 0 && !allSelected;
 
     return (
       <div
-        className={`calls-picklist__family-head${allSelected ? " calls-picklist__family-head--all" : ""}${someSelected ? " calls-picklist__family-head--partial" : ""}`}
+        className={`calls-picklist__family-head${allSelected ? ' calls-picklist__family-head--all' : ''}${someSelected ? ' calls-picklist__family-head--partial' : ''}`}
       >
         <label className="calls-picklist__family-check">
           <input
@@ -183,11 +190,11 @@ export function PicklistMultiSelect<T extends string>({
             onClick={onToggleOpen}
           >
             <span className="calls-picklist__family-chevron" aria-hidden="true">
-              {isOpen ? "▾" : "▸"}
+              {isOpen ? '▾' : '▸'}
             </span>
             <span className="calls-picklist__family-label">{group.label}</span>
             <span className="calls-picklist__family-meta xos-numeric">
-              {selectedInFamily > 0 ? `${selectedInFamily}/` : ""}
+              {selectedInFamily > 0 ? `${selectedInFamily}/` : ''}
               {group.values.length}
             </span>
           </Button>
@@ -195,7 +202,7 @@ export function PicklistMultiSelect<T extends string>({
           <div className="calls-picklist__family-toggle calls-picklist__family-toggle--static">
             <span className="calls-picklist__family-label">{group.label}</span>
             <span className="calls-picklist__family-meta xos-numeric">
-              {selectedInFamily > 0 ? `${selectedInFamily}/` : ""}
+              {selectedInFamily > 0 ? `${selectedInFamily}/` : ''}
               {group.values.length}
             </span>
           </div>
@@ -218,9 +225,14 @@ export function PicklistMultiSelect<T extends string>({
         );
         if (visible.length === 0) return null;
         return (
-          <div key={group.id} className="calls-picklist__family calls-picklist__family--open">
+          <div
+            key={group.id}
+            className="calls-picklist__family calls-picklist__family--open"
+          >
             {renderFamilyHead(group, { showChevron: false })}
-            <div className="calls-picklist__family-body">{visible.map(renderOption)}</div>
+            <div className="calls-picklist__family-body">
+              {visible.map(renderOption)}
+            </div>
           </div>
         );
       }
@@ -229,14 +241,18 @@ export function PicklistMultiSelect<T extends string>({
       return (
         <div
           key={group.id}
-          className={`calls-picklist__family${isOpen ? " calls-picklist__family--open" : ""}`}
+          className={`calls-picklist__family${isOpen ? ' calls-picklist__family--open' : ''}`}
         >
           {renderFamilyHead(group, {
             isOpen,
             showChevron: true,
             onToggleOpen: () => toggleExpanded(group.id),
           })}
-          {isOpen && <div className="calls-picklist__family-body">{groupOptions.map(renderOption)}</div>}
+          {isOpen && (
+            <div className="calls-picklist__family-body">
+              {groupOptions.map(renderOption)}
+            </div>
+          )}
         </div>
       );
     });
@@ -264,7 +280,7 @@ export function PicklistMultiSelect<T extends string>({
         {hint && <small>{hint}</small>}
         {value.length > 0 && (
           <small className="calls-fb-control__count">
-            {value.length} sélectionné{value.length > 1 ? "s" : ""}
+            {value.length} sélectionné{value.length > 1 ? 's' : ''}
           </small>
         )}
         {value.length > 1 && <span className="calls-fb-or">OU</span>}
@@ -288,7 +304,10 @@ export function PicklistMultiSelect<T extends string>({
             </span>
           ))}
           {obsoleteValues.map((item) => (
-            <span key={item} className="calls-chip calls-chip--active calls-chip--obsolete">
+            <span
+              key={item}
+              className="calls-chip calls-chip--active calls-chip--obsolete"
+            >
               {item}
               <small> (obsolète)</small>
               <Button
@@ -330,9 +349,16 @@ export function PicklistMultiSelect<T extends string>({
             </Button>
           )}
         </div>
-        <div id={listId} className="calls-picklist" role="group" aria-label={label}>
+        <div
+          id={listId}
+          className="calls-picklist"
+          role="group"
+          aria-label={label}
+        >
           {groups?.length ? renderGrouped() : renderFlat()}
-          {!hasVisible && <p className="calls-picklist__empty">Aucun résultat.</p>}
+          {!hasVisible && (
+            <p className="calls-picklist__empty">Aucun résultat.</p>
+          )}
         </div>
       </div>
     </div>

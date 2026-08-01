@@ -26,21 +26,28 @@ export function packAccountsIntoSessions<C>(
   maxSessions: number,
 ): PackedGroup<C>[] {
   const eligible = accounts.filter((account) => account.contacts.length > 0);
-  const sorted = [...eligible].sort((a, b) => b.contacts.length - a.contacts.length);
+  const sorted = [...eligible].sort(
+    (a, b) => b.contacts.length - a.contacts.length,
+  );
   const tolerance = targetSize * TOLERANCE_RATIO;
 
-  const sessions: { accounts: PackableAccount<C>[]; totalContacts: number }[] = [];
+  const sessions: { accounts: PackableAccount<C>[]; totalContacts: number }[] =
+    [];
 
   for (const account of sorted) {
     const count = account.contacts.length;
-    const fit = sessions.find((session) => session.totalContacts + count <= tolerance);
+    const fit = sessions.find(
+      (session) => session.totalContacts + count <= tolerance,
+    );
     if (fit) {
       fit.accounts.push(account);
       fit.totalContacts += count;
     } else if (sessions.length < maxSessions) {
       sessions.push({ accounts: [account], totalContacts: count });
     } else {
-      console.warn(`packAccountsIntoSessions: compte "${account.name}" ignoré (plafond de ${maxSessions} séances atteint)`);
+      console.warn(
+        `packAccountsIntoSessions: compte "${account.name}" ignoré (plafond de ${maxSessions} séances atteint)`,
+      );
     }
   }
 

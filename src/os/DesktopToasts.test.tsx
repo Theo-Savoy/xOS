@@ -102,7 +102,9 @@ describe('DesktopToasts', () => {
 
     const toast = screen.getByRole('status');
     expect(toast.className).toContain('xos-desktop-toast--success');
-    expect(toast.textContent).toContain('📈 Argent vitesse · 30 raccourcis cumulés');
+    expect(toast.textContent).toContain(
+      '📈 Argent vitesse · 30 raccourcis cumulés',
+    );
     expect(screen.getByText('Palier')).toBeTruthy();
   });
 
@@ -147,7 +149,10 @@ describe('DesktopToasts', () => {
       vi.fn().mockImplementation(() =>
         Promise.resolve(
           new Response(
-            JSON.stringify({ notifications: [freshGoalHit], unread_count: 1 }),
+            JSON.stringify({
+              notifications: [freshGoalHit],
+              unread_count: 1,
+            }),
             { status: 200 },
           ),
         ),

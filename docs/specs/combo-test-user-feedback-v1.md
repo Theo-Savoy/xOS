@@ -8,16 +8,16 @@
 
 ## Synthèse priorités
 
-| # | Retour | App | Effort | Impact | Priorité | Lot |
-|---|---|---|---|---|---|---|
-| 1 | Sticky section nom à la création de séance | Combo | XS | Fort | **P0** | **F.1** |
-| 2 | Prévisualisation live des filtres (sans clic "Actualiser") | Combo | S | Fort | **P0** | **F.2** |
-| 3 | Superposition visuel historique d'appels sur RDV du compte | Combo | M | Fort | **P1** | **F.3** |
-| 4 | Séance ABM : sélecteur de date | Combo | S | Moyen | **P1** | **F.4** |
-| 5 | Contacts non contactés : retrait lent, séance 2 peu claire | Combo | M | Fort | **P0** | **F.5** |
-| 6 | Picklist raison de perte Labo (champ libre actuellement) | Labo | S | Moyen | **P2** | **F.6** |
-| 7 | Forecast sur le Pace ? | Lundi | XS | Faible | **P3** | **F.7** (skip probable) |
-| 8 | Graphique CA Lundi par type produit : montant n'apparaît pas | Lundi | XS | Bloquant | **P0** | **F.8** |
+| #   | Retour                                                       | App   | Effort | Impact   | Priorité | Lot                     |
+| --- | ------------------------------------------------------------ | ----- | ------ | -------- | -------- | ----------------------- |
+| 1   | Sticky section nom à la création de séance                   | Combo | XS     | Fort     | **P0**   | **F.1**                 |
+| 2   | Prévisualisation live des filtres (sans clic "Actualiser")   | Combo | S      | Fort     | **P0**   | **F.2**                 |
+| 3   | Superposition visuel historique d'appels sur RDV du compte   | Combo | M      | Fort     | **P1**   | **F.3**                 |
+| 4   | Séance ABM : sélecteur de date                               | Combo | S      | Moyen    | **P1**   | **F.4**                 |
+| 5   | Contacts non contactés : retrait lent, séance 2 peu claire   | Combo | M      | Fort     | **P0**   | **F.5**                 |
+| 6   | Picklist raison de perte Labo (champ libre actuellement)     | Labo  | S      | Moyen    | **P2**   | **F.6**                 |
+| 7   | Forecast sur le Pace ?                                       | Lundi | XS     | Faible   | **P3**   | **F.7** (skip probable) |
+| 8   | Graphique CA Lundi par type produit : montant n'apparaît pas | Lundi | XS     | Bloquant | **P0**   | **F.8**                 |
 
 ---
 
@@ -125,21 +125,25 @@ Aujourd'hui, en mode ABM, l'utilisateur ne peut pas planifier une séance ABM po
 ### Diagnostic (à confirmer en implémentation)
 
 **Bug de performance** (confirmé code en main, ligne `CallManagerApp.tsx:1149-1172`) :
+
 - `handleRemoveContacts` fait bien les removes en `Promise.allSettled` (parallèle ✓)
 - Mais **refetch TOUTE la séance** après chaque batch via `fetchSession(token, activeSession.id)` — réseau + render complet à chaque remove.
 
 **Confusion UX** (à investiguer utilisateur) :
+
 - Le bouton "Créer une séance de relance" existe (`createFollowUpSession` dans `CallManagerApp.tsx:1270`) mais son déclenchement et son label sont probablement peu visibles.
 - Le flow actuel : "Retirer les contacts" → "Créer séance 2". L'utilisateur ne comprend pas que les deux sont liés.
 
 ### Travail
 
 **Côté perfs** :
+
 - Mettre à jour le state local `setContacts(prev => prev.filter(...))` sans refetch.
 - Garder un seul refetch en fin d'opération pour la sync (et seulement si nécessaire).
 - Si l'utilisateur retire 5 contacts d'affilée, ne faire qu'1 refetch final (debounce 500ms).
 
 **Côté UX** :
+
 - Renommer / repositionner le bouton "Créer une séance de relance" pour qu'il soit **proche** de la liste des non-contactés.
 - Pré-remplir le nom de la séance 2 avec une suggestion lisible (ex. `Lyon — Relance {date_lendemain}`).
 - Permettre de **sélectionner la date** de la séance 2 (lien avec F.4 : mutualiser le DatePicker).
@@ -211,7 +215,10 @@ Aucun.
 `src/apps/weekly/WeeklyApp.tsx:721-736` — composant `Breakdown({ wonByType, wonAmount })` :
 
 ```tsx
-<span className={`weekly-breakdown-${type}`} style={{ width: wonAmount ? `${value / wonAmount * 100}%` : "0%" }} />
+<span
+  className={`weekly-breakdown-${type}`}
+  style={{ width: wonAmount ? `${(value / wonAmount) * 100}%` : '0%' }}
+/>
 ```
 
 Classes CSS existantes (`weekly.css:991-993`) : `catalogue`, `sur_mesure`, `conseil`. ✓
@@ -245,12 +252,12 @@ Classes CSS existantes (`weekly.css:991-993`) : `catalogue`, `sur_mesure`, `cons
 
 ## Découpage final pour Foederati
 
-| Lot Foederati | Tâches | Risque | task_class |
-|---|---|---|---|
-| **F.1** | Sticky nom séance | Faible | bugfix |
-| **F.2** | Preview live filtres | Moyen | feature |
-| **F.5** | Remove optimisé + UX séance 2 | Moyen | feature |
-| **F.8** | Bug Breakdown Lundi | Faible | bugfix |
+| Lot Foederati | Tâches                        | Risque | task_class |
+| ------------- | ----------------------------- | ------ | ---------- |
+| **F.1**       | Sticky nom séance             | Faible | bugfix     |
+| **F.2**       | Preview live filtres          | Moyen  | feature    |
+| **F.5**       | Remove optimisé + UX séance 2 | Moyen  | feature    |
+| **F.8**       | Bug Breakdown Lundi           | Faible | bugfix     |
 
 **F.3, F.4, F.6, F.7** restent en attente de précisions utilisateur ou sont trop petits / flous pour dispatcher en parallèle (F.3 et F.6 demandent des choix UX/business à Théo d'abord ; F.4 et F.7 sont P1/P2-P3).
 

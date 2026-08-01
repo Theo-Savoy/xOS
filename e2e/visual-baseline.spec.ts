@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { fileURLToPath } from "node:url";
-import fs from "node:fs";
-import path from "node:path";
-import { mockAuthenticatedSession } from "./helpers/auth";
+import { expect, test } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { mockAuthenticatedSession } from './helpers/auth';
 
 // Régression visuelle : capture le bureau X OS vide (aucune fenêtre ouverte)
 // et le compare à e2e/baselines/desktop-empty.png (tolérance 0.5%, via
@@ -15,12 +15,16 @@ import { mockAuthenticatedSession } from "./helpers/auth";
 //
 // Note : la baseline est sensible au rendu (police, OS). Génère-la depuis le
 // même environnement que la CI (Linux headless) pour éviter les faux positifs.
-const BASELINE_FILE = fileURLToPath(new URL("./baselines/desktop-empty.png", import.meta.url));
+const BASELINE_FILE = fileURLToPath(
+  new URL('./baselines/desktop-empty.png', import.meta.url),
+);
 
-test("desktop empty state matches visual baseline", async ({ page }) => {
+test('desktop empty state matches visual baseline', async ({ page }) => {
   await mockAuthenticatedSession(page);
-  await page.goto("/");
-  await expect(page.getByRole("navigation", { name: "Applications X OS" })).toBeVisible();
+  await page.goto('/');
+  await expect(
+    page.getByRole('navigation', { name: 'Applications X OS' }),
+  ).toBeVisible();
 
   if (!fs.existsSync(BASELINE_FILE)) {
     // Pas de comparaison possible : on génère la baseline nous-mêmes (hors du
@@ -34,5 +38,7 @@ test("desktop empty state matches visual baseline", async ({ page }) => {
     return;
   }
 
-  await expect(page).toHaveScreenshot("desktop-empty.png", { maxDiffPixelRatio: 0.005 });
+  await expect(page).toHaveScreenshot('desktop-empty.png', {
+    maxDiffPixelRatio: 0.005,
+  });
 });

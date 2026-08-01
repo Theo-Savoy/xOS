@@ -29,7 +29,9 @@ describe('Task 9 opportunities GET clients', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/cleaner?module=opportunities&resource=analytics&period=2026-07',
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+        }),
         signal: expect.any(AbortSignal),
       }),
     );
@@ -53,7 +55,9 @@ describe('Task 9 opportunities GET clients', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/cleaner?module=opportunities&resource=history&limit=25&cursor=next-1',
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+        }),
       }),
     );
   });

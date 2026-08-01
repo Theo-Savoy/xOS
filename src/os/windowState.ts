@@ -19,13 +19,18 @@ export type WindowManagerState = {
 };
 
 export type WindowAction =
-  | { type: "open"; appId: string; defaultSize: { w: number; h: number }; params?: Record<string, string> }
-  | { type: "close"; appId: string }
-  | { type: "minimize"; appId: string }
-  | { type: "focus"; appId: string }
-  | { type: "toggleMaximize"; appId: string }
-  | { type: "setBounds"; appId: string; bounds: WindowBounds }
-  | { type: "setParams"; appId: string; params?: Record<string, string> };
+  | {
+      type: 'open';
+      appId: string;
+      defaultSize: { w: number; h: number };
+      params?: Record<string, string>;
+    }
+  | { type: 'close'; appId: string }
+  | { type: 'minimize'; appId: string }
+  | { type: 'focus'; appId: string }
+  | { type: 'toggleMaximize'; appId: string }
+  | { type: 'setBounds'; appId: string; bounds: WindowBounds }
+  | { type: 'setParams'; appId: string; params?: Record<string, string> };
 
 export function createWindowState(): WindowManagerState {
   return { windows: [], nextZ: 1 };
@@ -44,7 +49,10 @@ function updateWindow(
   };
 }
 
-function focusWindow(state: WindowManagerState, appId: string): WindowManagerState {
+function focusWindow(
+  state: WindowManagerState,
+  appId: string,
+): WindowManagerState {
   if (!state.windows.some((window) => window.appId === appId)) return state;
 
   const focused = updateWindow(state, appId, (window) => ({
@@ -71,8 +79,10 @@ export function windowReducer(
   action: WindowAction,
 ): WindowManagerState {
   switch (action.type) {
-    case "open": {
-      const existing = state.windows.find((window) => window.appId === action.appId);
+    case 'open': {
+      const existing = state.windows.find(
+        (window) => window.appId === action.appId,
+      );
       if (existing) {
         const restored = updateWindow(state, action.appId, (window) => ({
           ...window,
@@ -100,19 +110,21 @@ export function windowReducer(
         nextZ: state.nextZ + 1,
       };
     }
-    case "close":
+    case 'close':
       return {
         ...state,
-        windows: state.windows.filter((window) => window.appId !== action.appId),
+        windows: state.windows.filter(
+          (window) => window.appId !== action.appId,
+        ),
       };
-    case "minimize":
+    case 'minimize':
       return updateWindow(state, action.appId, (window) => ({
         ...window,
         minimized: true,
       }));
-    case "focus":
+    case 'focus':
       return focusWindow(state, action.appId);
-    case "toggleMaximize": {
+    case 'toggleMaximize': {
       const toggled = updateWindow(state, action.appId, (window) => ({
         ...window,
         minimized: false,
@@ -120,7 +132,7 @@ export function windowReducer(
       }));
       return focusWindow(toggled, action.appId);
     }
-    case "setBounds": {
+    case 'setBounds': {
       const { x, y, w, h } = action.bounds;
       if (
         !Number.isFinite(x) ||
@@ -140,9 +152,12 @@ export function windowReducer(
         h,
       }));
     }
-    case "setParams": {
-      const existing = state.windows.find((window) => window.appId === action.appId);
-      if (!existing || paramsEqual(existing.params, action.params)) return state;
+    case 'setParams': {
+      const existing = state.windows.find(
+        (window) => window.appId === action.appId,
+      );
+      if (!existing || paramsEqual(existing.params, action.params))
+        return state;
       return updateWindow(state, action.appId, (window) => ({
         ...window,
         params: action.params,
@@ -156,17 +171,17 @@ export function serializeWindowState(state: WindowManagerState): string {
 }
 
 function isPersistedWindow(value: unknown): value is AppWindow {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== 'object') return false;
   const window = value as Record<string, unknown>;
   return (
-    typeof window.appId === "string" &&
-    ["x", "y", "w", "h", "zIndex"].every(
-      (key) => typeof window[key] === "number" && Number.isFinite(window[key]),
+    typeof window.appId === 'string' &&
+    ['x', 'y', 'w', 'h', 'zIndex'].every(
+      (key) => typeof window[key] === 'number' && Number.isFinite(window[key]),
     ) &&
     (window.w as number) > 0 &&
     (window.h as number) > 0 &&
-    typeof window.minimized === "boolean" &&
-    typeof window.maximized === "boolean"
+    typeof window.minimized === 'boolean' &&
+    typeof window.maximized === 'boolean'
   );
 }
 
@@ -184,13 +199,15 @@ export function hydrateWindowState(
     const seenIds = new Set<string>();
     const windows = parsed.windows.filter((window): window is AppWindow => {
       if (!isPersistedWindow(window)) return false;
-      if (!allowedIds.has(window.appId) || seenIds.has(window.appId)) return false;
+      if (!allowedIds.has(window.appId) || seenIds.has(window.appId))
+        return false;
       seenIds.add(window.appId);
       return true;
     });
-    const minimumNextZ = Math.max(0, ...windows.map((window) => window.zIndex)) + 1;
+    const minimumNextZ =
+      Math.max(0, ...windows.map((window) => window.zIndex)) + 1;
     const persistedNextZ =
-      typeof parsed.nextZ === "number" && Number.isFinite(parsed.nextZ)
+      typeof parsed.nextZ === 'number' && Number.isFinite(parsed.nextZ)
         ? parsed.nextZ
         : minimumNextZ;
 

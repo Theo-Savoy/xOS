@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Command } from "cmdk";
-import { Button } from "../components/ui/Button";
-import { apiFetch, ApiError } from "../lib/apiClient";
-import { appRegistry, type AppManifest, getAppManifest } from "./registry";
-import "./launcher.css";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Command } from 'cmdk';
+import { Button } from '../components/ui/Button';
+import { apiFetch, ApiError } from '../lib/apiClient';
+import { appRegistry, type AppManifest, getAppManifest } from './registry';
+import './launcher.css';
 
 type SearchResult = {
-  type: "Account" | "Contact" | "Opportunity";
+  type: 'Account' | 'Contact' | 'Opportunity';
   id: string;
   name: string;
   detail: string;
@@ -14,9 +14,9 @@ type SearchResult = {
 };
 
 const GROUP_LABELS: Record<string, string> = {
-  Account: "Comptes",
-  Contact: "Contacts",
-  Opportunity: "Opportunités",
+  Account: 'Comptes',
+  Contact: 'Contacts',
+  Opportunity: 'Opportunités',
 };
 
 type LauncherProps = {
@@ -26,9 +26,13 @@ type LauncherProps = {
   onOpenApp: (app: AppManifest, params?: Record<string, string>) => void;
 };
 
-export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: LauncherProps) {
+export function Launcher({
+  accessToken,
+  onOpenApp,
+  apps = appRegistry,
+}: LauncherProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -38,26 +42,28 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
   const createAbortRef = useRef<AbortController | null>(null);
 
   // Command mode states
-  const [commandMode, setCommandMode] = useState<"log" | "create" | null>(null);
+  const [commandMode, setCommandMode] = useState<'log' | 'create' | null>(null);
 
   // /log states
   const [logRecord, setLogRecord] = useState<SearchResult | null>(null);
-  const [logSearchQuery, setLogSearchQuery] = useState("");
+  const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logSearchResults, setLogSearchResults] = useState<SearchResult[]>([]);
   const [logSearchLoading, setLogSearchLoading] = useState(false);
-  const [logComments, setLogComments] = useState("");
+  const [logComments, setLogComments] = useState('');
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [logSuccess, setLogSuccess] = useState(false);
 
   // /create states
-  const [createFirstName, setCreateFirstName] = useState("");
-  const [createLastName, setCreateLastName] = useState("");
-  const [createEmail, setCreateEmail] = useState("");
-  const [createPhone, setCreatePhone] = useState("");
+  const [createFirstName, setCreateFirstName] = useState('');
+  const [createLastName, setCreateLastName] = useState('');
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPhone, setCreatePhone] = useState('');
   const [createAccount, setCreateAccount] = useState<SearchResult | null>(null);
-  const [createAccountQuery, setCreateAccountQuery] = useState("");
-  const [createAccountResults, setCreateAccountResults] = useState<SearchResult[]>([]);
+  const [createAccountQuery, setCreateAccountQuery] = useState('');
+  const [createAccountResults, setCreateAccountResults] = useState<
+    SearchResult[]
+  >([]);
   const [createAccountLoading, setCreateAccountLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -66,19 +72,19 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
   const resetFormState = () => {
     setCommandMode(null);
     setLogRecord(null);
-    setLogSearchQuery("");
+    setLogSearchQuery('');
     setLogSearchResults([]);
-    setLogComments("");
+    setLogComments('');
     setLogLoading(false);
     setLogError(null);
     setLogSuccess(false);
 
-    setCreateFirstName("");
-    setCreateLastName("");
-    setCreateEmail("");
-    setCreatePhone("");
+    setCreateFirstName('');
+    setCreateLastName('');
+    setCreateEmail('');
+    setCreatePhone('');
     setCreateAccount(null);
-    setCreateAccountQuery("");
+    setCreateAccountQuery('');
     setCreateAccountResults([]);
     setCreateLoading(false);
     setCreateError(null);
@@ -88,13 +94,13 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   // Abort in-flight requests when palette closes
@@ -103,7 +109,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
       abortRef.current?.abort();
       logAbortRef.current?.abort();
       createAbortRef.current?.abort();
-      setQuery("");
+      setQuery('');
       setResults([]);
       setLoading(false);
       setError(false);
@@ -115,7 +121,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
   const search = useCallback(
     async (q: string) => {
       // Don't search if it's a command trigger
-      if (q.startsWith("/")) {
+      if (q.startsWith('/')) {
         setResults([]);
         setLoading(false);
         setError(false);
@@ -146,7 +152,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
           setLoading(false);
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         if (!controller.signal.aborted) {
           setError(true);
           setLoading(false);
@@ -189,7 +195,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
           setLogSearchResults(body.results ?? []);
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
       } finally {
         if (!controller.signal.aborted) setLogSearchLoading(false);
       }
@@ -220,11 +226,13 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
           { signal: controller.signal },
         );
         if (!controller.signal.aborted) {
-          const accounts = (body.results ?? []).filter((r: SearchResult) => r.type === "Account");
+          const accounts = (body.results ?? []).filter(
+            (r: SearchResult) => r.type === 'Account',
+          );
           setCreateAccountResults(accounts);
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
       } finally {
         if (!controller.signal.aborted) setCreateAccountLoading(false);
       }
@@ -240,10 +248,10 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
     setLogLoading(true);
     setLogError(null);
     try {
-      await apiFetch(accessToken, "/api/launcher", {
-        method: "POST",
+      await apiFetch(accessToken, '/api/launcher', {
+        method: 'POST',
         body: JSON.stringify({
-          action: "log_call",
+          action: 'log_call',
           recordId: logRecord.id,
           recordType: logRecord.type,
           comments: logComments,
@@ -255,10 +263,15 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
       }, 1500);
     } catch (err) {
       if (err instanceof ApiError) {
-        const body = err.body as { message?: string; error?: string } | undefined;
-        setLogError(body?.message || body?.error || "Erreur serveur");
+        const body = err.body as
+          { message?: string; error?: string } | undefined;
+        setLogError(body?.message || body?.error || 'Erreur serveur');
       } else {
-        setLogError(err instanceof Error ? err.message : "Une erreur est survenue lors de l'enregistrement.");
+        setLogError(
+          err instanceof Error
+            ? err.message
+            : "Une erreur est survenue lors de l'enregistrement.",
+        );
       }
     } finally {
       setLogLoading(false);
@@ -270,10 +283,10 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
     setCreateLoading(true);
     setCreateError(null);
     try {
-      await apiFetch(accessToken, "/api/launcher", {
-        method: "POST",
+      await apiFetch(accessToken, '/api/launcher', {
+        method: 'POST',
         body: JSON.stringify({
-          action: "create_contact",
+          action: 'create_contact',
           firstName: createFirstName,
           lastName: createLastName,
           email: createEmail,
@@ -287,10 +300,15 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
       }, 1500);
     } catch (err) {
       if (err instanceof ApiError) {
-        const body = err.body as { message?: string; error?: string } | undefined;
-        setCreateError(body?.message || body?.error || "Erreur serveur");
+        const body = err.body as
+          { message?: string; error?: string } | undefined;
+        setCreateError(body?.message || body?.error || 'Erreur serveur');
       } else {
-        setCreateError(err instanceof Error ? err.message : "Une erreur est survenue lors de la création.");
+        setCreateError(
+          err instanceof Error
+            ? err.message
+            : 'Une erreur est survenue lors de la création.',
+        );
       }
     } finally {
       setCreateLoading(false);
@@ -307,15 +325,15 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
 
   // Filter local apps that match the query
   const matchingApps =
-    query.length >= 2 && !query.startsWith("/")
+    query.length >= 2 && !query.startsWith('/')
       ? apps.filter((app) =>
           app.title.toLowerCase().includes(query.toLowerCase()),
         )
       : [];
 
   // Parse commands suggestion visibility
-  const showCommands = query === "" || query.startsWith("/");
-  const cleanArg = query.startsWith("/clean ") ? query.slice(7).trim() : "";
+  const showCommands = query === '' || query.startsWith('/');
+  const cleanArg = query.startsWith('/clean ') ? query.slice(7).trim() : '';
 
   return (
     <Command.Dialog
@@ -326,9 +344,11 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
       overlayClassName="xos-launcher-overlay"
       contentClassName="xos-launcher"
     >
-      {commandMode === "log" && (
+      {commandMode === 'log' && (
         <div className="xos-launcher-form">
-          <div className="xos-launcher-form__header">Consigner une note d'appel</div>
+          <div className="xos-launcher-form__header">
+            Consigner une note d'appel
+          </div>
 
           {logSuccess ? (
             <div className="xos-launcher-form__status xos-launcher-form__status--success">
@@ -343,11 +363,17 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
               )}
 
               <div className="xos-launcher-form__group">
-                <label htmlFor="log-record-search" className="xos-launcher-form__label">Associer à (compte, contact, opp)*</label>
+                <label
+                  htmlFor="log-record-search"
+                  className="xos-launcher-form__label"
+                >
+                  Associer à (compte, contact, opp)*
+                </label>
                 {logRecord ? (
                   <div className="xos-launcher-form__badge">
                     <span>
-                      <strong>[{GROUP_LABELS[logRecord.type]}]</strong> {logRecord.name}
+                      <strong>[{GROUP_LABELS[logRecord.type]}]</strong>{' '}
+                      {logRecord.name}
                     </span>
                     <Button
                       type="button"
@@ -370,7 +396,9 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                       onChange={(e) => setLogSearchQuery(e.target.value)}
                       autoFocus
                     />
-                    {logSearchLoading && <div className="xos-launcher__status">Recherche…</div>}
+                    {logSearchLoading && (
+                      <div className="xos-launcher__status">Recherche…</div>
+                    )}
                     {logSearchResults.length > 0 && (
                       <div className="xos-launcher-form__autocomplete-list">
                         {logSearchResults.map((r) => (
@@ -379,12 +407,17 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                             className="xos-launcher-form__autocomplete-item"
                             onClick={() => {
                               setLogRecord(r);
-                              setLogSearchQuery("");
+                              setLogSearchQuery('');
                               setLogSearchResults([]);
                             }}
                           >
                             <span>{r.name}</span>
-                            <span style={{ color: "var(--xos-text-muted)", fontSize: "0.75rem" }}>
+                            <span
+                              style={{
+                                color: 'var(--xos-text-muted)',
+                                fontSize: '0.75rem',
+                              }}
+                            >
                               {GROUP_LABELS[r.type]}
                             </span>
                           </div>
@@ -396,7 +429,12 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
               </div>
 
               <div className="xos-launcher-form__group">
-                <label htmlFor="log-comments" className="xos-launcher-form__label">Note d'appel*</label>
+                <label
+                  htmlFor="log-comments"
+                  className="xos-launcher-form__label"
+                >
+                  Note d'appel*
+                </label>
                 <textarea
                   id="log-comments"
                   className="xos-launcher-form__textarea"
@@ -423,7 +461,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                   onClick={handleLogSubmit}
                   disabled={logLoading || !logRecord || !logComments.trim()}
                 >
-                  {logLoading ? "Enregistrement…" : "Enregistrer la note"}
+                  {logLoading ? 'Enregistrement…' : 'Enregistrer la note'}
                 </Button>
               </div>
             </>
@@ -431,9 +469,11 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
         </div>
       )}
 
-      {commandMode === "create" && (
+      {commandMode === 'create' && (
         <div className="xos-launcher-form">
-          <div className="xos-launcher-form__header">Créer un contact express</div>
+          <div className="xos-launcher-form__header">
+            Créer un contact express
+          </div>
 
           {createSuccess ? (
             <div className="xos-launcher-form__status xos-launcher-form__status--success">
@@ -447,9 +487,14 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <div className="xos-launcher-form__group" style={{ flex: 1 }}>
-                  <label htmlFor="create-firstname" className="xos-launcher-form__label">Prénom</label>
+                  <label
+                    htmlFor="create-firstname"
+                    className="xos-launcher-form__label"
+                  >
+                    Prénom
+                  </label>
                   <input
                     id="create-firstname"
                     type="text"
@@ -460,7 +505,12 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                   />
                 </div>
                 <div className="xos-launcher-form__group" style={{ flex: 1 }}>
-                  <label htmlFor="create-lastname" className="xos-launcher-form__label">Nom*</label>
+                  <label
+                    htmlFor="create-lastname"
+                    className="xos-launcher-form__label"
+                  >
+                    Nom*
+                  </label>
                   <input
                     id="create-lastname"
                     type="text"
@@ -472,9 +522,14 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <div className="xos-launcher-form__group" style={{ flex: 1 }}>
-                  <label htmlFor="create-email" className="xos-launcher-form__label">Email</label>
+                  <label
+                    htmlFor="create-email"
+                    className="xos-launcher-form__label"
+                  >
+                    Email
+                  </label>
                   <input
                     id="create-email"
                     type="email"
@@ -484,7 +539,12 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                   />
                 </div>
                 <div className="xos-launcher-form__group" style={{ flex: 1 }}>
-                  <label htmlFor="create-phone" className="xos-launcher-form__label">Téléphone</label>
+                  <label
+                    htmlFor="create-phone"
+                    className="xos-launcher-form__label"
+                  >
+                    Téléphone
+                  </label>
                   <input
                     id="create-phone"
                     type="text"
@@ -496,7 +556,12 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
               </div>
 
               <div className="xos-launcher-form__group">
-                <label htmlFor="create-account-search" className="xos-launcher-form__label">Associer à un compte (optionnel)</label>
+                <label
+                  htmlFor="create-account-search"
+                  className="xos-launcher-form__label"
+                >
+                  Associer à un compte (optionnel)
+                </label>
                 {createAccount ? (
                   <div className="xos-launcher-form__badge">
                     <span>{createAccount.name}</span>
@@ -520,7 +585,9 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                       value={createAccountQuery}
                       onChange={(e) => setCreateAccountQuery(e.target.value)}
                     />
-                    {createAccountLoading && <div className="xos-launcher__status">Recherche…</div>}
+                    {createAccountLoading && (
+                      <div className="xos-launcher__status">Recherche…</div>
+                    )}
                     {createAccountResults.length > 0 && (
                       <div className="xos-launcher-form__autocomplete-list">
                         {createAccountResults.map((acc) => (
@@ -529,7 +596,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                             className="xos-launcher-form__autocomplete-item"
                             onClick={() => {
                               setCreateAccount(acc);
-                              setCreateAccountQuery("");
+                              setCreateAccountQuery('');
                               setCreateAccountResults([]);
                             }}
                           >
@@ -559,7 +626,7 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                   onClick={handleCreateSubmit}
                   disabled={createLoading || !createLastName.trim()}
                 >
-                  {createLoading ? "Création…" : "Créer le contact"}
+                  {createLoading ? 'Création…' : 'Créer le contact'}
                 </Button>
               </div>
             </>
@@ -586,64 +653,97 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                 Erreur de recherche.
               </div>
             )}
-            {!isLoading && !error && query.length >= 2 && results.length === 0 && matchingApps.length === 0 && !query.startsWith("/") && (
-              <Command.Empty className="xos-launcher__status">
-                Aucun résultat.
-              </Command.Empty>
-            )}
-            {!isLoading && !error && query.length < 2 && !query.startsWith("/") && (
-              <div className="xos-launcher__status">
-                Tapez au moins 2 caractères…
-              </div>
-            )}
+            {!isLoading &&
+              !error &&
+              query.length >= 2 &&
+              results.length === 0 &&
+              matchingApps.length === 0 &&
+              !query.startsWith('/') && (
+                <Command.Empty className="xos-launcher__status">
+                  Aucun résultat.
+                </Command.Empty>
+              )}
+            {!isLoading &&
+              !error &&
+              query.length < 2 &&
+              !query.startsWith('/') && (
+                <div className="xos-launcher__status">
+                  Tapez au moins 2 caractères…
+                </div>
+              )}
 
             {/* Custom Command items */}
             {showCommands && (
-              <Command.Group heading="Commandes" className="xos-launcher__group">
-                {("/log".startsWith(query) || query === "/") && (
+              <Command.Group
+                heading="Commandes"
+                className="xos-launcher__group"
+              >
+                {('/log'.startsWith(query) || query === '/') && (
                   <Command.Item
                     value="/log"
                     className="xos-launcher__item"
                     onSelect={() => {
-                      setCommandMode("log");
-                      setQuery("");
+                      setCommandMode('log');
+                      setQuery('');
                     }}
                   >
-                    <span className="xos-launcher__item-icon" aria-hidden="true">✎</span>
+                    <span
+                      className="xos-launcher__item-icon"
+                      aria-hidden="true"
+                    >
+                      ✎
+                    </span>
                     <span className="xos-launcher__item-name">/log</span>
-                    <span className="xos-launcher__item-detail">Consigner une note d'appel Salesforce</span>
+                    <span className="xos-launcher__item-detail">
+                      Consigner une note d'appel Salesforce
+                    </span>
                   </Command.Item>
                 )}
-                {("/create".startsWith(query) || query === "/") && (
+                {('/create'.startsWith(query) || query === '/') && (
                   <Command.Item
                     value="/create"
                     className="xos-launcher__item"
                     onSelect={() => {
-                      setCommandMode("create");
-                      setQuery("");
+                      setCommandMode('create');
+                      setQuery('');
                     }}
                   >
-                    <span className="xos-launcher__item-icon" aria-hidden="true">⊕</span>
+                    <span
+                      className="xos-launcher__item-icon"
+                      aria-hidden="true"
+                    >
+                      ⊕
+                    </span>
                     <span className="xos-launcher__item-name">/create</span>
-                    <span className="xos-launcher__item-detail">Créer un contact express dans Salesforce</span>
+                    <span className="xos-launcher__item-detail">
+                      Créer un contact express dans Salesforce
+                    </span>
                   </Command.Item>
                 )}
-                {(query.startsWith("/clean") || query === "/") && (
+                {(query.startsWith('/clean') || query === '/') && (
                   <Command.Item
                     value="/clean"
                     className="xos-launcher__item"
                     onSelect={() => {
-                      const cleanerApp = getAppManifest("cleaner");
+                      const cleanerApp = getAppManifest('cleaner');
                       if (cleanerApp) {
-                        onOpenApp(cleanerApp, cleanArg ? { q: cleanArg } : undefined);
+                        onOpenApp(
+                          cleanerApp,
+                          cleanArg ? { q: cleanArg } : undefined,
+                        );
                       }
                       setOpen(false);
                     }}
                   >
-                    <span className="xos-launcher__item-icon" aria-hidden="true">◈</span>
+                    <span
+                      className="xos-launcher__item-icon"
+                      aria-hidden="true"
+                    >
+                      ◈
+                    </span>
                     <span className="xos-launcher__item-name">/clean</span>
                     <span className="xos-launcher__item-detail">
-                      Ouvrir Labo{cleanArg ? ` filtré sur "${cleanArg}"` : ""}
+                      Ouvrir Labo{cleanArg ? ` filtré sur "${cleanArg}"` : ''}
                     </span>
                   </Command.Item>
                 )}
@@ -663,7 +763,10 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
                       setOpen(false);
                     }}
                   >
-                    <span className="xos-launcher__item-icon" aria-hidden="true">
+                    <span
+                      className="xos-launcher__item-icon"
+                      aria-hidden="true"
+                    >
                       {app.icon}
                     </span>
                     <span className="xos-launcher__item-name">{app.title}</span>
@@ -673,43 +776,50 @@ export function Launcher({ accessToken, onOpenApp, apps = appRegistry }: Launche
             )}
 
             {/* Salesforce results */}
-            {!query.startsWith("/") && (["Account", "Contact", "Opportunity"] as const).map((type) => {
-              const items = grouped[type];
-              if (!items?.length) return null;
-              return (
-                <Command.Group
-                  key={type}
-                  heading={GROUP_LABELS[type]}
-                  className="xos-launcher__group"
-                >
-                  {items.map((item) => (
-                    <Command.Item
-                      key={item.id}
-                      value={`${item.name} ${item.detail}`}
-                      className="xos-launcher__item"
-                      onSelect={() => {
-                        if (item.recordUrl)
-                          window.open(item.recordUrl, "_blank", "noopener,noreferrer");
-                        setOpen(false);
-                      }}
-                    >
-                      <span className="xos-launcher__item-name">{item.name}</span>
-                      {item.detail && (
-                        <span className="xos-launcher__item-detail">
-                          {item.detail}
+            {!query.startsWith('/') &&
+              (['Account', 'Contact', 'Opportunity'] as const).map((type) => {
+                const items = grouped[type];
+                if (!items?.length) return null;
+                return (
+                  <Command.Group
+                    key={type}
+                    heading={GROUP_LABELS[type]}
+                    className="xos-launcher__group"
+                  >
+                    {items.map((item) => (
+                      <Command.Item
+                        key={item.id}
+                        value={`${item.name} ${item.detail}`}
+                        className="xos-launcher__item"
+                        onSelect={() => {
+                          if (item.recordUrl)
+                            window.open(
+                              item.recordUrl,
+                              '_blank',
+                              'noopener,noreferrer',
+                            );
+                          setOpen(false);
+                        }}
+                      >
+                        <span className="xos-launcher__item-name">
+                          {item.name}
                         </span>
-                      )}
-                    </Command.Item>
-                  ))}
-                </Command.Group>
-              );
-            })}
+                        {item.detail && (
+                          <span className="xos-launcher__item-detail">
+                            {item.detail}
+                          </span>
+                        )}
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                );
+              })}
           </Command.List>
         </>
       )}
       <div className="xos-launcher__footer">
-        <kbd>⌘K</kbd> pour ouvrir · <kbd>↑↓</kbd> naviguer ·{" "}
-        <kbd>↵</kbd> ouvrir · <kbd>esc</kbd> fermer
+        <kbd>⌘K</kbd> pour ouvrir · <kbd>↑↓</kbd> naviguer · <kbd>↵</kbd> ouvrir
+        · <kbd>esc</kbd> fermer
       </div>
     </Command.Dialog>
   );

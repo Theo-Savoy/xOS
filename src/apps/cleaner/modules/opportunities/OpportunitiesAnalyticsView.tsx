@@ -343,14 +343,18 @@ export function OpportunitiesAnalyticsView({
           [
             'Anomalies détectées',
             totals.anomalies,
-            'Vue d\'ensemble — plusieurs anomalies par opportunité possibles.',
+            "Vue d'ensemble — plusieurs anomalies par opportunité possibles.",
           ],
           [
             'Enregistrements concernés',
             totals.affectedItems ?? totals.totalItems,
-            'Nombre d\'opportunités présentant au moins une anomalie.',
+            "Nombre d'opportunités présentant au moins une anomalie.",
           ],
-          ['CA concerné', amount(totals.amount), 'Somme des montants des opportunités concernées.'],
+          [
+            'CA concerné',
+            amount(totals.amount),
+            'Somme des montants des opportunités concernées.',
+          ],
           ['En retard', totals.overdue, 'overdue'],
           ['Owners inactifs', totals.inactiveOwners, 'inactiveOwners'],
           ['Montants incohérents', totals.amountIncoherent, 'amountIncoherent'],

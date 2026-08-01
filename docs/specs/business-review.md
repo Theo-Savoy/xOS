@@ -1,86 +1,454 @@
-# Contrat Business Review — Cockpit macro & partage d'analyses
+# Bilan — Cockpit macro & partage d'analyses
 
-> Contrat v1 rédigé le 2026-07-11. **Décisions actées le même jour** : (a) **deux apps** — Weekly Perf reste le rituel micro hebdo, Business Review porte le macro (pas de all-in-one à onglets) ; (b) **partage d'analyses** manager/admin → commercial inclus au périmètre. Les définitions et seuils passent par l'audit 6.0 + validation Théo avant l'UI (invariant du plan).
+> Spec dev-ready v2 — 2026-07-23. Remplace `business-review.md` v1 (contrat).
+> Sources : Dashboard V6 (`/Users/theosavoy/xos-dashboard/references/`), collecteur `fetch_dashboard_data_v2.py` (6 requêtes SOQL), WeeklyApp (patterns Recharts/GlassCard), spec v1 (décisions actées 2026-07-11).
 
-## 1. Intention produit
+## 1. Nom & branding
 
-Le cockpit **macro** du pilotage : sessions d'analyse manager/direction sur période longue, là où Weekly Perf répond au rituel hebdo. Portage X OS du **dashboard V6** construit côté Hermes (référence : `/Users/theosavoy/xos-dashboard`, skill `xos-salesforce-reporting` — spec V6 validée le 2026-06-25), en remplaçant le pipeline Python/cron par l'API Vercel cachée.
+**Bilan** — la régie théâtrale : l'endroit d'où le metteur en scène monitore tout le spectacle.
 
-**Ce que Business Review n'est pas** : pas un outil de saisie ; pas un deuxième Weekly Perf (les définitions d'activité restent celles de `docs/specs/weekly-perf.md`) ; pas de LLM.
+| App       | Métaphore         | Rôle                                 |
+| --------- | ----------------- | ------------------------------------ |
+| Labo      | Laboratoire       | Expérimentation, data hygiene        |
+| Combo     | Jeu vidéo         | Prospection, gamification            |
+| Lundi     | Rituel hebdo      | Micro-métriques, pulse               |
+| **Bilan** | **Bilan théâtre** | **Cockpit macro, pilotage, partage** |
+| Coulisses | Backstage         | Settings, configuration              |
 
-## 2. Périmètre fonctionnel
+- Registry ID : `"review"` (inchangé pour les deep links existants `?open=review`)
+- Titre dock : `"Bilan"`
+- Icône : pupitre de régie / sliders horizontaux (à créer dans `AppIcons.tsx`)
+- Kicker sections : pattern Lundi (`COPY` objet avec `kicker` + `hint`)
 
-### 2.1 Sélecteur de période & comparaisons
-- **Granularité** : Année / Trimestre / Mois / Semaine (l'annuel est obligatoire).
-- **Navigation historique** : toute période sélectionnable (FY, trimestre, mois, semaine ISO) ; défaut en vue semaine = **dernière semaine complète** (jamais la semaine en cours).
-- **Comparaison automatique** : même période **N-1** (primaire) et **N-2** (secondaire, si les données SF couvrent la profondeur — à vérifier en 6.0). Toujours same-period-last-year, jamais une baseline fixe.
-- **Tous les KPIs suivent la période sélectionnée** (aucune tuile figée sur le FY).
+## 2. Intention produit
 
-### 2.2 Contenu (hérité du V6, re-scopé X OS)
-- **Filtre commercial** : Global / par commercial — liste pilotée par `profiles` + `sf_user_map`, **jamais de prénoms en dur**.
-- **KPIs adaptatifs** : CA signé, pipeline généré, taux de closing (nb et €), activité (appels/RDV — définitions Weekly Perf).
-- **Répartition du CA par type de vente** (`Type_de_vente__c` via le mapping CRM) : donut avec nb, % **et montants**.
-- **Funnel SDR** (`Resultat_call__c`) : entonnoir décroché → argumenté → RDV planifié.
-- **Opportunités à l'attention** : opps sans action (score de pertinence = ancienneté × montant × probabilité, top 15 + modale « Voir tout »), opps clés / chaudes (top 10 + modale).
-- **Vues par rôle** (V6 « dashboard-management-principles ») : lecture macro → pilotage → décision ; le détail par personne reste filtrable, pas de classement public (Arena).
+Le cockpit **macro** du pilotage commercial. Sessions d'analyse manager/direction sur période longue (année, trimestre, mois, semaine). Portage du Dashboard V6 dans le portail, en remplaçant le pipeline Python/cron par l'API Vercel.
 
-### 2.3 Partage d'analyses *(nouveau — acté 2026-07-11)*
-Un manager/admin peut **partager une analyse avec un commercial** :
-- Une **analyse partagée** = la **configuration de vue** (granularité, période, filtre commercial, sections visibles) + une **note du manager** (contexte, consigne). V1 : les données sont **recalculées à l'ouverture** (pas de snapshot figé — rien des données SF n'est copié en Postgres ; l'option snapshot jsonb est notée pour plus tard si le besoin « photo au moment T » se confirme).
-- **Destinataire** : un profil (ou « toute l'équipe »). Le commercial voit l'analyse **telle que configurée par le manager** — le partage explicite vaut autorisation de lecture sur ce périmètre précis (c'est le manager qui décide d'exposer une vue équipe ou re-scopée sur le destinataire).
-- **Accès** : l'app est visible de tous les rôles ; un commercial n'a **que** l'onglet « Partagées avec moi » (pas d'explorateur macro libre). Manager/admin ont tout + bouton « Partager cette analyse » sur la vue courante.
-- **Notification v1** : badge sur l'icône dock + entrée à l'ouverture de l'app. Deep link `?open=review&shared=<id>` (pattern existant). Pas d'email/Slack en v1.
+**Ce que Bilan n'est pas** :
 
-## 3. Données & pièges hérités du V6 (obligations, vérifiées en revue)
+- Pas un outil de saisie
+- Pas un deuxième Lundi (les définitions d'activité restent celles de `weekly-perf.md`)
+- Pas de LLM
+- Pas de classement public (Arena gère l'émulation)
 
-- **Owner, pas créateur** : toute attribution d'activité par `OwnerId` (`CreatedById` peut être un admin qui saisit pour un commercial — cas réel Paul/Théo).
-- **Semaine ISO vérifiée** contre une date réelle (un helper décalé d'une semaine corrompt tout).
-- **Pas de double comptage** : « Global » inclut déjà chaque commercial — ne jamais sommer Global + individus.
-- **Sur-mesure 6 mois glissants** : `CloseDate ∈ [aujourd'hui, +180 j]`, jamais de CloseDate passées dans le prévisionnel.
-- **RDV** : date de référence `ActivityDate` (events rétroactifs fréquents dans l'org) — cohérent Weekly Perf.
-- Stages fantômes : uniquement `IsWon`/`IsClosed`, pas de libellés en dur.
+## 3. Périmètre fonctionnel
 
-## 4. Contrat API (draft — figé au lot 6.1 après l'audit)
+### 3.1 Sélecteur de période & comparaisons
 
-**Endpoint** : `GET /api/review?resource=…` — routeur unique (pattern `api/calls.js`), helpers `api/_review/`. Fonction Vercel supplémentaire (plafond Hobby 12 — inventaire `docs/ops/vercel-functions.md` à mettre à jour).
+- **Granularité** : Année / Trimestre / Mois / Semaine
+- **Navigation** : toute période sélectionnable (FY, trimestre, mois, semaine ISO)
+- **Défaut** : dernière semaine complète (jamais la semaine en cours)
+- **Comparaison** : N-1 (primaire) + N-2 (secondaire, si profondeur SF disponible)
+- **FY** : juillet → juin (acté 2026-07-11)
+- **Tous les KPIs suivent la période** — aucune tuile figée
 
-| Resource | Contenu | Params |
-|---|---|---|
-| `kpis` | KPIs + comparaisons N-1/N-2 | `granularity`, `period`, `owner?` |
-| `breakdown` | CA par type de vente | idem |
-| `funnel` | funnel SDR | idem |
-| `attention` | opps sans action / clés / chaudes | `owner?`, `limit` |
-| `shared` | analyses partagées avec moi / par moi | — |
+### 3.2 Sections (portage V6)
 
-- `POST /api/review` `{action: "share", config, note, recipient_id|all}` — réservé manager/admin ; `{action: "unshare", id}` idem ; lecture d'une analyse partagée : autorisée au destinataire (config resservie telle quelle, données recalculées).
-- **Authz** : JWT requis ; `granularity/period/owner` libres pour manager/admin ; pour un commercial, **uniquement** via une analyse partagée dont il est destinataire (la config vient de la table, pas du client).
-- **Cache** : `s-maxage=3600` (macro = fraîcheur horaire suffisante, quota API SF préservé) ; `shared` : pas de cache CDN (données par utilisateur, header `private`).
-- **Erreurs** : 401 / 403 (commercial hors analyse partagée) / 400 période invalide / 502 SF.
+| #   | Section         | Kicker          | Contenu                                                                                                    |
+| --- | --------------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| 1   | **Cockpit**     | `"Cockpit"`     | 3 KPIs principaux (CA signé, pipeline généré, taux closing) + comparatif N-1                               |
+| 2   | **Activité**    | `"Activité"`    | RDV + opps créées, stacked bar par commercial                                                              |
+| 3   | **Performance** | `"Performance"` | Donut CA par `Type_de_vente__c` (nb + % + montants), closing rate (nb et €)                                |
+| 4   | **Funnel**      | `"Funnel"`      | Entonnoir SDR : décroché → argumenté → RDV planifié (`Resultat_call__c`)                                   |
+| 5   | **Attention**   | `"Attention"`   | Opps sans action (score = ancienneté × montant × probabilité, top 15 + modale), opps clés/chaudes (top 10) |
+| 6   | **Appels**      | `"Appels"`      | Calls/semaine + funnel SDR (si données Combo disponibles)                                                  |
 
-## 5. Persistance (migration Supabase)
+### 3.3 Filtre commercial
 
-Table `shared_analyses` : `id`, `created_by` (profile), `recipient_id` (profile, **null = toute l'équipe**), `config jsonb`, `note text`, `created_at`, `revoked_at` (null = actif). RLS : lecture destinataire/créateur/admin ; écriture service-role only (pattern existant). Pas de `read_at` en v1 (YAGNI — le badge front suffit).
+- Global / par commercial
+- Liste pilotée par `profiles` + `sf_user_map` — **jamais de prénoms en dur**
+- Manager/admin : tous les commerciaux
+- Commercial : uniquement via analyse partagée
 
-## 6. UI (`src/apps/review/` — lot 6.2)
+### 3.4 Partage d'analyses
 
-- Fenêtre X OS (`id: "review"`, dock visible tous rôles), charte glassmorphism, graphiques Recharts (dépendance posée au lot 3.2).
-- **Manager/admin** : barre période (granularité + navigation + rappel comparatif « vs N-1 »), barre filtres commercial, sections V6 (KPIs → CA/donut → funnel → attention), bouton « Partager cette analyse ».
-- **Commercial** : liste « Partagées avec moi » (note du manager en tête, config en lecture seule).
-- Wording des comparatifs **explicite** (« T2 FY26 vs T2 FY25 »), pas de « +12 % » sans référence.
-- États : skeleton / vide / erreur + Réessayer (patterns Weekly).
+- Manager/admin partage une **configuration de vue** (granularité, période, filtre, sections visibles) + **note**
+- Destinataire : un profil ou "toute l'équipe"
+- Données **recalculées à l'ouverture** (pas de snapshot)
+- Commercial : uniquement l'onglet "Partagées avec moi"
+- Notification : badge dock + entrée à l'ouverture. Deep link `?open=review&shared=<id>`
+- Révocation : `revoked_at` → l'analyse disparaît
 
-## 7. Découpage en lots (remplace les lots 6.x initiaux)
+## 4. Architecture
 
-- **6.0 Audit** — étendu : ~~FY XOS~~ **acté : juillet–juin** (2026-07-11, cf. `weekly-perf.md` § 9.1), définitions CA signé, profondeur d'historique pour N-2, valeurs réelles `Type_de_vente__c` (vérifiées 2026-07-11 : Catalogue, Sur-mesure, Conseil, LMS, XOS+) / `Resultat_call__c`, volumétrie/coût SOQL des requêtes longues. **Validation Théo** — bloque la suite.
-- **6.1 `api/review.js`** + migration `shared_analyses` + mapping (types de vente si absents).
-- **6.2 UI** `src/apps/review/` + registry + partage bout en bout.
+```
+src/apps/review/
+├── ReviewApp.tsx          # Shell : tabs (Explorateur | Partagées), sélecteur période
+├── ReviewApp.css
+├── review.types.ts        # Types partagés
+├── review.api.ts          # apiFetch wrappers
+├── sections/
+│   ├── CockpitSection.tsx   # KPIs + comparatif
+│   ├── ActivitySection.tsx  # RDV + opps, stacked bar
+│   ├── PerformanceSection.tsx # Donut CA, closing rate
+│   ├── FunnelSection.tsx    # Entonnoir SDR
+│   ├── AttentionSection.tsx # Opps sans action + clés
+│   └── CallsSection.tsx     # Appels/semaine
+├── components/
+│   ├── PeriodSelector.tsx   # Granularité + navigation + rappel "vs N-1"
+│   ├── OwnerFilter.tsx      # Global / par commercial
+│   ├── KpiCard.tsx          # Tuile KPI (valeur + delta N-1)
+│   ├── ShareModal.tsx       # Partager cette analyse
+│   ├── SharedList.tsx       # Liste "Partagées avec moi"
+│   └── OppTable.tsx         # Table opps (attention, clés)
+└── helpers.ts             # FY logic, période, formatage
 
-## 8. Critères d'acceptation
+api/review.js              # Routeur unique (?resource=kpis|breakdown|funnel|attention|calls|shared)
+api/_review/
+├── soql.js                # Requêtes SOQL (portées du collecteur V6)
+├── kpis.js                # Agrégation KPIs + comparaisons
+├── breakdown.js           # CA par type de vente
+├── funnel.js              # Funnel SDR
+├── attention.js           # Opps sans action / clés / chaudes
+├── calls.js               # Stats appels
+└── shared.js              # CRUD analyses partagées
+```
 
-1. Changer granularité/période met à jour **tous** les KPIs ; vue semaine par défaut = dernière semaine complète.
-2. Comparaison N-1 exacte sur une période pilote recoupée vs SOQL manuel (±5 %) ; N-2 si profondeur disponible.
-3. Filtre commercial piloté par les profils (aucun prénom en dur dans le code).
-4. Partage : manager partage une vue → le commercial la voit avec la note ; un commercial sans partage n'accède à aucune donnée macro (403) ; révocation effective.
-5. Donut CA : nb + % + montants ; funnel avec les vraies valeurs picklist du mapping.
-6. Cache 1 h sur les resources macro ; `shared` en `private`.
-7. Gate QC standard (tsc, eslint, build, non-régression Cleaner) + tests API des règles d'authz.
+### Patterns existants à suivre
+
+| Pattern                      | Source                 | Application              |
+| ---------------------------- | ---------------------- | ------------------------ |
+| Routeur unique `?resource=`  | `api/calls.js`         | `api/review.js`          |
+| Helpers dans sous-dossier    | `api/_calls/`          | `api/_review/`           |
+| `apiFetch` + JWT             | `src/lib/apiClient.ts` | `review.api.ts`          |
+| GlassCard + Tag + Skeleton   | `src/components/ui/`   | Toutes les sections      |
+| Recharts (Bar, Pie, Line)    | `WeeklyApp.tsx`        | Graphiques               |
+| `COPY` objet (kicker + hint) | `WeeklyApp.tsx:47-80`  | Titres de sections       |
+| `sf_user_map` pour les noms  | `api/_crm/mapping.js`  | Jamais de prénoms en dur |
+| Supabase RLS + service-role  | Pattern existant       | Table `shared_analyses`  |
+
+## 5. Contrat API
+
+**Endpoint** : `GET /api/review?resource=…`
+
+| Resource    | Contenu                                 | Params                            | Cache           |
+| ----------- | --------------------------------------- | --------------------------------- | --------------- |
+| `kpis`      | CA signé, pipeline, closing + N-1/N-2   | `granularity`, `period`, `owner?` | `s-maxage=3600` |
+| `breakdown` | CA par `Type_de_vente__c`               | idem                              | `s-maxage=3600` |
+| `funnel`    | Funnel SDR (`Resultat_call__c`)         | idem                              | `s-maxage=3600` |
+| `attention` | Opps sans action + clés + chaudes       | `owner?`, `limit?`                | `s-maxage=3600` |
+| `calls`     | Stats appels (volume, funnel)           | idem                              | `s-maxage=3600` |
+| `shared`    | Analyses partagées (avec moi / par moi) | —                                 | `private`       |
+
+**POST** `/api/review` :
+
+- `{action: "share", config: jsonb, note: string, recipient_id?: string}` — manager/admin only
+- `{action: "unshare", id: number}` — manager/admin only
+
+**Authz** :
+
+- JWT requis sur toutes les resources
+- `granularity/period/owner` libres pour manager/admin
+- Commercial : **uniquement** via analyse partagée (config vient de la table, pas du client)
+- 401 / 403 / 400 / 502
+
+### Params
+
+```
+granularity: "year" | "quarter" | "month" | "week"
+period:      "FY26" | "FY26-Q2" | "2026-03" | "2026-W14"
+owner:       sf_user_id (optionnel, défaut = global)
+```
+
+## 6. Requêtes SOQL (portage V6)
+
+Portées du collecteur `fetch_dashboard_data_v2.py`. **OwnerId, jamais CreatedById.**
+
+### R1 — Opps par CloseDate (CA signé, pipeline, closing, attention)
+
+```sql
+SELECT Id, Name, OwnerId, Owner.Name, AccountId, Account.Name, StageName,
+       CloseDate, Amount, Probability, IsWon, IsClosed, CreatedDate,
+       Type_de_vente__c, ExpectedRevenue, LastActivityDate
+FROM Opportunity
+WHERE OwnerId IN (:teamIds)
+  AND CloseDate >= :queryStart
+ORDER BY CloseDate ASC
+```
+
+### R2 — Opps par CreatedDate (pipeline généré)
+
+```sql
+SELECT Id, Name, OwnerId, Owner.Name, AccountId, Account.Name, StageName,
+       CloseDate, Amount, Probability, IsWon, IsClosed, CreatedDate,
+       Type_de_vente__c, ExpectedRevenue
+FROM Opportunity
+WHERE OwnerId IN (:teamIds)
+  AND CreatedDate >= :queryStart
+ORDER BY CreatedDate ASC
+```
+
+### R3 — Events (RDV)
+
+```sql
+SELECT Id, Subject, ActivityDate, CreatedDate, OwnerId, Owner.Name,
+       DurationInMinutes
+FROM Event
+WHERE OwnerId IN (:teamIds)
+  AND CreatedDate >= :queryStart
+```
+
+Filtre JS : `Subject.toLowerCase().includes("rdv")`
+
+### R4 — Appels (funnel SDR)
+
+```sql
+SELECT Id, Subject, ActivityDate, CreatedDate, OwnerId, Owner.Name,
+       TaskSubtype, Status, Resultat_call__c, CallDurationInSeconds
+FROM Task
+WHERE OwnerId IN (:teamIds)
+  AND CreatedDate >= :queryStart
+  AND TaskSubtype = 'Call'
+```
+
+### R5 — Comparatif N-1 (même période année précédente)
+
+Mêmes requêtes R1/R2 avec les bornes N-1.
+
+### R6 — Mensuel N-1 (historique annuel comparé)
+
+R2 avec bornes FY N-1.
+
+### Logique FY (portée du collecteur)
+
+```js
+// FY juillet → juin
+function fyIntForDay(d) {
+  return d.getMonth() >= 6
+    ? d.getFullYear() + 1 - 2000
+    : d.getFullYear() - 2000;
+}
+function fyBounds(fyInt) {
+  return [new Date(2000 + fyInt - 1, 6, 1), new Date(2000 + fyInt, 5, 30)];
+}
+function quarterIndex(d) {
+  return d.getMonth() >= 6
+    ? Math.floor((d.getMonth() - 6) / 3) + 1
+    : Math.floor((d.getMonth() + 6) / 3);
+}
+```
+
+### Règles de calcul
+
+| KPI               | Définition                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| CA signé          | `SUM(Amount)` où `IsWon = true` et `CloseDate ∈ période`                                                                  |
+| Pipeline généré   | `COUNT` + `SUM(Amount)` des opps `CreatedDate ∈ période`                                                                  |
+| Taux closing (nb) | `IsWon / (IsWon + IsClosed-Lost)` sur la période                                                                          |
+| Taux closing (€)  | `SUM(Amount won) / SUM(Amount closed)` sur la période                                                                     |
+| RDV               | Events avec "rdv" dans Subject, `ActivityDate ∈ période`                                                                  |
+| Funnel SDR        | `Resultat_call__c` : "Appel non décroché" + "Message répondeur" → "Appel décroché" → "Appel argumenté" → "RDV planifié"   |
+| Opps sans action  | `IsClosed = false` AND `LastActivityDate` ancien. Score = `days_since_activity × (Amount/1000) × (Probability/100 + 0.1)` |
+| Sur-mesure 6 mois | `CloseDate ∈ [aujourd'hui, +180j]`, jamais de CloseDate passées                                                           |
+
+### Pièges (hérités V6, obligatoires)
+
+- **Owner, pas créateur** : attribution par `OwnerId` (CreatedById peut être un admin)
+- **Semaine ISO** : vérifier contre une date réelle (helper décalé = tout corrompt)
+- **Pas de double comptage** : "Global" inclut chaque commercial — ne jamais sommer Global + individus
+- **Stages fantômes** : uniquement `IsWon`/`IsClosed`, pas de libellés en dur
+- **RDV rétroactifs** : `ActivityDate` comme référence (events créés après coup)
+
+## 7. Persistance (Supabase)
+
+```sql
+CREATE TABLE shared_analyses (
+  id            BIGSERIAL PRIMARY KEY,
+  created_by    UUID REFERENCES profiles(id) NOT NULL,
+  recipient_id  UUID REFERENCES profiles(id),  -- NULL = toute l'équipe
+  config        JSONB NOT NULL,
+  -- config shape: { granularity, period, owner?, sections: string[] }
+  note          TEXT,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  revoked_at    TIMESTAMPTZ  -- NULL = actif
+);
+
+-- RLS
+ALTER TABLE shared_analyses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read_own_shared" ON shared_analyses
+  FOR SELECT USING (
+    created_by = auth.uid()
+    OR recipient_id = auth.uid()
+    OR recipient_id IS NULL
+  );
+-- Écriture via service-role uniquement (pattern existant)
+```
+
+## 8. UI — Composants
+
+### 8.1 ReviewApp (shell)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Bilan                                    [Partager]    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [Année] [Trimestre] [Mois] [Semaine]  ◀ FY26 ▶ │    │
+│  │ Commercial: [Global ▼]    vs FY25 (N-1)        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                         │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐                  │
+│  │CA signé │ │Pipeline │ │Closing  │  ← CockpitSection │
+│  │  245k€  │ │  180k€  │ │  32%    │                  │
+│  │ +12% N-1│ │ -3% N-1 │ │ +5pts   │                  │
+│  └─────────┘ └─────────┘ └─────────┘                  │
+│                                                         │
+│  ┌──────────────────────┐ ┌──────────────────────┐     │
+│  │ Activité (stacked)   │ │ Performance (donut)  │     │
+│  └──────────────────────┘ └──────────────────────┘     │
+│  ┌──────────────────────┐ ┌──────────────────────┐     │
+│  │ Funnel SDR           │ │ Attention (opps)     │     │
+│  └──────────────────────┘ └──────────────────────┘     │
+│  ┌──────────────────────────────────────────────┐      │
+│  │ Appels                                       │      │
+│  └──────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 8.2 Commercial (vue restreinte)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Bilan                                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Partagées avec moi                              │    │
+│  │                                                 │    │
+│  │ 📋 T2 FY26 — Paul                              │    │
+│  │    "Focus sur le pipeline sur-mesure,           │    │
+│  │     3 opps à pousser avant fin juin"            │    │
+│  │    [Ouvrir]                                     │    │
+│  │                                                 │    │
+│  │ 📋 Semaine 14 — Toute l'équipe                  │    │
+│  │    "Bonne semaine, on maintient le rythme"      │    │
+│  │    [Ouvrir]                                     │    │
+│  └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 8.3 Composants Recharts
+
+| Section     | Chart                                   | Recharts                       |
+| ----------- | --------------------------------------- | ------------------------------ |
+| Cockpit     | KPI cards (pas de chart)                | —                              |
+| Activité    | Stacked bar (RDV + opps par commercial) | `BarChart` + `Bar stackId`     |
+| Performance | Donut CA par type                       | `PieChart` + `Pie innerRadius` |
+| Funnel      | Entonnoir horizontal                    | `BarChart layout="vertical"`   |
+| Attention   | Table (pas de chart)                    | —                              |
+| Appels      | Line (calls/semaine) + bar (funnel)     | `LineChart` + `BarChart`       |
+
+### 8.4 COPY (pattern Lundi)
+
+```ts
+const COPY = {
+  cockpit: {
+    kicker: 'Cockpit',
+    hint: 'CA signé, pipeline généré, taux de closing — et si on tient le rythme vs N-1.',
+  },
+  activity: {
+    kicker: 'Activité',
+    hint: 'RDV et détections par commercial — le moteur du pipeline.',
+  },
+  performance: {
+    kicker: 'Performance',
+    hint: 'Répartition du CA par type de vente, closing rate en volume et en valeur.',
+  },
+  funnel: {
+    kicker: 'Funnel',
+    hint: 'Du décroché au RDV planifié — où ça convertit, où ça coince.',
+  },
+  attention: {
+    kicker: 'Attention',
+    hint: 'Les opps qui dorment et les deals qui comptent — à traiter en priorité.',
+  },
+  calls: {
+    kicker: 'Appels',
+    hint: "Volume d'appels et funnel SDR — l'activité qui alimente le pipeline.",
+  },
+};
+```
+
+## 9. Lots
+
+### 6.0 — Audit & validation — ⬜ (partiellement fait)
+
+**Fait** : FY juillet→juin acté, picklists vérifiées (`Type_de_vente__c` : Catalogue, Sur-mesure, Conseil, LMS, XOS+ / `Resultat_call__c` : 5 valeurs).
+
+**Reste** :
+
+- Profondeur historique SF : N-2 disponible ? (vérifier `CreatedDate` la plus ancienne)
+- Volumétrie SOQL : nombre d'opps sur 3 FY, temps de réponse, pagination
+- `sf_user_map` : vérifier que tous les commerciaux actuels sont mappés
+- Validation Théo sur les sections à porter en priorité
+
+**Bloque** : 6.1
+
+### 6.1 — API + migration — ⬜
+
+- `api/review.js` : routeur (`?resource=kpis|breakdown|funnel|attention|calls|shared`)
+- `api/_review/soql.js` : les 6 requêtes portées du collecteur V6 (paramétrées par période)
+- `api/_review/kpis.js` : agrégation + comparaisons N-1/N-2
+- `api/_review/breakdown.js` : CA par type
+- `api/_review/funnel.js` : funnel SDR
+- `api/_review/attention.js` : scoring opps sans action
+- `api/_review/calls.js` : stats appels
+- `api/_review/shared.js` : CRUD analyses partagées
+- Migration Supabase : `shared_analyses`
+- Cache headers : `s-maxage=3600` macro, `private` shared
+- Authz : JWT + rôle (commercial → shared only)
+
+**Vérifié par** :
+
+- `curl /api/review?resource=kpis&granularity=quarter&period=FY26-Q2` → JSON cohérent
+- Comparaison manuelle SOQL vs API (±5%)
+- Commercial sans partage → 403 sur `kpis`
+- `POST share` → `GET shared` → l'analyse apparaît
+
+### 6.2 — UI — ⬜
+
+- `src/apps/review/ReviewApp.tsx` : shell + tabs
+- `src/apps/review/sections/` : 6 sections (Cockpit → Appels)
+- `src/apps/review/components/` : PeriodSelector, OwnerFilter, KpiCard, ShareModal, SharedList, OppTable
+- Registry : ajout `id: "review"`, `title: "Bilan"`, icône, `defaultSize: { w: 1200, h: 760 }`
+- Dock : visible tous rôles
+- Deep link : `?open=review&shared=<id>`
+- États : Skeleton / EmptyState / erreur + Réessayer
+- Wording comparatifs explicite : "T2 FY26 vs T2 FY25", jamais "+12%" seul
+
+**Vérifié par** :
+
+- Changer granularité → tous les KPIs se mettent à jour
+- Filtre commercial → données filtrées
+- Donut : nb + % + montants
+- Funnel : vraies valeurs picklist
+- Partage bout en bout : manager partage → commercial voit → révocation effective
+- `npm run build` + `npm run lint` + `npm run test` passent
+
+## 10. Critères d'acceptation
+
+1. Changer granularité/période met à jour **tous** les KPIs ; défaut = dernière semaine complète
+2. Comparaison N-1 exacte (±5% vs SOQL manuel) ; N-2 si profondeur disponible
+3. Filtre commercial piloté par `profiles` + `sf_user_map` (aucun prénom en dur)
+4. Partage : manager partage → commercial voit avec la note ; commercial sans partage → 403 ; révocation effective
+5. Donut CA : nb + % + montants ; funnel avec les vraies valeurs picklist
+6. Cache 1h macro ; `shared` en `private`
+7. Gate QC : `tsc`, `eslint`, `build`, non-régression Cleaner + tests API authz
+8. Registry : `"Bilan"` dans le dock, icône dédiée, deep link fonctionnel
+
+## 11. Dépendances
+
+| Prérequis                                               | État                 | Bloque                     |
+| ------------------------------------------------------- | -------------------- | -------------------------- |
+| Phase 8 OAuth SF                                        | ✅                   | 6.1 (accès API SF)         |
+| Adapter CRM `api/_crm/`                                 | ✅                   | 6.1 (mapping, sf_user_map) |
+| Recharts                                                | ✅ (déjà dans Lundi) | 6.2                        |
+| Design system (GlassCard, Tag, Skeleton, Select, Modal) | ✅                   | 6.2                        |
+| Fonction Vercel (10/12)                                 | ⬜                   | 6.1                        |
+| Validation Théo sections prioritaires                   | ⬜                   | 6.1                        |
+
+## 12. Hors périmètre (v1)
+
+- ❌ Snapshot figé (données recalculées à l'ouverture)
+- ❌ Email/Slack notification (badge dock suffit)
+- ❌ Export PDF/Excel
+- ❌ LLM / IA
+- ❌ Classement public (Arena)
+- ❌ Sections V6 non portées en v1 : Forecast, Aide à la décision, Historique annuel (v2 si besoin)

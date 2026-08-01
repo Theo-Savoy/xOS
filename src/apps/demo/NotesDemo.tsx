@@ -1,10 +1,22 @@
-import { Button, GlassCard, Tag } from "../../components/ui";
-import "./demo.css";
+import { Button, GlassCard, Tag } from '../../components/ui';
+import './demo.css';
 
 const notes = [
-  { title: "Relancer Acme", meta: "Aujourd’hui · 14:30", variant: "alert" as const },
-  { title: "Préparer le weekly", meta: "Demain · 09:00", variant: "accent" as const },
-  { title: "Qualifier les comptes entrants", meta: "Vendredi", variant: "default" as const },
+  {
+    title: 'Relancer Acme',
+    meta: 'Aujourd’hui · 14:30',
+    variant: 'alert' as const,
+  },
+  {
+    title: 'Préparer le weekly',
+    meta: 'Demain · 09:00',
+    variant: 'accent' as const,
+  },
+  {
+    title: 'Qualifier les comptes entrants',
+    meta: 'Vendredi',
+    variant: 'default' as const,
+  },
 ];
 
 export default function NotesDemo() {
@@ -28,7 +40,9 @@ export default function NotesDemo() {
               <strong>{note.title}</strong>
               <small>{note.meta}</small>
             </div>
-            <Tag variant={note.variant}>{index === 0 ? "Prioritaire" : "À faire"}</Tag>
+            <Tag variant={note.variant}>
+              {index === 0 ? 'Prioritaire' : 'À faire'}
+            </Tag>
           </GlassCard>
         ))}
       </div>

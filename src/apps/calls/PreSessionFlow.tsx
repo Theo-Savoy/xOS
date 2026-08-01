@@ -71,9 +71,9 @@ export function PreSessionFlow({
   const phaseIndex = PHASE_ORDER.indexOf(phase);
   const showRecallNudge = recallQueueCount > 0;
   const showInactivityNudge =
-    !showRecallNudge
-    && daysSinceLastSession != null
-    && daysSinceLastSession > 7;
+    !showRecallNudge &&
+    daysSinceLastSession != null &&
+    daysSinceLastSession > 7;
 
   useComboOverlay(true, panelRef, onCancel);
 
@@ -190,7 +190,10 @@ export function PreSessionFlow({
                   {showRecallNudge && (
                     <p>
                       Commence par les rappels :{' '}
-                      <strong className="xos-numeric">{recallQueueCount}</strong> dû
+                      <strong className="xos-numeric">
+                        {recallQueueCount}
+                      </strong>{' '}
+                      dû
                       {recallQueueCount > 1 ? 's' : ''} aujourd&apos;hui
                       {onOpenRecalls && (
                         <>
@@ -210,8 +213,12 @@ export function PreSessionFlow({
                   {showInactivityNudge && daysSinceLastSession != null && (
                     <p>
                       Ça fait{' '}
-                      <strong className="xos-numeric">{daysSinceLastSession}</strong> jour
-                      {daysSinceLastSession > 1 ? 's' : ''} — on reprend avec tes presets ?
+                      <strong className="xos-numeric">
+                        {daysSinceLastSession}
+                      </strong>{' '}
+                      jour
+                      {daysSinceLastSession > 1 ? 's' : ''} — on reprend avec
+                      tes presets ?
                     </p>
                   )}
                 </GlassCard>

@@ -1,22 +1,24 @@
-import type { RecallInboxItem, SessionContact, SessionDetail } from "./types";
+import type { RecallInboxItem, SessionContact, SessionDetail } from './types';
 
 /** Synthetic session id for the infinite recall queue (not persisted). */
 export const RECALL_QUEUE_SESSION_ID = -1;
 
 export const RECALL_QUEUE_SESSION: SessionDetail = {
   id: RECALL_QUEUE_SESSION_ID,
-  name: "Rappels",
-  status: "active",
-  created_at: "1970-01-01T00:00:00.000Z",
+  name: 'Rappels',
+  status: 'active',
+  created_at: '1970-01-01T00:00:00.000Z',
   scheduled_for: null,
-  session_type: "relance",
+  session_type: 'relance',
 };
 
-export type RecallDateFilter = "today" | "overdue" | "upcoming" | "all";
+export type RecallDateFilter = 'today' | 'overdue' | 'upcoming' | 'all';
 
-export type RecallSessionFilter = "all" | number;
+export type RecallSessionFilter = 'all' | number;
 
-export function recallsToSessionContacts(recalls: RecallInboxItem[]): SessionContact[] {
+export function recallsToSessionContacts(
+  recalls: RecallInboxItem[],
+): SessionContact[] {
   return recalls.map((item, index) => ({
     id: item.id,
     position: index,
@@ -28,7 +30,7 @@ export function recallsToSessionContacts(recalls: RecallInboxItem[]): SessionCon
     email: item.email ?? null,
     title: item.title ?? null,
     linkedin_url: item.linkedin_url ?? null,
-    status: "pending",
+    status: 'pending',
     outcome: item.outcome,
     comments: null,
     sf_task_id: null,
@@ -47,10 +49,10 @@ export function matchesRecallDateFilter(
   filter: RecallDateFilter,
   today: string,
 ): boolean {
-  if (!recallAt) return filter === "all";
-  if (filter === "all") return true;
-  if (filter === "today") return recallAt === today;
-  if (filter === "overdue") return recallAt < today;
+  if (!recallAt) return filter === 'all';
+  if (filter === 'all') return true;
+  if (filter === 'today') return recallAt === today;
+  if (filter === 'overdue') return recallAt < today;
   return recallAt > today;
 }
 
@@ -58,17 +60,20 @@ export function matchesRecallSessionFilter(
   originSessionId: number | null | undefined,
   filter: RecallSessionFilter,
 ): boolean {
-  if (filter === "all") return true;
+  if (filter === 'all') return true;
   return originSessionId === filter;
 }
 
 export function listRecallOriginSessions(
-  contacts: Array<{ origin_session_id?: number | null; origin_session_name?: string | null }>,
+  contacts: Array<{
+    origin_session_id?: number | null;
+    origin_session_name?: string | null;
+  }>,
 ): Array<{ id: number; name: string; count: number }> {
   const byId = new Map<number, { id: number; name: string; count: number }>();
   for (const contact of contacts) {
     const id = contact.origin_session_id;
-    if (typeof id !== "number" || id < 1) continue;
+    if (typeof id !== 'number' || id < 1) continue;
     const existing = byId.get(id);
     if (existing) {
       existing.count += 1;
@@ -80,10 +85,13 @@ export function listRecallOriginSessions(
       count: 1,
     });
   }
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 }
 
-export function countRecallDateFilters(recalls: RecallInboxItem[], today: string) {
+export function countRecallDateFilters(
+  recalls: RecallInboxItem[],
+  today: string,
+) {
   const counts = { today: 0, overdue: 0, upcoming: 0, all: recalls.length };
   for (const item of recalls) {
     if (item.recall_at === today) counts.today += 1;

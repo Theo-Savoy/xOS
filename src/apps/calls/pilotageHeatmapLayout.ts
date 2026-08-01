@@ -1,4 +1,4 @@
-import type { CockpitHeatmapDay } from "./pilotageApi";
+import type { CockpitHeatmapDay } from './pilotageApi';
 
 export type HeatmapMonthMarker = {
   col: number;
@@ -14,12 +14,12 @@ export type WeekdayHeatmapGrid = {
   monthMarkers: HeatmapMonthMarker[];
 };
 
-const WEEKDAY_LABELS = ["Lu", "Ma", "Me", "Je", "Ve"] as const;
+const WEEKDAY_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve'] as const;
 
 export { WEEKDAY_LABELS };
 
 function parseUtcDate(date: string): Date {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y, m, d] = date.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d, 12));
 }
 
@@ -34,11 +34,13 @@ function isoWeekdayIndex(date: Date): number {
 }
 
 function monthLabel(date: Date): string {
-  return date.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
+  return date.toLocaleDateString('fr-FR', { month: 'short', timeZone: 'UTC' });
 }
 
 /** GitHub-style grid: 5 weekday rows × week columns (Mon–Fri only). */
-export function buildWeekdayHeatmapGrid(days: CockpitHeatmapDay[]): WeekdayHeatmapGrid {
+export function buildWeekdayHeatmapGrid(
+  days: CockpitHeatmapDay[],
+): WeekdayHeatmapGrid {
   if (days.length === 0) {
     return { columns: 0, rows: [], monthMarkers: [] };
   }
@@ -55,8 +57,9 @@ export function buildWeekdayHeatmapGrid(days: CockpitHeatmapDay[]): WeekdayHeatm
   const numWeeks =
     Math.floor((last.getTime() - gridStart.getTime()) / (7 * 86_400_000)) + 1;
 
-  const rows: Array<Array<CockpitHeatmapDay | null>> = Array.from({ length: 5 }, () =>
-    Array.from({ length: numWeeks }, () => null),
+  const rows: Array<Array<CockpitHeatmapDay | null>> = Array.from(
+    { length: 5 },
+    () => Array.from({ length: numWeeks }, () => null),
   );
 
   for (let col = 0; col < numWeeks; col++) {
@@ -89,7 +92,11 @@ export function buildWeekdayHeatmapGrid(days: CockpitHeatmapDay[]): WeekdayHeatm
       if (!cell) continue;
       const monthKey = cell.date.slice(0, 7);
       if (labeledMonths.has(monthKey)) continue;
-      monthMarkers.push({ col, row, label: monthLabel(parseUtcDate(cell.date)) });
+      monthMarkers.push({
+        col,
+        row,
+        label: monthLabel(parseUtcDate(cell.date)),
+      });
       labeledMonths.add(monthKey);
     }
   }

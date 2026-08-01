@@ -1,14 +1,14 @@
 /** Modèle badges one-timer Combo. Pas d'UI, pas de notifs — voir docs/specs/combo-gamification-v1.md §1.4. */
 
 export type BadgeId =
-  | "premier_pas"
-  | "eclair"
-  | "trois_banderilles"
-  | "leve_tot"
-  | "marathon"
-  | "sang_froid"
-  | "relais"
-  | "mur_reussites";
+  | 'premier_pas'
+  | 'eclair'
+  | 'trois_banderilles'
+  | 'leve_tot'
+  | 'marathon'
+  | 'sang_froid'
+  | 'relais'
+  | 'mur_reussites';
 
 export interface BadgeCheckInput {
   /** Nombre total de séances complétées par l'utilisateur. */
@@ -27,7 +27,10 @@ export interface BadgeCheckInput {
   muraReussiteSigned: boolean;
 }
 
-const CRITERIA: Record<Exclude<BadgeId, "relais">, (state: BadgeCheckInput) => boolean> = {
+const CRITERIA: Record<
+  Exclude<BadgeId, 'relais'>,
+  (state: BadgeCheckInput) => boolean
+> = {
   premier_pas: (state) => state.sessionsCompletedCount >= 1,
   eclair: (state) => state.shortcutsUsedToday >= 50,
   trois_banderilles: (state) => state.rdvInCurrentSession >= 3,
@@ -37,9 +40,12 @@ const CRITERIA: Record<Exclude<BadgeId, "relais">, (state: BadgeCheckInput) => b
   mur_reussites: (state) => state.muraReussiteSigned,
 };
 
-export function checkBadges(state: BadgeCheckInput, currentBadges: string[]): BadgeId[] {
+export function checkBadges(
+  state: BadgeCheckInput,
+  currentBadges: string[],
+): BadgeId[] {
   const unlocked: BadgeId[] = [];
-  for (const badgeId of Object.keys(CRITERIA) as Exclude<BadgeId, "relais">[]) {
+  for (const badgeId of Object.keys(CRITERIA) as Exclude<BadgeId, 'relais'>[]) {
     if (!currentBadges.includes(badgeId) && CRITERIA[badgeId](state)) {
       unlocked.push(badgeId);
     }

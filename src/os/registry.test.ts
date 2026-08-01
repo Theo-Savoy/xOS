@@ -1,31 +1,40 @@
-import { describe, expect, it } from "vitest";
-import { appRegistry, getAppManifest } from "./registry";
+import { describe, expect, it } from 'vitest';
+import { appRegistry, getAppManifest } from './registry';
 
-describe("appRegistry", () => {
-  it("always includes cleaner and calls", () => {
+describe('appRegistry', () => {
+  it('always includes cleaner and calls', () => {
     const ids = appRegistry.map((app) => app.id);
-    expect(ids).toContain("cleaner");
-    expect(ids).toContain("calls");
+    expect(ids).toContain('cleaner');
+    expect(ids).toContain('calls');
   });
 
-  it("includes demo fixtures only in DEV mode", () => {
+  it('includes demo fixtures only in DEV mode', () => {
     if (import.meta.env.DEV) {
       expect(appRegistry.map((app) => app.id)).toEqual([
-        "cleaner",
-        "calls",
-        "weekly",
-        "hub",
-        "overview-demo",
-        "notes-demo",
-        "ui-demo",
+        'cleaner',
+        'calls',
+        'weekly',
+        'review',
+        'hub',
+        'overview-demo',
+        'notes-demo',
+        'ui-demo',
       ]);
     } else {
-      expect(appRegistry.map((app) => app.id)).toEqual(["cleaner", "calls", "weekly", "hub"]);
+      expect(appRegistry.map((app) => app.id)).toEqual([
+        'cleaner',
+        'calls',
+        'weekly',
+        'review',
+        'hub',
+      ]);
     }
   });
 
-  it("exposes unique ids and usable default window sizes", () => {
-    expect(new Set(appRegistry.map((app) => app.id)).size).toBe(appRegistry.length);
+  it('exposes unique ids and usable default window sizes', () => {
+    expect(new Set(appRegistry.map((app) => app.id)).size).toBe(
+      appRegistry.length,
+    );
     for (const app of appRegistry) {
       expect(app.title.length).toBeGreaterThan(0);
       expect(app.defaultSize.w).toBeGreaterThanOrEqual(480);
@@ -33,8 +42,8 @@ describe("appRegistry", () => {
     }
   });
 
-  it("finds a manifest by id", () => {
-    expect(getAppManifest("cleaner")?.title).toBe("Labo");
-    expect(getAppManifest("unknown")).toBeUndefined();
+  it('finds a manifest by id', () => {
+    expect(getAppManifest('cleaner')?.title).toBe('Labo');
+    expect(getAppManifest('unknown')).toBeUndefined();
   });
 });

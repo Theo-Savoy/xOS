@@ -1,18 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { countSessionRdvs, rdvHeatLevel } from "./rdvCelebrate";
+import { describe, expect, it } from 'vitest';
+import { countSessionRdvs, rdvHeatLevel } from './rdvCelebrate';
 
-describe("rdvCelebrate", () => {
-  it("counts RDV in the session", () => {
+describe('rdvCelebrate', () => {
+  it('counts RDV in the session', () => {
     expect(
       countSessionRdvs([
-        { outcome: "RDV planifié" },
-        { outcome: "Appel décroché" },
-        { outcome: "RDV planifié" },
+        { outcome: 'RDV planifié' },
+        { outcome: 'Appel décroché' },
+        { outcome: 'RDV planifié' },
       ]),
     ).toBe(2);
   });
 
-  it("escalates heat with count and goal hit", () => {
+  it('escalates heat with count and goal hit', () => {
     expect(rdvHeatLevel(1, false)).toBe(1);
     expect(rdvHeatLevel(2, false)).toBe(2);
     expect(rdvHeatLevel(3, false)).toBe(3);
@@ -21,7 +21,7 @@ describe("rdvCelebrate", () => {
     expect(rdvHeatLevel(2, true)).toBe(5);
   });
 
-  it("starts progression at the first RDV", () => {
+  it('starts progression at the first RDV', () => {
     expect(rdvHeatLevel(1, false)).toBe(1);
   });
 });

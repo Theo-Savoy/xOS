@@ -6,7 +6,7 @@
 
 > **État d'application (2026-07-14).** Correctifs code appliqués : **C1** (migration `029_lock_rls_service_role_tables.sql`), **H3** (suppression du middleware password + cookie `xos_auth`), **H2** (en-têtes dans `vercel.json`, CSP en `Report-Only`), **M1** (CORS restreint à `APP_ORIGIN`). Tests : 750/750 ✅, build ✅.
 > **Actions manuelles restantes** : appliquer la migration `029` en prod (projet `xos-portal`) ; retirer `DASHBOARD_PASSWORD` des env Vercel ; définir `APP_ORIGIN` en env Vercel ; promouvoir la CSP de `Report-Only` → enforced après observation ; **M2/M3** et §7 non traités (voir plus bas).
-**Hors périmètre** (à vérifier séparément, voir §7) : configuration Supabase Auth (console), variables d'environnement Vercel, politiques d'accès Salesforce côté org.
+> **Hors périmètre** (à vérifier séparément, voir §7) : configuration Supabase Auth (console), variables d'environnement Vercel, politiques d'accès Salesforce côté org.
 
 ---
 
@@ -16,18 +16,18 @@ Le produit a de **bonnes fondations** : JWT réellement validé côté serveur, 
 
 **Mais un défaut systémique domine tout le reste** : la sécurité des données repose **entièrement sur la logique applicative** (le service-role Supabase contourne RLS), or **plusieurs tables contenant des données personnelles ont une policy `SELECT ... using(true)`** ouverte à tout utilisateur authentifié. Résultat : **n'importe quel employé connecté peut exfiltrer toute la base prospects (noms, téléphones, emails) directement via l'API REST Supabase**, en contournant complètement le scoping fait par `api/`.
 
-| # | Sévérité | Titre | Fuite de données ? |
-|---|----------|-------|--------------------|
-| C1 | 🔴 Critique | RLS `using(true)` sur les tables PII accédées uniquement via service-role | **Oui — toute la base contacts** |
-| H1 | 🟠 Élevé | RLS n'est pas la frontière de sécurité (dépendance totale au service-role) | Potentielle (régression) |
-| H2 | 🟠 Élevé | Absence totale d'en-têtes de sécurité HTTP (CSP, HSTS, frame-ancestors…) | Via XSS/clickjacking |
-| H3 | 🟠 Élevé | `DASHBOARD_PASSWORD` utilisé en clair comme valeur de cookie, secret partagé statique | Franchit le gate |
-| M1 | 🟡 Moyen | CORS `Access-Control-Allow-Origin: *` sur toutes les routes API | Amplifie un vol de token |
-| M2 | 🟡 Moyen | Aucun rate-limiting (login, /api/auth, recherche SOSL, écritures SF) | Brute-force / abus |
-| M3 | 🟡 Moyen | Contrôle du domaine email uniquement dans le trigger DB | Dépend de la conf Supabase |
-| M4 | 🟡 Moyen | PII prospects (email/tel) stockées en clair dans `action_journal` | Minimisation GDPR |
-| M5 | 🟡 Moyen | Secrets en copies locales `.env.local` / `.env.vercel` | Vol poste dev |
-| L1–L3 | 🔵 Faible | Fallbacks hardcodés, cache token 5 min, messages d'erreur SF verbeux | Marginale |
+| #     | Sévérité    | Titre                                                                                 | Fuite de données ?               |
+| ----- | ----------- | ------------------------------------------------------------------------------------- | -------------------------------- |
+| C1    | 🔴 Critique | RLS `using(true)` sur les tables PII accédées uniquement via service-role             | **Oui — toute la base contacts** |
+| H1    | 🟠 Élevé    | RLS n'est pas la frontière de sécurité (dépendance totale au service-role)            | Potentielle (régression)         |
+| H2    | 🟠 Élevé    | Absence totale d'en-têtes de sécurité HTTP (CSP, HSTS, frame-ancestors…)              | Via XSS/clickjacking             |
+| H3    | 🟠 Élevé    | `DASHBOARD_PASSWORD` utilisé en clair comme valeur de cookie, secret partagé statique | Franchit le gate                 |
+| M1    | 🟡 Moyen    | CORS `Access-Control-Allow-Origin: *` sur toutes les routes API                       | Amplifie un vol de token         |
+| M2    | 🟡 Moyen    | Aucun rate-limiting (login, /api/auth, recherche SOSL, écritures SF)                  | Brute-force / abus               |
+| M3    | 🟡 Moyen    | Contrôle du domaine email uniquement dans le trigger DB                               | Dépend de la conf Supabase       |
+| M4    | 🟡 Moyen    | PII prospects (email/tel) stockées en clair dans `action_journal`                     | Minimisation GDPR                |
+| M5    | 🟡 Moyen    | Secrets en copies locales `.env.local` / `.env.vercel`                                | Vol poste dev                    |
+| L1–L3 | 🔵 Faible   | Fallbacks hardcodés, cache token 5 min, messages d'erreur SF verbeux                  | Marginale                        |
 
 **Priorité absolue avant prod : corriger C1.** C'est la seule faille exploitable par un utilisateur légitime pour une exfiltration massive, et elle est directement pertinente RGPD.
 
@@ -113,6 +113,7 @@ drop policy if exists "call_target_presets_select"    on public.call_target_pres
 **Pour `badges`, `challenge_results`, `challenges`, `settings`** (`001`) : si le front les lit un jour, préférer un scoping ligne plutôt qu'un revoke. Sinon, revoke également. Aujourd'hui aucune n'est lue par le front → revoke.
 
 **Vérification.** Après migration, avec un JWT valide :
+
 ```bash
 curl "$VITE_SUPABASE_URL/rest/v1/call_session_contacts?select=phone" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $USER_JWT"
@@ -132,6 +133,7 @@ curl "$VITE_SUPABASE_URL/rest/v1/call_session_contacts?select=phone" \
 C'est un risque structurel, pas un bug ponctuel. L'audit n'a pas trouvé de filtre manquant dans les routes actuelles (bon), mais la surface grandit à chaque feature.
 
 **Correctifs.**
+
 1. **Corriger C1 d'abord** : une fois RLS resserrée, elle redevient un filet de sécurité même sur le chemin service-role si un jour une route bascule sur la clé anon.
 2. **Convention de code** : toute nouvelle requête service-role sur une table multi-utilisateur DOIT porter un `.eq()` de scoping ou passer par un helper `assertSessionAccess`-like. À documenter dans `CLAUDE.md`.
 3. **Test de non-régression** : un test qui, pour chaque endpoint, vérifie qu'un utilisateur A ne peut pas lire/modifier une ressource de l'utilisateur B (il en existe déjà pour les sessions — étendre aux presets, perf, notifications).
@@ -159,11 +161,20 @@ C'est un risque structurel, pas un bug ponctuel. L'audit n'a pas trouvé de filt
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://<projet>.supabase.co https://*.salesforce.com; frame-src https://<projet>.supabase.co; frame-ancestors 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'self'; form-action 'self'" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; connect-src 'self' https://<projet>.supabase.co https://*.salesforce.com; frame-src https://<projet>.supabase.co; frame-ancestors 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'self'; form-action 'self'"
+        }
       ]
     }
   ]
@@ -179,11 +190,13 @@ C'est un risque structurel, pas un bug ponctuel. L'audit n'a pas trouvé de filt
 **Fichiers** : `middleware.js:66-77,91-99`, `api/auth.js:41-51`.
 
 **Problème.** Le cookie de gate vaut **littéralement le mot de passe** :
+
 ```js
 'Set-Cookie': `xos_auth=${password}; ... Max-Age=2592000`   // 30 jours
 // vérification :
 cookieHeader.split(/;\s*/).includes('xos_auth=' + password)
 ```
+
 - **Secret partagé unique** pour toute l'équipe : impossible de révoquer un accès individuel, pas de rotation sans casser tout le monde.
 - **Le mot de passe transite et se stocke tel quel** dans le cookie ; comparaison par `includes` (non constant-time, timing marginal).
 - Max-Age 30 jours : un cookie volé reste valide un mois.
@@ -191,6 +204,7 @@ cookieHeader.split(/;\s*/).includes('xos_auth=' + password)
 **Nuance importante (ce que ce gate ne protège PAS et ne casse PAS).** Les endpoints `api/*` revérifient tous le JWT. Donc connaître `DASHBOARD_PASSWORD` seul ne donne accès à **aucune donnée** (il faut un JWT valide en plus). Ce gate est en pratique **redondant** avec l'auth JWT : il ne protège que le chargement du shell SPA, qui est de toute façon public sur `/`. La sévérité vient surtout de la mauvaise hygiène (secret partagé statique, valeur = secret) et du faux sentiment de protection.
 
 **Correctifs (au choix, par ordre de simplicité).**
+
 1. **Le plus simple** : reconnaître que le gate est décoratif et le **supprimer** — l'auth réelle est le JWT sur `/api/*`. Retirer `xos_auth`/`DASHBOARD_PASSWORD`/`POST /login` réduit la surface et un secret à gérer.
 2. Si on garde un gate de démo : ne pas mettre le mot de passe **dans** le cookie. Poser un jeton opaque aléatoire signé (HMAC de `DASHBOARD_PASSWORD` + timestamp), comparer en constant-time, Max-Age plus court (24 h).
 
@@ -205,9 +219,11 @@ Recommandation : **option 1** (supprimer), sauf besoin métier explicite d'un mu
 **Problème.** Toute origine peut envoyer des requêtes cross-origin à l'API. L'auth se fait par header `Authorization: Bearer` (pas par cookie) → **pas de CSRF classique** (un site tiers ne peut pas forger le header sans le token). Mais `*` élargit inutilement la surface : combiné à un vol de token (via XSS, H2), il permet à n'importe quel site de piloter l'API.
 
 **Correctif.** Restreindre à l'origine du produit :
+
 ```js
 "Access-Control-Allow-Origin": "https://<domaine-prod>.vercel.app"
 ```
+
 (ou renvoyer l'origine uniquement si elle est dans une allowlist). Comme l'API et le front sont same-origin sur Vercel, le CORS peut même être retiré des routes hors intégrations externes.
 
 ---
@@ -217,6 +233,7 @@ Recommandation : **option 1** (supprimer), sauf besoin métier explicite d'un mu
 **Fichiers** : `middleware.js` (`POST /login`), `api/auth.js`, `api/launcher.js` (SOSL), `api/cleaner.js` (bulk).
 
 **Problème.** Rien ne limite :
+
 - Le brute-force de `DASHBOARD_PASSWORD` sur `POST /login` (401 sans throttle).
 - Les appels `/api/launcher?q=` (recherche SOSL `IN ALL FIELDS`) et créations SF — un compte compromis peut brûler les quotas API Salesforce et générer du coût / du bruit.
 - Un abus de `/api/auth`.
@@ -232,6 +249,7 @@ Recommandation : **option 1** (supprimer), sauf besoin métier explicite d'un mu
 **Problème.** La restriction `@xos-learning.fr` est appliquée par `handle_new_user()` (trigger `after insert on auth.users`) — bonne défense côté DB. Mais l'ouverture réelle des inscriptions et la sécurité du magic link dépendent de **paramètres Supabase Auth hors repo** : autorisation des signups, confirmation email, et surtout **whitelist des Redirect URLs** (un redirect non restreint = fuite de token OTP via open-redirect / phishing).
 
 **Correctif (console Supabase, à vérifier — voir §7).**
+
 - Restreindre les **Redirect URLs** à l'origine de prod uniquement (pas de wildcard).
 - Confirmer que le trigger lève bien et **annule** la création (rollback) pour un domaine non autorisé (le code le fait via `raise exception` — bon).
 - Envisager la restriction de domaine aussi côté Auth settings (allowlist) en plus du trigger.
@@ -280,32 +298,28 @@ Recommandation : **option 1** (supprimer), sauf besoin métier explicite d'un mu
 
 ## 5. Scénarios d'attaque (synthèse)
 
-| Attaquant | Vecteur | Aujourd'hui | Après correctifs |
-|-----------|---------|-------------|------------------|
-| Employé curieux / compte phishé | Console navigateur → `supabase.from('call_session_contacts')` | **Dump complet des prospects (PII)** | Bloqué (C1) |
-| Site tiers malveillant | CSRF vers `/api/*` | Bloqué (auth par Bearer, pas cookie) | Idem + CORS resserré (M1) |
-| XSS (dépendance compromise) | Vol du JWT en localStorage | Session usurpée, pas de CSP | Fortement mitigé (H2) |
-| Fuite de `DASHBOARD_PASSWORD` | Cookie forgé | Franchit le gate, **mais 0 donnée sans JWT** | Gate supprimé/durci (H3) |
-| Brute-force `/login` | Requêtes répétées | Non limité | Rate-limité (M2) |
-| Compte SF détourné | Search SOSL massive / créations | Quotas SF brûlés | Rate-limité (M2) |
+| Attaquant                       | Vecteur                                                       | Aujourd'hui                                  | Après correctifs          |
+| ------------------------------- | ------------------------------------------------------------- | -------------------------------------------- | ------------------------- |
+| Employé curieux / compte phishé | Console navigateur → `supabase.from('call_session_contacts')` | **Dump complet des prospects (PII)**         | Bloqué (C1)               |
+| Site tiers malveillant          | CSRF vers `/api/*`                                            | Bloqué (auth par Bearer, pas cookie)         | Idem + CORS resserré (M1) |
+| XSS (dépendance compromise)     | Vol du JWT en localStorage                                    | Session usurpée, pas de CSP                  | Fortement mitigé (H2)     |
+| Fuite de `DASHBOARD_PASSWORD`   | Cookie forgé                                                  | Franchit le gate, **mais 0 donnée sans JWT** | Gate supprimé/durci (H3)  |
+| Brute-force `/login`            | Requêtes répétées                                             | Non limité                                   | Rate-limité (M2)          |
+| Compte SF détourné              | Search SOSL massive / créations                               | Quotas SF brûlés                             | Rate-limité (M2)          |
 
 ---
 
 ## 6. Plan d'action priorisé
 
 **Bloquant avant prod :**
-1. **C1** — Migration `029` : `revoke select` sur les tables PII non lues par le front (+ drop policies mortes). *Vérifié par : `curl` REST authentifié renvoie `[]`/403 sur `call_session_contacts`.*
-2. **H2** — En-têtes de sécurité dans `vercel.json` (CSP en `Report-Only` d'abord). *Vérifié par : `curl -I` montre les headers ; app fonctionnelle sans violation CSP.*
-3. **H3** — Supprimer (ou durcir) le gate `DASHBOARD_PASSWORD`/`xos_auth`. *Vérifié par : login JWT toujours fonctionnel ; plus de secret en clair dans le cookie.*
 
-**Fortement recommandé avant ouverture large :**
-4. **M1** — CORS restreint à l'origine prod.
-5. **M2** — Rate-limiting `/login`, `/api/launcher`, `/api/cleaner`.
-6. **M3** — Verrouiller Redirect URLs Supabase + confirmer réglages Auth (§7).
-7. **H1** — Convention + tests d'isolation inter-utilisateurs ; documenter dans `CLAUDE.md`.
+1. **C1** — Migration `029` : `revoke select` sur les tables PII non lues par le front (+ drop policies mortes). _Vérifié par : `curl` REST authentifié renvoie `[]`/403 sur `call_session_contacts`._
+2. **H2** — En-têtes de sécurité dans `vercel.json` (CSP en `Report-Only` d'abord). _Vérifié par : `curl -I` montre les headers ; app fonctionnelle sans violation CSP._
+3. **H3** — Supprimer (ou durcir) le gate `DASHBOARD_PASSWORD`/`xos_auth`. _Vérifié par : login JWT toujours fonctionnel ; plus de secret en clair dans le cookie._
 
-**Amélioration continue :**
-8. M4 (rétention `action_journal`), M5 (rotation/gestion secrets), L1–L3.
+**Fortement recommandé avant ouverture large :** 4. **M1** — CORS restreint à l'origine prod. 5. **M2** — Rate-limiting `/login`, `/api/launcher`, `/api/cleaner`. 6. **M3** — Verrouiller Redirect URLs Supabase + confirmer réglages Auth (§7). 7. **H1** — Convention + tests d'isolation inter-utilisateurs ; documenter dans `CLAUDE.md`.
+
+**Amélioration continue :** 8. M4 (rétention `action_journal`), M5 (rotation/gestion secrets), L1–L3.
 
 ---
 
@@ -320,4 +334,4 @@ Ces points ne sont pas dans le repo mais conditionnent la sécurité réelle :
 
 ---
 
-*Audit réalisé par lecture statique du code au commit courant de `main`. Il ne remplace pas un test d'intrusion dynamique, notamment sur la configuration Supabase/Vercel/Salesforce (§7).*
+_Audit réalisé par lecture statique du code au commit courant de `main`. Il ne remplace pas un test d'intrusion dynamique, notamment sur la configuration Supabase/Vercel/Salesforce (§7)._

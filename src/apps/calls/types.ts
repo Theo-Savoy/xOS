@@ -6,23 +6,29 @@ import {
   type ResultatCall,
   type Tier,
   type TypeClient,
-} from "../../crm";
+} from '../../crm';
 
-export type ContactStatus = "pending" | "called" | "skipped";
+export type ContactStatus = 'pending' | 'called' | 'skipped';
 
-export type SessionStatus = "active" | "completed";
+export type SessionStatus = 'active' | 'completed';
 
-export type SessionType = "prospection" | "suivi_opportunites" | "suivi_clients" | "relance";
+export type SessionType =
+  'prospection' | 'suivi_opportunites' | 'suivi_clients' | 'relance';
 
 export const SESSION_TYPE_OPTIONS: { value: SessionType; label: string }[] = [
-  { value: "prospection", label: "Prospection" },
-  { value: "suivi_opportunites", label: "Suivi opportunités" },
-  { value: "suivi_clients", label: "Suivi clients" },
-  { value: "relance", label: "Relance" },
+  { value: 'prospection', label: 'Prospection' },
+  { value: 'suivi_opportunites', label: 'Suivi opportunités' },
+  { value: 'suivi_clients', label: 'Suivi clients' },
+  { value: 'relance', label: 'Relance' },
 ];
 
-export function sessionTypeLabel(type: SessionType | string | null | undefined): string {
-  return SESSION_TYPE_OPTIONS.find((opt) => opt.value === type)?.label ?? "Prospection";
+export function sessionTypeLabel(
+  type: SessionType | string | null | undefined,
+): string {
+  return (
+    SESSION_TYPE_OPTIONS.find((opt) => opt.value === type)?.label ??
+    'Prospection'
+  );
 }
 
 export type SessionSummary = {
@@ -93,7 +99,7 @@ export type SessionContact = {
   /** Present when the contact is shown in the infinite recall queue. */
   origin_session_id?: number;
   origin_session_name?: string;
-  previous_callers?: RecallInboxItem["previous_callers"];
+  previous_callers?: RecallInboxItem['previous_callers'];
   logged_by?: string | null;
   claimed_by?: string | null;
   claimed_at?: string | null;
@@ -241,6 +247,5 @@ export type TeamMember = {
 
 export type { FilterTree };
 
-export const RESULTAT_OPTIONS: { value: ResultatCall; label: string }[] = RESULTAT_CALL_VALUES.map(
-  (value) => ({ value, label: value }),
-);
+export const RESULTAT_OPTIONS: { value: ResultatCall; label: string }[] =
+  RESULTAT_CALL_VALUES.map((value) => ({ value, label: value }));

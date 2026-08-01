@@ -1,18 +1,9 @@
 /** BUG-09 : ⌘K est explicitement exclu des raccourcis nudgeables (spec §2.5) — il ouvre la command bar, jamais un nudge. */
 export type ShortcutId =
-  | "K"
-  | "J"
-  | "L"
-  | "F"
-  | "1"
-  | "2"
-  | "3"
-  | "4"
-  | "5"
-  | "cmd-enter"
-  | "?";
+  'K' | 'J' | 'L' | 'F' | '1' | '2' | '3' | '4' | '5' | 'cmd-enter' | '?';
 
-export type LearningNudgePhase = "intensive" | "reguliere" | "espacee" | "acceptee";
+export type LearningNudgePhase =
+  'intensive' | 'reguliere' | 'espacee' | 'acceptee';
 
 export type LearningState = {
   mouseCount: number;
@@ -25,9 +16,10 @@ export type LearningState = {
 
 export type LearningStore = Record<string, LearningState>;
 
-export const NUDGE_LEARNING_KEY_PREFIX = "xos-combo-nudge-learning:";
-export const NUDGE_LEARNING_SESSION_PREFIX = "xos-combo-nudge-learning-session:";
-export const NUDGE_LEARNING_WEEK_PREFIX = "xos-combo-nudge-learning-week:";
+export const NUDGE_LEARNING_KEY_PREFIX = 'xos-combo-nudge-learning:';
+export const NUDGE_LEARNING_SESSION_PREFIX =
+  'xos-combo-nudge-learning-session:';
+export const NUDGE_LEARNING_WEEK_PREFIX = 'xos-combo-nudge-learning-week:';
 
 /**
  * BUG-04 : seuil de la phase intensive par raccourci — la spec (§2.5) exige
@@ -38,13 +30,13 @@ const INTENSIVE_THRESHOLDS: Record<ShortcutId, number> = {
   J: 5,
   L: 3,
   F: 3,
-  "1": 5,
-  "2": 5,
-  "3": 5,
-  "4": 5,
-  "5": 5,
-  "cmd-enter": 5,
-  "?": 5,
+  '1': 5,
+  '2': 5,
+  '3': 5,
+  '4': 5,
+  '5': 5,
+  'cmd-enter': 5,
+  '?': 5,
 };
 const REGULIERE_THRESHOLD = 10;
 const ESPACEE_THRESHOLD = 30;
@@ -80,13 +72,15 @@ function pendingKey(userId: string, shortcutId: ShortcutId): string {
 
 function getLocalStorage(): StorageLike | null {
   if (localStore) return localStore;
-  if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  if (typeof window !== 'undefined' && window.localStorage)
+    return window.localStorage;
   return null;
 }
 
 function getSessionStorage(): StorageLike | null {
   if (sessionStore) return sessionStore;
-  if (typeof window !== "undefined" && window.sessionStorage) return window.sessionStorage;
+  if (typeof window !== 'undefined' && window.sessionStorage)
+    return window.sessionStorage;
   return null;
 }
 
@@ -108,10 +102,10 @@ export function __resetNudgeLearningInternals(): void {
 }
 
 export function derivePhase(nudgesSeen: number): LearningNudgePhase {
-  if (nudgesSeen >= 3) return "acceptee";
-  if (nudgesSeen === 2) return "espacee";
-  if (nudgesSeen === 1) return "reguliere";
-  return "intensive";
+  if (nudgesSeen >= 3) return 'acceptee';
+  if (nudgesSeen === 2) return 'espacee';
+  if (nudgesSeen === 1) return 'reguliere';
+  return 'intensive';
 }
 
 export function defaultLearningState(): LearningState {
@@ -120,7 +114,7 @@ export function defaultLearningState(): LearningState {
     totalMouseCount: 0,
     nudgesSeen: 0,
     lastNudgeAt: null,
-    phase: "intensive",
+    phase: 'intensive',
   };
 }
 
@@ -131,7 +125,7 @@ function readStore(userId: string): LearningStore {
     const raw = storage.getItem(storageKey(userId));
     if (!raw) return {};
     const parsed = JSON.parse(raw) as LearningStore;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     return {};
   }
@@ -147,24 +141,27 @@ function writeStore(userId: string, store: LearningStore): void {
   }
 }
 
-function normalizeState(state: Partial<LearningState> | undefined): LearningState {
+function normalizeState(
+  state: Partial<LearningState> | undefined,
+): LearningState {
   const nudgesSeen =
-    typeof state?.nudgesSeen === "number" && state.nudgesSeen >= 0
+    typeof state?.nudgesSeen === 'number' && state.nudgesSeen >= 0
       ? Math.floor(state.nudgesSeen)
       : 0;
   const mouseCount =
-    typeof state?.mouseCount === "number" && state.mouseCount >= 0
+    typeof state?.mouseCount === 'number' && state.mouseCount >= 0
       ? Math.floor(state.mouseCount)
       : 0;
   return {
     mouseCount,
     // Migration douce des états déjà persistés sans totalMouseCount (BUG-05).
     totalMouseCount:
-      typeof state?.totalMouseCount === "number" && state.totalMouseCount >= 0
+      typeof state?.totalMouseCount === 'number' && state.totalMouseCount >= 0
         ? Math.floor(state.totalMouseCount)
         : mouseCount,
     nudgesSeen,
-    lastNudgeAt: typeof state?.lastNudgeAt === "string" ? state.lastNudgeAt : null,
+    lastNudgeAt:
+      typeof state?.lastNudgeAt === 'string' ? state.lastNudgeAt : null,
     phase: derivePhase(nudgesSeen),
   };
 }
@@ -192,7 +189,7 @@ function isReguliereShownThisSession(
   shortcutId: ShortcutId,
 ): boolean {
   const storage = getSessionStorage();
-  return storage?.getItem(sessionFlagKey(userId, shortcutId)) === "1";
+  return storage?.getItem(sessionFlagKey(userId, shortcutId)) === '1';
 }
 
 function markReguliereShownThisSession(
@@ -200,10 +197,13 @@ function markReguliereShownThisSession(
   shortcutId: ShortcutId,
 ): void {
   const storage = getSessionStorage();
-  storage?.setItem(sessionFlagKey(userId, shortcutId), "1");
+  storage?.setItem(sessionFlagKey(userId, shortcutId), '1');
 }
 
-function isEspaceeShownThisWeek(userId: string, shortcutId: ShortcutId): boolean {
+function isEspaceeShownThisWeek(
+  userId: string,
+  shortcutId: ShortcutId,
+): boolean {
   const storage = getLocalStorage();
   const raw = storage?.getItem(weekFlagKey(userId, shortcutId));
   if (!raw) return false;
@@ -212,7 +212,10 @@ function isEspaceeShownThisWeek(userId: string, shortcutId: ShortcutId): boolean
   return nowMs() - shownAt < WEEK_MS;
 }
 
-function markEspaceeShownThisWeek(userId: string, shortcutId: ShortcutId): void {
+function markEspaceeShownThisWeek(
+  userId: string,
+  shortcutId: ShortcutId,
+): void {
   const storage = getLocalStorage();
   storage?.setItem(weekFlagKey(userId, shortcutId), String(nowMs()));
 }
@@ -296,7 +299,7 @@ export function markNudgeSeen(shortcutId: ShortcutId, userId: string): void {
 export function markAdopted(shortcutId: ShortcutId, userId: string): void {
   const state = loadLearningState(shortcutId, userId);
   state.nudgesSeen = 3;
-  state.phase = "acceptee";
+  state.phase = 'acceptee';
   pendingDismiss.delete(pendingKey(userId, shortcutId));
   saveLearningState(shortcutId, userId, state);
 }

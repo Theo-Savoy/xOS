@@ -1103,7 +1103,11 @@
   font-weight: 700;
 }
 .cleaner-opportunities__category-tag--critical {
-  border-color: color-mix(in srgb, var(--xos-accent-danger) 50%, var(--xos-border));
+  border-color: color-mix(
+    in srgb,
+    var(--xos-accent-danger) 50%,
+    var(--xos-border)
+  );
   color: #ffb8bf;
   background: color-mix(in srgb, var(--xos-accent-danger) 15%, transparent);
 }
@@ -1197,7 +1201,8 @@
   width: 1.45rem;
   height: 1.45rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--xos-accent-salesforce) 45%, var(--xos-border));
+  border: 1px solid
+    color-mix(in srgb, var(--xos-accent-salesforce) 45%, var(--xos-border));
   border-radius: 0.35rem;
   color: #8fdcff;
   text-decoration: none;

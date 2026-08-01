@@ -1,4 +1,4 @@
-import type { ResultatCall } from "../../crm";
+import type { ResultatCall } from '../../crm';
 
 export type LogPayload = {
   resultat: ResultatCall;

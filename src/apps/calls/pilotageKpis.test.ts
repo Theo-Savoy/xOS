@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { filterSessionsModeKpis, sessionHasActivity } from "./pilotageKpis";
-import type { CockpitSessionRow, ProspectionCockpit } from "./pilotageApi";
-import type { PeriodKpis } from "./types";
+import { describe, expect, it } from 'vitest';
+import { filterSessionsModeKpis, sessionHasActivity } from './pilotageKpis';
+import type { CockpitSessionRow, ProspectionCockpit } from './pilotageApi';
+import type { PeriodKpis } from './types';
 
 function teamKpis(overrides: Partial<PeriodKpis> = {}): PeriodKpis {
   return {
@@ -18,18 +18,28 @@ function teamKpis(overrides: Partial<PeriodKpis> = {}): PeriodKpis {
   };
 }
 
-function session(id: number, kpis: Partial<PeriodKpis> = {}): CockpitSessionRow {
+function session(
+  id: number,
+  kpis: Partial<PeriodKpis> = {},
+): CockpitSessionRow {
   return {
     id,
     name: `Session ${id}`,
-    status: "active",
-    session_type: "prospection",
+    status: 'active',
+    session_type: 'prospection',
     scheduled_for: null,
-    created_at: "2026-07-12T10:00:00Z",
+    created_at: '2026-07-12T10:00:00Z',
     completed_at: null,
-    owner: { user_id: "u1", sf_user_id: "005A", label: "Alice" },
+    owner: { user_id: 'u1', sf_user_id: '005A', label: 'Alice' },
     counts: { total: 10, called: 5, skipped: 0, pending: 5 },
-    kpis: teamKpis({ calls: 0, decroche: 0, argumente: 0, rdv: 0, npa: 0, ...kpis }),
+    kpis: teamKpis({
+      calls: 0,
+      decroche: 0,
+      argumente: 0,
+      rdv: 0,
+      npa: 0,
+      ...kpis,
+    }),
   };
 }
 
@@ -38,9 +48,9 @@ function cockpit(
   team = teamKpis(),
 ): ProspectionCockpit {
   return {
-    view: "team",
-    period: "day",
-    range: { start: "2026-07-12", end: "2026-07-13", anchor: "2026-07-12" },
+    view: 'team',
+    period: 'day',
+    range: { start: '2026-07-12', end: '2026-07-13', anchor: '2026-07-12' },
     team_kpis: team,
     by_caller: [],
     by_rdv_owner: [],
@@ -49,17 +59,24 @@ function cockpit(
   };
 }
 
-describe("filterSessionsModeKpis", () => {
-  it("uses team KPIs when every session is selected", () => {
+describe('filterSessionsModeKpis', () => {
+  it('uses team KPIs when every session is selected', () => {
     const data = cockpit([session(1), session(2)]);
     const result = filterSessionsModeKpis(data, data.sessions, new Set([1, 2]));
     expect(result.kpis).toEqual(data.team_kpis);
     expect(result.allCallers).toBe(true);
   });
 
-  it("does not zero KPIs when selection ids partially overlap after day switch", () => {
-    const data = cockpit([session(10), session(11)], teamKpis({ calls: 9, rdv: 1 }));
-    const result = filterSessionsModeKpis(data, data.sessions, new Set([9, 10]));
+  it('does not zero KPIs when selection ids partially overlap after day switch', () => {
+    const data = cockpit(
+      [session(10), session(11)],
+      teamKpis({ calls: 9, rdv: 1 }),
+    );
+    const result = filterSessionsModeKpis(
+      data,
+      data.sessions,
+      new Set([9, 10]),
+    );
     expect(result.kpis).toEqual(data.team_kpis);
     expect(result.allCallers).toBe(true);
   });
@@ -72,16 +89,16 @@ describe("filterSessionsModeKpis", () => {
   });
 });
 
-describe("sessionHasActivity", () => {
-  it("is false when no calls nor RDV", () => {
+describe('sessionHasActivity', () => {
+  it('is false when no calls nor RDV', () => {
     expect(sessionHasActivity(teamKpis({ calls: 0, rdv: 0 }))).toBe(false);
   });
 
-  it("is true with calls only", () => {
+  it('is true with calls only', () => {
     expect(sessionHasActivity(teamKpis({ calls: 3, rdv: 0 }))).toBe(true);
   });
 
-  it("is true with RDV only", () => {
+  it('is true with RDV only', () => {
     expect(sessionHasActivity(teamKpis({ calls: 0, rdv: 1 }))).toBe(true);
   });
 });

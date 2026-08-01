@@ -9,7 +9,11 @@ afterEach(cleanup);
 describe('Modal', () => {
   it('closes on Escape and backdrop click while keeping panel clicks inside', () => {
     const onClose = vi.fn();
-    render(<Modal open title="Confirmer" onClose={onClose}>Corps</Modal>);
+    render(
+      <Modal open title="Confirmer" onClose={onClose}>
+        Corps
+      </Modal>,
+    );
     fireEvent.click(screen.getByRole('dialog'));
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -20,9 +24,13 @@ describe('Modal', () => {
 
   it('traps Tab focus between modal controls', () => {
     render(
-      <Modal open title="Confirmer" onClose={() => undefined}
+      <Modal
+        open
+        title="Confirmer"
+        onClose={() => undefined}
         primaryAction={{ label: 'Appliquer', onClick: () => undefined }}
-        secondaryAction={{ label: 'Annuler', onClick: () => undefined }} />,
+        secondaryAction={{ label: 'Annuler', onClick: () => undefined }}
+      />,
     );
     const buttons = screen.getAllByRole('button');
     buttons.at(-1)?.focus();
@@ -40,8 +48,14 @@ describe('Modal', () => {
         Corps
       </Modal>,
     );
-    expect(screen.getByRole('dialog').classList.contains('xos-modal--glass')).toBe(true);
-    expect(screen.getByTestId('modal-backdrop').classList.contains('xos-modal-backdrop--glass')).toBe(true);
+    expect(
+      screen.getByRole('dialog').classList.contains('xos-modal--glass'),
+    ).toBe(true);
+    expect(
+      screen
+        .getByTestId('modal-backdrop')
+        .classList.contains('xos-modal-backdrop--glass'),
+    ).toBe(true);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });

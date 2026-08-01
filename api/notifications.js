@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-import { respond, verifyJWT } from "./_auth.js";
+import { createClient } from '@supabase/supabase-js';
+import { respond, verifyJWT } from './_auth.js';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -9,45 +9,49 @@ function getServiceClient() {
 
 export async function GET(request) {
   const user = await verifyJWT(request);
-  if (!user) return respond(401, { error: "unauthorized" });
+  if (!user) return respond(401, { error: 'unauthorized' });
   const client = getServiceClient();
-  if (!client) return respond(500, { error: "server_error" });
+  if (!client) return respond(500, { error: 'server_error' });
 
   const url = new URL(request.url);
-  const unreadOnly = url.searchParams.get("unread") === "1";
-  const limitRaw = Number(url.searchParams.get("limit") || 40);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 40;
+  const unreadOnly = url.searchParams.get('unread') === '1';
+  const limitRaw = Number(url.searchParams.get('limit') || 40);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.min(Math.max(limitRaw, 1), 100)
+    : 40;
   // Default retention: 30 minutes. Old reactions linger in DB forever otherwise
   // and reappear on every reload. Cap is intentionally tight because the
   // client renders nothing useful from notifications older than a few minutes
   // (the burst already played, the toast already dismissed).
-  const since = url.searchParams.get("since") || new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const since =
+    url.searchParams.get('since') ||
+    new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
   try {
-    await client.rpc("purge_user_notifications", { max_age_hours: 1 });
+    await client.rpc('purge_user_notifications', { max_age_hours: 1 });
   } catch {
     // Purging is best effort; a missing migration must not break reads.
   }
 
   let query = client
-    .from("user_notifications")
-    .select("id, kind, title, body, payload, created_at, read_at")
-    .eq("recipient_id", user.id)
-    .gt("created_at", since)
-    .order("created_at", { ascending: false })
+    .from('user_notifications')
+    .select('id, kind, title, body, payload, created_at, read_at')
+    .eq('recipient_id', user.id)
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
     .limit(limit);
-  if (unreadOnly) query = query.is("read_at", null);
+  if (unreadOnly) query = query.is('read_at', null);
 
   const { data, error } = await query;
-  if (error) return respond(500, { error: "notifications_lookup_failed" });
+  if (error) return respond(500, { error: 'notifications_lookup_failed' });
 
   const { count: unreadCount, error: countError } = await client
-    .from("user_notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("recipient_id", user.id)
-    .gt("created_at", since)
-    .is("read_at", null);
-  if (countError) return respond(500, { error: "notifications_count_failed" });
+    .from('user_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_id', user.id)
+    .gt('created_at', since)
+    .is('read_at', null);
+  if (countError) return respond(500, { error: 'notifications_count_failed' });
 
   return respond(200, {
     notifications: data || [],
@@ -57,75 +61,101 @@ export async function GET(request) {
 
 export async function POST(request) {
   const user = await verifyJWT(request);
-  if (!user) return respond(401, { error: "unauthorized" });
+  if (!user) return respond(401, { error: 'unauthorized' });
   const client = getServiceClient();
-  if (!client) return respond(500, { error: "server_error" });
+  if (!client) return respond(500, { error: 'server_error' });
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return respond(400, { error: "invalid_json" });
+    return respond(400, { error: 'invalid_json' });
   }
-  if (!body || typeof body !== "object" || Array.isArray(body) || !body.action) {
-    return respond(400, { error: "invalid_body" });
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    !body.action
+  ) {
+    return respond(400, { error: 'invalid_body' });
   }
 
-  if (body.action === "mark_read") {
-    const ids = Array.isArray(body.ids) ? body.ids.filter((id) => Number.isInteger(id) && id > 0) : null;
+  if (body.action === 'mark_read') {
+    const ids = Array.isArray(body.ids)
+      ? body.ids.filter((id) => Number.isInteger(id) && id > 0)
+      : null;
     const markAll = body.all === true;
     if (!markAll && (!ids || ids.length === 0)) {
-      return respond(400, { error: "invalid_ids" });
+      return respond(400, { error: 'invalid_ids' });
     }
     const now = new Date().toISOString();
     let query = client
-      .from("user_notifications")
+      .from('user_notifications')
       .update({ read_at: now })
-      .eq("recipient_id", user.id)
-      .is("read_at", null);
-    if (!markAll) query = query.in("id", ids);
+      .eq('recipient_id', user.id)
+      .is('read_at', null);
+    if (!markAll) query = query.in('id', ids);
     const { error } = await query;
-    if (error) return respond(500, { error: "notifications_update_failed" });
+    if (error) return respond(500, { error: 'notifications_update_failed' });
     return respond(200, { ok: true });
   }
 
-  if (body.action === "react") {
-    const ALLOWED_EMOJIS = new Set(["👏", "🔥", "💪", "🎉", "🥳", "🙌", "💯", "⭐"]);
+  if (body.action === 'react') {
+    const ALLOWED_EMOJIS = new Set([
+      '👏',
+      '🔥',
+      '💪',
+      '🎉',
+      '🥳',
+      '🙌',
+      '💯',
+      '⭐',
+    ]);
     const notificationId = body.notification_id;
     const emoji = body.emoji;
     if (!Number.isInteger(notificationId) || notificationId < 1) {
-      return respond(400, { error: "invalid_notification_id" });
+      return respond(400, { error: 'invalid_notification_id' });
     }
-    if (typeof emoji !== "string" || !ALLOWED_EMOJIS.has(emoji)) {
-      return respond(400, { error: "invalid_emoji" });
+    if (typeof emoji !== 'string' || !ALLOWED_EMOJIS.has(emoji)) {
+      return respond(400, { error: 'invalid_emoji' });
     }
 
     const { data: original, error: lookupError } = await client
-      .from("user_notifications")
-      .select("id, kind, payload, recipient_id")
-      .eq("id", notificationId)
-      .eq("recipient_id", user.id)
+      .from('user_notifications')
+      .select('id, kind, payload, recipient_id')
+      .eq('id', notificationId)
+      .eq('recipient_id', user.id)
       .maybeSingle();
-    if (lookupError) return respond(500, { error: "notifications_lookup_failed" });
-    if (!original || original.kind !== "session_goal_hit") {
-      return respond(404, { error: "not_found" });
+    if (lookupError)
+      return respond(500, { error: 'notifications_lookup_failed' });
+    if (!original || original.kind !== 'session_goal_hit') {
+      return respond(404, { error: 'not_found' });
     }
 
-    const payload = original.payload && typeof original.payload === "object" ? original.payload : {};
-    const actorId = typeof payload.actor_id === "string" ? payload.actor_id : null;
+    const payload =
+      original.payload && typeof original.payload === 'object'
+        ? original.payload
+        : {};
+    const actorId =
+      typeof payload.actor_id === 'string' ? payload.actor_id : null;
     if (!actorId || actorId === user.id) {
-      return respond(400, { error: "invalid_actor" });
+      return respond(400, { error: 'invalid_actor' });
     }
 
     const { data: reactorProfile } = await client
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
       .maybeSingle();
     const reactorLabel =
-      reactorProfile?.full_name || user.user_metadata?.full_name || user.email || "Quelqu'un";
+      reactorProfile?.full_name ||
+      user.user_metadata?.full_name ||
+      user.email ||
+      "Quelqu'un";
 
-    const reactions = Array.isArray(payload.reactions) ? [...payload.reactions] : [];
+    const reactions = Array.isArray(payload.reactions)
+      ? [...payload.reactions]
+      : [];
     reactions.push({
       emoji,
       from_id: user.id,
@@ -133,15 +163,16 @@ export async function POST(request) {
       at: new Date().toISOString(),
     });
     const { error: updateError } = await client
-      .from("user_notifications")
+      .from('user_notifications')
       .update({ payload: { ...payload, reactions } })
-      .eq("id", notificationId)
-      .eq("recipient_id", user.id);
-    if (updateError) return respond(500, { error: "notifications_update_failed" });
+      .eq('id', notificationId)
+      .eq('recipient_id', user.id);
+    if (updateError)
+      return respond(500, { error: 'notifications_update_failed' });
 
     await insertUserNotification(client, {
       recipientId: actorId,
-      kind: "goal_reaction",
+      kind: 'goal_reaction',
       title: `${reactorLabel} réagit`,
       body: emoji,
       payload: {
@@ -156,18 +187,14 @@ export async function POST(request) {
     return respond(200, { ok: true });
   }
 
-  return respond(400, { error: "invalid_action" });
+  return respond(400, { error: 'invalid_action' });
 }
 
 /** Best-effort insert used by call logging (service role). */
-export async function insertUserNotification(client, {
-  recipientId,
-  kind,
-  title,
-  body,
-  payload = {},
-  dedupeKey,
-}) {
+export async function insertUserNotification(
+  client,
+  { recipientId, kind, title, body, payload = {}, dedupeKey },
+) {
   if (!client || !recipientId || !kind || !title || !body) return;
   try {
     const row = {
@@ -178,16 +205,16 @@ export async function insertUserNotification(client, {
       payload,
       ...(dedupeKey ? { dedupe_key: dedupeKey } : {}),
     };
-    const query = client.from("user_notifications");
+    const query = client.from('user_notifications');
     const result = dedupeKey
       ? await query.upsert(row, {
-        onConflict: "recipient_id,dedupe_key",
-        ignoreDuplicates: true,
-      })
+          onConflict: 'recipient_id,dedupe_key',
+          ignoreDuplicates: true,
+        })
       : await query.insert(row);
     const { error } = result;
-    if (error) console.error("Failed to insert user_notification:", error);
+    if (error) console.error('Failed to insert user_notification:', error);
   } catch (err) {
-    console.error("Failed to insert user_notification:", err);
+    console.error('Failed to insert user_notification:', err);
   }
 }

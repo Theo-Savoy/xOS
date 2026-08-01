@@ -22,7 +22,11 @@ export function OpportunityDetailPanel({
           <p className="cleaner-eyebrow">Détail opportunité</p>
           <h2 id="opportunity-detail-title">{item.name || item.id}</h2>
         </div>
-        <Button variant="secondary" aria-label="Fermer le détail" onClick={onClose}>
+        <Button
+          variant="secondary"
+          aria-label="Fermer le détail"
+          onClick={onClose}
+        >
           Retour
         </Button>
       </div>

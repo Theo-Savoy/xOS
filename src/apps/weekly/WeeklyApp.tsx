@@ -1,25 +1,91 @@
-import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
-import { Button, GlassCard, Select, Skeleton, Tag } from "../../components/ui";
-import { apiFetch } from "../../lib/apiClient";
-import { supabase } from "../../lib/supabase";
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis,
+} from 'recharts';
+import { Button, GlassCard, Select, Skeleton, Tag } from '../../components/ui';
+import { apiFetch } from '../../lib/apiClient';
+import { supabase } from '../../lib/supabase';
 import {
   aggregateMonthlyIndicative,
   scopePace,
   type MonthlyIndicative,
   type Pace,
   type Quarter,
-} from "./WeeklyApp.helpers";
-import "./weekly.css";
+} from './WeeklyApp.helpers';
+import './weekly.css';
 
-type Tracking = "commercial" | "sdr" | "dg";
-type Owner = { sf_user_id: string; name: string; email: string | null; role: "commercial" | "manager" | "admin" | null; tracking?: Tracking };
-type Pulse = { sf_user_id: string; week: string; week_start: string; calls: number; meetings: number; proposals: number; call_results?: Record<string, number> };
+type Tracking = 'commercial' | 'sdr' | 'dg';
+type Owner = {
+  sf_user_id: string;
+  name: string;
+  email: string | null;
+  role: 'commercial' | 'manager' | 'admin' | null;
+  tracking?: Tracking;
+};
+type Pulse = {
+  sf_user_id: string;
+  week: string;
+  week_start: string;
+  calls: number;
+  meetings: number;
+  proposals: number;
+  call_results?: Record<string, number>;
+};
 type WonByType = { catalogue: number; sur_mesure: number; conseil: number };
-type Pipeline = { sf_user_id: string; week: string; week_start: string; generated_count: number; generated_amount: number; won_count: number; won_amount: number; won_by_type: WonByType; won_arr_amount: number; closing_rate_count: number | null; closing_rate_amount: number | null };
-type Effort = { sf_user_id: string; week: string; week_start: string; progressions: number; open_opps_at_start: number; effort_rate: number | null };
-type ForecastPoint = { sf_user_id: string; week_start: string; week: string; forecast: number | null; signed_to_date: number };
+type Pipeline = {
+  sf_user_id: string;
+  week: string;
+  week_start: string;
+  generated_count: number;
+  generated_amount: number;
+  won_count: number;
+  won_amount: number;
+  won_by_type: WonByType;
+  won_arr_amount: number;
+  closing_rate_count: number | null;
+  closing_rate_amount: number | null;
+};
+type Effort = {
+  sf_user_id: string;
+  week: string;
+  week_start: string;
+  progressions: number;
+  open_opps_at_start: number;
+  effort_rate: number | null;
+};
+type ForecastPoint = {
+  sf_user_id: string;
+  week_start: string;
+  week: string;
+  forecast: number | null;
+  signed_to_date: number;
+};
 type RitualOpp = {
   id: string | null;
   name: string;
@@ -32,78 +98,113 @@ type RitualOpp = {
   close_date: string | null;
   days_in_stage?: number | null;
   days_since_activity?: number | null;
-  reasons?: Array<"stage" | "silence">;
+  reasons?: Array<'stage' | 'silence'>;
   url?: string | null;
 };
-type CustomPipeOpp = { id: string | null; name: string; sf_user_id: string; amount: number; expected: number; probability: number; close_date: string; month: string; url?: string | null };
+type CustomPipeOpp = {
+  id: string | null;
+  name: string;
+  sf_user_id: string;
+  amount: number;
+  expected: number;
+  probability: number;
+  close_date: string;
+  month: string;
+  url?: string | null;
+};
 const CALL_FUNNEL_STAGES = [
-  { key: "no_answer", label: "Non décroché", hint: "dont répondeur", sources: ["Appel non décroché", "Message répondeur"], color: "#7d8aa3" },
-  { key: "answered", label: "Décroché", hint: null, sources: ["Appel décroché"], color: "#5b8def" },
-  { key: "pitched", label: "Argumenté", hint: null, sources: ["Appel argumenté"], color: "var(--xos-accent)" },
-  { key: "meeting", label: "RDV planifié", hint: null, sources: ["RDV planifié"], color: "var(--xos-alert)" },
+  {
+    key: 'no_answer',
+    label: 'Non décroché',
+    hint: 'dont répondeur',
+    sources: ['Appel non décroché', 'Message répondeur'],
+    color: '#7d8aa3',
+  },
+  {
+    key: 'answered',
+    label: 'Décroché',
+    hint: null,
+    sources: ['Appel décroché'],
+    color: '#5b8def',
+  },
+  {
+    key: 'pitched',
+    label: 'Argumenté',
+    hint: null,
+    sources: ['Appel argumenté'],
+    color: 'var(--xos-accent)',
+  },
+  {
+    key: 'meeting',
+    label: 'RDV planifié',
+    hint: null,
+    sources: ['RDV planifié'],
+    color: 'var(--xos-alert)',
+  },
 ] as const;
 
 /** Identité texte Lundi — pack hybride : kickers brandés, titres concrets. */
 const COPY = {
   pulse: {
-    kicker: "Pulse",
-    hint: "Le snapshot de la période : RDV, détections, signatures, et si le rythme tient.",
+    kicker: 'Pulse',
+    hint: 'Le snapshot de la période : RDV, détections, signatures, et si le rythme tient.',
   },
   ledger: {
-    kicker: "Ledger",
-    hint: "Les mêmes repères, semaine par semaine — pour comparer et cumuler.",
+    kicker: 'Ledger',
+    hint: 'Les mêmes repères, semaine par semaine — pour comparer et cumuler.',
   },
   amont: {
-    kicker: "Amont",
-    title: "RDV → détection → volume",
-    hint: "Avant la signature : combien de RDV, combien deviennent une opp, quel volume créé.",
+    kicker: 'Amont',
+    title: 'RDV → détection → volume',
+    hint: 'Avant la signature : combien de RDV, combien deviennent une opp, quel volume créé.',
   },
   pace: {
-    kicker: "Pace",
-    titleWeek: "Objectif du trimestre",
-    titleQuarter: "Où en est le trimestre",
-    hint: "Signé vs objectif, vs N−1 à date, et projection si le rythme se maintient.",
-    monthly: "Part indicative de chaque mois dans l’objectif — ordre de grandeur (~).",
-    runRate: "Si le rythme actuel se poursuit jusqu’à la fin du trimestre.",
-    seasonal: "Attendu calé sur l’historique des 3 dernières années.",
+    kicker: 'Pace',
+    titleWeek: 'Objectif du trimestre',
+    titleQuarter: 'Où en est le trimestre',
+    hint: 'Signé vs objectif, vs N−1 à date, et projection si le rythme se maintient.',
+    monthly:
+      'Part indicative de chaque mois dans l’objectif — ordre de grandeur (~).',
+    runRate: 'Si le rythme actuel se poursuit jusqu’à la fin du trimestre.',
+    seasonal: 'Attendu calé sur l’historique des 3 dernières années.',
   },
   board: {
-    kicker: "Board",
-    title: "À closer ce trimestre",
-    hint: "Les deals qui comptent. Taille = montant (échelle log). Bleu = à pousser, rouge = stagnant.",
+    kicker: 'Board',
+    title: 'À closer ce trimestre',
+    hint: 'Les deals qui comptent. Taille = montant (échelle log). Bleu = à pousser, rouge = stagnant.',
   },
   volume: {
-    kicker: "Volume",
-    title: "Semaine après semaine",
-    hint: "L’activité qui alimente le trimestre : RDV, détections, et appels si utile.",
+    kicker: 'Volume',
+    title: 'Semaine après semaine',
+    hint: 'L’activité qui alimente le trimestre : RDV, détections, et appels si utile.',
   },
   trajectoire: {
-    kicker: "Trajectoire",
-    title: "Projeté vs signé",
-    hint: "Projeté = pipeline pondéré. Signé = cumul. Ligne pointillée = objectif.",
+    kicker: 'Trajectoire',
+    title: 'Projeté vs signé',
+    hint: 'Projeté = pipeline pondéré. Signé = cumul. Ligne pointillée = objectif.',
   },
   line: {
-    kicker: "Line",
-    title: "De l’appel au RDV",
-    hint: "Répartition des résultats d’appel — du non décroché au RDV planifié.",
+    kicker: 'Line',
+    title: 'De l’appel au RDV',
+    hint: 'Répartition des résultats d’appel — du non décroché au RDV planifié.',
   },
   sm: {
-    kicker: "Sur-mesure",
-    title: "6 prochains mois",
-    hint: "Pipe sur-mesure ouvert, ventilé par mois de close prévu.",
+    kicker: 'Sur-mesure',
+    title: '6 prochains mois',
+    hint: 'Pipe sur-mesure ouvert, ventilé par mois de close prévu.',
   },
   equipe: {
-    kicker: "Équipe",
+    kicker: 'Équipe',
   },
-  detect: "Part des RDV qui deviennent une opp détectée.",
-  close: "Part des opps détectées qui se signent sur le trimestre.",
+  detect: 'Part des RDV qui deviennent une opp détectée.',
+  close: 'Part des opps détectées qui se signent sur le trimestre.',
 } as const;
 
 type TipHostState = {
   text: string;
   x: number;
   y: number;
-  preferredSide: "top" | "bottom";
+  preferredSide: 'top' | 'bottom';
   width?: number;
 };
 
@@ -117,17 +218,23 @@ const TipHostContext = createContext<TipHostApi | null>(null);
 
 function TipHost({ children }: { children: ReactNode }) {
   const [tip, setTip] = useState<TipHostState | null>(null);
-  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
-  const [resolvedSide, setResolvedSide] = useState<"top" | "bottom">("top");
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({
+    visibility: 'hidden',
+  });
+  const [resolvedSide, setResolvedSide] = useState<'top' | 'bottom'>('top');
   const panelRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<TipHostState | null>(null);
   tipRef.current = tip;
 
-  const api = useMemo<TipHostApi>(() => ({
-    show: (next) => setTip(next),
-    hide: () => setTip(null),
-    move: (x, y) => setTip((current) => (current ? { ...current, x, y } : current)),
-  }), []);
+  const api = useMemo<TipHostApi>(
+    () => ({
+      show: (next) => setTip(next),
+      hide: () => setTip(null),
+      move: (x, y) =>
+        setTip((current) => (current ? { ...current, x, y } : current)),
+    }),
+    [],
+  );
 
   const placePanel = useCallback(() => {
     const current = tipRef.current;
@@ -136,62 +243,69 @@ function TipHost({ children }: { children: ReactNode }) {
     const margin = 10;
     const gap = 12;
     const maxWidth = Math.min(280, window.innerWidth - margin * 2);
-    const width = Math.min(Math.max(current.width || panel.width || 180, 160), maxWidth);
+    const width = Math.min(
+      Math.max(current.width || panel.width || 180, 160),
+      maxWidth,
+    );
     let left = current.x + 10;
     let top = current.y - panel.height - gap;
-    let nextSide: "top" | "bottom" = "top";
-    if (current.preferredSide === "bottom" || top < margin) {
+    let nextSide: 'top' | 'bottom' = 'top';
+    if (current.preferredSide === 'bottom' || top < margin) {
       top = current.y + gap;
-      nextSide = "bottom";
+      nextSide = 'bottom';
     }
     if (top + panel.height > window.innerHeight - margin) {
       top = Math.max(margin, current.y - panel.height - gap);
-      nextSide = "top";
+      nextSide = 'top';
     }
     left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-    top = Math.max(margin, Math.min(top, window.innerHeight - panel.height - margin));
+    top = Math.max(
+      margin,
+      Math.min(top, window.innerHeight - panel.height - margin),
+    );
     setResolvedSide(nextSide);
-    setPanelStyle({ top, left, width, maxWidth, visibility: "visible" });
+    setPanelStyle({ top, left, width, maxWidth, visibility: 'visible' });
   }, []);
 
   useEffect(() => {
     if (!tip) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setTip(null);
+      if (event.key === 'Escape') setTip(null);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [tip]);
 
   useLayoutEffect(() => {
     if (!tip) {
-      setPanelStyle({ visibility: "hidden" });
+      setPanelStyle({ visibility: 'hidden' });
       return;
     }
     placePanel();
     const onResize = () => placePanel();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onResize, true);
     return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize, true);
     };
   }, [tip, placePanel]);
 
   return (
     <TipHostContext.Provider value={api}>
       {children}
-      {tip && createPortal(
-        <span
-          ref={panelRef}
-          className={`weekly-tip__panel weekly-tip__panel--${resolvedSide}`}
-          role="tooltip"
-          style={{ position: "fixed", top: 0, left: 0, ...panelStyle }}
-        >
-          {tip.text}
-        </span>,
-        document.body,
-      )}
+      {tip &&
+        createPortal(
+          <span
+            ref={panelRef}
+            className={`weekly-tip__panel weekly-tip__panel--${resolvedSide}`}
+            role="tooltip"
+            style={{ position: 'fixed', top: 0, left: 0, ...panelStyle }}
+          >
+            {tip.text}
+          </span>,
+          document.body,
+        )}
     </TipHostContext.Provider>
   );
 }
@@ -199,13 +313,13 @@ function TipHost({ children }: { children: ReactNode }) {
 function Tip({
   text,
   children,
-  side = "top",
+  side = 'top',
   className,
   style,
 }: {
   text: string;
   children?: React.ReactNode;
-  side?: "top" | "bottom";
+  side?: 'top' | 'bottom';
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -231,7 +345,14 @@ function Tip({
   return (
     <span
       ref={rootRef}
-      className={["weekly-tip", `weekly-tip--${side}`, children ? "weekly-tip--anchor" : "weekly-tip--help", className].filter(Boolean).join(" ")}
+      className={[
+        'weekly-tip',
+        `weekly-tip--${side}`,
+        children ? 'weekly-tip--anchor' : 'weekly-tip--help',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={style}
       onMouseEnter={(event) => showAt(event.clientX, event.clientY)}
       onMouseMove={(event) => {
@@ -272,7 +393,9 @@ function Tip({
             if (rect) showAt(rect.left + rect.width / 2, rect.top);
           }}
         >
-          <span className="weekly-tip__glyph" aria-hidden="true">?</span>
+          <span className="weekly-tip__glyph" aria-hidden="true">
+            ?
+          </span>
         </button>
       )}
     </span>
@@ -280,7 +403,10 @@ function Tip({
 }
 
 function SectionHeading({
-  kicker, title, hint, action,
+  kicker,
+  title,
+  hint,
+  action,
 }: {
   kicker: string;
   title: string;
@@ -289,7 +415,10 @@ function SectionHeading({
 }) {
   const inner = (
     <>
-      <p>{kicker}{hint ? <Tip text={hint} /> : null}</p>
+      <p>
+        {kicker}
+        {hint ? <Tip text={hint} /> : null}
+      </p>
       <h3>{title}</h3>
     </>
   );
@@ -303,26 +432,45 @@ function SectionHeading({
 }
 
 const EMPTY_PULSE = (ownerId: string, start: string): Pulse => ({
-  sf_user_id: ownerId, week: "", week_start: start, calls: 0, meetings: 0, proposals: 0, call_results: {},
+  sf_user_id: ownerId,
+  week: '',
+  week_start: start,
+  calls: 0,
+  meetings: 0,
+  proposals: 0,
+  call_results: {},
 });
 
 const EMPTY_PIPELINE = (ownerId: string, start: string): Pipeline => ({
-  sf_user_id: ownerId, week: "", week_start: start, generated_count: 0, generated_amount: 0,
-  won_count: 0, won_amount: 0, won_by_type: emptyWonByType(), won_arr_amount: 0,
-  closing_rate_count: null, closing_rate_amount: null,
+  sf_user_id: ownerId,
+  week: '',
+  week_start: start,
+  generated_count: 0,
+  generated_amount: 0,
+  won_count: 0,
+  won_amount: 0,
+  won_by_type: emptyWonByType(),
+  won_arr_amount: 0,
+  closing_rate_count: null,
+  closing_rate_amount: null,
 });
 
 function sfIdKey(id: string | null | undefined): string {
-  return String(id || "").slice(0, 15);
+  return String(id || '').slice(0, 15);
 }
 
-function seriesIndex<T extends { sf_user_id: string; week_start: string }>(rows: T[]) {
+function seriesIndex<T extends { sf_user_id: string; week_start: string }>(
+  rows: T[],
+) {
   const map = new Map<string, T>();
-  for (const row of rows) map.set(`${sfIdKey(row.sf_user_id)}:${row.week_start}`, row);
+  for (const row of rows)
+    map.set(`${sfIdKey(row.sf_user_id)}:${row.week_start}`, row);
   return map;
 }
 
-const chartBarCursor = { fill: "color-mix(in srgb, var(--xos-accent) 12%, transparent)" };
+const chartBarCursor = {
+  fill: 'color-mix(in srgb, var(--xos-accent) 12%, transparent)',
+};
 
 const SCATTER_MAX_POINTS = 20;
 
@@ -346,8 +494,23 @@ type CustomPipe = {
   total_amount: number;
   total_expected: number;
   count: number;
-  months: Array<{ month: string; label: string; amount: number; expected: number; count: number; by_owner?: Record<string, { amount: number; expected: number; count: number }> }>;
-  by_owner: Array<{ sf_user_id: string; amount: number; expected: number; count: number }>;
+  months: Array<{
+    month: string;
+    label: string;
+    amount: number;
+    expected: number;
+    count: number;
+    by_owner?: Record<
+      string,
+      { amount: number; expected: number; count: number }
+    >;
+  }>;
+  by_owner: Array<{
+    sf_user_id: string;
+    amount: number;
+    expected: number;
+    count: number;
+  }>;
   opps: CustomPipeOpp[];
 };
 type PerfContext = {
@@ -360,17 +523,20 @@ type PerfContext = {
   anchor_week_start: string;
   live_week_start?: string;
   live_iso_week?: string;
-  source?: "live" | "snapshot";
+  source?: 'live' | 'snapshot';
   lite?: boolean;
   enrich?: boolean;
   timing_ms?: number | null;
 };
-type PeriodHistory = { weeks: Array<{ week_start: string; iso_week: string; quarter: string }>; quarters: string[] };
+type PeriodHistory = {
+  weeks: Array<{ week_start: string; iso_week: string; quarter: string }>;
+  quarters: string[];
+};
 type PerfResponse = {
   weeks: number;
-  period?: "week" | "quarter" | "weeks";
+  period?: 'week' | 'quarter' | 'weeks';
   range: { from: string; to: string };
-  view: "self" | "team";
+  view: 'self' | 'team';
   owners: Owner[];
   pulse: Pulse[];
   pipeline: Pipeline[];
@@ -389,19 +555,49 @@ type PerfResponse = {
   context?: PerfContext | null;
   period_history?: PeriodHistory;
   week_meta?: Array<{ week_start: string; iso_week: string }>;
-  warning?: "sf_user_unmapped";
+  warning?: 'sf_user_unmapped';
 };
 type Week = { start: string; label: string; isoWeek: string };
-type PeriodMode = "week" | "quarter";
-type Health = { label: string; tone: "ok" | "warn" | "crit" | "super"; reco: string };
+type PeriodMode = 'week' | 'quarter';
+type Health = {
+  label: string;
+  tone: 'ok' | 'warn' | 'crit' | 'super';
+  reco: string;
+};
 
-const money = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
-const percent = new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 0 });
-const countFmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
-const weekLabel = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
-const emptyWonByType = (): WonByType => ({ catalogue: 0, sur_mesure: 0, conseil: 0 });
-const TYPE_LABELS: Record<keyof WonByType, string> = { catalogue: "Catalogue", sur_mesure: "Sur-mesure", conseil: "Conseil" };
-const emptyCustomPipe = (): CustomPipe => ({ horizon_days: 180, total_amount: 0, total_expected: 0, count: 0, months: [], by_owner: [], opps: [] });
+const money = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+const percent = new Intl.NumberFormat('fr-FR', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+});
+const countFmt = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+const weekLabel = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'short',
+});
+const emptyWonByType = (): WonByType => ({
+  catalogue: 0,
+  sur_mesure: 0,
+  conseil: 0,
+});
+const TYPE_LABELS: Record<keyof WonByType, string> = {
+  catalogue: 'Catalogue',
+  sur_mesure: 'Sur-mesure',
+  conseil: 'Conseil',
+};
+const emptyCustomPipe = (): CustomPipe => ({
+  horizon_days: 180,
+  total_amount: 0,
+  total_expected: 0,
+  count: 0,
+  months: [],
+  by_owner: [],
+  opps: [],
+});
 
 /** Cibles cadence — volume RDV = levier semaine ; détection lisible dès qu’il y a assez de RDV ; closing = mois/TQ. */
 const CADENCE = {
@@ -420,17 +616,29 @@ function addDays(value: string, amount: number) {
 }
 
 function makeWeeks(response: PerfResponse): Week[] {
-  const meta = new Map((response.week_meta || []).map((entry) => [entry.week_start, entry.iso_week]));
+  const meta = new Map(
+    (response.week_meta || []).map((entry) => [
+      entry.week_start,
+      entry.iso_week,
+    ]),
+  );
   return Array.from({ length: response.weeks }, (_, index) => {
     const start = addDays(response.range.from, index * 7);
-    const iso = meta.get(start) || response.pulse.find((row) => row.week_start === start)?.week || "";
-    return { start, label: weekLabel.format(new Date(`${start}T12:00:00.000Z`)), isoWeek: iso };
+    const iso =
+      meta.get(start) ||
+      response.pulse.find((row) => row.week_start === start)?.week ||
+      '';
+    return {
+      start,
+      label: weekLabel.format(new Date(`${start}T12:00:00.000Z`)),
+      isoWeek: iso,
+    };
   });
 }
 
 /** 2026-W27 → S27 */
 function shortWeekLabel(isoWeek: string | null | undefined) {
-  if (!isoWeek) return "";
+  if (!isoWeek) return '';
   const weekMatch = isoWeek.match(/W0*(\d{1,2})$/i);
   if (weekMatch) return `S${weekMatch[1]}`;
   if (/^S\d+$/i.test(isoWeek)) return `S${isoWeek.slice(1)}`;
@@ -438,23 +646,23 @@ function shortWeekLabel(isoWeek: string | null | undefined) {
 }
 
 function shortPeriodLabel(label: string | null | undefined) {
-  if (!label) return "";
+  if (!label) return '';
   return shortWeekLabel(label) || label;
 }
 
-type PctChange = number | "new" | null;
+type PctChange = number | 'new' | null;
 
 function pctChange(current: number, previous: number | undefined): PctChange {
   if (previous === undefined) return null;
-  if (previous === 0) return current === 0 ? 0 : "new";
+  if (previous === 0) return current === 0 ? 0 : 'new';
   return (current - previous) / Math.abs(previous);
 }
 
 function formatPctChange(value: PctChange) {
   if (value === null) return null;
-  if (value === "new") return "nouveau";
-  if (value === 0) return "=";
-  return `${value > 0 ? "+" : "−"}${percent.format(Math.abs(value))}`;
+  if (value === 'new') return 'nouveau';
+  if (value === 0) return '=';
+  return `${value > 0 ? '+' : '−'}${percent.format(Math.abs(value))}`;
 }
 
 function wowDelta(current: number, previous: number | undefined) {
@@ -470,14 +678,14 @@ function metricShowsAverage(label: string) {
 }
 
 function trackingOf(owner: Owner): Tracking {
-  return owner.tracking || "commercial";
+  return owner.tracking || 'commercial';
 }
 
-function trackingBadge(tracking: Tracking, role: Owner["role"]) {
-  if (tracking === "sdr") return "SDR";
-  if (tracking === "dg") return null;
-  if (role === "manager") return "Manager";
-  if (role === "admin") return "Admin";
+function trackingBadge(tracking: Tracking, role: Owner['role']) {
+  if (tracking === 'sdr') return 'SDR';
+  if (tracking === 'dg') return null;
+  if (role === 'manager') return 'Manager';
+  if (role === 'admin') return 'Admin';
   return null;
 }
 
@@ -495,39 +703,76 @@ function cadenceHealth(
 ): Health {
   const ahead = paceRatio !== null && paceRatio >= 1;
   const onTrack = paceRatio !== null && paceRatio >= 0.85;
-  const trajectoryLabel = ahead ? "bon rythme trimestre" : onTrack ? "rythme tenu" : paceRatio !== null ? "trimestre en retard" : null;
+  const trajectoryLabel = ahead
+    ? 'bon rythme trimestre'
+    : onTrack
+      ? 'rythme tenu'
+      : paceRatio !== null
+        ? 'trimestre en retard'
+        : null;
 
-  if (tracking === "sdr") {
+  if (tracking === 'sdr') {
     const calls = currentPulse.calls;
     const rdv = currentPulse.meetings;
     const opps = currentPipe.generated_count;
     const detect = rdv >= CADENCE.detectSample ? opps / rdv : null;
-    const recoParts = [`${calls} appels`, `${rdv} RDV sur ${CADENCE.rdvPerWeek}`, detect === null ? `${opps} opp` : `détection ${percent.format(detect)}`];
-    const reco = recoParts.join(" · ");
+    const recoParts = [
+      `${calls} appels`,
+      `${rdv} RDV sur ${CADENCE.rdvPerWeek}`,
+      detect === null ? `${opps} opp` : `détection ${percent.format(detect)}`,
+    ];
+    const reco = recoParts.join(' · ');
 
     if (calls === 0 && rdv === 0 && opps === 0) {
-      return { label: "Critique", tone: "crit", reco: "Semaine sans appels ni RDV." };
+      return {
+        label: 'Critique',
+        tone: 'crit',
+        reco: 'Semaine sans appels ni RDV.',
+      };
     }
-    if (rdv >= CADENCE.rdvPerWeek && (detect === null || detect >= CADENCE.detectRate) && calls >= CADENCE.sdrCallsHint * 0.6) {
-      return { label: "Super", tone: "super", reco };
+    if (
+      rdv >= CADENCE.rdvPerWeek &&
+      (detect === null || detect >= CADENCE.detectRate) &&
+      calls >= CADENCE.sdrCallsHint * 0.6
+    ) {
+      return { label: 'Super', tone: 'super', reco };
     }
     if (rdv === 0 && opps === 0) {
-      return { label: "Critique", tone: "crit", reco };
+      return { label: 'Critique', tone: 'crit', reco };
     }
-    if (rdv < CADENCE.rdvPerWeek || (detect !== null && detect < CADENCE.detectRate) || calls < CADENCE.sdrCallsHint * 0.4) {
-      return { label: "À surveiller", tone: "warn", reco };
+    if (
+      rdv < CADENCE.rdvPerWeek ||
+      (detect !== null && detect < CADENCE.detectRate) ||
+      calls < CADENCE.sdrCallsHint * 0.4
+    ) {
+      return { label: 'À surveiller', tone: 'warn', reco };
     }
-    return { label: "OK", tone: "ok", reco };
+    return { label: 'OK', tone: 'ok', reco };
   }
 
-  if (tracking === "dg") {
+  if (tracking === 'dg') {
     if (currentPipe.won_amount <= 0 && !ahead) {
-      return { label: "Calme", tone: "warn", reco: trajectoryLabel ? `Pas de signature · ${trajectoryLabel}.` : "Pas de signature cette semaine." };
+      return {
+        label: 'Calme',
+        tone: 'warn',
+        reco: trajectoryLabel
+          ? `Pas de signature · ${trajectoryLabel}.`
+          : 'Pas de signature cette semaine.',
+      };
     }
     if (currentPipe.won_amount > 0) {
-      return { label: "OK", tone: "ok", reco: `${money.format(currentPipe.won_amount)} signés${trajectoryLabel ? ` · ${trajectoryLabel}` : ""}.` };
+      return {
+        label: 'OK',
+        tone: 'ok',
+        reco: `${money.format(currentPipe.won_amount)} signés${trajectoryLabel ? ` · ${trajectoryLabel}` : ''}.`,
+      };
     }
-    return { label: "OK", tone: "ok", reco: trajectoryLabel || "Trajectoire tenue sans signature cette semaine." };
+    return {
+      label: 'OK',
+      tone: 'ok',
+      reco:
+        trajectoryLabel || 'Trajectoire tenue sans signature cette semaine.',
+    };
   }
 
   const rdv = currentPulse.meetings;
@@ -545,61 +790,77 @@ function cadenceHealth(
     hasSales ? `${money.format(wonAmount)} signés` : null,
     trajectoryLabel,
   ].filter(Boolean);
-  const reco = bits.join(" · ");
+  const reco = bits.join(' · ');
 
   // Semaine morte : pas d’activité ni de vente — sauf si trajectoire déjà largement en avance.
   if (rdv === 0 && opps === 0 && !hasSales) {
-    if (ahead) return { label: "OK", tone: "ok", reco: `Semaine calme · ${trajectoryLabel}.` };
-    return { label: "Critique", tone: "crit", reco: "Pas de RDV ni d’opp cette semaine." };
+    if (ahead)
+      return {
+        label: 'OK',
+        tone: 'ok',
+        reco: `Semaine calme · ${trajectoryLabel}.`,
+      };
+    return {
+      label: 'Critique',
+      tone: 'crit',
+      reco: 'Pas de RDV ni d’opp cette semaine.',
+    };
   }
 
   // Super : volume + résultats (ventes ou détection saine).
   if (rdvOk && hasSales) {
-    return { label: "Super", tone: "super", reco };
+    return { label: 'Super', tone: 'super', reco };
   }
   if (rdvOk && detectOk) {
-    return { label: "Super", tone: "super", reco };
+    return { label: 'Super', tone: 'super', reco };
   }
 
   // Peu de RDV mais ventes + trajectoire OK → forme correcte, pas critique.
   if (!rdvOk && hasSales && (ahead || onTrack)) {
-    return { label: "OK", tone: "ok", reco };
+    return { label: 'OK', tone: 'ok', reco };
   }
   if (!rdvOk && hasSales) {
-    return { label: "À surveiller", tone: "warn", reco: `${reco} · peu de RDV.` };
+    return {
+      label: 'À surveiller',
+      tone: 'warn',
+      reco: `${reco} · peu de RDV.`,
+    };
   }
 
   // Détection très basse sur un vrai échantillon.
   if (detectBad) {
-    return { label: "À surveiller", tone: "warn", reco };
+    return { label: 'À surveiller', tone: 'warn', reco };
   }
 
   if (rdvOk && !detectBad) {
-    return { label: "OK", tone: "ok", reco };
+    return { label: 'OK', tone: 'ok', reco };
   }
 
   // Volume bas, pas de ventes qui sauvent.
   if (!rdvOk) {
-    if (ahead) return { label: "OK", tone: "ok", reco };
-    return { label: "À surveiller", tone: "warn", reco };
+    if (ahead) return { label: 'OK', tone: 'ok', reco };
+    return { label: 'À surveiller', tone: 'warn', reco };
   }
 
   if (detect !== null && detect < CADENCE.detectRate) {
-    return { label: "À surveiller", tone: "warn", reco };
+    return { label: 'À surveiller', tone: 'warn', reco };
   }
 
-  return { label: "OK", tone: "ok", reco };
+  return { label: 'OK', tone: 'ok', reco };
 }
 
 function ConversionRates({
-  owners, pulseFor, pipelineFor, currentIndex,
+  owners,
+  pulseFor,
+  pipelineFor,
+  currentIndex,
 }: {
   owners: Owner[];
   pulseFor: (owner: Owner) => Pulse[];
   pipelineFor: (owner: Owner) => Pipeline[];
   currentIndex: number;
 }) {
-  const sellers = owners.filter((owner) => trackingOf(owner) !== "sdr");
+  const sellers = owners.filter((owner) => trackingOf(owner) !== 'sdr');
   const pool = sellers.length ? sellers : owners;
   let rdv = 0;
   let opps = 0;
@@ -615,33 +876,70 @@ function ConversionRates({
   }
   const detect = rdv > 0 ? opps / rdv : null;
   const close = opps > 0 ? won / opps : null;
-  const detectTone = detect === null ? "" : detect >= CADENCE.detectRate ? "weekly-rate--ok" : detect >= CADENCE.detectFloor ? "weekly-rate--warn" : "weekly-rate--crit";
-  const closeTone = close === null ? "" : close >= CADENCE.closeRate ? "weekly-rate--ok" : "weekly-rate--warn";
+  const detectTone =
+    detect === null
+      ? ''
+      : detect >= CADENCE.detectRate
+        ? 'weekly-rate--ok'
+        : detect >= CADENCE.detectFloor
+          ? 'weekly-rate--warn'
+          : 'weekly-rate--crit';
+  const closeTone =
+    close === null
+      ? ''
+      : close >= CADENCE.closeRate
+        ? 'weekly-rate--ok'
+        : 'weekly-rate--warn';
   return (
     <GlassCard className="weekly-conversion">
       <div className="weekly-conversion__item">
-        <small>RDV → opp<Tip text={COPY.detect} /></small>
-        <strong className={`xos-numeric ${detectTone}`}>{detect === null ? "—" : percent.format(detect)}</strong>
-        <span>{opps} opp · {rdv} RDV</span>
+        <small>
+          RDV → opp
+          <Tip text={COPY.detect} />
+        </small>
+        <strong className={`xos-numeric ${detectTone}`}>
+          {detect === null ? '—' : percent.format(detect)}
+        </strong>
+        <span>
+          {opps} opp · {rdv} RDV
+        </span>
       </div>
       <div className="weekly-conversion__item">
-        <small>Opp → signées<Tip text={COPY.close} /></small>
-        <strong className={`xos-numeric ${closeTone}`}>{close === null ? "—" : percent.format(close)}</strong>
-        <span>{won} gagnées · {opps} détectées</span>
+        <small>
+          Opp → signées
+          <Tip text={COPY.close} />
+        </small>
+        <strong className={`xos-numeric ${closeTone}`}>
+          {close === null ? '—' : percent.format(close)}
+        </strong>
+        <span>
+          {won} gagnées · {opps} détectées
+        </span>
       </div>
     </GlassCard>
   );
 }
 
-async function perfRequest(period: PeriodMode, anchorWeekStart?: string | null, signal?: AbortSignal, options?: { lite?: boolean; enrich?: boolean }) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("missing_session");
+async function perfRequest(
+  period: PeriodMode,
+  anchorWeekStart?: string | null,
+  signal?: AbortSignal,
+  options?: { lite?: boolean; enrich?: boolean },
+) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('missing_session');
   const params = new URLSearchParams({ period });
-  if (anchorWeekStart) params.set("week_start", anchorWeekStart);
-  if (options?.lite) params.set("lite", "1");
-  if (options?.enrich) params.set("enrich", "1");
-  const payload = await apiFetch<PerfResponse>(session.access_token, `/api/perf?${params}`, { signal }).catch(() => {
-    throw new Error("perf_unavailable");
+  if (anchorWeekStart) params.set('week_start', anchorWeekStart);
+  if (options?.lite) params.set('lite', '1');
+  if (options?.enrich) params.set('enrich', '1');
+  const payload = await apiFetch<PerfResponse>(
+    session.access_token,
+    `/api/perf?${params}`,
+    { signal },
+  ).catch(() => {
+    throw new Error('perf_unavailable');
   });
   return { payload, email: session.user.email || null };
 }
@@ -649,58 +947,92 @@ async function perfRequest(period: PeriodMode, anchorWeekStart?: string | null, 
 type PerfCacheEntry = { payload: PerfResponse; email: string | null };
 type PerfCacheMap = Record<string, PerfCacheEntry>;
 
-function perfCacheKey(period: PeriodMode, weekStart: string | null | undefined) {
-  return `${period}:${weekStart || "live"}`;
+function perfCacheKey(
+  period: PeriodMode,
+  weekStart: string | null | undefined,
+) {
+  return `${period}:${weekStart || 'live'}`;
 }
 
 function quarterAnchorWeekStart(label: string) {
   const match = /^FY(\d{2})-Q([1-4])$/.exec(label);
   if (!match) return null;
   const fiscalStartYear = 2000 + Number(match[1]) - 1;
-  const quarterStart = new Date(Date.UTC(fiscalStartYear, 6 + (Number(match[2]) - 1) * 3, 1));
-  quarterStart.setUTCDate(quarterStart.getUTCDate() + ((8 - quarterStart.getUTCDay()) % 7));
+  const quarterStart = new Date(
+    Date.UTC(fiscalStartYear, 6 + (Number(match[2]) - 1) * 3, 1),
+  );
+  quarterStart.setUTCDate(
+    quarterStart.getUTCDate() + ((8 - quarterStart.getUTCDay()) % 7),
+  );
   return quarterStart.toISOString().slice(0, 10);
 }
 
-function LazyMount({ children, minHeight = "14rem" }: { children: React.ReactNode; minHeight?: string }) {
+function LazyMount({
+  children,
+  minHeight = '14rem',
+}: {
+  children: React.ReactNode;
+  minHeight?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     if (visible) return;
     const node = ref.current;
     if (!node) return;
-    if (typeof IntersectionObserver === "undefined") {
+    if (typeof IntersectionObserver === 'undefined') {
       setVisible(true);
       return;
     }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: "280px 0px" });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '280px 0px' },
+    );
     observer.observe(node);
     return () => observer.disconnect();
   }, [visible]);
   return (
-    <div ref={ref} className="weekly-lazy-mount" style={visible ? undefined : { minHeight }}>
+    <div
+      ref={ref}
+      className="weekly-lazy-mount"
+      style={visible ? undefined : { minHeight }}
+    >
       {visible ? children : null}
     </div>
   );
 }
 
 function currentMonthKey() {
-  return String(new Date().getMonth() + 1).padStart(2, "0");
+  return String(new Date().getMonth() + 1).padStart(2, '0');
 }
 
-function MonthlyIndicativePills({ months, compact = false }: { months: MonthlyIndicative[]; compact?: boolean }) {
+function MonthlyIndicativePills({
+  months,
+  compact = false,
+}: {
+  months: MonthlyIndicative[];
+  compact?: boolean;
+}) {
   if (!months.length) return null;
   const currentMonth = currentMonthKey();
   return (
-    <div className={`weekly-monthly-targets${compact ? " weekly-monthly-targets--compact" : ""}`} aria-label="Objectifs mensuels indicatifs">
+    <div
+      className={`weekly-monthly-targets${compact ? ' weekly-monthly-targets--compact' : ''}`}
+      aria-label="Objectifs mensuels indicatifs"
+    >
       {months.map((month) => (
-        <Tip key={month.month} text={`${Math.round(month.weight * 100)} % du trimestre · brut ${money.format(month.raw)}`}>
-          <span className={`weekly-monthly-target${month.month === currentMonth ? " weekly-monthly-target--current" : ""}`}>
+        <Tip
+          key={month.month}
+          text={`${Math.round(month.weight * 100)} % du trimestre · brut ${money.format(month.raw)}`}
+        >
+          <span
+            className={`weekly-monthly-target${month.month === currentMonth ? ' weekly-monthly-target--current' : ''}`}
+          >
             {month.label} ~{money.format(month.indicative)}
           </span>
         </Tip>
@@ -714,60 +1046,123 @@ function QuarterGauge({ data }: { data: Quarter | undefined }) {
   const forecast = data?.forecast || 0;
   const target = data?.target ?? null;
   const ceiling = Math.max(target || 0, forecast, signed, 1);
-  const targetText = target === null ? "—" : money.format(target);
-  return <div className="weekly-quarter">
-    <div className="weekly-quarter-heading"><span>{data?.quarter || "Trimestre"}</span><small>Objectif trimestre</small></div>
-    <div className="weekly-quarter-track" aria-hidden="true">
-      <span className="weekly-quarter-forecast" style={{ width: `${Math.min(100, forecast / ceiling * 100)}%` }} />
-      <span className="weekly-quarter-signed" style={{ width: `${Math.min(100, signed / ceiling * 100)}%` }} />
+  const targetText = target === null ? '—' : money.format(target);
+  return (
+    <div className="weekly-quarter">
+      <div className="weekly-quarter-heading">
+        <span>{data?.quarter || 'Trimestre'}</span>
+        <small>Objectif trimestre</small>
+      </div>
+      <div className="weekly-quarter-track" aria-hidden="true">
+        <span
+          className="weekly-quarter-forecast"
+          style={{ width: `${Math.min(100, (forecast / ceiling) * 100)}%` }}
+        />
+        <span
+          className="weekly-quarter-signed"
+          style={{ width: `${Math.min(100, (signed / ceiling) * 100)}%` }}
+        />
+      </div>
+      <div className="weekly-quarter-stats">
+        <span aria-label={`Signé ${money.format(signed)}`}>
+          <small>Signé</small>
+          <strong>{money.format(signed)}</strong>
+        </span>
+        <span aria-label={`Projeté ${money.format(forecast)}`}>
+          <small>Projeté</small>
+          <strong>{money.format(forecast)}</strong>
+        </span>
+        <span aria-label={`Objectif ${targetText}`}>
+          <small>Objectif</small>
+          <strong>{targetText}</strong>
+        </span>
+      </div>
     </div>
-    <div className="weekly-quarter-stats">
-      <span aria-label={`Signé ${money.format(signed)}`}><small>Signé</small><strong>{money.format(signed)}</strong></span>
-      <span aria-label={`Projeté ${money.format(forecast)}`}><small>Projeté</small><strong>{money.format(forecast)}</strong></span>
-      <span aria-label={`Objectif ${targetText}`}><small>Objectif</small><strong>{targetText}</strong></span>
-    </div>
-  </div>;
+  );
 }
 
-function Breakdown({ wonByType, wonAmount }: { wonByType: WonByType; wonAmount: number }) {
+function Breakdown({
+  wonByType,
+  wonAmount,
+}: {
+  wonByType: WonByType;
+  wonAmount: number;
+}) {
   if (!wonAmount) return null;
-  const totalByType = wonByType.catalogue + wonByType.sur_mesure + wonByType.conseil;
+  const totalByType =
+    wonByType.catalogue + wonByType.sur_mesure + wonByType.conseil;
   const gap = wonAmount - totalByType;
-  if (gap > 1) console.warn(`Breakdown: wonByType (${totalByType}) < wonAmount (${wonAmount}), écart de ${gap}`);
+  if (gap > 1)
+    console.warn(
+      `Breakdown: wonByType (${totalByType}) < wonAmount (${wonAmount}), écart de ${gap}`,
+    );
   const entries: Array<{ key: string; label: string; value: number }> = [
-    ...(Object.keys(TYPE_LABELS) as Array<keyof WonByType>).map((type) => ({ key: type, label: TYPE_LABELS[type], value: wonByType[type] })),
-    ...(gap > 1 ? [{ key: "autres", label: "Autres", value: gap }] : []),
+    ...(Object.keys(TYPE_LABELS) as Array<keyof WonByType>).map((type) => ({
+      key: type,
+      label: TYPE_LABELS[type],
+      value: wonByType[type],
+    })),
+    ...(gap > 1 ? [{ key: 'autres', label: 'Autres', value: gap }] : []),
   ];
-  return <>
-    <div className="weekly-breakdown" aria-label="Répartition du CA signé">
-      {entries.map(({ key, label, value }) => (
-        <Tip key={key} text={`${label} · ${money.format(value)}`} style={{ width: `${value / wonAmount * 100}%` }}>
-          <span className={`weekly-breakdown-${key}`} />
-        </Tip>
-      ))}
-    </div>
-    <div className="weekly-breakdown-labels">
-      {entries.map(({ key, label, value }) => (
-        <span className={`weekly-legend-${key}`} key={key}>{label} · {money.format(value)}</span>
-      ))}
-    </div>
-  </>;
+  return (
+    <>
+      <div className="weekly-breakdown" aria-label="Répartition du CA signé">
+        {entries.map(({ key, label, value }) => (
+          <Tip
+            key={key}
+            text={`${label} · ${money.format(value)}`}
+            style={{ width: `${(value / wonAmount) * 100}%` }}
+          >
+            <span className={`weekly-breakdown-${key}`} />
+          </Tip>
+        ))}
+      </div>
+      <div className="weekly-breakdown-labels">
+        {entries.map(({ key, label, value }) => (
+          <span className={`weekly-legend-${key}`} key={key}>
+            {label} · {money.format(value)}
+          </span>
+        ))}
+      </div>
+    </>
+  );
 }
 
-type TableMetric = { label: string; format: "count" | "money"; values: Array<number | null>; priorTotal?: number | null };
+type TableMetric = {
+  label: string;
+  format: 'count' | 'money';
+  values: Array<number | null>;
+  priorTotal?: number | null;
+};
 
-function tableFooter(metric: TableMetric, weekMode: boolean, currentIndex: number) {
-  const elapsed = metric.values.slice(0, currentIndex + 1).filter((value): value is number => value !== null);
-  const total = elapsed.length ? elapsed.reduce((sum, value) => sum + value, 0) : null;
+function tableFooter(
+  metric: TableMetric,
+  weekMode: boolean,
+  currentIndex: number,
+) {
+  const elapsed = metric.values
+    .slice(0, currentIndex + 1)
+    .filter((value): value is number => value !== null);
+  const total = elapsed.length
+    ? elapsed.reduce((sum, value) => sum + value, 0)
+    : null;
   const weeksElapsed = currentIndex + 1;
-  const average = total !== null && weeksElapsed > 0 ? total / weeksElapsed : null;
+  const average =
+    total !== null && weeksElapsed > 0 ? total / weeksElapsed : null;
   if (weekMode) {
-    const delta = currentIndex > 0 ? wowDelta(metric.values[currentIndex] ?? 0, metric.values[currentIndex - 1] ?? undefined) : null;
+    const delta =
+      currentIndex > 0
+        ? wowDelta(
+            metric.values[currentIndex] ?? 0,
+            metric.values[currentIndex - 1] ?? undefined,
+          )
+        : null;
     return { total, average: null as number | null, delta };
   }
   const prior = metric.priorTotal ?? null;
   // Cumul à date vs même fenêtre du trimestre N−1 (même nombre de semaines écoulées).
-  const delta = total !== null && prior !== null ? pctChange(total, prior) : null;
+  const delta =
+    total !== null && prior !== null ? pctChange(total, prior) : null;
   return { total, average, delta };
 }
 
@@ -776,96 +1171,318 @@ function priorQuarterDisplayLabel(label: string) {
   return match ? `Q${match[2]} FY${match[1]}` : label;
 }
 
-function DeltaTableCell({ delta, weekMode, priorQuarterLabel }: { delta: PctChange; weekMode: boolean; priorQuarterLabel: string }) {
-  const tone = typeof delta === "number" && delta < 0
-    ? "weekly-delta--down"
-    : typeof delta === "number" && delta > 0
-      ? "weekly-delta--up"
-      : undefined;
-  const tip = delta === null || delta === "new"
-    ? "Pas de référence : pas de données Q-1"
-    : weekMode
-      ? "Comparé à la semaine précédente"
-      : `Comparé à ${priorQuarterDisplayLabel(priorQuarterLabel)} sur les mêmes semaines écoulées`;
-  return <td className={tone}><Tip text={tip}>{formatDelta(delta) || "—"}</Tip></td>;
+function DeltaTableCell({
+  delta,
+  weekMode,
+  priorQuarterLabel,
+}: {
+  delta: PctChange;
+  weekMode: boolean;
+  priorQuarterLabel: string;
+}) {
+  const tone =
+    typeof delta === 'number' && delta < 0
+      ? 'weekly-delta--down'
+      : typeof delta === 'number' && delta > 0
+        ? 'weekly-delta--up'
+        : undefined;
+  const tip =
+    delta === null || delta === 'new'
+      ? 'Pas de référence : pas de données Q-1'
+      : weekMode
+        ? 'Comparé à la semaine précédente'
+        : `Comparé à ${priorQuarterDisplayLabel(priorQuarterLabel)} sur les mêmes semaines écoulées`;
+  return (
+    <td className={tone}>
+      <Tip text={tip}>{formatDelta(delta) || '—'}</Tip>
+    </td>
+  );
 }
 
-function MetricTable({ owner, weeks, pulse, pipeline, priorPulse, priorPipeline, quarter, currentIndex, weekMode, compareLabel, priorQuarterLabel }: {
-  owner: Owner; weeks: Week[]; pulse: Pulse[]; pipeline: Pipeline[]; priorPulse?: Pulse[]; priorPipeline?: Pipeline[];
-  quarter: Quarter | undefined; currentIndex: number; weekMode: boolean; compareLabel: string; priorQuarterLabel: string;
+function MetricTable({
+  owner,
+  weeks,
+  pulse,
+  pipeline,
+  priorPulse,
+  priorPipeline,
+  quarter,
+  currentIndex,
+  weekMode,
+  compareLabel,
+  priorQuarterLabel,
+}: {
+  owner: Owner;
+  weeks: Week[];
+  pulse: Pulse[];
+  pipeline: Pipeline[];
+  priorPulse?: Pulse[];
+  priorPipeline?: Pipeline[];
+  quarter: Quarter | undefined;
+  currentIndex: number;
+  weekMode: boolean;
+  compareLabel: string;
+  priorQuarterLabel: string;
 }) {
   const tracking = trackingOf(owner);
-  const priorPulseTotal = (pick: (row: Pulse) => number) => (priorPulse || []).reduce((sum, row) => sum + pick(row), 0);
-  const priorPipelineTotal = (pick: (row: Pipeline) => number) => (priorPipeline || []).reduce((sum, row) => sum + pick(row), 0);
-  const rows: TableMetric[] = tracking === "sdr"
-    ? [
-      { label: "Appels", format: "count", values: pulse.map((point) => point.calls), priorTotal: weekMode ? null : priorPulseTotal((row) => row.calls) },
-      { label: "RDV pris", format: "count", values: pulse.map((point) => point.meetings), priorTotal: weekMode ? null : priorPulseTotal((row) => row.meetings) },
-      { label: "Opps détectées", format: "count", values: pipeline.map((point) => point.generated_count), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.generated_count) },
-    ]
-    : tracking === "dg"
+  const priorPulseTotal = (pick: (row: Pulse) => number) =>
+    (priorPulse || []).reduce((sum, row) => sum + pick(row), 0);
+  const priorPipelineTotal = (pick: (row: Pipeline) => number) =>
+    (priorPipeline || []).reduce((sum, row) => sum + pick(row), 0);
+  const rows: TableMetric[] =
+    tracking === 'sdr'
       ? [
-        { label: "CA signé", format: "money", values: pipeline.map((point) => point.won_amount), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_amount) },
-        { label: "Sur-mesure", format: "money", values: pipeline.map((point) => point.won_by_type.sur_mesure), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.sur_mesure) },
-        { label: "Catalogue", format: "money", values: pipeline.map((point) => point.won_by_type.catalogue), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.catalogue) },
-        { label: "Conseil", format: "money", values: pipeline.map((point) => point.won_by_type.conseil), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.conseil) },
-        { label: "Dont ARR", format: "money", values: pipeline.map((point) => point.won_arr_amount), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_arr_amount) },
-      ]
-      : [
-        { label: "RDV effectués", format: "count", values: pulse.map((point) => point.meetings), priorTotal: weekMode ? null : priorPulseTotal((row) => row.meetings) },
-        { label: "Opps détectées", format: "count", values: pipeline.map((point) => point.generated_count), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.generated_count) },
-        { label: "CA signé", format: "money", values: pipeline.map((point) => point.won_amount), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_amount) },
-        { label: "Sur-mesure", format: "money", values: pipeline.map((point) => point.won_by_type.sur_mesure), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.sur_mesure) },
-        { label: "Catalogue", format: "money", values: pipeline.map((point) => point.won_by_type.catalogue), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.catalogue) },
-        { label: "Conseil", format: "money", values: pipeline.map((point) => point.won_by_type.conseil), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_by_type.conseil) },
-        { label: "Dont ARR", format: "money", values: pipeline.map((point) => point.won_arr_amount), priorTotal: weekMode ? null : priorPipelineTotal((row) => row.won_arr_amount) },
-      ];
-  const formatValue = (value: number | null, format: TableMetric["format"]) => value === null ? "—" : format === "money" ? money.format(value) : countFmt.format(value);
+          {
+            label: 'Appels',
+            format: 'count',
+            values: pulse.map((point) => point.calls),
+            priorTotal: weekMode ? null : priorPulseTotal((row) => row.calls),
+          },
+          {
+            label: 'RDV pris',
+            format: 'count',
+            values: pulse.map((point) => point.meetings),
+            priorTotal: weekMode
+              ? null
+              : priorPulseTotal((row) => row.meetings),
+          },
+          {
+            label: 'Opps détectées',
+            format: 'count',
+            values: pipeline.map((point) => point.generated_count),
+            priorTotal: weekMode
+              ? null
+              : priorPipelineTotal((row) => row.generated_count),
+          },
+        ]
+      : tracking === 'dg'
+        ? [
+            {
+              label: 'CA signé',
+              format: 'money',
+              values: pipeline.map((point) => point.won_amount),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_amount),
+            },
+            {
+              label: 'Sur-mesure',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.sur_mesure),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.sur_mesure),
+            },
+            {
+              label: 'Catalogue',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.catalogue),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.catalogue),
+            },
+            {
+              label: 'Conseil',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.conseil),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.conseil),
+            },
+            {
+              label: 'Dont ARR',
+              format: 'money',
+              values: pipeline.map((point) => point.won_arr_amount),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_arr_amount),
+            },
+          ]
+        : [
+            {
+              label: 'RDV effectués',
+              format: 'count',
+              values: pulse.map((point) => point.meetings),
+              priorTotal: weekMode
+                ? null
+                : priorPulseTotal((row) => row.meetings),
+            },
+            {
+              label: 'Opps détectées',
+              format: 'count',
+              values: pipeline.map((point) => point.generated_count),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.generated_count),
+            },
+            {
+              label: 'CA signé',
+              format: 'money',
+              values: pipeline.map((point) => point.won_amount),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_amount),
+            },
+            {
+              label: 'Sur-mesure',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.sur_mesure),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.sur_mesure),
+            },
+            {
+              label: 'Catalogue',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.catalogue),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.catalogue),
+            },
+            {
+              label: 'Conseil',
+              format: 'money',
+              values: pipeline.map((point) => point.won_by_type.conseil),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_by_type.conseil),
+            },
+            {
+              label: 'Dont ARR',
+              format: 'money',
+              values: pipeline.map((point) => point.won_arr_amount),
+              priorTotal: weekMode
+                ? null
+                : priorPipelineTotal((row) => row.won_arr_amount),
+            },
+          ];
+  const formatValue = (value: number | null, format: TableMetric['format']) =>
+    value === null
+      ? '—'
+      : format === 'money'
+        ? money.format(value)
+        : countFmt.format(value);
   const badge = trackingBadge(tracking, owner.role);
-  return <GlassCard className="weekly-table-card">
-    <div className="weekly-person"><h4>{owner.name}</h4>{badge && <Tag variant="muted">{badge}</Tag>}</div>
-    <div className="weekly-table-scroll">
-      <table className="weekly-table" aria-label={`Suivi hebdomadaire de ${owner.name}`}>
-        <thead>
-          <tr>
-            <th scope="col">Métrique</th>
-            {weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}
-            {!weekMode && <th scope="col">Moyenne</th>}
-            <th scope="col">{weekMode ? "Total" : "Somme"}</th>
-            <th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th>
-          </tr>
-        </thead>
-        <tbody>{rows.map((metric) => {
-          const footer = tableFooter(metric, weekMode, currentIndex);
-          const avg = !weekMode && metricShowsAverage(metric.label) ? footer.average : null;
-          return (
-            <tr key={metric.label}>
-              <th scope="row">{metric.label}</th>
-              {metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}
-              {!weekMode && <td className="weekly-table-avg">{formatValue(avg, metric.format)}</td>}
-              <td className="weekly-table-total">{formatValue(footer.total, metric.format)}</td>
-              <DeltaTableCell delta={footer.delta} weekMode={weekMode} priorQuarterLabel={priorQuarterLabel} />
+  return (
+    <GlassCard className="weekly-table-card">
+      <div className="weekly-person">
+        <h4>{owner.name}</h4>
+        {badge && <Tag variant="muted">{badge}</Tag>}
+      </div>
+      <div className="weekly-table-scroll">
+        <table
+          className="weekly-table"
+          aria-label={`Suivi hebdomadaire de ${owner.name}`}
+        >
+          <thead>
+            <tr>
+              <th scope="col">Métrique</th>
+              {weeks.map((week) => (
+                <th scope="col" key={week.start}>
+                  {weekMode
+                    ? shortWeekLabel(week.isoWeek) || week.label
+                    : week.label}
+                </th>
+              ))}
+              {!weekMode && <th scope="col">Moyenne</th>}
+              <th scope="col">{weekMode ? 'Total' : 'Somme'}</th>
+              <th scope="col">
+                {weekMode
+                  ? `Écart vs ${compareLabel}`
+                  : `Écart vs ${priorQuarterLabel}`}
+              </th>
             </tr>
-          );
-        })}</tbody>
-      </table>
-    </div>
-    {tracking !== "sdr" && <QuarterGauge data={quarter} />}
-  </GlassCard>;
+          </thead>
+          <tbody>
+            {rows.map((metric) => {
+              const footer = tableFooter(metric, weekMode, currentIndex);
+              const avg =
+                !weekMode && metricShowsAverage(metric.label)
+                  ? footer.average
+                  : null;
+              return (
+                <tr key={metric.label}>
+                  <th scope="row">{metric.label}</th>
+                  {metric.values.map((value, index) => (
+                    <td
+                      key={weeks[index].start}
+                      className={
+                        index === currentIndex
+                          ? 'weekly-table-current'
+                          : undefined
+                      }
+                    >
+                      {index > currentIndex
+                        ? '—'
+                        : formatValue(value, metric.format)}
+                    </td>
+                  ))}
+                  {!weekMode && (
+                    <td className="weekly-table-avg">
+                      {formatValue(avg, metric.format)}
+                    </td>
+                  )}
+                  <td className="weekly-table-total">
+                    {formatValue(footer.total, metric.format)}
+                  </td>
+                  <DeltaTableCell
+                    delta={footer.delta}
+                    weekMode={weekMode}
+                    priorQuarterLabel={priorQuarterLabel}
+                  />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {tracking !== 'sdr' && <QuarterGauge data={quarter} />}
+    </GlassCard>
+  );
 }
 
-function MetricCell({ label, value, previous, moneyValue = false }: { label: string; value: number; previous?: number; moneyValue?: boolean; compareLabel?: string }) {
+function MetricCell({
+  label,
+  value,
+  previous,
+  moneyValue = false,
+}: {
+  label: string;
+  value: number;
+  previous?: number;
+  moneyValue?: boolean;
+  compareLabel?: string;
+}) {
   const delta = wowDelta(value, previous);
   const deltaText = formatDelta(delta);
-  return <div>
-    <span>{label}</span>
-    <strong className="xos-numeric">{moneyValue ? money.format(value) : value}</strong>
-    {deltaText && <small className={`weekly-delta ${typeof delta === "number" && delta < 0 ? "weekly-delta--down" : typeof delta === "number" && delta > 0 ? "weekly-delta--up" : ""}`}>{deltaText}</small>}
-  </div>;
+  return (
+    <div>
+      <span>{label}</span>
+      <strong className="xos-numeric">
+        {moneyValue ? money.format(value) : value}
+      </strong>
+      {deltaText && (
+        <small
+          className={`weekly-delta ${typeof delta === 'number' && delta < 0 ? 'weekly-delta--down' : typeof delta === 'number' && delta > 0 ? 'weekly-delta--up' : ''}`}
+        >
+          {deltaText}
+        </small>
+      )}
+    </div>
+  );
 }
 
 const PersonCard = memo(function PersonCard({
-  owner, pulseSeries, pipelineSeries, quarter, delay, currentIndex, compareLabel, interactive = false, focused = false, onOpen,
+  owner,
+  pulseSeries,
+  pipelineSeries,
+  quarter,
+  delay,
+  currentIndex,
+  compareLabel,
+  interactive = false,
+  focused = false,
+  onOpen,
 }: {
   owner: Owner;
   pulseSeries: Pulse[];
@@ -879,92 +1496,203 @@ const PersonCard = memo(function PersonCard({
   onOpen?: () => void;
 }) {
   const tracking = trackingOf(owner);
-  const current = pulseSeries[currentIndex] || pulseSeries.at(-1) || EMPTY_PULSE(owner.sf_user_id, "");
+  const current =
+    pulseSeries[currentIndex] ||
+    pulseSeries.at(-1) ||
+    EMPTY_PULSE(owner.sf_user_id, '');
   const previous = currentIndex > 0 ? pulseSeries[currentIndex - 1] : undefined;
-  const currentPipeline = pipelineSeries[currentIndex] || pipelineSeries.at(-1) || EMPTY_PIPELINE(owner.sf_user_id, "");
-  const previousPipeline = currentIndex > 0 ? pipelineSeries[currentIndex - 1] : undefined;
+  const currentPipeline =
+    pipelineSeries[currentIndex] ||
+    pipelineSeries.at(-1) ||
+    EMPTY_PIPELINE(owner.sf_user_id, '');
+  const previousPipeline =
+    currentIndex > 0 ? pipelineSeries[currentIndex - 1] : undefined;
   const badge = trackingBadge(tracking, owner.role);
   const paceRatio = quarter?.pace_ratio ?? null;
-  const health = cadenceHealth(tracking, current, previous, currentPipeline, previousPipeline, paceRatio);
+  const health = cadenceHealth(
+    tracking,
+    current,
+    previous,
+    currentPipeline,
+    previousPipeline,
+    paceRatio,
+  );
   const className = [
-    "weekly-pulse-card",
-    focused ? "weekly-pulse-card--focus" : "",
-    interactive ? "weekly-pulse-card--interactive" : "",
-  ].filter(Boolean).join(" ");
+    'weekly-pulse-card',
+    focused ? 'weekly-pulse-card--focus' : '',
+    interactive ? 'weekly-pulse-card--interactive' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-  return <GlassCard
-    className={className}
-    style={{ "--weekly-delay": `${delay}ms` } as React.CSSProperties}
-    role={interactive ? "button" : undefined}
-    tabIndex={interactive ? 0 : undefined}
-    onClick={interactive ? onOpen : undefined}
-    onKeyDown={interactive ? (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onOpen?.();
+  return (
+    <GlassCard
+      className={className}
+      style={{ '--weekly-delay': `${delay}ms` } as React.CSSProperties}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? onOpen : undefined}
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpen?.();
+              }
+            }
+          : undefined
       }
-    } : undefined}
-  >
-    <div className="weekly-person">
-      <div>
-        <h4>{owner.name}</h4>
-        <p className="weekly-reco">{health.reco}</p>
+    >
+      <div className="weekly-person">
+        <div>
+          <h4>{owner.name}</h4>
+          <p className="weekly-reco">{health.reco}</p>
+        </div>
+        <div className="weekly-person-tags">
+          {badge && <Tag variant="muted">{badge}</Tag>}
+          <span className={`weekly-health weekly-health--${health.tone}`}>
+            {health.label}
+          </span>
+        </div>
       </div>
-      <div className="weekly-person-tags">
-        {badge && <Tag variant="muted">{badge}</Tag>}
-        <span className={`weekly-health weekly-health--${health.tone}`}>{health.label}</span>
+      <div
+        className={`weekly-metrics weekly-metrics--${tracking === 'sdr' ? 3 : tracking === 'dg' ? 2 : 3}`}
+      >
+        {tracking === 'sdr' ? (
+          <>
+            <MetricCell
+              label="Appels"
+              value={current.calls}
+              previous={previous?.calls}
+              compareLabel={compareLabel}
+            />
+            <MetricCell
+              label="RDV pris"
+              value={current.meetings}
+              previous={previous?.meetings}
+              compareLabel={compareLabel}
+            />
+            <MetricCell
+              label="Opps détectées"
+              value={currentPipeline.generated_count}
+              previous={previousPipeline?.generated_count}
+              compareLabel={compareLabel}
+            />
+          </>
+        ) : tracking === 'dg' ? (
+          <>
+            <MetricCell
+              label="CA signé"
+              value={currentPipeline.won_amount}
+              previous={previousPipeline?.won_amount}
+              moneyValue
+              compareLabel={compareLabel}
+            />
+            <MetricCell
+              label="Dont ARR"
+              value={currentPipeline.won_arr_amount}
+              previous={previousPipeline?.won_arr_amount}
+              moneyValue
+              compareLabel={compareLabel}
+            />
+          </>
+        ) : (
+          <>
+            <MetricCell
+              label="RDV"
+              value={current.meetings}
+              previous={previous?.meetings}
+              compareLabel={compareLabel}
+            />
+            <MetricCell
+              label="Opps détectées"
+              value={currentPipeline.generated_count}
+              previous={previousPipeline?.generated_count}
+              compareLabel={compareLabel}
+            />
+            <MetricCell
+              label="CA signé"
+              value={currentPipeline.won_amount}
+              previous={previousPipeline?.won_amount}
+              moneyValue
+              compareLabel={compareLabel}
+            />
+          </>
+        )}
       </div>
-    </div>
-    <div className={`weekly-metrics weekly-metrics--${tracking === "sdr" ? 3 : tracking === "dg" ? 2 : 3}`}>
-      {tracking === "sdr" ? <>
-        <MetricCell label="Appels" value={current.calls} previous={previous?.calls} compareLabel={compareLabel} />
-        <MetricCell label="RDV pris" value={current.meetings} previous={previous?.meetings} compareLabel={compareLabel} />
-        <MetricCell label="Opps détectées" value={currentPipeline.generated_count} previous={previousPipeline?.generated_count} compareLabel={compareLabel} />
-      </> : tracking === "dg" ? <>
-        <MetricCell label="CA signé" value={currentPipeline.won_amount} previous={previousPipeline?.won_amount} moneyValue compareLabel={compareLabel} />
-        <MetricCell label="Dont ARR" value={currentPipeline.won_arr_amount} previous={previousPipeline?.won_arr_amount} moneyValue compareLabel={compareLabel} />
-      </> : <>
-        <MetricCell label="RDV" value={current.meetings} previous={previous?.meetings} compareLabel={compareLabel} />
-        <MetricCell label="Opps détectées" value={currentPipeline.generated_count} previous={previousPipeline?.generated_count} compareLabel={compareLabel} />
-        <MetricCell label="CA signé" value={currentPipeline.won_amount} previous={previousPipeline?.won_amount} moneyValue compareLabel={compareLabel} />
-      </>}
-    </div>
-    {tracking !== "sdr" && currentPipeline.won_amount > 0 && (
-      <div className="weekly-revenue"><Breakdown wonByType={currentPipeline.won_by_type} wonAmount={currentPipeline.won_amount} /></div>
-    )}
-    {tracking !== "sdr" && <QuarterGauge data={quarter} />}
-  </GlassCard>;
+      {tracking !== 'sdr' && currentPipeline.won_amount > 0 && (
+        <div className="weekly-revenue">
+          <Breakdown
+            wonByType={currentPipeline.won_by_type}
+            wonAmount={currentPipeline.won_amount}
+          />
+        </div>
+      )}
+      {tracking !== 'sdr' && <QuarterGauge data={quarter} />}
+    </GlassCard>
+  );
 });
 
-function sumAt<T>(owners: Owner[], seriesFor: (owner: Owner) => T[], index: number, pick: (row: T) => number) {
-  return owners.reduce((sum, owner) => sum + (pick(seriesFor(owner)[index]) || 0), 0);
+function sumAt<T>(
+  owners: Owner[],
+  seriesFor: (owner: Owner) => T[],
+  index: number,
+  pick: (row: T) => number,
+) {
+  return owners.reduce(
+    (sum, owner) => sum + (pick(seriesFor(owner)[index]) || 0),
+    0,
+  );
 }
 
-function teamWonByType(owners: Owner[], pipelineFor: (owner: Owner) => Pipeline[], index: number): WonByType {
+function teamWonByType(
+  owners: Owner[],
+  pipelineFor: (owner: Owner) => Pipeline[],
+  index: number,
+): WonByType {
   return owners.reduce((acc, owner) => {
     const won = pipelineFor(owner)[index]?.won_by_type || emptyWonByType();
-    return { catalogue: acc.catalogue + won.catalogue, sur_mesure: acc.sur_mesure + won.sur_mesure, conseil: acc.conseil + won.conseil };
+    return {
+      catalogue: acc.catalogue + won.catalogue,
+      sur_mesure: acc.sur_mesure + won.sur_mesure,
+      conseil: acc.conseil + won.conseil,
+    };
   }, emptyWonByType());
 }
 
-function teamQuarter(owners: Owner[], quarterFor: (owner: Owner) => Quarter | undefined): Quarter | undefined {
-  const rows = owners.map(quarterFor).filter((row): row is Quarter => Boolean(row));
+function teamQuarter(
+  owners: Owner[],
+  quarterFor: (owner: Owner) => Quarter | undefined,
+): Quarter | undefined {
+  const rows = owners
+    .map(quarterFor)
+    .filter((row): row is Quarter => Boolean(row));
   if (!rows.length) return undefined;
-  const targets = rows.map((row) => row.target).filter((value): value is number => value !== null);
+  const targets = rows
+    .map((row) => row.target)
+    .filter((value): value is number => value !== null);
   return {
-    sf_user_id: "team",
+    sf_user_id: 'team',
     quarter: rows[0].quarter,
     signed_to_date: rows.reduce((sum, row) => sum + row.signed_to_date, 0),
     weighted_open: rows.reduce((sum, row) => sum + row.weighted_open, 0),
     forecast: rows.reduce((sum, row) => sum + row.forecast, 0),
     custom_pipe: rows.reduce((sum, row) => sum + row.custom_pipe, 0),
-    target: targets.length ? targets.reduce((sum, value) => sum + value, 0) : null,
+    target: targets.length
+      ? targets.reduce((sum, value) => sum + value, 0)
+      : null,
     monthly_indicative: aggregateMonthlyIndicative(rows),
   };
 }
 
 function TeamRollup({
-  owners, pulseFor, pipelineFor, quarterFor, weekMode, currentIndex, compareLabel,
+  owners,
+  pulseFor,
+  pipelineFor,
+  quarterFor,
+  weekMode,
+  currentIndex,
+  compareLabel,
 }: {
   owners: Owner[];
   pulseFor: (owner: Owner) => Pulse[];
@@ -974,17 +1702,27 @@ function TeamRollup({
   currentIndex: number;
   compareLabel: string;
 }) {
-  const sellers = owners.filter((owner) => trackingOf(owner) !== "sdr");
-  const hasSdr = owners.some((owner) => trackingOf(owner) === "sdr");
+  const sellers = owners.filter((owner) => trackingOf(owner) !== 'sdr');
+  const hasSdr = owners.some((owner) => trackingOf(owner) === 'sdr');
   const previous = currentIndex > 0 ? currentIndex - 1 : -1;
-  const metric = <T,>(pool: Owner[], seriesFor: (owner: Owner) => T[], pick: (row: T) => number) => {
+  const metric = <T,>(
+    pool: Owner[],
+    seriesFor: (owner: Owner) => T[],
+    pick: (row: T) => number,
+  ) => {
     if (weekMode) {
       const value = sumAt(pool, seriesFor, currentIndex, pick);
-      const prev = previous >= 0 ? sumAt(pool, seriesFor, previous, pick) : undefined;
+      const prev =
+        previous >= 0 ? sumAt(pool, seriesFor, previous, pick) : undefined;
       return { value, previous: prev };
     }
-    const values = Array.from({ length: currentIndex + 1 }, (_, index) => sumAt(pool, seriesFor, index, pick));
-    return { value: values.reduce((sum, n) => sum + n, 0), previous: undefined as number | undefined };
+    const values = Array.from({ length: currentIndex + 1 }, (_, index) =>
+      sumAt(pool, seriesFor, index, pick),
+    );
+    return {
+      value: values.reduce((sum, n) => sum + n, 0),
+      previous: undefined as number | undefined,
+    };
   };
   const calls = metric(owners, pulseFor, (row) => row.calls);
   const meetings = metric(owners, pulseFor, (row) => row.meetings);
@@ -993,43 +1731,124 @@ function TeamRollup({
   const arr = metric(sellers, pipelineFor, (row) => row.won_arr_amount);
   const wonTypes = weekMode
     ? teamWonByType(sellers, pipelineFor, currentIndex)
-    : Array.from({ length: currentIndex + 1 }, (_, index) => teamWonByType(sellers, pipelineFor, index))
-      .reduce((acc, row) => ({ catalogue: acc.catalogue + row.catalogue, sur_mesure: acc.sur_mesure + row.sur_mesure, conseil: acc.conseil + row.conseil }), emptyWonByType());
+    : Array.from({ length: currentIndex + 1 }, (_, index) =>
+        teamWonByType(sellers, pipelineFor, index),
+      ).reduce(
+        (acc, row) => ({
+          catalogue: acc.catalogue + row.catalogue,
+          sur_mesure: acc.sur_mesure + row.sur_mesure,
+          conseil: acc.conseil + row.conseil,
+        }),
+        emptyWonByType(),
+      );
   const quarter = teamQuarter(sellers, quarterFor);
-  const ownerTotal = (pick: (owner: Owner) => number) => owners
-    .map((owner) => ({ name: owner.name.split(" ")[0], value: pick(owner) }))
-    .filter((row) => row.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 4);
-  const meetingLeaders = ownerTotal((owner) => weekMode
-    ? (pulseFor(owner)[currentIndex]?.meetings || 0)
-    : pulseFor(owner).slice(0, currentIndex + 1).reduce((sum, row) => sum + row.meetings, 0));
-  const wonLeaders = ownerTotal((owner) => weekMode
-    ? (pipelineFor(owner)[currentIndex]?.won_amount || 0)
-    : pipelineFor(owner).slice(0, currentIndex + 1).reduce((sum, row) => sum + row.won_amount, 0));
+  const ownerTotal = (pick: (owner: Owner) => number) =>
+    owners
+      .map((owner) => ({ name: owner.name.split(' ')[0], value: pick(owner) }))
+      .filter((row) => row.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 4);
+  const meetingLeaders = ownerTotal((owner) =>
+    weekMode
+      ? pulseFor(owner)[currentIndex]?.meetings || 0
+      : pulseFor(owner)
+          .slice(0, currentIndex + 1)
+          .reduce((sum, row) => sum + row.meetings, 0),
+  );
+  const wonLeaders = ownerTotal((owner) =>
+    weekMode
+      ? pipelineFor(owner)[currentIndex]?.won_amount || 0
+      : pipelineFor(owner)
+          .slice(0, currentIndex + 1)
+          .reduce((sum, row) => sum + row.won_amount, 0),
+  );
 
-  return <section className="weekly-section">
-    <SectionHeading kicker={COPY.equipe.kicker} title={weekMode ? `Consolidé · ${compareLabel}` : "Consolidé trimestre"} />
-    <GlassCard className="weekly-team-rollup">
-      <div className={`weekly-metrics weekly-metrics--${hasSdr ? 5 : 4}`}>
-        {hasSdr && <MetricCell label="Appels" value={calls.value} previous={calls.previous} compareLabel={compareLabel} />}
-        <MetricCell label="RDV" value={meetings.value} previous={meetings.previous} compareLabel={compareLabel} />
-        <MetricCell label="Opps détectées" value={opps.value} previous={opps.previous} compareLabel={compareLabel} />
-        <MetricCell label="CA signé" value={won.value} previous={won.previous} moneyValue compareLabel={compareLabel} />
-        <MetricCell label="Dont ARR" value={arr.value} previous={arr.previous} moneyValue compareLabel={compareLabel} />
-      </div>
-      {won.value > 0 && <div className="weekly-revenue"><Breakdown wonByType={wonTypes} wonAmount={won.value} /></div>}
-      {sellers.length > 0 && <QuarterGauge data={quarter} />}
-      {(meetingLeaders.length > 0 || wonLeaders.length > 0) && <div className="weekly-team-contributors" aria-label="Contributeurs">
-        {meetingLeaders.length > 0 && <span>RDV · {meetingLeaders.map((row) => `${row.name} ${row.value}`).join(" · ")}</span>}
-        {wonLeaders.length > 0 && <span>CA · {wonLeaders.map((row) => `${row.name} ${money.format(row.value)}`).join(" · ")}</span>}
-      </div>}
-    </GlassCard>
-  </section>;
+  return (
+    <section className="weekly-section">
+      <SectionHeading
+        kicker={COPY.equipe.kicker}
+        title={weekMode ? `Consolidé · ${compareLabel}` : 'Consolidé trimestre'}
+      />
+      <GlassCard className="weekly-team-rollup">
+        <div className={`weekly-metrics weekly-metrics--${hasSdr ? 5 : 4}`}>
+          {hasSdr && (
+            <MetricCell
+              label="Appels"
+              value={calls.value}
+              previous={calls.previous}
+              compareLabel={compareLabel}
+            />
+          )}
+          <MetricCell
+            label="RDV"
+            value={meetings.value}
+            previous={meetings.previous}
+            compareLabel={compareLabel}
+          />
+          <MetricCell
+            label="Opps détectées"
+            value={opps.value}
+            previous={opps.previous}
+            compareLabel={compareLabel}
+          />
+          <MetricCell
+            label="CA signé"
+            value={won.value}
+            previous={won.previous}
+            moneyValue
+            compareLabel={compareLabel}
+          />
+          <MetricCell
+            label="Dont ARR"
+            value={arr.value}
+            previous={arr.previous}
+            moneyValue
+            compareLabel={compareLabel}
+          />
+        </div>
+        {won.value > 0 && (
+          <div className="weekly-revenue">
+            <Breakdown wonByType={wonTypes} wonAmount={won.value} />
+          </div>
+        )}
+        {sellers.length > 0 && <QuarterGauge data={quarter} />}
+        {(meetingLeaders.length > 0 || wonLeaders.length > 0) && (
+          <div className="weekly-team-contributors" aria-label="Contributeurs">
+            {meetingLeaders.length > 0 && (
+              <span>
+                RDV ·{' '}
+                {meetingLeaders
+                  .map((row) => `${row.name} ${row.value}`)
+                  .join(' · ')}
+              </span>
+            )}
+            {wonLeaders.length > 0 && (
+              <span>
+                CA ·{' '}
+                {wonLeaders
+                  .map((row) => `${row.name} ${money.format(row.value)}`)
+                  .join(' · ')}
+              </span>
+            )}
+          </div>
+        )}
+      </GlassCard>
+    </section>
+  );
 }
 
 function TeamMetricTable({
-  owners, weeks, pulseFor, pipelineFor, priorPulseFor, priorPipelineFor, quarterFor, currentIndex, weekMode, compareLabel, priorQuarterLabel,
+  owners,
+  weeks,
+  pulseFor,
+  pipelineFor,
+  priorPulseFor,
+  priorPipelineFor,
+  quarterFor,
+  currentIndex,
+  weekMode,
+  compareLabel,
+  priorQuarterLabel,
 }: {
   owners: Owner[];
   weeks: Week[];
@@ -1043,93 +1862,325 @@ function TeamMetricTable({
   compareLabel: string;
   priorQuarterLabel: string;
 }) {
-  const sellers = owners.filter((owner) => trackingOf(owner) !== "sdr");
-  const hasSdr = owners.some((owner) => trackingOf(owner) === "sdr");
-  const series = <T,>(seriesFor: (owner: Owner) => T[], pool: Owner[], pick: (row: T) => number) => weeks.map((_, index) => sumAt(pool, seriesFor, index, pick));
-  const priorTotal = <T,>(seriesFor: (owner: Owner) => T[], pool: Owner[], pick: (row: T) => number) => {
-    return pool.flatMap((owner) => seriesFor(owner)).reduce((sum, row) => sum + pick(row), 0);
+  const sellers = owners.filter((owner) => trackingOf(owner) !== 'sdr');
+  const hasSdr = owners.some((owner) => trackingOf(owner) === 'sdr');
+  const series = <T,>(
+    seriesFor: (owner: Owner) => T[],
+    pool: Owner[],
+    pick: (row: T) => number,
+  ) => weeks.map((_, index) => sumAt(pool, seriesFor, index, pick));
+  const priorTotal = <T,>(
+    seriesFor: (owner: Owner) => T[],
+    pool: Owner[],
+    pick: (row: T) => number,
+  ) => {
+    return pool
+      .flatMap((owner) => seriesFor(owner))
+      .reduce((sum, row) => sum + pick(row), 0);
   };
   const quarter = teamQuarter(sellers, quarterFor);
   const rows: TableMetric[] = [
-    ...(hasSdr ? [{ label: "Appels", format: "count" as const, values: series(pulseFor, owners, (row) => row.calls), priorTotal: weekMode ? null : priorTotal(priorPulseFor, owners, (row) => row.calls) }] : []),
-    { label: "RDV effectués", format: "count", values: series(pulseFor, owners, (row) => row.meetings), priorTotal: weekMode ? null : priorTotal(priorPulseFor, owners, (row) => row.meetings) },
-    { label: "Opps détectées", format: "count", values: series(pipelineFor, owners, (row) => row.generated_count), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, owners, (row) => row.generated_count) },
-    { label: "CA signé", format: "money", values: series(pipelineFor, sellers, (row) => row.won_amount), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, sellers, (row) => row.won_amount) },
-    { label: "Sur-mesure", format: "money", values: series(pipelineFor, sellers, (row) => row.won_by_type.sur_mesure), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, sellers, (row) => row.won_by_type.sur_mesure) },
-    { label: "Catalogue", format: "money", values: series(pipelineFor, sellers, (row) => row.won_by_type.catalogue), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, sellers, (row) => row.won_by_type.catalogue) },
-    { label: "Conseil", format: "money", values: series(pipelineFor, sellers, (row) => row.won_by_type.conseil), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, sellers, (row) => row.won_by_type.conseil) },
-    { label: "Dont ARR", format: "money", values: series(pipelineFor, sellers, (row) => row.won_arr_amount), priorTotal: weekMode ? null : priorTotal(priorPipelineFor, sellers, (row) => row.won_arr_amount) },
+    ...(hasSdr
+      ? [
+          {
+            label: 'Appels',
+            format: 'count' as const,
+            values: series(pulseFor, owners, (row) => row.calls),
+            priorTotal: weekMode
+              ? null
+              : priorTotal(priorPulseFor, owners, (row) => row.calls),
+          },
+        ]
+      : []),
+    {
+      label: 'RDV effectués',
+      format: 'count',
+      values: series(pulseFor, owners, (row) => row.meetings),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(priorPulseFor, owners, (row) => row.meetings),
+    },
+    {
+      label: 'Opps détectées',
+      format: 'count',
+      values: series(pipelineFor, owners, (row) => row.generated_count),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(priorPipelineFor, owners, (row) => row.generated_count),
+    },
+    {
+      label: 'CA signé',
+      format: 'money',
+      values: series(pipelineFor, sellers, (row) => row.won_amount),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(priorPipelineFor, sellers, (row) => row.won_amount),
+    },
+    {
+      label: 'Sur-mesure',
+      format: 'money',
+      values: series(pipelineFor, sellers, (row) => row.won_by_type.sur_mesure),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(
+            priorPipelineFor,
+            sellers,
+            (row) => row.won_by_type.sur_mesure,
+          ),
+    },
+    {
+      label: 'Catalogue',
+      format: 'money',
+      values: series(pipelineFor, sellers, (row) => row.won_by_type.catalogue),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(
+            priorPipelineFor,
+            sellers,
+            (row) => row.won_by_type.catalogue,
+          ),
+    },
+    {
+      label: 'Conseil',
+      format: 'money',
+      values: series(pipelineFor, sellers, (row) => row.won_by_type.conseil),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(
+            priorPipelineFor,
+            sellers,
+            (row) => row.won_by_type.conseil,
+          ),
+    },
+    {
+      label: 'Dont ARR',
+      format: 'money',
+      values: series(pipelineFor, sellers, (row) => row.won_arr_amount),
+      priorTotal: weekMode
+        ? null
+        : priorTotal(priorPipelineFor, sellers, (row) => row.won_arr_amount),
+    },
   ];
-  const formatValue = (value: number | null, format: TableMetric["format"]) => value === null ? "—" : format === "money" ? money.format(value) : countFmt.format(value);
-  return <GlassCard className="weekly-table-card weekly-table-card--team">
-    <div className="weekly-person"><h4>Équipe</h4><Tag variant="accent">Consolidé</Tag></div>
-    <div className="weekly-table-scroll">
-      <table className="weekly-table" aria-label="Suivi hebdomadaire consolidé de l’équipe">
-        <thead>
-          <tr>
-            <th scope="col">Métrique</th>
-            {weeks.map((week) => <th scope="col" key={week.start}>{weekMode ? (shortWeekLabel(week.isoWeek) || week.label) : week.label}</th>)}
-            {!weekMode && <th scope="col">Moyenne</th>}
-            <th scope="col">{weekMode ? "Total" : "Somme"}</th>
-            <th scope="col">{weekMode ? `Écart vs ${compareLabel}` : `Écart vs ${priorQuarterLabel}`}</th>
-          </tr>
-        </thead>
-        <tbody>{rows.map((metric) => {
-          const footer = tableFooter(metric, weekMode, currentIndex);
-          const avg = !weekMode && metricShowsAverage(metric.label) ? footer.average : null;
-          return (
-            <tr key={metric.label}>
-              <th scope="row">{metric.label}</th>
-              {metric.values.map((value, index) => <td key={weeks[index].start} className={index === currentIndex ? "weekly-table-current" : undefined}>{index > currentIndex ? "—" : formatValue(value, metric.format)}</td>)}
-              {!weekMode && <td className="weekly-table-avg">{formatValue(avg, metric.format)}</td>}
-              <td className="weekly-table-total">{formatValue(footer.total, metric.format)}</td>
-              <DeltaTableCell delta={footer.delta} weekMode={weekMode} priorQuarterLabel={priorQuarterLabel} />
+  const formatValue = (value: number | null, format: TableMetric['format']) =>
+    value === null
+      ? '—'
+      : format === 'money'
+        ? money.format(value)
+        : countFmt.format(value);
+  return (
+    <GlassCard className="weekly-table-card weekly-table-card--team">
+      <div className="weekly-person">
+        <h4>Équipe</h4>
+        <Tag variant="accent">Consolidé</Tag>
+      </div>
+      <div className="weekly-table-scroll">
+        <table
+          className="weekly-table"
+          aria-label="Suivi hebdomadaire consolidé de l’équipe"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Métrique</th>
+              {weeks.map((week) => (
+                <th scope="col" key={week.start}>
+                  {weekMode
+                    ? shortWeekLabel(week.isoWeek) || week.label
+                    : week.label}
+                </th>
+              ))}
+              {!weekMode && <th scope="col">Moyenne</th>}
+              <th scope="col">{weekMode ? 'Total' : 'Somme'}</th>
+              <th scope="col">
+                {weekMode
+                  ? `Écart vs ${compareLabel}`
+                  : `Écart vs ${priorQuarterLabel}`}
+              </th>
             </tr>
-          );
-        })}</tbody>
-      </table>
-    </div>
-    {sellers.length > 0 && <QuarterGauge data={quarter} />}
-  </GlassCard>;
+          </thead>
+          <tbody>
+            {rows.map((metric) => {
+              const footer = tableFooter(metric, weekMode, currentIndex);
+              const avg =
+                !weekMode && metricShowsAverage(metric.label)
+                  ? footer.average
+                  : null;
+              return (
+                <tr key={metric.label}>
+                  <th scope="row">{metric.label}</th>
+                  {metric.values.map((value, index) => (
+                    <td
+                      key={weeks[index].start}
+                      className={
+                        index === currentIndex
+                          ? 'weekly-table-current'
+                          : undefined
+                      }
+                    >
+                      {index > currentIndex
+                        ? '—'
+                        : formatValue(value, metric.format)}
+                    </td>
+                  ))}
+                  {!weekMode && (
+                    <td className="weekly-table-avg">
+                      {formatValue(avg, metric.format)}
+                    </td>
+                  )}
+                  <td className="weekly-table-total">
+                    {formatValue(footer.total, metric.format)}
+                  </td>
+                  <DeltaTableCell
+                    delta={footer.delta}
+                    weekMode={weekMode}
+                    priorQuarterLabel={priorQuarterLabel}
+                  />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {sellers.length > 0 && <QuarterGauge data={quarter} />}
+    </GlassCard>
+  );
 }
 
-function CustomPipeSection({ pipe, owners, sellerIds }: { pipe: CustomPipe; owners: Owner[]; sellerIds: Set<string> }) {
-  const nameOf = (id: string) => owners.find((owner) => owner.sf_user_id === id)?.name || id;
-  const ownerRows = pipe.by_owner.filter((row) => sellerIds.has(row.sf_user_id));
-  const months = pipe.months.map((entry) => ({ ...entry, label: entry.label.replace(".", "") }));
+function CustomPipeSection({
+  pipe,
+  owners,
+  sellerIds,
+}: {
+  pipe: CustomPipe;
+  owners: Owner[];
+  sellerIds: Set<string>;
+}) {
+  const nameOf = (id: string) =>
+    owners.find((owner) => owner.sf_user_id === id)?.name || id;
+  const ownerRows = pipe.by_owner.filter((row) =>
+    sellerIds.has(row.sf_user_id),
+  );
+  const months = pipe.months.map((entry) => ({
+    ...entry,
+    label: entry.label.replace('.', ''),
+  }));
   const opps = pipe.opps.filter((opp) => sellerIds.has(opp.sf_user_id));
-  return <section className="weekly-section">
-    <SectionHeading kicker={COPY.sm.kicker} title={COPY.sm.title} hint={COPY.sm.hint} />
-    <GlassCard className="weekly-custom-pipe">
-      <div className="weekly-custom-kpis">
-        <div><small>Montant brut</small><strong className="xos-numeric">{money.format(pipe.total_amount)}</strong></div>
-        <div><small>CA attendu</small><strong className="xos-numeric">{money.format(pipe.total_expected)}</strong></div>
-        <div><small>Opps</small><strong className="xos-numeric">{pipe.count}</strong></div>
-      </div>
-      <div className="weekly-chart weekly-chart--custom">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={months}>
-            <XAxis dataKey="label" stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} />
-            <YAxis hide />
-            <Tooltip content={<MoneyChartTooltip />} cursor={chartBarCursor} wrapperStyle={{ outline: "none", zIndex: 20 }} />
-            <Legend wrapperStyle={{ color: "var(--xos-text-muted)", fontSize: 12 }} />
-            <Bar dataKey="expected" name="CA attendu" fill="var(--xos-accent)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      {ownerRows.length > 1 && <div className="weekly-custom-owners">{ownerRows.map((row) => <span key={row.sf_user_id}>{nameOf(row.sf_user_id).split(" ")[0]} · {money.format(row.expected)}</span>)}</div>}
-      {opps.length > 0 && <div className="weekly-custom-opps" aria-label="Principales opportunités sur-mesure">
-        <table>
-          <thead><tr><th>Opportunité</th><th>Owner</th><th>Close</th><th>Attendu</th></tr></thead>
-          <tbody>{opps.slice(0, 5).map((opp) => <tr key={`${opp.id || opp.name}-${opp.close_date}`}><td>{opp.url ? <a className="weekly-opp-link" href={opp.url} target="_blank" rel="noreferrer">{opp.name}</a> : opp.name}</td><td>{nameOf(opp.sf_user_id).split(" ")[0]}</td><td>{opp.close_date.slice(5)}</td><td className="xos-numeric">{money.format(opp.expected)}</td></tr>)}</tbody>
-        </table>
-      </div>}
-    </GlassCard>
-  </section>;
+  return (
+    <section className="weekly-section">
+      <SectionHeading
+        kicker={COPY.sm.kicker}
+        title={COPY.sm.title}
+        hint={COPY.sm.hint}
+      />
+      <GlassCard className="weekly-custom-pipe">
+        <div className="weekly-custom-kpis">
+          <div>
+            <small>Montant brut</small>
+            <strong className="xos-numeric">
+              {money.format(pipe.total_amount)}
+            </strong>
+          </div>
+          <div>
+            <small>CA attendu</small>
+            <strong className="xos-numeric">
+              {money.format(pipe.total_expected)}
+            </strong>
+          </div>
+          <div>
+            <small>Opps</small>
+            <strong className="xos-numeric">{pipe.count}</strong>
+          </div>
+        </div>
+        <div className="weekly-chart weekly-chart--custom">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={months}>
+              <XAxis
+                dataKey="label"
+                stroke="var(--xos-text-muted)"
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis hide />
+              <Tooltip
+                content={<MoneyChartTooltip />}
+                cursor={chartBarCursor}
+                wrapperStyle={{ outline: 'none', zIndex: 20 }}
+              />
+              <Legend
+                wrapperStyle={{ color: 'var(--xos-text-muted)', fontSize: 12 }}
+              />
+              <Bar
+                dataKey="expected"
+                name="CA attendu"
+                fill="var(--xos-accent)"
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {ownerRows.length > 1 && (
+          <div className="weekly-custom-owners">
+            {ownerRows.map((row) => (
+              <span key={row.sf_user_id}>
+                {nameOf(row.sf_user_id).split(' ')[0]} ·{' '}
+                {money.format(row.expected)}
+              </span>
+            ))}
+          </div>
+        )}
+        {opps.length > 0 && (
+          <div
+            className="weekly-custom-opps"
+            aria-label="Principales opportunités sur-mesure"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>Opportunité</th>
+                  <th>Owner</th>
+                  <th>Close</th>
+                  <th>Attendu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {opps.slice(0, 5).map((opp) => (
+                  <tr key={`${opp.id || opp.name}-${opp.close_date}`}>
+                    <td>
+                      {opp.url ? (
+                        <a
+                          className="weekly-opp-link"
+                          href={opp.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {opp.name}
+                        </a>
+                      ) : (
+                        opp.name
+                      )}
+                    </td>
+                    <td>{nameOf(opp.sf_user_id).split(' ')[0]}</td>
+                    <td>{opp.close_date.slice(5)}</td>
+                    <td className="xos-numeric">
+                      {money.format(opp.expected)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
+    </section>
+  );
 }
 
 function CallFunnelChart({
-  weeks, owners, pulseFor, currentIndex, weekMode,
+  weeks,
+  owners,
+  pulseFor,
+  currentIndex,
+  weekMode,
 }: {
   weeks: Week[];
   owners: Owner[];
@@ -1141,7 +2192,11 @@ function CallFunnelChart({
     let count = 0;
     for (const owner of owners) {
       const pulse = pulseFor(owner);
-      const indexes = weekMode ? [currentIndex] : weeks.map((_, index) => index).filter((index) => index <= currentIndex);
+      const indexes = weekMode
+        ? [currentIndex]
+        : weeks
+            .map((_, index) => index)
+            .filter((index) => index <= currentIndex);
       for (const index of indexes) {
         const results = pulse[index]?.call_results || {};
         for (const source of stage.sources) count += results[source] || 0;
@@ -1153,48 +2208,75 @@ function CallFunnelChart({
   const totalCalls = totals.reduce((sum, stage) => sum + stage.count, 0);
   const callActivity = owners.some((owner) => {
     const pulse = pulseFor(owner);
-    const indexes = weekMode ? [currentIndex] : weeks.map((_, index) => index).filter((index) => index <= currentIndex);
-    return indexes.some((index) => (pulse[index]?.calls || 0) > 0 || Object.values(pulse[index]?.call_results || {}).some((value) => value > 0));
+    const indexes = weekMode
+      ? [currentIndex]
+      : weeks.map((_, index) => index).filter((index) => index <= currentIndex);
+    return indexes.some(
+      (index) =>
+        (pulse[index]?.calls || 0) > 0 ||
+        Object.values(pulse[index]?.call_results || {}).some(
+          (value) => value > 0,
+        ),
+    );
   });
   const isIndividualView = owners.length === 1;
-  const keepEmptyShell = isIndividualView || owners.some((owner) => trackingOf(owner) === "sdr");
+  const keepEmptyShell =
+    isIndividualView || owners.some((owner) => trackingOf(owner) === 'sdr');
   if (!owners.length) return null;
   if (!max && !keepEmptyShell && !callActivity) return null;
-  return <section className="weekly-section">
-    <SectionHeading kicker={COPY.line.kicker} title={COPY.line.title} hint={COPY.line.hint} />
-    <GlassCard className="weekly-call-funnel-card">
-      <div className="weekly-call-funnel" role="img" aria-label="Entonnoir des résultats d’appel">
-        {totals.map((stage, index) => {
-          const width = funnelStageWidth(stage.count, max);
-          const share = totalCalls > 0 ? stage.count / totalCalls : 0;
-          return (
-            <div
-              key={stage.key}
-              className={`weekly-call-funnel__stage${stage.count <= 0 ? " weekly-call-funnel__stage--empty" : ""}`}
-              style={{
-                ["--funnel-width" as string]: `${width}%`,
-                ["--stage-color" as string]: stage.color,
-                zIndex: totals.length - index,
-              }}
-            >
-              <div className="weekly-call-funnel__meta">
-                <span className="weekly-call-funnel__label">
-                  {stage.label}
-                  {stage.hint ? <em> · {stage.hint}</em> : null}
-                </span>
-                <span className="weekly-call-funnel__pct">{percent.format(share)}</span>
+  return (
+    <section className="weekly-section">
+      <SectionHeading
+        kicker={COPY.line.kicker}
+        title={COPY.line.title}
+        hint={COPY.line.hint}
+      />
+      <GlassCard className="weekly-call-funnel-card">
+        <div
+          className="weekly-call-funnel"
+          role="img"
+          aria-label="Entonnoir des résultats d’appel"
+        >
+          {totals.map((stage, index) => {
+            const width = funnelStageWidth(stage.count, max);
+            const share = totalCalls > 0 ? stage.count / totalCalls : 0;
+            return (
+              <div
+                key={stage.key}
+                className={`weekly-call-funnel__stage${stage.count <= 0 ? ' weekly-call-funnel__stage--empty' : ''}`}
+                style={{
+                  ['--funnel-width' as string]: `${width}%`,
+                  ['--stage-color' as string]: stage.color,
+                  zIndex: totals.length - index,
+                }}
+              >
+                <div className="weekly-call-funnel__meta">
+                  <span className="weekly-call-funnel__label">
+                    {stage.label}
+                    {stage.hint ? <em> · {stage.hint}</em> : null}
+                  </span>
+                  <span className="weekly-call-funnel__pct">
+                    {percent.format(share)}
+                  </span>
+                </div>
+                <strong className="xos-numeric">
+                  {countFmt.format(stage.count)}
+                </strong>
               </div>
-              <strong className="xos-numeric">{countFmt.format(stage.count)}</strong>
-            </div>
-          );
-        })}
-      </div>
-    </GlassCard>
-  </section>;
+            );
+          })}
+        </div>
+      </GlassCard>
+    </section>
+  );
 }
 
 function LeadingFunnel({
-  owners, pulseFor, pipelineFor, weekMode, currentIndex,
+  owners,
+  pulseFor,
+  pipelineFor,
+  weekMode,
+  currentIndex,
 }: {
   owners: Owner[];
   pulseFor: (owner: Owner) => Pulse[];
@@ -1223,107 +2305,196 @@ function LeadingFunnel({
   if (!owners.length) return null;
   const detectRate = rdv > 0 ? opps / rdv : null;
   const avgCreated = opps > 0 ? created / opps : null;
-  return <section className="weekly-section">
-    <SectionHeading kicker={COPY.amont.kicker} title={COPY.amont.title} hint={COPY.amont.hint} />
-    <GlassCard className="weekly-leading-funnel">
-      <div className="weekly-leading-step">
-        <small>RDV</small>
-        <strong className="xos-numeric">{countFmt.format(rdv)}</strong>
-      </div>
-      <div className="weekly-leading-rate" aria-hidden="true">
-        <span>{detectRate === null ? "—" : percent.format(detectRate)}</span>
-      </div>
-      <div className="weekly-leading-step">
-        <small>Opps détectées</small>
-        <strong className="xos-numeric">{countFmt.format(opps)}</strong>
-      </div>
-      <div className="weekly-leading-rate" aria-hidden="true">
-        <span>{avgCreated === null ? "—" : money.format(avgCreated)}</span>
-      </div>
-      <div className="weekly-leading-step">
-        <small>Volume détecté</small>
-        <strong className="xos-numeric">{money.format(created)}</strong>
-      </div>
-    </GlassCard>
-  </section>;
+  return (
+    <section className="weekly-section">
+      <SectionHeading
+        kicker={COPY.amont.kicker}
+        title={COPY.amont.title}
+        hint={COPY.amont.hint}
+      />
+      <GlassCard className="weekly-leading-funnel">
+        <div className="weekly-leading-step">
+          <small>RDV</small>
+          <strong className="xos-numeric">{countFmt.format(rdv)}</strong>
+        </div>
+        <div className="weekly-leading-rate" aria-hidden="true">
+          <span>{detectRate === null ? '—' : percent.format(detectRate)}</span>
+        </div>
+        <div className="weekly-leading-step">
+          <small>Opps détectées</small>
+          <strong className="xos-numeric">{countFmt.format(opps)}</strong>
+        </div>
+        <div className="weekly-leading-rate" aria-hidden="true">
+          <span>{avgCreated === null ? '—' : money.format(avgCreated)}</span>
+        </div>
+        <div className="weekly-leading-step">
+          <small>Volume détecté</small>
+          <strong className="xos-numeric">{money.format(created)}</strong>
+        </div>
+      </GlassCard>
+    </section>
+  );
 }
 
 function PaceStrip({ pace }: { pace: Pace }) {
-  const ceiling = Math.max(pace.target || 0, pace.signed_to_date, pace.signed_n1, pace.expected_to_date || 0, 1);
+  const ceiling = Math.max(
+    pace.target || 0,
+    pace.signed_to_date,
+    pace.signed_n1,
+    pace.expected_to_date || 0,
+    1,
+  );
   const signedPct = Math.min(100, (pace.signed_to_date / ceiling) * 100);
-  const expectedPct = pace.expected_to_date === null ? null : Math.min(100, (pace.expected_to_date / ceiling) * 100);
+  const expectedPct =
+    pace.expected_to_date === null
+      ? null
+      : Math.min(100, (pace.expected_to_date / ceiling) * 100);
   const n1Pct = Math.min(100, (pace.signed_n1 / ceiling) * 100);
   const deltaN1 = pace.signed_to_date - pace.signed_n1;
-  const n1Text = `${deltaN1 === 0 ? "=" : deltaN1 > 0 ? "+" : "−"}${money.format(Math.abs(deltaN1))} vs N−1`;
-  const paceText = pace.pace_ratio === null ? "Pas d’objectif défini" : pace.pace_ratio >= 1 ? "Au-dessus du rythme" : pace.pace_ratio >= 0.85 ? "Dans le rythme" : "En dessous du rythme";
-  const paceTone = pace.pace_ratio === null ? "" : pace.pace_ratio >= 1 ? "weekly-pace--up" : pace.pace_ratio >= 0.85 ? "weekly-pace--ok" : "weekly-pace--down";
-  return <GlassCard className={`weekly-pace ${paceTone}`}>
-    <div className="weekly-pace-visual">
-      <div className="weekly-pace-hero">
-        <div>
-          <small>Signé trimestre</small>
-          <strong className="xos-numeric">{money.format(pace.signed_to_date)}</strong>
-          <span>{n1Text}</span>
+  const n1Text = `${deltaN1 === 0 ? '=' : deltaN1 > 0 ? '+' : '−'}${money.format(Math.abs(deltaN1))} vs N−1`;
+  const paceText =
+    pace.pace_ratio === null
+      ? 'Pas d’objectif défini'
+      : pace.pace_ratio >= 1
+        ? 'Au-dessus du rythme'
+        : pace.pace_ratio >= 0.85
+          ? 'Dans le rythme'
+          : 'En dessous du rythme';
+  const paceTone =
+    pace.pace_ratio === null
+      ? ''
+      : pace.pace_ratio >= 1
+        ? 'weekly-pace--up'
+        : pace.pace_ratio >= 0.85
+          ? 'weekly-pace--ok'
+          : 'weekly-pace--down';
+  return (
+    <GlassCard className={`weekly-pace ${paceTone}`}>
+      <div className="weekly-pace-visual">
+        <div className="weekly-pace-hero">
+          <div>
+            <small>Signé trimestre</small>
+            <strong className="xos-numeric">
+              {money.format(pace.signed_to_date)}
+            </strong>
+            <span>{n1Text}</span>
+          </div>
+          <div>
+            <small>
+              Objectif · S{pace.week_of_quarter}/{pace.weeks_in_quarter}
+            </small>
+            <strong className="xos-numeric">
+              {pace.target === null ? '—' : money.format(pace.target)}
+            </strong>
+            {pace.won_count != null && (
+              <span>
+                {pace.won_count} signature{(pace.won_count || 0) > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
-        <div>
-          <small>Objectif · S{pace.week_of_quarter}/{pace.weeks_in_quarter}</small>
-          <strong className="xos-numeric">{pace.target === null ? "—" : money.format(pace.target)}</strong>
-          {pace.won_count != null && <span>{pace.won_count} signature{(pace.won_count || 0) > 1 ? "s" : ""}</span>}
+        <div
+          className="weekly-pace-track"
+          aria-label="Progression vers l’objectif trimestre"
+        >
+          <span
+            className="weekly-pace-fill"
+            style={{ width: `${signedPct}%` }}
+          />
+          {expectedPct !== null && (
+            <Tip
+              text={`Attendu à date · ${money.format(pace.expected_to_date || 0)}`}
+              side="bottom"
+              className="weekly-pace-marker-tip"
+              style={{ left: `${expectedPct}%` }}
+            >
+              <span className="weekly-pace-marker weekly-pace-marker--expected" />
+            </Tip>
+          )}
+          <Tip
+            text={`N−1 à date · ${money.format(pace.signed_n1)}`}
+            side="bottom"
+            className="weekly-pace-marker-tip"
+            style={{ left: `${n1Pct}%` }}
+          >
+            <span className="weekly-pace-marker weekly-pace-marker--n1" />
+          </Tip>
         </div>
-      </div>
-      <div className="weekly-pace-track" aria-label="Progression vers l’objectif trimestre">
-        <span className="weekly-pace-fill" style={{ width: `${signedPct}%` }} />
-        {expectedPct !== null && (
-          <Tip text={`Attendu à date · ${money.format(pace.expected_to_date || 0)}`} side="bottom" className="weekly-pace-marker-tip" style={{ left: `${expectedPct}%` }}>
-            <span className="weekly-pace-marker weekly-pace-marker--expected" />
+        <div className="weekly-pace-legend">
+          <span className="weekly-pace-legend--signed">Signé</span>
+          <span className="weekly-pace-legend--expected">
+            Attendu
+            {pace.expected_to_date !== null
+              ? ` · ${money.format(pace.expected_to_date)}`
+              : ''}
+          </span>
+          <span className="weekly-pace-legend--n1">
+            N−1 · {money.format(pace.signed_n1)}
+          </span>
+        </div>
+        {pace.expected_mode === 'seasonal' && (
+          <Tip text={COPY.pace.seasonal}>
+            <span className="weekly-pace-note">Saisonnalité</span>
           </Tip>
         )}
-        <Tip text={`N−1 à date · ${money.format(pace.signed_n1)}`} side="bottom" className="weekly-pace-marker-tip" style={{ left: `${n1Pct}%` }}>
-          <span className="weekly-pace-marker weekly-pace-marker--n1" />
-        </Tip>
+        {pace.monthly_indicative?.length ? (
+          <div className="weekly-pace-monthly">
+            <small>
+              Mois indicatifs
+              <Tip text={COPY.pace.monthly} />
+            </small>
+            <MonthlyIndicativePills months={pace.monthly_indicative} />
+          </div>
+        ) : null}
       </div>
-      <div className="weekly-pace-legend">
-        <span className="weekly-pace-legend--signed">Signé</span>
-        <span className="weekly-pace-legend--expected">Attendu{pace.expected_to_date !== null ? ` · ${money.format(pace.expected_to_date)}` : ""}</span>
-        <span className="weekly-pace-legend--n1">N−1 · {money.format(pace.signed_n1)}</span>
+      <div className="weekly-pace-aside">
+        <small>
+          Projeté fin de trimestre
+          <Tip text={COPY.pace.runRate} />
+        </small>
+        <strong className="xos-numeric">{money.format(pace.run_rate)}</strong>
+        <span>{paceText}</span>
       </div>
-      {pace.expected_mode === "seasonal" && (
-        <Tip text={COPY.pace.seasonal}>
-          <span className="weekly-pace-note">Saisonnalité</span>
-        </Tip>
-      )}
-      {pace.monthly_indicative?.length ? (
-        <div className="weekly-pace-monthly">
-          <small>Mois indicatifs<Tip text={COPY.pace.monthly} /></small>
-          <MonthlyIndicativePills months={pace.monthly_indicative} />
-        </div>
-      ) : null}
-    </div>
-    <div className="weekly-pace-aside">
-      <small>Projeté fin de trimestre<Tip text={COPY.pace.runRate} /></small>
-      <strong className="xos-numeric">{money.format(pace.run_rate)}</strong>
-      <span>{paceText}</span>
-    </div>
-  </GlassCard>;
+    </GlassCard>
+  );
 }
 
-function OppTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: RitualOpp & { kind: string } }> }) {
+function OppTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: RitualOpp & { kind: string } }>;
+}) {
   if (!active || !payload?.[0]?.payload) return null;
   const opp = payload[0].payload;
-  return <div className="weekly-opp-tooltip">
-    <div className="weekly-opp-tooltip__head">
-      <span className={`weekly-decision-kind weekly-decision-kind--${opp.kind === "both" ? "stagnant" : opp.kind}`} aria-hidden="true" />
-      <strong>{opp.account || opp.name}</strong>
+  return (
+    <div className="weekly-opp-tooltip">
+      <div className="weekly-opp-tooltip__head">
+        <span
+          className={`weekly-decision-kind weekly-decision-kind--${opp.kind === 'both' ? 'stagnant' : opp.kind}`}
+          aria-hidden="true"
+        />
+        <strong>{opp.account || opp.name}</strong>
+      </div>
+      {opp.account ? <span>{opp.name}</span> : null}
+      <span>
+        Clôture ·{' '}
+        {opp.close_date
+          ? weekLabel.format(new Date(`${opp.close_date}T12:00:00.000Z`))
+          : '—'}
+      </span>
+      <span>Probabilité · {countFmt.format(opp.probability)} %</span>
+      <span>Montant · {money.format(opp.amount)}</span>
     </div>
-    {opp.account ? <span>{opp.name}</span> : null}
-    <span>Clôture · {opp.close_date ? weekLabel.format(new Date(`${opp.close_date}T12:00:00.000Z`)) : "—"}</span>
-    <span>Probabilité · {countFmt.format(opp.probability)} %</span>
-    <span>Montant · {money.format(opp.amount)}</span>
-  </div>;
+  );
 }
 
 function DecisionBoard({
-  followUps, stagnant, owners, quarterBounds,
+  followUps,
+  stagnant,
+  owners,
+  quarterBounds,
 }: {
   followUps: RitualOpp[];
   stagnant: RitualOpp[];
@@ -1333,59 +2504,106 @@ function DecisionBoard({
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const nameOf = useCallback((id: string) => owners.find((owner) => owner.sf_user_id === id)?.name.split(" ")[0] || id, [owners]);
-  const reasonLabel = (reasons: RitualOpp["reasons"] = []) => {
-    if (reasons.includes("stage") && reasons.includes("silence")) return "Étape + silence";
-    if (reasons.includes("stage")) return "Étape longue";
-    return "Sans activité";
+  const nameOf = useCallback(
+    (id: string) =>
+      owners.find((owner) => owner.sf_user_id === id)?.name.split(' ')[0] || id,
+    [owners],
+  );
+  const reasonLabel = (reasons: RitualOpp['reasons'] = []) => {
+    if (reasons.includes('stage') && reasons.includes('silence'))
+      return 'Étape + silence';
+    if (reasons.includes('stage')) return 'Étape longue';
+    return 'Sans activité';
   };
-  const inQuarter = useCallback((close: string | null) => {
-    if (!close || !quarterBounds) return Boolean(close);
-    return close >= quarterBounds.from && close <= quarterBounds.to;
-  }, [quarterBounds]);
+  const inQuarter = useCallback(
+    (close: string | null) => {
+      if (!close || !quarterBounds) return Boolean(close);
+      return close >= quarterBounds.from && close <= quarterBounds.to;
+    },
+    [quarterBounds],
+  );
 
   const { ranked, scatterData, chartCount } = useMemo(() => {
-    const stagnantIds = new Set(stagnant.map((opp) => opp.id).filter(Boolean) as string[]);
-    const pushIds = new Set(followUps.map((opp) => opp.id).filter(Boolean) as string[]);
-    const stagnantKeys = new Set(stagnant.map((opp) => opp.id || `${opp.name}-${opp.close_date}`));
-    const pushKeys = new Set(followUps.map((opp) => opp.id || `${opp.name}-${opp.close_date}`));
-    const merged = new Map<string, RitualOpp & { kind: "push" | "stagnant" | "both"; close_ts: number; key: string }>();
+    const stagnantIds = new Set(
+      stagnant.map((opp) => opp.id).filter(Boolean) as string[],
+    );
+    const pushIds = new Set(
+      followUps.map((opp) => opp.id).filter(Boolean) as string[],
+    );
+    const stagnantKeys = new Set(
+      stagnant.map((opp) => opp.id || `${opp.name}-${opp.close_date}`),
+    );
+    const pushKeys = new Set(
+      followUps.map((opp) => opp.id || `${opp.name}-${opp.close_date}`),
+    );
+    const merged = new Map<
+      string,
+      RitualOpp & {
+        kind: 'push' | 'stagnant' | 'both';
+        close_ts: number;
+        key: string;
+      }
+    >();
     for (const opp of [...followUps, ...stagnant]) {
       if (!opp.close_date || !inQuarter(opp.close_date)) continue;
       const key = opp.id || `${opp.name}-${opp.close_date}`;
       const existing = merged.get(key);
-      const isStagnant = (opp.id ? stagnantIds.has(opp.id) : false) || stagnantKeys.has(key);
-      const isPush = (opp.id ? pushIds.has(opp.id) : false) || pushKeys.has(key);
-      const kind = isStagnant && isPush ? "both" : isStagnant ? "stagnant" : "push";
+      const isStagnant =
+        (opp.id ? stagnantIds.has(opp.id) : false) || stagnantKeys.has(key);
+      const isPush =
+        (opp.id ? pushIds.has(opp.id) : false) || pushKeys.has(key);
+      const kind =
+        isStagnant && isPush ? 'both' : isStagnant ? 'stagnant' : 'push';
       if (existing) {
         existing.kind = kind;
         continue;
       }
-      merged.set(key, { ...opp, kind, close_ts: Date.parse(`${opp.close_date}T12:00:00.000Z`), key });
+      merged.set(key, {
+        ...opp,
+        kind,
+        close_ts: Date.parse(`${opp.close_date}T12:00:00.000Z`),
+        key,
+      });
     }
     const points = [...merged.values()].sort((a, b) => b.expected - a.expected);
     const chartPoints = points.slice(0, SCATTER_MAX_POINTS);
-    const minChartAmount = chartPoints.length ? Math.min(...chartPoints.map((opp) => opp.amount)) : 1;
-    const maxChartAmount = chartPoints.length ? Math.max(...chartPoints.map((opp) => opp.amount), minChartAmount) : 1;
+    const minChartAmount = chartPoints.length
+      ? Math.min(...chartPoints.map((opp) => opp.amount))
+      : 1;
+    const maxChartAmount = chartPoints.length
+      ? Math.max(...chartPoints.map((opp) => opp.amount), minChartAmount)
+      : 1;
     const scatter = chartPoints.map((opp) => ({
       ...opp,
       x: opp.close_ts,
       y: opp.probability,
       z: logBubbleSize(opp.amount, minChartAmount, maxChartAmount),
     }));
-    const list = points.map((opp) => ({ ...opp, listKind: opp.kind === "stagnant" ? "stagnant" as const : "push" as const }));
-    return { ranked: list, scatterData: scatter, chartCount: chartPoints.length };
+    const list = points.map((opp) => ({
+      ...opp,
+      listKind:
+        opp.kind === 'stagnant' ? ('stagnant' as const) : ('push' as const),
+    }));
+    return {
+      ranked: list,
+      scatterData: scatter,
+      chartCount: chartPoints.length,
+    };
   }, [followUps, stagnant, inQuarter]);
 
-  const domainFrom = quarterBounds ? Date.parse(`${quarterBounds.from}T12:00:00.000Z`) : "dataMin";
-  const domainTo = quarterBounds ? Date.parse(`${quarterBounds.to}T12:00:00.000Z`) : "dataMax";
+  const domainFrom = quarterBounds
+    ? Date.parse(`${quarterBounds.from}T12:00:00.000Z`)
+    : 'dataMin';
+  const domainTo = quarterBounds
+    ? Date.parse(`${quarterBounds.to}T12:00:00.000Z`)
+    : 'dataMax';
   const list = showAll ? ranked : ranked.slice(0, 10);
   const tickFormatter = (value: number) => weekLabel.format(new Date(value));
 
   useEffect(() => {
     if (!selectedKey) return;
     const node = document.getElementById(`weekly-opp-${selectedKey}`);
-    node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [selectedKey, showAll]);
 
   if (!followUps.length && !stagnant.length) return null;
@@ -1398,122 +2616,266 @@ function DecisionBoard({
     setSelectedKey(key);
   };
 
-  return <section className="weekly-section">
-    <SectionHeading kicker={COPY.board.kicker} title={COPY.board.title} hint={COPY.board.hint} />
-    <GlassCard className="weekly-decision-board">
-      {scatterData.length > 0 && <div className="weekly-chart weekly-chart--scatter" aria-label="Carte des opportunités : date de clôture × probabilité">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={{ top: 14, right: 18, bottom: 10, left: 8 }}>
-            <CartesianGrid stroke="color-mix(in srgb, var(--xos-border) 45%, transparent)" strokeDasharray="3 6" />
-            <XAxis type="number" dataKey="x" name="Clôture" domain={[domainFrom, domainTo]} tickFormatter={tickFormatter} stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} />
-            <YAxis type="number" dataKey="y" name="Proba" domain={[0, 100]} stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} width={36} tickFormatter={(value) => `${value}%`} />
-            <ZAxis type="number" dataKey="z" range={[90, 400]} />
-            <Tooltip cursor={{ stroke: "color-mix(in srgb, var(--xos-text) 35%, transparent)", strokeDasharray: "4 4" }} content={<OppTooltip />} wrapperStyle={{ outline: "none", zIndex: 20 }} />
-            <Scatter
-              name="Opps"
-              data={scatterData}
-              cursor="pointer"
-              isAnimationActive={false}
-              onClick={(entry) => {
-                const payload = (entry as { payload?: { key?: string }; key?: string })?.payload || entry;
-                selectOpp((payload as { key?: string })?.key || null);
+  return (
+    <section className="weekly-section">
+      <SectionHeading
+        kicker={COPY.board.kicker}
+        title={COPY.board.title}
+        hint={COPY.board.hint}
+      />
+      <GlassCard className="weekly-decision-board">
+        {scatterData.length > 0 && (
+          <div
+            className="weekly-chart weekly-chart--scatter"
+            aria-label="Carte des opportunités : date de clôture × probabilité"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart
+                margin={{ top: 14, right: 18, bottom: 10, left: 8 }}
+              >
+                <CartesianGrid
+                  stroke="color-mix(in srgb, var(--xos-border) 45%, transparent)"
+                  strokeDasharray="3 6"
+                />
+                <XAxis
+                  type="number"
+                  dataKey="x"
+                  name="Clôture"
+                  domain={[domainFrom, domainTo]}
+                  tickFormatter={tickFormatter}
+                  stroke="var(--xos-text-muted)"
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="y"
+                  name="Proba"
+                  domain={[0, 100]}
+                  stroke="var(--xos-text-muted)"
+                  tickLine={false}
+                  axisLine={false}
+                  width={36}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <ZAxis type="number" dataKey="z" range={[90, 400]} />
+                <Tooltip
+                  cursor={{
+                    stroke:
+                      'color-mix(in srgb, var(--xos-text) 35%, transparent)',
+                    strokeDasharray: '4 4',
+                  }}
+                  content={<OppTooltip />}
+                  wrapperStyle={{ outline: 'none', zIndex: 20 }}
+                />
+                <Scatter
+                  name="Opps"
+                  data={scatterData}
+                  cursor="pointer"
+                  isAnimationActive={false}
+                  onClick={(entry) => {
+                    const payload =
+                      (entry as { payload?: { key?: string }; key?: string })
+                        ?.payload || entry;
+                    selectOpp((payload as { key?: string })?.key || null);
+                  }}
+                >
+                  {scatterData.map((point) => (
+                    <Cell
+                      key={point.key}
+                      fill={
+                        point.kind === 'stagnant' || point.kind === 'both'
+                          ? 'var(--xos-alert)'
+                          : 'var(--xos-accent)'
+                      }
+                      fillOpacity={
+                        selectedKey === point.key
+                          ? 1
+                          : point.kind === 'both'
+                            ? 0.88
+                            : 0.68
+                      }
+                      stroke={
+                        selectedKey === point.key
+                          ? 'var(--xos-text)'
+                          : 'color-mix(in srgb, var(--xos-window-content-bg) 70%, transparent)'
+                      }
+                      strokeWidth={selectedKey === point.key ? 2 : 1}
+                    />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <div className="weekly-decision-legend">
+          <span className="weekly-decision-legend--push">À pousser</span>
+          <span className="weekly-decision-legend--stale">Stagnante</span>
+          {ranked.length > chartCount && (
+            <span>
+              {chartCount} sur {ranked.length} sur la carte
+            </span>
+          )}
+        </div>
+        <ul className="weekly-decision-list">
+          {list.map((opp) => (
+            <li
+              id={`weekly-opp-${opp.key}`}
+              key={opp.key}
+              className={
+                selectedKey === opp.key
+                  ? 'weekly-decision-list__item--active'
+                  : undefined
+              }
+              role="button"
+              tabIndex={0}
+              onClick={() => selectOpp(opp.key)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectOpp(opp.key);
+                }
               }}
             >
-              {scatterData.map((point) => (
-                <Cell
-                  key={point.key}
-                  fill={point.kind === "stagnant" || point.kind === "both" ? "var(--xos-alert)" : "var(--xos-accent)"}
-                  fillOpacity={selectedKey === point.key ? 1 : point.kind === "both" ? 0.88 : 0.68}
-                  stroke={selectedKey === point.key ? "var(--xos-text)" : "color-mix(in srgb, var(--xos-window-content-bg) 70%, transparent)"}
-                  strokeWidth={selectedKey === point.key ? 2 : 1}
+              <div className="weekly-decision-list__lead">
+                <span
+                  className={`weekly-decision-kind weekly-decision-kind--${opp.listKind}`}
+                  aria-hidden="true"
                 />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>}
-      <div className="weekly-decision-legend">
-        <span className="weekly-decision-legend--push">À pousser</span>
-        <span className="weekly-decision-legend--stale">Stagnante</span>
-        {ranked.length > chartCount && <span>{chartCount} sur {ranked.length} sur la carte</span>}
-      </div>
-      <ul className="weekly-decision-list">
-        {list.map((opp) => (
-          <li
-            id={`weekly-opp-${opp.key}`}
-            key={opp.key}
-            className={selectedKey === opp.key ? "weekly-decision-list__item--active" : undefined}
-            role="button"
-            tabIndex={0}
-            onClick={() => selectOpp(opp.key)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                selectOpp(opp.key);
-              }
-            }}
-          >
-            <div className="weekly-decision-list__lead">
-              <span className={`weekly-decision-kind weekly-decision-kind--${opp.listKind}`} aria-hidden="true" />
-              <div>
-              {opp.url ? <a className="weekly-opp-link" href={opp.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{opp.account || opp.name}</a> : <strong>{opp.account || opp.name}</strong>}
-              <small>{nameOf(opp.sf_user_id)} · {opp.stage}{opp.close_date ? ` · ${opp.close_date.slice(5)}` : ""}{opp.listKind === "stagnant" ? ` · ${reasonLabel(opp.reasons)}` : opp.listKind === "push" ? " · À pousser" : ""}{opp.account ? ` · ${opp.name}` : ""}</small>
+                <div>
+                  {opp.url ? (
+                    <a
+                      className="weekly-opp-link"
+                      href={opp.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {opp.account || opp.name}
+                    </a>
+                  ) : (
+                    <strong>{opp.account || opp.name}</strong>
+                  )}
+                  <small>
+                    {nameOf(opp.sf_user_id)} · {opp.stage}
+                    {opp.close_date ? ` · ${opp.close_date.slice(5)}` : ''}
+                    {opp.listKind === 'stagnant'
+                      ? ` · ${reasonLabel(opp.reasons)}`
+                      : opp.listKind === 'push'
+                        ? ' · À pousser'
+                        : ''}
+                    {opp.account ? ` · ${opp.name}` : ''}
+                  </small>
+                </div>
               </div>
-            </div>
-            <div className="weekly-decision-value">
-              <strong className="xos-numeric">{money.format(opp.expected || opp.amount)}</strong>
-              <small>{opp.listKind === "push" ? `${money.format(opp.amount)} × ${countFmt.format(opp.probability)}%` : "attendu"}</small>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {ranked.length > 10 && (
-        <div className="weekly-decision-more">
-          <Button variant="secondary" onClick={() => setShowAll((current) => !current)}>
-            {showAll ? "Réduire la liste" : `Tout afficher (${ranked.length})`}
-          </Button>
-        </div>
-      )}
-    </GlassCard>
-  </section>;
+              <div className="weekly-decision-value">
+                <strong className="xos-numeric">
+                  {money.format(opp.expected || opp.amount)}
+                </strong>
+                <small>
+                  {opp.listKind === 'push'
+                    ? `${money.format(opp.amount)} × ${countFmt.format(opp.probability)}%`
+                    : 'attendu'}
+                </small>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {ranked.length > 10 && (
+          <div className="weekly-decision-more">
+            <Button
+              variant="secondary"
+              onClick={() => setShowAll((current) => !current)}
+            >
+              {showAll
+                ? 'Réduire la liste'
+                : `Tout afficher (${ranked.length})`}
+            </Button>
+          </div>
+        )}
+      </GlassCard>
+    </section>
+  );
 }
 
-function MoneyChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number | null; color?: string }>; label?: string }) {
+function MoneyChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number | null; color?: string }>;
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="weekly-chart-tooltip">
       {label ? <small>{label}</small> : null}
       {payload.map((entry) => (
         <div className="weekly-chart-tooltip__row" key={entry.name}>
-          <span className="weekly-chart-tooltip__dot" style={{ background: entry.color }} />
+          <span
+            className="weekly-chart-tooltip__dot"
+            style={{ background: entry.color }}
+          />
           <span>{entry.name}</span>
-          <strong className="xos-numeric">{entry.value === null || entry.value === undefined ? "—" : money.format(Number(entry.value))}</strong>
+          <strong className="xos-numeric">
+            {entry.value === null || entry.value === undefined
+              ? '—'
+              : money.format(Number(entry.value))}
+          </strong>
         </div>
       ))}
     </div>
   );
 }
 
-type ActivityPoint = { label: string; rdv: number | null; detections: number | null; calls: number | null };
-type ActivitySeriesKey = "rdv" | "detections" | "calls";
+type ActivityPoint = {
+  label: string;
+  rdv: number | null;
+  detections: number | null;
+  calls: number | null;
+};
+type ActivitySeriesKey = 'rdv' | 'detections' | 'calls';
 
-function ActivityWeekTooltip({ active, label, data, showCalls }: { active?: boolean; label?: string; data: ActivityPoint[]; showCalls: boolean }) {
+function ActivityWeekTooltip({
+  active,
+  label,
+  data,
+  showCalls,
+}: {
+  active?: boolean;
+  label?: string;
+  data: ActivityPoint[];
+  showCalls: boolean;
+}) {
   if (!active || !label) return null;
   const row = data.find((point) => point.label === label);
   if (!row) return null;
   const rows: Array<{ name: string; value: number | null; color: string }> = [
-    { name: "RDV", value: row.rdv, color: "var(--xos-accent)" },
-    { name: "Détections", value: row.detections, color: "color-mix(in srgb, var(--xos-accent) 45%, #5b8def)" },
+    { name: 'RDV', value: row.rdv, color: 'var(--xos-accent)' },
+    {
+      name: 'Détections',
+      value: row.detections,
+      color: 'color-mix(in srgb, var(--xos-accent) 45%, #5b8def)',
+    },
   ];
-  if (showCalls) rows.push({ name: "Appels", value: row.calls, color: "#7d8aa3" });
+  if (showCalls)
+    rows.push({ name: 'Appels', value: row.calls, color: '#7d8aa3' });
   return (
     <div className="weekly-chart-tooltip">
       <small>{label}</small>
       {rows.map((entry) => (
         <div className="weekly-chart-tooltip__row" key={entry.name}>
-          <span className="weekly-chart-tooltip__dot" style={{ background: entry.color }} />
+          <span
+            className="weekly-chart-tooltip__dot"
+            style={{ background: entry.color }}
+          />
           <span>{entry.name}</span>
-          <strong className="xos-numeric">{entry.value === null || entry.value === undefined ? "—" : countFmt.format(entry.value)}</strong>
+          <strong className="xos-numeric">
+            {entry.value === null || entry.value === undefined
+              ? '—'
+              : countFmt.format(entry.value)}
+          </strong>
         </div>
       ))}
     </div>
@@ -1521,7 +2883,12 @@ function ActivityWeekTooltip({ active, label, data, showCalls }: { active?: bool
 }
 
 function ActivityTrendChart({
-  weeks, owners, pulseFor, pipelineFor, currentIndex, showCalls,
+  weeks,
+  owners,
+  pulseFor,
+  pipelineFor,
+  currentIndex,
+  showCalls,
 }: {
   weeks: Week[];
   owners: Owner[];
@@ -1542,33 +2909,100 @@ function ActivityTrendChart({
     return {
       label,
       rdv: sumAt(owners, pulseFor, index, (row) => row.meetings),
-      detections: sumAt(owners, pipelineFor, index, (row) => row.generated_count),
-      calls: showCalls ? sumAt(owners, pulseFor, index, (row) => row.calls) : null,
+      detections: sumAt(
+        owners,
+        pipelineFor,
+        index,
+        (row) => row.generated_count,
+      ),
+      calls: showCalls
+        ? sumAt(owners, pulseFor, index, (row) => row.calls)
+        : null,
     };
   });
-  const hasData = data.some((point) => (point.rdv || 0) > 0 || (point.detections || 0) > 0 || (point.calls || 0) > 0);
-  const series: Array<{ key: ActivitySeriesKey; name: string; fill: string }> = [
-    { key: "calls", name: "Appels", fill: "#7d8aa3" },
-    { key: "detections", name: "Détections", fill: "color-mix(in srgb, var(--xos-accent) 45%, #5b8def)" },
-    { key: "rdv", name: "RDV", fill: "var(--xos-accent)" },
-  ];
+  const hasData = data.some(
+    (point) =>
+      (point.rdv || 0) > 0 ||
+      (point.detections || 0) > 0 ||
+      (point.calls || 0) > 0,
+  );
+  const series: Array<{ key: ActivitySeriesKey; name: string; fill: string }> =
+    [
+      { key: 'calls', name: 'Appels', fill: '#7d8aa3' },
+      {
+        key: 'detections',
+        name: 'Détections',
+        fill: 'color-mix(in srgb, var(--xos-accent) 45%, #5b8def)',
+      },
+      { key: 'rdv', name: 'RDV', fill: 'var(--xos-accent)' },
+    ];
   if (!showCalls) series.shift();
   return (
     <section className="weekly-section">
-      <SectionHeading kicker={COPY.volume.kicker} title={COPY.volume.title} hint={COPY.volume.hint} />
-      <GlassCard className={`weekly-chart-card weekly-activity-card${!hasData ? " weekly-chart-card--empty" : ""}`}>
+      <SectionHeading
+        kicker={COPY.volume.kicker}
+        title={COPY.volume.title}
+        hint={COPY.volume.hint}
+      />
+      <GlassCard
+        className={`weekly-chart-card weekly-activity-card${!hasData ? ' weekly-chart-card--empty' : ''}`}
+      >
         <div className="weekly-activity-grid">
           {series.map((serie, index) => (
-            <div className="weekly-activity-row" key={serie.key} data-testid={`weekly-activity-mini-${serie.key}`}>
+            <div
+              className="weekly-activity-row"
+              key={serie.key}
+              data-testid={`weekly-activity-mini-${serie.key}`}
+            >
               <span className="weekly-activity-row__label">{serie.name}</span>
               <div className="weekly-chart weekly-chart--activity-mini">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data} syncId="weekly-activity" margin={{ top: 4, right: 8, bottom: index === series.length - 1 ? 4 : 0, left: 0 }}>
-                    <CartesianGrid stroke="color-mix(in srgb, var(--xos-border) 55%, transparent)" vertical={false} />
-                    <XAxis dataKey="label" stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} hide={index !== series.length - 1} />
-                    <YAxis stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} width={32} allowDecimals={false} />
-                    <Tooltip content={<ActivityWeekTooltip data={data} showCalls={showCalls} />} cursor={chartBarCursor} wrapperStyle={{ outline: "none", zIndex: 20 }} />
-                    <Bar dataKey={serie.key} name={serie.name} fill={serie.fill} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+                  <BarChart
+                    data={data}
+                    syncId="weekly-activity"
+                    margin={{
+                      top: 4,
+                      right: 8,
+                      bottom: index === series.length - 1 ? 4 : 0,
+                      left: 0,
+                    }}
+                  >
+                    <CartesianGrid
+                      stroke="color-mix(in srgb, var(--xos-border) 55%, transparent)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="label"
+                      stroke="var(--xos-text-muted)"
+                      tickLine={false}
+                      axisLine={false}
+                      hide={index !== series.length - 1}
+                    />
+                    <YAxis
+                      stroke="var(--xos-text-muted)"
+                      tickLine={false}
+                      axisLine={false}
+                      width={32}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      content={
+                        <ActivityWeekTooltip
+                          data={data}
+                          showCalls={showCalls}
+                        />
+                      }
+                      cursor={chartBarCursor}
+                      wrapperStyle={{ outline: 'none', zIndex: 20 }}
+                    />
+                    <Bar
+                      dataKey={serie.key}
+                      name={serie.name}
+                      fill={serie.fill}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={28}
+                      isAnimationActive={false}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1580,7 +3014,19 @@ function ActivityTrendChart({
   );
 }
 
-function ForecastChart({ weeks, history, ownerIds, target, currentIndex }: { weeks: Week[]; history: ForecastPoint[]; ownerIds: Set<string>; target: number | null; currentIndex: number }) {
+function ForecastChart({
+  weeks,
+  history,
+  ownerIds,
+  target,
+  currentIndex,
+}: {
+  weeks: Week[];
+  history: ForecastPoint[];
+  ownerIds: Set<string>;
+  target: number | null;
+  currentIndex: number;
+}) {
   const data = useMemo(() => {
     const byWeek = new Map<string, ForecastPoint[]>();
     for (const point of history) {
@@ -1591,12 +3037,20 @@ function ForecastChart({ weeks, history, ownerIds, target, currentIndex }: { wee
     }
     return weeks.map((week, index) => {
       const points = byWeek.get(week.start) || [];
-      const forecastValues = points.map((point) => point.forecast).filter((value): value is number => value !== null);
+      const forecastValues = points
+        .map((point) => point.forecast)
+        .filter((value): value is number => value !== null);
       const future = index > currentIndex;
       return {
         label: shortWeekLabel(week.isoWeek) || week.label,
-        forecast: future ? null : (forecastValues.length ? forecastValues.reduce((sum, value) => sum + value, 0) : null),
-        signed: future ? null : points.reduce((sum, point) => sum + (point.signed_to_date || 0), 0),
+        forecast: future
+          ? null
+          : forecastValues.length
+            ? forecastValues.reduce((sum, value) => sum + value, 0)
+            : null,
+        signed: future
+          ? null
+          : points.reduce((sum, point) => sum + (point.signed_to_date || 0), 0),
       };
     });
   }, [weeks, history, ownerIds, currentIndex]);
@@ -1606,120 +3060,210 @@ function ForecastChart({ weeks, history, ownerIds, target, currentIndex }: { wee
     ...data.map((point) => Math.max(point.forecast || 0, point.signed || 0)),
     1,
   );
-  const targetLabel = target !== null && target > 0 ? `Objectif ${money.format(target)}` : "Objectif";
-  return <GlassCard className="weekly-chart-card weekly-forecast-card">
-    <div className="weekly-chart weekly-chart--forecast">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 4 }}>
-          <CartesianGrid stroke="color-mix(in srgb, var(--xos-border) 55%, transparent)" vertical={false} />
-          <XAxis dataKey="label" stroke="var(--xos-text-muted)" tickLine={false} axisLine={false} />
-          <YAxis hide domain={[0, yMax * 1.08]} />
-          <Tooltip content={<MoneyChartTooltip />} wrapperStyle={{ outline: "none", zIndex: 20 }} />
-          <Legend wrapperStyle={{ color: "var(--xos-text-muted)", fontSize: 12 }} />
-          {target !== null && target > 0 && (
-            <ReferenceLine
-              y={target}
-              stroke="color-mix(in srgb, var(--xos-text) 55%, transparent)"
-              strokeDasharray="5 5"
-              strokeWidth={1.6}
-              ifOverflow="extendDomain"
-              label={{ value: targetLabel, position: "insideTopRight", fill: "var(--xos-text-muted)", fontSize: 11 }}
+  const targetLabel =
+    target !== null && target > 0
+      ? `Objectif ${money.format(target)}`
+      : 'Objectif';
+  return (
+    <GlassCard className="weekly-chart-card weekly-forecast-card">
+      <div className="weekly-chart weekly-chart--forecast">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{ top: 12, right: 12, bottom: 4, left: 4 }}
+          >
+            <CartesianGrid
+              stroke="color-mix(in srgb, var(--xos-border) 55%, transparent)"
+              vertical={false}
             />
-          )}
-          {hasForecast && <Line type="monotone" dataKey="forecast" name="Projeté" stroke="var(--xos-accent)" strokeWidth={2.4} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />}
-          <Line type="monotone" dataKey="signed" name="Signé" stroke="var(--xos-alert)" strokeWidth={2.4} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  </GlassCard>;
+            <XAxis
+              dataKey="label"
+              stroke="var(--xos-text-muted)"
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis hide domain={[0, yMax * 1.08]} />
+            <Tooltip
+              content={<MoneyChartTooltip />}
+              wrapperStyle={{ outline: 'none', zIndex: 20 }}
+            />
+            <Legend
+              wrapperStyle={{ color: 'var(--xos-text-muted)', fontSize: 12 }}
+            />
+            {target !== null && target > 0 && (
+              <ReferenceLine
+                y={target}
+                stroke="color-mix(in srgb, var(--xos-text) 55%, transparent)"
+                strokeDasharray="5 5"
+                strokeWidth={1.6}
+                ifOverflow="extendDomain"
+                label={{
+                  value: targetLabel,
+                  position: 'insideTopRight',
+                  fill: 'var(--xos-text-muted)',
+                  fontSize: 11,
+                }}
+              />
+            )}
+            {hasForecast && (
+              <Line
+                type="monotone"
+                dataKey="forecast"
+                name="Projeté"
+                stroke="var(--xos-accent)"
+                strokeWidth={2.4}
+                dot={{ r: 3 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
+            <Line
+              type="monotone"
+              dataKey="signed"
+              name="Signé"
+              stroke="var(--xos-alert)"
+              strokeWidth={2.4}
+              dot={{ r: 3 }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </GlassCard>
+  );
 }
 
 function WeeklySkeleton() {
-  return <main className="weekly-app"><header className="weekly-header"><Skeleton className="weekly-skeleton weekly-skeleton--tag" /><Skeleton className="weekly-skeleton weekly-skeleton--title" /></header><section className="weekly-pulse-grid">{Array.from({ length: 3 }, (_, index) => <GlassCard className="weekly-pulse-card weekly-skeleton-card" key={index}><Skeleton className="weekly-skeleton weekly-skeleton--line" /><Skeleton className="weekly-skeleton weekly-skeleton--metrics" /></GlassCard>)}</section></main>;
+  return (
+    <main className="weekly-app">
+      <header className="weekly-header">
+        <Skeleton className="weekly-skeleton weekly-skeleton--tag" />
+        <Skeleton className="weekly-skeleton weekly-skeleton--title" />
+      </header>
+      <section className="weekly-pulse-grid">
+        {Array.from({ length: 3 }, (_, index) => (
+          <GlassCard
+            className="weekly-pulse-card weekly-skeleton-card"
+            key={index}
+          >
+            <Skeleton className="weekly-skeleton weekly-skeleton--line" />
+            <Skeleton className="weekly-skeleton weekly-skeleton--metrics" />
+          </GlassCard>
+        ))}
+      </section>
+    </main>
+  );
 }
 
 export default function WeeklyApp() {
-  const [period, setPeriod] = useState<PeriodMode>("week");
+  const [period, setPeriod] = useState<PeriodMode>('week');
   const [cache, setCache] = useState<PerfCacheMap>({});
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [mode, setMode] = useState<"self" | "team">("self");
-  const [displayMode, setDisplayMode] = useState<"cards" | "table">("cards");
-  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
+  const [mode, setMode] = useState<'self' | 'team'>('self');
+  const [displayMode, setDisplayMode] = useState<'cards' | 'table'>('cards');
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('all');
   const [anchorWeekStart, setAnchorWeekStart] = useState<string | null>(null);
-  const [anchorQuarterStart, setAnchorQuarterStart] = useState<string | null>(null);
+  const [anchorQuarterStart, setAnchorQuarterStart] = useState<string | null>(
+    null,
+  );
   const requestSeq = useRef(0);
   const historyCacheRef = useRef<PeriodHistory>({ weeks: [], quarters: [] });
   const cacheRef = useRef(cache);
-  const lastByPeriodRef = useRef<Partial<Record<PeriodMode, PerfCacheEntry>>>({});
+  const lastByPeriodRef = useRef<Partial<Record<PeriodMode, PerfCacheEntry>>>(
+    {},
+  );
   const prefetchingRef = useRef(new Set<string>());
   const quarterPrefetchDone = useRef(false);
   const teamModeBootstrapped = useRef(false);
   cacheRef.current = cache;
 
-  const storeEntry = useCallback((key: string, nextPeriod: PeriodMode, next: PerfCacheEntry) => {
-    if ((next.payload.period_history?.weeks?.length || 0) > 0) {
-      historyCacheRef.current = next.payload.period_history!;
-    }
-    lastByPeriodRef.current[nextPeriod] = next;
-    setCache((current) => (current[key] === next ? current : { ...current, [key]: next }));
-  }, []);
+  const storeEntry = useCallback(
+    (key: string, nextPeriod: PeriodMode, next: PerfCacheEntry) => {
+      if ((next.payload.period_history?.weeks?.length || 0) > 0) {
+        historyCacheRef.current = next.payload.period_history!;
+      }
+      lastByPeriodRef.current[nextPeriod] = next;
+      setCache((current) =>
+        current[key] === next ? current : { ...current, [key]: next },
+      );
+    },
+    [],
+  );
 
-  const loadPeriod = useCallback(async (nextPeriod: PeriodMode, {
-    background = false,
-    signal,
-    weekStart = nextPeriod === "quarter" ? anchorQuarterStart : anchorWeekStart,
-    revalidate = false,
-  }: {
-    background?: boolean;
-    signal?: AbortSignal;
-    weekStart?: string | null;
-    revalidate?: boolean;
-  } = {}) => {
-    const key = perfCacheKey(nextPeriod, weekStart);
-    const seq = revalidate ? requestSeq.current : ++requestSeq.current;
-    if (!revalidate) {
-      if (background) setRefreshing(true);
-      else setLoading(true);
-      setError(false);
-    }
-    try {
-      // Cold load: une seule requête full (lite→enrich a vidé l’UI en prod).
-      const next = await perfRequest(nextPeriod, weekStart, signal);
-      if (!revalidate && seq !== requestSeq.current) return;
-      storeEntry(key, nextPeriod, next);
-      if (!revalidate) setError(false);
-    } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+  const loadPeriod = useCallback(
+    async (
+      nextPeriod: PeriodMode,
+      {
+        background = false,
+        signal,
+        weekStart = nextPeriod === 'quarter'
+          ? anchorQuarterStart
+          : anchorWeekStart,
+        revalidate = false,
+      }: {
+        background?: boolean;
+        signal?: AbortSignal;
+        weekStart?: string | null;
+        revalidate?: boolean;
+      } = {},
+    ) => {
+      const key = perfCacheKey(nextPeriod, weekStart);
+      const seq = revalidate ? requestSeq.current : ++requestSeq.current;
       if (!revalidate) {
-        if (seq !== requestSeq.current) return;
-        // Garde la dernière vue si on en a une — pas d’écran d’erreur brutal au switch.
-        if (!lastByPeriodRef.current[nextPeriod] && !cacheRef.current[key]) setError(true);
+        if (background) setRefreshing(true);
+        else setLoading(true);
+        setError(false);
       }
-    } finally {
-      if (!revalidate && seq === requestSeq.current) {
-        setLoading(false);
-        setRefreshing(false);
+      try {
+        // Cold load: une seule requête full (lite→enrich a vidé l’UI en prod).
+        const next = await perfRequest(nextPeriod, weekStart, signal);
+        if (!revalidate && seq !== requestSeq.current) return;
+        storeEntry(key, nextPeriod, next);
+        if (!revalidate) setError(false);
+      } catch (err) {
+        if (
+          signal?.aborted ||
+          (err instanceof DOMException && err.name === 'AbortError')
+        )
+          return;
+        if (!revalidate) {
+          if (seq !== requestSeq.current) return;
+          // Garde la dernière vue si on en a une — pas d’écran d’erreur brutal au switch.
+          if (!lastByPeriodRef.current[nextPeriod] && !cacheRef.current[key])
+            setError(true);
+        }
+      } finally {
+        if (!revalidate && seq === requestSeq.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-    }
-  }, [anchorQuarterStart, anchorWeekStart, storeEntry]);
+    },
+    [anchorQuarterStart, anchorWeekStart, storeEntry],
+  );
 
-  const prefetchKey = useCallback(async (nextPeriod: PeriodMode, weekStart: string | null) => {
-    const key = perfCacheKey(nextPeriod, weekStart);
-    if (cacheRef.current[key] || prefetchingRef.current.has(key)) return;
-    prefetchingRef.current.add(key);
-    try {
-      const next = await perfRequest(nextPeriod, weekStart);
-      storeEntry(key, nextPeriod, next);
-    } catch {
-      // Prefetch silencieux — l’utilisateur refetch au clic si besoin.
-    } finally {
-      prefetchingRef.current.delete(key);
-    }
-  }, [storeEntry]);
+  const prefetchKey = useCallback(
+    async (nextPeriod: PeriodMode, weekStart: string | null) => {
+      const key = perfCacheKey(nextPeriod, weekStart);
+      if (cacheRef.current[key] || prefetchingRef.current.has(key)) return;
+      prefetchingRef.current.add(key);
+      try {
+        const next = await perfRequest(nextPeriod, weekStart);
+        storeEntry(key, nextPeriod, next);
+      } catch {
+        // Prefetch silencieux — l’utilisateur refetch au clic si besoin.
+      } finally {
+        prefetchingRef.current.delete(key);
+      }
+    },
+    [storeEntry],
+  );
 
-  const activeAnchorStart = period === "quarter" ? anchorQuarterStart : anchorWeekStart;
+  const activeAnchorStart =
+    period === 'quarter' ? anchorQuarterStart : anchorWeekStart;
   const activeKey = perfCacheKey(period, activeAnchorStart);
   const cachedResult = cache[activeKey] || null;
   const fallbackResult = lastByPeriodRef.current[period] || null;
@@ -1727,8 +3271,8 @@ export default function WeeklyApp() {
 
   useEffect(() => {
     if (teamModeBootstrapped.current || !result) return;
-    if (result.payload.view === "team") {
-      setMode("team");
+    if (result.payload.view === 'team') {
+      setMode('team');
       teamModeBootstrapped.current = true;
     }
   }, [result]);
@@ -1741,14 +3285,25 @@ export default function WeeklyApp() {
       // Période déjà en cache : affichage immédiat. Revalidate seulement la période live.
       const live = !activeAnchorStart;
       if (live) {
-        void loadPeriod(period, { background: true, revalidate: true, signal: controller.signal, weekStart: activeAnchorStart });
+        void loadPeriod(period, {
+          background: true,
+          revalidate: true,
+          signal: controller.signal,
+          weekStart: activeAnchorStart,
+        });
       }
       return () => {
         controller.abort();
       };
     }
-    const soft = Boolean(lastByPeriodRef.current[period] || Object.keys(cacheRef.current).length);
-    void loadPeriod(period, { background: soft, signal: controller.signal, weekStart: activeAnchorStart });
+    const soft = Boolean(
+      lastByPeriodRef.current[period] || Object.keys(cacheRef.current).length,
+    );
+    void loadPeriod(period, {
+      background: soft,
+      signal: controller.signal,
+      weekStart: activeAnchorStart,
+    });
     return () => {
       controller.abort();
       requestSeq.current += 1;
@@ -1757,20 +3312,21 @@ export default function WeeklyApp() {
 
   useEffect(() => {
     if (quarterPrefetchDone.current) return;
-    const hasWeek = Object.keys(cache).some((key) => key.startsWith("week:"));
+    const hasWeek = Object.keys(cache).some((key) => key.startsWith('week:'));
     if (!hasWeek) return;
     quarterPrefetchDone.current = true;
-    void prefetchKey("quarter", null);
+    void prefetchKey('quarter', null);
   }, [cache, prefetchKey]);
 
   useEffect(() => {
-    if (period !== "week" || !cachedResult) return;
+    if (period !== 'week' || !cachedResult) return;
     const history = cachedResult.payload.period_history?.weeks?.length
       ? cachedResult.payload.period_history.weeks
       : historyCacheRef.current.weeks;
-    const live = cachedResult.payload.context?.live_week_start
-      || cachedResult.payload.context?.anchor_week_start
-      || null;
+    const live =
+      cachedResult.payload.context?.live_week_start ||
+      cachedResult.payload.context?.anchor_week_start ||
+      null;
     const selected = anchorWeekStart || live;
     if (!selected || !history?.length) return;
     const ordered = [...history]
@@ -1778,9 +3334,14 @@ export default function WeeklyApp() {
       .filter((start, index, all) => all.indexOf(start) === index)
       .sort((a, b) => b.localeCompare(a));
     const index = ordered.indexOf(selected);
-    const neighbors = [ordered[index - 1], ordered[index + 1], live].filter((value): value is string => Boolean(value) && value !== selected);
+    const neighbors = [ordered[index - 1], ordered[index + 1], live].filter(
+      (value): value is string => Boolean(value) && value !== selected,
+    );
     for (const weekStart of neighbors.slice(0, 3)) {
-      void prefetchKey("week", weekStart === live && !anchorWeekStart ? null : weekStart);
+      void prefetchKey(
+        'week',
+        weekStart === live && !anchorWeekStart ? null : weekStart,
+      );
     }
   }, [period, cachedResult, anchorWeekStart, prefetchKey]);
 
@@ -1796,21 +3357,41 @@ export default function WeeklyApp() {
     for (const owner of owners) {
       const key = sfIdKey(owner.sf_user_id);
       const existing = ownersByKey.get(key);
-      if (!existing || owner.sf_user_id.length > existing.sf_user_id.length) ownersByKey.set(key, owner);
+      if (!existing || owner.sf_user_id.length > existing.sf_user_id.length)
+        ownersByKey.set(key, owner);
     }
     const dedupedOwners = [...ownersByKey.values()];
-    if (!payload.range?.from || !Number.isFinite(Number(payload.weeks)) || Number(payload.weeks) <= 0) return null;
+    if (
+      !payload.range?.from ||
+      !Number.isFinite(Number(payload.weeks)) ||
+      Number(payload.weeks) <= 0
+    )
+      return null;
     const weeks = makeWeeks(payload);
     if (!weeks.length) return null;
     const currentWeekStart = addDays(payload.range.to, -6);
-    const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === currentWeekStart));
-    const selfOwner = dedupedOwners.find((owner) => owner.email?.toLowerCase() === email?.toLowerCase()) || dedupedOwners[0];
-    const roster = mode === "self"
-      ? (selfOwner ? [selfOwner] : [])
-      : [...dedupedOwners].sort((a, b) => a.name.localeCompare(b.name, "fr"));
-    const visibleOwners = mode === "team" && selectedOwnerId !== "all"
-      ? roster.filter((owner) => owner.sf_user_id === selectedOwnerId || owner.sf_user_id?.slice(0, 15) === selectedOwnerId?.slice(0, 15))
-      : roster;
+    const currentIndex = Math.max(
+      0,
+      weeks.findIndex((week) => week.start === currentWeekStart),
+    );
+    const selfOwner =
+      dedupedOwners.find(
+        (owner) => owner.email?.toLowerCase() === email?.toLowerCase(),
+      ) || dedupedOwners[0];
+    const roster =
+      mode === 'self'
+        ? selfOwner
+          ? [selfOwner]
+          : []
+        : [...dedupedOwners].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    const visibleOwners =
+      mode === 'team' && selectedOwnerId !== 'all'
+        ? roster.filter(
+            (owner) =>
+              owner.sf_user_id === selectedOwnerId ||
+              owner.sf_user_id?.slice(0, 15) === selectedOwnerId?.slice(0, 15),
+          )
+        : roster;
     const pulseIndex = seriesIndex(payload.pulse || []);
     const pipelineIndex = seriesIndex(payload.pipeline || []);
     const priorPulseIndex = seriesIndex(payload.prior_pulse || []);
@@ -1820,35 +3401,91 @@ export default function WeeklyApp() {
     const priorPulseByOwner = new Map<string, Pulse[]>();
     const priorPipelineByOwner = new Map<string, Pipeline[]>();
     for (const owner of roster) {
-      pulseByOwner.set(owner.sf_user_id, weeks.map(({ start }) => pulseIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) || EMPTY_PULSE(owner.sf_user_id, start)));
-      pipelineByOwner.set(owner.sf_user_id, weeks.map(({ start }) => pipelineIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) || EMPTY_PIPELINE(owner.sf_user_id, start)));
-      priorPulseByOwner.set(owner.sf_user_id, weeks.map(({ start }) => priorPulseIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) || EMPTY_PULSE(owner.sf_user_id, start)));
-      priorPipelineByOwner.set(owner.sf_user_id, weeks.map(({ start }) => priorPipelineIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) || EMPTY_PIPELINE(owner.sf_user_id, start)));
+      pulseByOwner.set(
+        owner.sf_user_id,
+        weeks.map(
+          ({ start }) =>
+            pulseIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) ||
+            EMPTY_PULSE(owner.sf_user_id, start),
+        ),
+      );
+      pipelineByOwner.set(
+        owner.sf_user_id,
+        weeks.map(
+          ({ start }) =>
+            pipelineIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) ||
+            EMPTY_PIPELINE(owner.sf_user_id, start),
+        ),
+      );
+      priorPulseByOwner.set(
+        owner.sf_user_id,
+        weeks.map(
+          ({ start }) =>
+            priorPulseIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) ||
+            EMPTY_PULSE(owner.sf_user_id, start),
+        ),
+      );
+      priorPipelineByOwner.set(
+        owner.sf_user_id,
+        weeks.map(
+          ({ start }) =>
+            priorPipelineIndex.get(`${sfIdKey(owner.sf_user_id)}:${start}`) ||
+            EMPTY_PIPELINE(owner.sf_user_id, start),
+        ),
+      );
     }
-    const priorPulseFor = (owner: Owner) => priorPulseByOwner.get(owner.sf_user_id) || weeks.map(({ start }) => EMPTY_PULSE(owner.sf_user_id, start));
-    const priorPipelineFor = (owner: Owner) => priorPipelineByOwner.get(owner.sf_user_id) || weeks.map(({ start }) => EMPTY_PIPELINE(owner.sf_user_id, start));
+    const priorPulseFor = (owner: Owner) =>
+      priorPulseByOwner.get(owner.sf_user_id) ||
+      weeks.map(({ start }) => EMPTY_PULSE(owner.sf_user_id, start));
+    const priorPipelineFor = (owner: Owner) =>
+      priorPipelineByOwner.get(owner.sf_user_id) ||
+      weeks.map(({ start }) => EMPTY_PIPELINE(owner.sf_user_id, start));
     const context = payload.context;
-    const compareLabel = shortPeriodLabel(context?.compare_week || weeks[Math.max(0, currentIndex - 1)]?.isoWeek) || "S−1";
-    const priorQuarterLabel = context?.prior_quarter_label || "N−1";
-    const pulseFor = (owner: Owner) => pulseByOwner.get(owner.sf_user_id) || weeks.map(({ start }) => EMPTY_PULSE(owner.sf_user_id, start));
-    const pipelineFor = (owner: Owner) => pipelineByOwner.get(owner.sf_user_id) || weeks.map(({ start }) => EMPTY_PIPELINE(owner.sf_user_id, start));
-    const sellers = visibleOwners.filter((owner) => trackingOf(owner) !== "sdr");
-    const sellerIds = new Set(sellers.map((owner) => sfIdKey(owner.sf_user_id)));
-    const quarterFor = (owner: Owner) => (payload.quarter || []).find((point) => sfIdKey(point.sf_user_id) === sfIdKey(owner.sf_user_id));
+    const compareLabel =
+      shortPeriodLabel(
+        context?.compare_week || weeks[Math.max(0, currentIndex - 1)]?.isoWeek,
+      ) || 'S−1';
+    const priorQuarterLabel = context?.prior_quarter_label || 'N−1';
+    const pulseFor = (owner: Owner) =>
+      pulseByOwner.get(owner.sf_user_id) ||
+      weeks.map(({ start }) => EMPTY_PULSE(owner.sf_user_id, start));
+    const pipelineFor = (owner: Owner) =>
+      pipelineByOwner.get(owner.sf_user_id) ||
+      weeks.map(({ start }) => EMPTY_PIPELINE(owner.sf_user_id, start));
+    const sellers = visibleOwners.filter(
+      (owner) => trackingOf(owner) !== 'sdr',
+    );
+    const sellerIds = new Set(
+      sellers.map((owner) => sfIdKey(owner.sf_user_id)),
+    );
+    const quarterFor = (owner: Owner) =>
+      (payload.quarter || []).find(
+        (point) => sfIdKey(point.sf_user_id) === sfIdKey(owner.sf_user_id),
+      );
     const rawPipe = payload.custom_pipe;
-    const customPipe = rawPipe && Array.isArray(rawPipe.by_owner) && Array.isArray(rawPipe.opps) && Array.isArray(rawPipe.months)
-      ? rawPipe
-      : emptyCustomPipe();
-    const ownerRows = customPipe.by_owner.filter((row) => sellerIds.has(sfIdKey(row.sf_user_id)));
+    const customPipe =
+      rawPipe &&
+      Array.isArray(rawPipe.by_owner) &&
+      Array.isArray(rawPipe.opps) &&
+      Array.isArray(rawPipe.months)
+        ? rawPipe
+        : emptyCustomPipe();
+    const ownerRows = customPipe.by_owner.filter((row) =>
+      sellerIds.has(sfIdKey(row.sf_user_id)),
+    );
     const scopedPipe: CustomPipe = {
       ...customPipe,
       by_owner: ownerRows,
-      opps: customPipe.opps.filter((opp) => sellerIds.has(sfIdKey(opp.sf_user_id))),
+      opps: customPipe.opps.filter((opp) =>
+        sellerIds.has(sfIdKey(opp.sf_user_id)),
+      ),
       total_amount: ownerRows.reduce((sum, row) => sum + row.amount, 0),
       total_expected: ownerRows.reduce((sum, row) => sum + row.expected, 0),
       count: ownerRows.reduce((sum, row) => sum + row.count, 0),
       months: customPipe.months.map((month) => {
-        const parts = Object.entries(month.by_owner || {}).filter(([id]) => sellerIds.has(sfIdKey(id)));
+        const parts = Object.entries(month.by_owner || {}).filter(([id]) =>
+          sellerIds.has(sfIdKey(id)),
+        );
         return {
           month: month.month,
           label: month.label,
@@ -1858,27 +3495,94 @@ export default function WeeklyApp() {
         };
       }),
     };
-    const visibleIds = new Set(visibleOwners.map((owner) => sfIdKey(owner.sf_user_id)));
-    const quarterRows = (payload.quarter || []).filter((row) => sellerIds.has(sfIdKey(row.sf_user_id)));
-    const pace = scopePace(quarterRows, payload.pace, visibleOwners.length === dedupedOwners.length);
+    const visibleIds = new Set(
+      visibleOwners.map((owner) => sfIdKey(owner.sf_user_id)),
+    );
+    const quarterRows = (payload.quarter || []).filter((row) =>
+      sellerIds.has(sfIdKey(row.sf_user_id)),
+    );
+    const pace = scopePace(
+      quarterRows,
+      payload.pace,
+      visibleOwners.length === dedupedOwners.length,
+    );
     const target = pace?.target ?? null;
-    const followUps = (payload.follow_up_opps || []).filter((opp) => visibleIds.has(sfIdKey(opp.sf_user_id)));
-    const stagnant = (payload.stagnant_opps || []).filter((opp) => visibleIds.has(sfIdKey(opp.sf_user_id)));
+    const followUps = (payload.follow_up_opps || []).filter((opp) =>
+      visibleIds.has(sfIdKey(opp.sf_user_id)),
+    );
+    const stagnant = (payload.stagnant_opps || []).filter((opp) =>
+      visibleIds.has(sfIdKey(opp.sf_user_id)),
+    );
     return {
-      payload, weeks, currentIndex, visibleOwners, roster, pulseFor, pipelineFor, priorPulseFor, priorPipelineFor, quarterFor, sellerIds,
-      forecastHistory: payload.forecast_history || [], customPipe: scopedPipe, pace, target, followUps, stagnant,
-      quarterBounds: payload.quarter_bounds || null, compareLabel, priorQuarterLabel, context,
+      payload,
+      weeks,
+      currentIndex,
+      visibleOwners,
+      roster,
+      pulseFor,
+      pipelineFor,
+      priorPulseFor,
+      priorPipelineFor,
+      quarterFor,
+      sellerIds,
+      forecastHistory: payload.forecast_history || [],
+      customPipe: scopedPipe,
+      pace,
+      target,
+      followUps,
+      stagnant,
+      quarterBounds: payload.quarter_bounds || null,
+      compareLabel,
+      priorQuarterLabel,
+      context,
       periodHistory: payload.period_history || { weeks: [], quarters: [] },
     };
   }, [mode, result, selectedOwnerId]);
 
-  if (error && !model) return <main className="weekly-app weekly-app__state"><GlassCard className="weekly-error"><h2>Performance indisponible</h2><p>La récupération des données n’a pas abouti.</p><Button onClick={() => void loadPeriod(period)}>Réessayer</Button></GlassCard></main>;
+  if (error && !model)
+    return (
+      <main className="weekly-app weekly-app__state">
+        <GlassCard className="weekly-error">
+          <h2>Performance indisponible</h2>
+          <p>La récupération des données n’a pas abouti.</p>
+          <Button onClick={() => void loadPeriod(period)}>Réessayer</Button>
+        </GlassCard>
+      </main>
+    );
   if (!model) return <WeeklySkeleton />;
-  const { payload, currentIndex, visibleOwners, roster, pulseFor, pipelineFor, priorPulseFor, priorPipelineFor, quarterFor, sellerIds, forecastHistory, customPipe, pace, target, followUps, stagnant, quarterBounds, compareLabel, priorQuarterLabel, context, periodHistory } = model;
-  const weekMode = period === "week";
-  const liveWeekStart = context?.live_week_start || context?.anchor_week_start || addDays(payload.range.to, -6);
-  const selectedWeekStart = anchorWeekStart || context?.anchor_week_start || liveWeekStart;
-  const historySource = (periodHistory.weeks?.length ? periodHistory : historyCacheRef.current);
+  const {
+    payload,
+    currentIndex,
+    visibleOwners,
+    roster,
+    pulseFor,
+    pipelineFor,
+    priorPulseFor,
+    priorPipelineFor,
+    quarterFor,
+    sellerIds,
+    forecastHistory,
+    customPipe,
+    pace,
+    target,
+    followUps,
+    stagnant,
+    quarterBounds,
+    compareLabel,
+    priorQuarterLabel,
+    context,
+    periodHistory,
+  } = model;
+  const weekMode = period === 'week';
+  const liveWeekStart =
+    context?.live_week_start ||
+    context?.anchor_week_start ||
+    addDays(payload.range.to, -6);
+  const selectedWeekStart =
+    anchorWeekStart || context?.anchor_week_start || liveWeekStart;
+  const historySource = periodHistory.weeks?.length
+    ? periodHistory
+    : historyCacheRef.current;
   const historyOptions = (() => {
     const seen = new Set<string>();
     const rows = [...(historySource.weeks || [])];
@@ -1886,14 +3590,14 @@ export default function WeeklyApp() {
       rows.unshift({
         week_start: liveWeekStart,
         iso_week: context?.live_iso_week || context?.iso_week || liveWeekStart,
-        quarter: context?.quarter_label || "",
+        quarter: context?.quarter_label || '',
       });
     }
     if (selectedWeekStart) {
       rows.push({
         week_start: selectedWeekStart,
         iso_week: context?.iso_week || selectedWeekStart,
-        quarter: context?.quarter_label || "",
+        quarter: context?.quarter_label || '',
       });
     }
     return rows
@@ -1909,210 +3613,466 @@ export default function WeeklyApp() {
         label: shortWeekLabel(entry.iso_week) || entry.iso_week,
       }));
   })();
-  const selectedWeekLabel = historyOptions.find((entry) => entry.value === selectedWeekStart)?.label || shortWeekLabel(context?.iso_week);
-  const currentWeekShort = selectedWeekLabel || shortWeekLabel(context?.iso_week);
-  const quarterHistorySource = periodHistory.quarters?.length ? periodHistory : historyCacheRef.current;
-  const quarterLabels = [...new Set([
-    ...(quarterHistorySource.quarters || []),
-    ...(context?.quarter_label ? [context.quarter_label] : []),
-  ])];
+  const selectedWeekLabel =
+    historyOptions.find((entry) => entry.value === selectedWeekStart)?.label ||
+    shortWeekLabel(context?.iso_week);
+  const currentWeekShort =
+    selectedWeekLabel || shortWeekLabel(context?.iso_week);
+  const quarterHistorySource = periodHistory.quarters?.length
+    ? periodHistory
+    : historyCacheRef.current;
+  const quarterLabels = [
+    ...new Set([
+      ...(quarterHistorySource.quarters || []),
+      ...(context?.quarter_label ? [context.quarter_label] : []),
+    ]),
+  ];
   const quarterOptions = quarterLabels.flatMap((label) => {
-    const anchor = (quarterHistorySource.weeks || [])
-      .filter((entry) => entry.quarter === label)
-      .map((entry) => entry.week_start)
-      .sort((a, b) => b.localeCompare(a))[0]
-      || (label === context?.quarter_label ? context?.anchor_week_start : null)
-      || quarterAnchorWeekStart(label);
+    const anchor =
+      (quarterHistorySource.weeks || [])
+        .filter((entry) => entry.quarter === label)
+        .map((entry) => entry.week_start)
+        .sort((a, b) => b.localeCompare(a))[0] ||
+      (label === context?.quarter_label ? context?.anchor_week_start : null) ||
+      quarterAnchorWeekStart(label);
     return anchor ? [{ value: anchor, label }] : [];
   });
-  const selectedQuarterStart = anchorQuarterStart
-    || quarterOptions.find((entry) => entry.label === context?.quarter_label)?.value
-    || quarterOptions[0]?.value;
-  const selectedQuarterIndex = quarterOptions.findIndex((entry) => entry.value === selectedQuarterStart);
-  const previousQuarter = selectedQuarterIndex >= 0 ? quarterOptions[selectedQuarterIndex + 1] : undefined;
-  const nextQuarter = selectedQuarterIndex > 0 ? quarterOptions[selectedQuarterIndex - 1] : undefined;
+  const selectedQuarterStart =
+    anchorQuarterStart ||
+    quarterOptions.find((entry) => entry.label === context?.quarter_label)
+      ?.value ||
+    quarterOptions[0]?.value;
+  const selectedQuarterIndex = quarterOptions.findIndex(
+    (entry) => entry.value === selectedQuarterStart,
+  );
+  const previousQuarter =
+    selectedQuarterIndex >= 0
+      ? quarterOptions[selectedQuarterIndex + 1]
+      : undefined;
+  const nextQuarter =
+    selectedQuarterIndex > 0
+      ? quarterOptions[selectedQuarterIndex - 1]
+      : undefined;
   const periodBadge = weekMode
-    ? (selectedWeekLabel ? `Semaine ${selectedWeekLabel}` : "Semaine en cours")
-    : (context?.quarter_label ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}` : "Trimestre en cours");
-  const contentRefreshing = Boolean(!cachedResult && result && (refreshing || loading));
+    ? selectedWeekLabel
+      ? `Semaine ${selectedWeekLabel}`
+      : 'Semaine en cours'
+    : context?.quarter_label
+      ? `${context.quarter_label} · S${context.week_of_quarter}/${context.weeks_in_quarter}`
+      : 'Trimestre en cours';
+  const contentRefreshing = Boolean(
+    !cachedResult && result && (refreshing || loading),
+  );
   const viewTransitionKey = `${period}-${mode}-${selectedOwnerId}`;
-  const visibleHasActivity = visibleOwners.some((owner) => {
-    const pulse = pulseFor(owner);
-    const pipe = pipelineFor(owner);
-    return pulse.some((row) => row.calls || row.meetings || row.proposals)
-      || pipe.some((row) => row.generated_amount || row.won_amount || row.generated_count);
-  }) || followUps.length > 0 || stagnant.length > 0 || customPipe.count > 0 || (pace?.signed_to_date || 0) > 0;
-  const showForecast = !weekMode && visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
+  const visibleHasActivity =
+    visibleOwners.some((owner) => {
+      const pulse = pulseFor(owner);
+      const pipe = pipelineFor(owner);
+      return (
+        pulse.some((row) => row.calls || row.meetings || row.proposals) ||
+        pipe.some(
+          (row) =>
+            row.generated_amount || row.won_amount || row.generated_count,
+        )
+      );
+    }) ||
+    followUps.length > 0 ||
+    stagnant.length > 0 ||
+    customPipe.count > 0 ||
+    (pace?.signed_to_date || 0) > 0;
+  const showForecast =
+    !weekMode && visibleOwners.some((owner) => trackingOf(owner) !== 'sdr');
   const showActivityTrend = !weekMode;
-  const includeCalls = visibleOwners.some((owner) => trackingOf(owner) === "sdr" || pulseFor(owner).some((row) => row.calls > 0));
-  const showCustomPipe = visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
-  const showTeamRollup = mode === "team" && selectedOwnerId === "all" && visibleOwners.length > 1;
-  const showPace = Boolean(pace) && visibleOwners.some((owner) => trackingOf(owner) !== "sdr");
-  const ownerOptions = [{ value: "all", label: "Toute l’équipe" }, ...roster.map((owner) => ({ value: owner.sf_user_id, label: owner.name }))];
-  const showWeekSelector = weekMode && (historyOptions.length > 1 || selectedWeekStart !== liveWeekStart);
-  const showSoftEmpty = !visibleHasActivity && selectedWeekStart === liveWeekStart && Boolean(cachedResult);
+  const includeCalls = visibleOwners.some(
+    (owner) =>
+      trackingOf(owner) === 'sdr' ||
+      pulseFor(owner).some((row) => row.calls > 0),
+  );
+  const showCustomPipe = visibleOwners.some(
+    (owner) => trackingOf(owner) !== 'sdr',
+  );
+  const showTeamRollup =
+    mode === 'team' && selectedOwnerId === 'all' && visibleOwners.length > 1;
+  const showPace =
+    Boolean(pace) && visibleOwners.some((owner) => trackingOf(owner) !== 'sdr');
+  const ownerOptions = [
+    { value: 'all', label: 'Toute l’équipe' },
+    ...roster.map((owner) => ({ value: owner.sf_user_id, label: owner.name })),
+  ];
+  const showWeekSelector =
+    weekMode &&
+    (historyOptions.length > 1 || selectedWeekStart !== liveWeekStart);
+  const showSoftEmpty =
+    !visibleHasActivity &&
+    selectedWeekStart === liveWeekStart &&
+    Boolean(cachedResult);
 
   return (
     <TipHost>
-  <main className={`weekly-app ${loading ? "weekly-app--loading" : ""}`}>
-    <header className="weekly-header">
-      <div className="weekly-header__brand">
-        <Tag variant="accent">Rituel</Tag>
-        <h2>Lundi</h2>
-        <p className="weekly-period-hint">{periodBadge}{weekMode && compareLabel ? ` · vs ${compareLabel}` : !weekMode && priorQuarterLabel ? ` · vs ${priorQuarterLabel}` : ""}</p>
-      </div>
-      <div className="weekly-period weekly-seg" aria-label="Période">
-        <Button variant={period === "week" ? "primary" : "secondary"} onClick={() => switchPeriod("week")}>Semaine</Button>
-        <Button variant={period === "quarter" ? "primary" : "secondary"} onClick={() => switchPeriod("quarter")}>Trimestre</Button>
-      </div>
-    </header>
-    {payload.warning === "sf_user_unmapped" && <div className="weekly-warning" role="status">Compte Salesforce non relié — connectez-vous via le Hub.</div>}
-    {error && <div className="weekly-warning" role="status">Impossible de rafraîchir ces données — dernière vue conservée.</div>}
-    <div className={`weekly-controls${contentRefreshing ? " weekly-controls--refreshing" : ""}`}>
-      <div className="weekly-controls__cluster">
-        {payload.view === "team" && <div className="weekly-toggle weekly-seg" aria-label="Vue">
-          <Button variant={mode === "self" ? "primary" : "secondary"} onClick={() => { setMode("self"); setSelectedOwnerId("all"); }}>Moi</Button>
-          <Button variant={mode === "team" ? "primary" : "secondary"} onClick={() => setMode("team")}>Équipe</Button>
-        </div>}
-        {payload.view === "team" && mode === "team" && (
-          <Select label="Commercial" aria-label="Filtrer un commercial" value={selectedOwnerId} options={ownerOptions} onChange={setSelectedOwnerId} />
-        )}
-        {showWeekSelector && (
-          <Select
-            label="Semaine"
-            aria-label="Choisir une semaine"
-            value={selectedWeekStart}
-            options={historyOptions}
-            onChange={(value) => setAnchorWeekStart(value === liveWeekStart ? null : value)}
-          />
-        )}
-        {showWeekSelector && selectedWeekStart !== liveWeekStart && (
-          <Button variant="secondary" onClick={() => setAnchorWeekStart(null)}>Semaine en cours</Button>
-        )}
-        {!weekMode && selectedQuarterStart && (
-          <div className="weekly-quarter-picker">
+      <main className={`weekly-app ${loading ? 'weekly-app--loading' : ''}`}>
+        <header className="weekly-header">
+          <div className="weekly-header__brand">
+            <Tag variant="accent">Rituel</Tag>
+            <h2>Lundi</h2>
+            <p className="weekly-period-hint">
+              {periodBadge}
+              {weekMode && compareLabel
+                ? ` · vs ${compareLabel}`
+                : !weekMode && priorQuarterLabel
+                  ? ` · vs ${priorQuarterLabel}`
+                  : ''}
+            </p>
+          </div>
+          <div className="weekly-period weekly-seg" aria-label="Période">
             <Button
-              variant="secondary"
-              aria-label="Trimestre précédent"
-              disabled={!previousQuarter}
-              onClick={() => previousQuarter && setAnchorQuarterStart(previousQuarter.value)}
-            >‹</Button>
-            <Select
-              label="Trimestre"
-              aria-label="Choisir un trimestre"
-              value={selectedQuarterStart}
-              options={quarterOptions}
-              onChange={setAnchorQuarterStart}
-            />
+              variant={period === 'week' ? 'primary' : 'secondary'}
+              onClick={() => switchPeriod('week')}
+            >
+              Semaine
+            </Button>
             <Button
-              variant="secondary"
-              aria-label="Trimestre suivant"
-              disabled={!nextQuarter}
-              onClick={() => nextQuarter && setAnchorQuarterStart(nextQuarter.value)}
-            >›</Button>
+              variant={period === 'quarter' ? 'primary' : 'secondary'}
+              onClick={() => switchPeriod('quarter')}
+            >
+              Trimestre
+            </Button>
+          </div>
+        </header>
+        {payload.warning === 'sf_user_unmapped' && (
+          <div className="weekly-warning" role="status">
+            Compte Salesforce non relié — connectez-vous via le Hub.
           </div>
         )}
-      </div>
-      <div className="weekly-toggle weekly-seg weekly-display-toggle" aria-label="Affichage">
-        <Button variant={displayMode === "cards" ? "primary" : "secondary"} onClick={() => setDisplayMode("cards")}>Cards</Button>
-        <Button variant={displayMode === "table" ? "primary" : "secondary"} onClick={() => setDisplayMode("table")}>Tableau</Button>
-      </div>
-      {(contentRefreshing || loading) && <div className="weekly-refresh-bar" aria-hidden="true" />}
-    </div>
-    <div className={`weekly-body${contentRefreshing ? " weekly-body--refreshing" : ""}`} aria-busy={contentRefreshing || loading}>
-    {showSoftEmpty && (
-      <div className="weekly-soft-empty" role="status">
-        Pas encore d’activité sur cette vue — le détail reste disponible ci-dessous.
-      </div>
-    )}
-    {!visibleOwners.length && (
-      <div className="weekly-warning" role="status">
-        Aucun commercial renvoyé par l’API — rechargement ou mapping Salesforce à vérifier.
-      </div>
-    )}
-      {showTeamRollup && displayMode === "cards" && <TeamRollup owners={visibleOwners} pulseFor={pulseFor} pipelineFor={pipelineFor} quarterFor={quarterFor} weekMode={weekMode} currentIndex={currentIndex} compareLabel={compareLabel} />}
-      {displayMode === "cards" && <section className="weekly-section">
-        <SectionHeading
-          kicker={COPY.pulse.kicker}
-          title={selectedOwnerId !== "all" ? visibleOwners[0]?.name || "Fiche" : weekMode ? `Cette semaine · ${currentWeekShort}` : "Qui a bougé ?"}
-          hint={COPY.pulse.hint}
-          action={mode === "team" && selectedOwnerId !== "all" ? (
-            <Button variant="secondary" onClick={() => setSelectedOwnerId("all")}>Toute l’équipe</Button>
-          ) : undefined}
-        />
-        <div className="weekly-pulse-grid weekly-view-transition" key={`cards-${viewTransitionKey}`}>
-          {visibleOwners.map((owner, ownerIndex) => (
-            <PersonCard
-              key={owner.sf_user_id}
-              owner={owner}
-              pulseSeries={pulseFor(owner)}
-              pipelineSeries={pipelineFor(owner)}
-              quarter={quarterFor(owner)}
-              delay={ownerIndex * 55}
+        {error && (
+          <div className="weekly-warning" role="status">
+            Impossible de rafraîchir ces données — dernière vue conservée.
+          </div>
+        )}
+        <div
+          className={`weekly-controls${contentRefreshing ? ' weekly-controls--refreshing' : ''}`}
+        >
+          <div className="weekly-controls__cluster">
+            {payload.view === 'team' && (
+              <div className="weekly-toggle weekly-seg" aria-label="Vue">
+                <Button
+                  variant={mode === 'self' ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    setMode('self');
+                    setSelectedOwnerId('all');
+                  }}
+                >
+                  Moi
+                </Button>
+                <Button
+                  variant={mode === 'team' ? 'primary' : 'secondary'}
+                  onClick={() => setMode('team')}
+                >
+                  Équipe
+                </Button>
+              </div>
+            )}
+            {payload.view === 'team' && mode === 'team' && (
+              <Select
+                label="Commercial"
+                aria-label="Filtrer un commercial"
+                value={selectedOwnerId}
+                options={ownerOptions}
+                onChange={setSelectedOwnerId}
+              />
+            )}
+            {showWeekSelector && (
+              <Select
+                label="Semaine"
+                aria-label="Choisir une semaine"
+                value={selectedWeekStart}
+                options={historyOptions}
+                onChange={(value) =>
+                  setAnchorWeekStart(value === liveWeekStart ? null : value)
+                }
+              />
+            )}
+            {showWeekSelector && selectedWeekStart !== liveWeekStart && (
+              <Button
+                variant="secondary"
+                onClick={() => setAnchorWeekStart(null)}
+              >
+                Semaine en cours
+              </Button>
+            )}
+            {!weekMode && selectedQuarterStart && (
+              <div className="weekly-quarter-picker">
+                <Button
+                  variant="secondary"
+                  aria-label="Trimestre précédent"
+                  disabled={!previousQuarter}
+                  onClick={() =>
+                    previousQuarter &&
+                    setAnchorQuarterStart(previousQuarter.value)
+                  }
+                >
+                  ‹
+                </Button>
+                <Select
+                  label="Trimestre"
+                  aria-label="Choisir un trimestre"
+                  value={selectedQuarterStart}
+                  options={quarterOptions}
+                  onChange={setAnchorQuarterStart}
+                />
+                <Button
+                  variant="secondary"
+                  aria-label="Trimestre suivant"
+                  disabled={!nextQuarter}
+                  onClick={() =>
+                    nextQuarter && setAnchorQuarterStart(nextQuarter.value)
+                  }
+                >
+                  ›
+                </Button>
+              </div>
+            )}
+          </div>
+          <div
+            className="weekly-toggle weekly-seg weekly-display-toggle"
+            aria-label="Affichage"
+          >
+            <Button
+              variant={displayMode === 'cards' ? 'primary' : 'secondary'}
+              onClick={() => setDisplayMode('cards')}
+            >
+              Cards
+            </Button>
+            <Button
+              variant={displayMode === 'table' ? 'primary' : 'secondary'}
+              onClick={() => setDisplayMode('table')}
+            >
+              Tableau
+            </Button>
+          </div>
+          {(contentRefreshing || loading) && (
+            <div className="weekly-refresh-bar" aria-hidden="true" />
+          )}
+        </div>
+        <div
+          className={`weekly-body${contentRefreshing ? ' weekly-body--refreshing' : ''}`}
+          aria-busy={contentRefreshing || loading}
+        >
+          {showSoftEmpty && (
+            <div className="weekly-soft-empty" role="status">
+              Pas encore d’activité sur cette vue — le détail reste disponible
+              ci-dessous.
+            </div>
+          )}
+          {!visibleOwners.length && (
+            <div className="weekly-warning" role="status">
+              Aucun commercial renvoyé par l’API — rechargement ou mapping
+              Salesforce à vérifier.
+            </div>
+          )}
+          {showTeamRollup && displayMode === 'cards' && (
+            <TeamRollup
+              owners={visibleOwners}
+              pulseFor={pulseFor}
+              pipelineFor={pipelineFor}
+              quarterFor={quarterFor}
+              weekMode={weekMode}
               currentIndex={currentIndex}
               compareLabel={compareLabel}
-              interactive={mode === "team" && selectedOwnerId === "all" && payload.view === "team"}
-              focused={selectedOwnerId === owner.sf_user_id}
-              onOpen={() => setSelectedOwnerId(owner.sf_user_id)}
             />
-          ))}
-        </div>
-      </section>}
-      {displayMode === "table" && <section className="weekly-section">
-        <SectionHeading
-          kicker={COPY.ledger.kicker}
-          title={selectedOwnerId !== "all" ? visibleOwners[0]?.name || "Fiche" : weekMode ? `Semaine · ${currentWeekShort}` : `${context?.quarter_label || "Trimestre"} · S${context?.week_of_quarter || "?"}`}
-          hint={COPY.ledger.hint}
-          action={mode === "team" && selectedOwnerId !== "all" ? (
-            <Button variant="secondary" onClick={() => setSelectedOwnerId("all")}>Toute l’équipe</Button>
-          ) : undefined}
-        />
-        <div className="weekly-tables weekly-view-transition" key={`table-${viewTransitionKey}`}>
-          {showTeamRollup && <TeamMetricTable owners={visibleOwners} weeks={model.weeks} pulseFor={pulseFor} pipelineFor={pipelineFor} priorPulseFor={priorPulseFor} priorPipelineFor={priorPipelineFor} quarterFor={quarterFor} currentIndex={currentIndex} weekMode={weekMode} compareLabel={compareLabel} priorQuarterLabel={priorQuarterLabel} />}
-          {visibleOwners.map((owner) => (
-            <MetricTable key={owner.sf_user_id} owner={owner} weeks={model.weeks} pulse={pulseFor(owner)} pipeline={pipelineFor(owner)} priorPulse={priorPulseFor(owner)} priorPipeline={priorPipelineFor(owner)} quarter={quarterFor(owner)} currentIndex={currentIndex} weekMode={weekMode} compareLabel={compareLabel} priorQuarterLabel={priorQuarterLabel} />
-          ))}
-        </div>
-      </section>}
-      <LeadingFunnel owners={visibleOwners} pulseFor={pulseFor} pipelineFor={pipelineFor} weekMode={weekMode} currentIndex={currentIndex} />
-      {showActivityTrend && (
-        <LazyMount>
-          <ActivityTrendChart
-            weeks={model.weeks}
+          )}
+          {displayMode === 'cards' && (
+            <section className="weekly-section">
+              <SectionHeading
+                kicker={COPY.pulse.kicker}
+                title={
+                  selectedOwnerId !== 'all'
+                    ? visibleOwners[0]?.name || 'Fiche'
+                    : weekMode
+                      ? `Cette semaine · ${currentWeekShort}`
+                      : 'Qui a bougé ?'
+                }
+                hint={COPY.pulse.hint}
+                action={
+                  mode === 'team' && selectedOwnerId !== 'all' ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedOwnerId('all')}
+                    >
+                      Toute l’équipe
+                    </Button>
+                  ) : undefined
+                }
+              />
+              <div
+                className="weekly-pulse-grid weekly-view-transition"
+                key={`cards-${viewTransitionKey}`}
+              >
+                {visibleOwners.map((owner, ownerIndex) => (
+                  <PersonCard
+                    key={owner.sf_user_id}
+                    owner={owner}
+                    pulseSeries={pulseFor(owner)}
+                    pipelineSeries={pipelineFor(owner)}
+                    quarter={quarterFor(owner)}
+                    delay={ownerIndex * 55}
+                    currentIndex={currentIndex}
+                    compareLabel={compareLabel}
+                    interactive={
+                      mode === 'team' &&
+                      selectedOwnerId === 'all' &&
+                      payload.view === 'team'
+                    }
+                    focused={selectedOwnerId === owner.sf_user_id}
+                    onOpen={() => setSelectedOwnerId(owner.sf_user_id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          {displayMode === 'table' && (
+            <section className="weekly-section">
+              <SectionHeading
+                kicker={COPY.ledger.kicker}
+                title={
+                  selectedOwnerId !== 'all'
+                    ? visibleOwners[0]?.name || 'Fiche'
+                    : weekMode
+                      ? `Semaine · ${currentWeekShort}`
+                      : `${context?.quarter_label || 'Trimestre'} · S${context?.week_of_quarter || '?'}`
+                }
+                hint={COPY.ledger.hint}
+                action={
+                  mode === 'team' && selectedOwnerId !== 'all' ? (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedOwnerId('all')}
+                    >
+                      Toute l’équipe
+                    </Button>
+                  ) : undefined
+                }
+              />
+              <div
+                className="weekly-tables weekly-view-transition"
+                key={`table-${viewTransitionKey}`}
+              >
+                {showTeamRollup && (
+                  <TeamMetricTable
+                    owners={visibleOwners}
+                    weeks={model.weeks}
+                    pulseFor={pulseFor}
+                    pipelineFor={pipelineFor}
+                    priorPulseFor={priorPulseFor}
+                    priorPipelineFor={priorPipelineFor}
+                    quarterFor={quarterFor}
+                    currentIndex={currentIndex}
+                    weekMode={weekMode}
+                    compareLabel={compareLabel}
+                    priorQuarterLabel={priorQuarterLabel}
+                  />
+                )}
+                {visibleOwners.map((owner) => (
+                  <MetricTable
+                    key={owner.sf_user_id}
+                    owner={owner}
+                    weeks={model.weeks}
+                    pulse={pulseFor(owner)}
+                    pipeline={pipelineFor(owner)}
+                    priorPulse={priorPulseFor(owner)}
+                    priorPipeline={priorPipelineFor(owner)}
+                    quarter={quarterFor(owner)}
+                    currentIndex={currentIndex}
+                    weekMode={weekMode}
+                    compareLabel={compareLabel}
+                    priorQuarterLabel={priorQuarterLabel}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          <LeadingFunnel
             owners={visibleOwners}
             pulseFor={pulseFor}
             pipelineFor={pipelineFor}
+            weekMode={weekMode}
             currentIndex={currentIndex}
-            showCalls={includeCalls}
           />
-        </LazyMount>
-      )}
-      {showPace && pace && <section className="weekly-section">
-        <SectionHeading kicker={COPY.pace.kicker} title={weekMode ? COPY.pace.titleWeek : COPY.pace.titleQuarter} hint={COPY.pace.hint} />
-        <PaceStrip pace={pace} />
-        {!weekMode && <ConversionRates owners={visibleOwners} pulseFor={pulseFor} pipelineFor={pipelineFor} currentIndex={currentIndex} />}
-      </section>}
-      <LazyMount minHeight="18rem">
-        <DecisionBoard followUps={followUps} stagnant={stagnant} owners={visibleOwners} quarterBounds={quarterBounds} />
-      </LazyMount>
-      {displayMode === "cards" && showForecast && (
-        <LazyMount>
-          <section className="weekly-section">
-            <SectionHeading kicker={COPY.trajectoire.kicker} title={COPY.trajectoire.title} hint={COPY.trajectoire.hint} />
-            <ForecastChart weeks={model.weeks} history={forecastHistory} ownerIds={sellerIds} target={target} currentIndex={currentIndex} />
-          </section>
-        </LazyMount>
-      )}
-      <LazyMount>
-        <CallFunnelChart weeks={model.weeks} owners={visibleOwners} pulseFor={pulseFor} currentIndex={currentIndex} weekMode={weekMode} />
-      </LazyMount>
-      {showCustomPipe && (
-        <LazyMount>
-          <CustomPipeSection pipe={customPipe} owners={visibleOwners} sellerIds={sellerIds} />
-        </LazyMount>
-      )}
-    </div>
-  </main>
+          {showActivityTrend && (
+            <LazyMount>
+              <ActivityTrendChart
+                weeks={model.weeks}
+                owners={visibleOwners}
+                pulseFor={pulseFor}
+                pipelineFor={pipelineFor}
+                currentIndex={currentIndex}
+                showCalls={includeCalls}
+              />
+            </LazyMount>
+          )}
+          {showPace && pace && (
+            <section className="weekly-section">
+              <SectionHeading
+                kicker={COPY.pace.kicker}
+                title={weekMode ? COPY.pace.titleWeek : COPY.pace.titleQuarter}
+                hint={COPY.pace.hint}
+              />
+              <PaceStrip pace={pace} />
+              {!weekMode && (
+                <ConversionRates
+                  owners={visibleOwners}
+                  pulseFor={pulseFor}
+                  pipelineFor={pipelineFor}
+                  currentIndex={currentIndex}
+                />
+              )}
+            </section>
+          )}
+          <LazyMount minHeight="18rem">
+            <DecisionBoard
+              followUps={followUps}
+              stagnant={stagnant}
+              owners={visibleOwners}
+              quarterBounds={quarterBounds}
+            />
+          </LazyMount>
+          {displayMode === 'cards' && showForecast && (
+            <LazyMount>
+              <section className="weekly-section">
+                <SectionHeading
+                  kicker={COPY.trajectoire.kicker}
+                  title={COPY.trajectoire.title}
+                  hint={COPY.trajectoire.hint}
+                />
+                <ForecastChart
+                  weeks={model.weeks}
+                  history={forecastHistory}
+                  ownerIds={sellerIds}
+                  target={target}
+                  currentIndex={currentIndex}
+                />
+              </section>
+            </LazyMount>
+          )}
+          <LazyMount>
+            <CallFunnelChart
+              weeks={model.weeks}
+              owners={visibleOwners}
+              pulseFor={pulseFor}
+              currentIndex={currentIndex}
+              weekMode={weekMode}
+            />
+          </LazyMount>
+          {showCustomPipe && (
+            <LazyMount>
+              <CustomPipeSection
+                pipe={customPipe}
+                owners={visibleOwners}
+                sellerIds={sellerIds}
+              />
+            </LazyMount>
+          )}
+        </div>
+      </main>
     </TipHost>
   );
 }

@@ -19,13 +19,13 @@ textarea {
 }
 
 .xos-desktop::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   z-index: 1;
   opacity: 0.15; /* Subtly overlays the grain */
   pointer-events: none;
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkAgMAAAAn5clsAAAADFBMVEUAAAD///////////8Gs99GAAAABHRSTlMAAgICl3167wAAAEhJREFUeF7twIEJADAIAwD7/6Nu4C5NCDnIE6W8t8ndg1Pq3gHAAQABwAEAAcABAAHAAQABwAEAAcABAAHAAQABwAEcQyP10aUvWwAAAABJRU5ErkJggg==");
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkAgMAAAAn5clsAAAADFBMVEUAAAD///////////8Gs99GAAAABHRSTlMAAgICl3167wAAAEhJREFUeF7twIEJADAIAwD7/6Nu4C5NCDnIE6W8t8ndg1Pq3gHAAQABwAEAAcABAAHAAQABwAEAAcABAAHAAQABwAEcQyP10aUvWwAAAABJRU5ErkJggg==');
   background-repeat: repeat;
 }
 
@@ -43,7 +43,9 @@ textarea {
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 380ms ease;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 380ms ease;
 }
 
 .xos-menubar .xos-logo {
@@ -238,7 +240,7 @@ textarea {
 }
 
 .xos-window__controls:hover .xos-window__control::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 3px;
   border-radius: 50%;
@@ -284,14 +286,20 @@ textarea {
   padding: 0.58rem 0.72rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(7, 12, 39, 0.68));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(7, 12, 39, 0.68)
+  );
   box-shadow:
     0 18px 55px rgba(0, 0, 0, 0.34),
     inset 0 1px rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(25px) saturate(165%);
   -webkit-backdrop-filter: blur(25px) saturate(165%);
   transform: translateX(-50%);
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 380ms ease;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 380ms ease;
 }
 
 .xos-dock__item {
@@ -332,7 +340,11 @@ textarea {
   place-items: center;
   color: rgba(255, 255, 255, 0.98);
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.34), transparent 36%),
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(255, 255, 255, 0.34),
+      transparent 36%
+    ),
     linear-gradient(145deg, rgba(139, 91, 250, 0.95), rgba(53, 30, 117, 0.92));
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.22),
@@ -345,28 +357,44 @@ textarea {
   height: 100%;
 }
 
-.xos-dock__item[data-app="cleaner"] .xos-dock__icon {
+.xos-dock__item[data-app='cleaner'] .xos-dock__icon {
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.28), transparent 32%),
+    radial-gradient(
+      circle at 28% 18%,
+      rgba(255, 255, 255, 0.28),
+      transparent 32%
+    ),
     linear-gradient(145deg, #9b6cff, #3a1f8a);
 }
 
-.xos-dock__item[data-app="calls"] .xos-dock__icon {
+.xos-dock__item[data-app='calls'] .xos-dock__icon {
   color: #1b1b2f;
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.45), transparent 34%),
+    radial-gradient(
+      circle at 28% 18%,
+      rgba(255, 255, 255, 0.45),
+      transparent 34%
+    ),
     linear-gradient(145deg, #fff96f, #ffb25b);
 }
 
-.xos-dock__item[data-app="weekly"] .xos-dock__icon {
+.xos-dock__item[data-app='weekly'] .xos-dock__icon {
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.28), transparent 32%),
+    radial-gradient(
+      circle at 28% 18%,
+      rgba(255, 255, 255, 0.28),
+      transparent 32%
+    ),
     linear-gradient(145deg, #74e7ff, #2765d5);
 }
 
-.xos-dock__item[data-app="hub"] .xos-dock__icon {
+.xos-dock__item[data-app='hub'] .xos-dock__icon {
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.22), transparent 32%),
+    radial-gradient(
+      circle at 28% 18%,
+      rgba(255, 255, 255, 0.22),
+      transparent 32%
+    ),
     linear-gradient(145deg, #7d8bff, #24306f);
 }
 
@@ -379,7 +407,7 @@ textarea {
   background: transparent;
 }
 
-.xos-dock__item[data-open="true"] .xos-dock__indicator {
+.xos-dock__item[data-open='true'] .xos-dock__indicator {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.65);
 }
@@ -435,7 +463,7 @@ textarea {
   -webkit-backdrop-filter: var(--xos-blur);
   border: 1px solid var(--xos-border);
   border-radius: 14px;
-  box-shadow: 
+  box-shadow:
     0 12px 30px rgba(0, 0, 0, 0.25),
     0 4px 12px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -504,7 +532,9 @@ textarea {
   justify-content: center;
   width: 18px;
   height: 18px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .xos-notification__close:hover {
@@ -623,9 +653,6 @@ button.xos-menubar__sf-status {
   }
 }
 
-
-
-
 .xos-shortcuts {
   position: absolute;
   top: 64px;
@@ -669,7 +696,11 @@ button.xos-menubar__sf-status {
   place-items: center;
   color: rgba(255, 255, 255, 0.98);
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.34), transparent 36%),
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(255, 255, 255, 0.34),
+      transparent 36%
+    ),
     linear-gradient(145deg, rgba(139, 91, 250, 0.95), rgba(53, 30, 117, 0.92));
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.22),

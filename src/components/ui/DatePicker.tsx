@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, useId } from "react";
-import "./ui.css";
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import './ui.css';
 
 // ponytail: styling still lives in calls.css (.calls-datepicker*) — shared calls-specific
 // classes, left in place pending the shared src/lib/dates.ts + design-token consolidation (Lot 1).
 
 function pad(n: number): string {
-  return String(n).padStart(2, "0");
+  return String(n).padStart(2, '0');
 }
 
 function buildMonthCells(year: number, monthIndex: number): (Date | null)[] {
@@ -14,28 +14,31 @@ function buildMonthCells(year: number, monthIndex: number): (Date | null)[] {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const cells: (Date | null)[] = [];
   for (let i = 0; i < startPad; i++) cells.push(null);
-  for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, monthIndex, day));
+  for (let day = 1; day <= daysInMonth; day++)
+    cells.push(new Date(year, monthIndex, day));
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 }
 
 function todayIso(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(
+    new Date(),
+  );
 }
 
 function formatDateFr(iso: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
-  return new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   });
 }
 
 /** Date picker custom (calendrier mois). */
 export function DatePicker({
-  label = "Date",
+  label = 'Date',
   value,
   onChange,
   id,
@@ -61,8 +64,14 @@ export function DatePicker({
   const fieldId = id ?? autoId;
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(defaultOpen);
-  const initial = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date();
-  const [cursor, setCursor] = useState({ year: initial.getFullYear(), month: initial.getMonth() });
+  const initial =
+    value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T12:00:00`)
+      : new Date();
+  const [cursor, setCursor] = useState({
+    year: initial.getFullYear(),
+    month: initial.getMonth(),
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -70,13 +79,13 @@ export function DatePicker({
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === 'Escape') setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
     };
   }, [open]);
 
@@ -86,22 +95,34 @@ export function DatePicker({
     setCursor({ year: d.getFullYear(), month: d.getMonth() });
   }, [value]);
 
-  const cells = useMemo(() => buildMonthCells(cursor.year, cursor.month), [cursor]);
-  const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString("fr-FR", {
-    month: "long",
-    year: "numeric",
-  });
+  const cells = useMemo(
+    () => buildMonthCells(cursor.year, cursor.month),
+    [cursor],
+  );
+  const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString(
+    'fr-FR',
+    {
+      month: 'long',
+      year: 'numeric',
+    },
+  );
   const today = todayIso();
   const triggerClasses = [
-    compact ? null : "calls-input",
-    "calls-datepicker__trigger",
-    compact ? "calls-datepicker__trigger--compact" : null,
+    compact ? null : 'calls-input',
+    'calls-datepicker__trigger',
+    compact ? 'calls-datepicker__trigger--compact' : null,
     triggerClassName,
-  ].filter(Boolean).join(" ");
-  const displayed = triggerLabel ?? (value ? formatDateFr(value) : "Choisir une date");
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const displayed =
+    triggerLabel ?? (value ? formatDateFr(value) : 'Choisir une date');
 
   return (
-    <div className={`calls-field calls-datepicker${compact ? " calls-datepicker--compact" : ""}`} ref={rootRef}>
+    <div
+      className={`calls-field calls-datepicker${compact ? ' calls-datepicker--compact' : ''}`}
+      ref={rootRef}
+    >
       {!compact && <span id={`${fieldId}-label`}>{label}</span>}
       <button
         type="button"
@@ -116,7 +137,11 @@ export function DatePicker({
         {displayed}
       </button>
       {open && (
-        <div className="calls-datepicker__popover" role="dialog" aria-label={label}>
+        <div
+          className="calls-datepicker__popover"
+          role="dialog"
+          aria-label={label}
+        >
           <div className="calls-datepicker__nav">
             <button
               type="button"
@@ -147,13 +172,19 @@ export function DatePicker({
             </button>
           </div>
           <div className="calls-datepicker__weekdays" aria-hidden="true">
-            {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+            {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
               <span key={`${d}-${i}`}>{d}</span>
             ))}
           </div>
           <div className="calls-datepicker__grid">
             {cells.map((date, index) => {
-              if (!date) return <span key={`e-${index}`} className="calls-datepicker__day calls-datepicker__day--empty" />;
+              if (!date)
+                return (
+                  <span
+                    key={`e-${index}`}
+                    className="calls-datepicker__day calls-datepicker__day--empty"
+                  />
+                );
               const iso = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
               const selected = iso === value;
               const isToday = iso === today;
@@ -162,12 +193,12 @@ export function DatePicker({
                   key={iso}
                   type="button"
                   className={[
-                    "calls-datepicker__day",
-                    selected ? "calls-datepicker__day--selected" : "",
-                    isToday ? "calls-datepicker__day--today" : "",
+                    'calls-datepicker__day',
+                    selected ? 'calls-datepicker__day--selected' : '',
+                    isToday ? 'calls-datepicker__day--today' : '',
                   ]
                     .filter(Boolean)
-                    .join(" ")}
+                    .join(' ')}
                   onClick={() => {
                     onChange(iso);
                     setOpen(false);

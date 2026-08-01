@@ -14,13 +14,11 @@ describe('RecettesModule', () => {
   it('lists every recipe before opening one', async () => {
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ items: [], total: 0 }), {
-            status: 200,
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [], total: 0 }), {
+          status: 200,
+        }),
+      ),
     );
 
     render(<RecettesModule accessToken="token" role="manager" />);

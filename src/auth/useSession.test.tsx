@@ -1,30 +1,33 @@
 // @vitest-environment jsdom
 
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSession = {
-  user: { email: "theo@xos-learning.fr" },
-  access_token: "test-token-abc",
-  provider_refresh_token: "sf-provider-refresh",
+  user: { email: 'theo@xos-learning.fr' },
+  access_token: 'test-token-abc',
+  provider_refresh_token: 'sf-provider-refresh',
 };
 
 type MockSession = typeof mockSession;
 
-let getSessionResolver: ((value: { data: { session: MockSession | null } }) => void) | null =
-  null;
+let getSessionResolver:
+  ((value: { data: { session: MockSession | null } }) => void) | null = null;
 let getSessionRejecter: ((reason: unknown) => void) | null = null;
 let bridgeResolver: ((value: Response) => void) | null = null;
 let bridgeRejecter: ((reason: unknown) => void) | null = null;
-let capturedAuthCallback: ((event: string, session: MockSession | null) => void) | null = null;
+let capturedAuthCallback:
+  ((event: string, session: MockSession | null) => void) | null = null;
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => ({
   getSession: vi.fn(
     () =>
-      new Promise<{ data: { session: MockSession | null } }>((resolve, reject) => {
-        getSessionResolver = resolve;
-        getSessionRejecter = reject;
-      }),
+      new Promise<{ data: { session: MockSession | null } }>(
+        (resolve, reject) => {
+          getSessionResolver = resolve;
+          getSessionRejecter = reject;
+        },
+      ),
   ),
   onAuthStateChange: vi.fn(
     (cb: (event: string, session: MockSession | null) => void) => {
@@ -34,15 +37,15 @@ const { getSession, onAuthStateChange } = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("../lib/supabase", () => ({
+vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: { getSession, onAuthStateChange },
   },
 }));
 
-import { useSession } from "./useSession";
+import { useSession } from './useSession';
 
-describe("useSession — auth bridge", () => {
+describe('useSession — auth bridge', () => {
   beforeEach(() => {
     getSessionResolver = null;
     getSessionRejecter = null;
@@ -52,20 +55,23 @@ describe("useSession — auth bridge", () => {
     getSession.mockClear();
     onAuthStateChange.mockClear();
 
-    vi.stubGlobal("fetch", vi.fn(
-      () =>
-        new Promise<Response>((resolve, reject) => {
-          bridgeResolver = resolve;
-          bridgeRejecter = reject;
-        }),
-    ));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve, reject) => {
+            bridgeResolver = resolve;
+            bridgeRejecter = reject;
+          }),
+      ),
+    );
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("keeps loading=true and session=null while bridge is pending", async () => {
+  it('keeps loading=true and session=null while bridge is pending', async () => {
     const { result } = renderHook(() => useSession());
 
     expect(result.current.loading).toBe(true);
@@ -76,21 +82,26 @@ describe("useSession — auth bridge", () => {
       getSessionResolver!({ data: { session: mockSession } });
     });
 
-    expect(global.fetch).toHaveBeenCalledWith("/api/auth", expect.objectContaining({
-      method: "POST",
-      headers: {
-        Authorization: "Bearer test-token-abc",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ salesforce_refresh_token: "sf-provider-refresh" }),
-    }));
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/auth',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-token-abc',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          salesforce_refresh_token: 'sf-provider-refresh',
+        }),
+      }),
+    );
 
     expect(result.current.loading).toBe(true);
     expect(result.current.session).toBeNull();
     expect(result.current.bridgeError).toBe(false);
   });
 
-  it("exposes session and sets loading=false after bridge responds ok", async () => {
+  it('exposes session and sets loading=false after bridge responds ok', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
@@ -110,7 +121,7 @@ describe("useSession — auth bridge", () => {
     });
   });
 
-  it("sets bridgeError=true when bridge returns non-ok", async () => {
+  it('sets bridgeError=true when bridge returns non-ok', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
@@ -128,7 +139,7 @@ describe("useSession — auth bridge", () => {
     });
   });
 
-  it("sets bridgeError=true when bridge fetch rejects", async () => {
+  it('sets bridgeError=true when bridge fetch rejects', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
@@ -136,7 +147,7 @@ describe("useSession — auth bridge", () => {
     });
 
     await act(async () => {
-      bridgeRejecter!(new TypeError("Network error"));
+      bridgeRejecter!(new TypeError('Network error'));
     });
 
     await waitFor(() => {
@@ -146,7 +157,7 @@ describe("useSession — auth bridge", () => {
     });
   });
 
-  it("exposes session directly when no session exists (no bridge needed)", async () => {
+  it('exposes session directly when no session exists (no bridge needed)', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
@@ -162,12 +173,12 @@ describe("useSession — auth bridge", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("deduplicates bridge when onAuthStateChange fires alongside getSession", async () => {
+  it('deduplicates bridge when onAuthStateChange fires alongside getSession', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
       getSessionResolver!({ data: { session: mockSession } });
-      capturedAuthCallback!("SIGNED_IN", mockSession);
+      capturedAuthCallback!('SIGNED_IN', mockSession);
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -182,7 +193,7 @@ describe("useSession — auth bridge", () => {
     });
   });
 
-  it("updates session in place on TOKEN_REFRESHED without clearing it", async () => {
+  it('updates session in place on TOKEN_REFRESHED without clearing it', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
@@ -197,11 +208,11 @@ describe("useSession — auth bridge", () => {
 
     const refreshed = {
       ...mockSession,
-      access_token: "refreshed-token",
+      access_token: 'refreshed-token',
     };
 
     await act(async () => {
-      capturedAuthCallback!("TOKEN_REFRESHED", refreshed);
+      capturedAuthCallback!('TOKEN_REFRESHED', refreshed);
     });
 
     expect(result.current.session).toBe(refreshed);
@@ -210,7 +221,7 @@ describe("useSession — auth bridge", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps session null after logout even if a stale bridge resolves ok", async () => {
+  it('keeps session null after logout even if a stale bridge resolves ok', async () => {
     const { result } = renderHook(() => useSession());
 
     // Start bridge
@@ -222,7 +233,7 @@ describe("useSession — auth bridge", () => {
 
     // User logs out while bridge is still pending
     await act(async () => {
-      capturedAuthCallback!("SIGNED_OUT", null);
+      capturedAuthCallback!('SIGNED_OUT', null);
     });
 
     expect(result.current.loading).toBe(false);
@@ -239,11 +250,11 @@ describe("useSession — auth bridge", () => {
     expect(result.current.bridgeError).toBe(false);
   });
 
-  it("sets bridgeError when getSession rejects", async () => {
+  it('sets bridgeError when getSession rejects', async () => {
     const { result } = renderHook(() => useSession());
 
     await act(async () => {
-      getSessionRejecter!(new Error("Supabase unavailable"));
+      getSessionRejecter!(new Error('Supabase unavailable'));
     });
 
     await waitFor(() => {

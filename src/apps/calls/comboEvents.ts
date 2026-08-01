@@ -5,11 +5,17 @@
  * pour le câblage UI). Voir docs/audits/audit-gamification-coherence-2026-07-18.md#BUG-01.
  */
 
-import { todayParisIso } from "../../lib/dates";
-import { checkBadges, type BadgeCheckInput, type BadgeId } from "./comboBadges";
-import { computeIntenseStreak, computeProductifStreak, computeStreak, saveStreaks, type ComboStreaksState } from "./comboStreaks";
-import { applyEvent, loadXp, saveXp, type ApplyEventResult } from "./comboXp";
-import { markAdopted, type ShortcutId } from "./nudgeLearning";
+import { todayParisIso } from '../../lib/dates';
+import { checkBadges, type BadgeCheckInput, type BadgeId } from './comboBadges';
+import {
+  computeIntenseStreak,
+  computeProductifStreak,
+  computeStreak,
+  saveStreaks,
+  type ComboStreaksState,
+} from './comboStreaks';
+import { applyEvent, loadXp, saveXp, type ApplyEventResult } from './comboXp';
+import { markAdopted, type ShortcutId } from './nudgeLearning';
 
 const engineKey = (userId: string) => `xos-combo-engine:${userId}`;
 
@@ -28,7 +34,7 @@ const EMPTY_ENGINE_STATE: EngineState = {
   sessionCallHistory: [],
   sessionsCompletedCount: 0,
   npaTotal: 0,
-  shortcutsToday: { date: "", count: 0 },
+  shortcutsToday: { date: '', count: 0 },
 };
 
 /** Combien d'entrées d'historique on garde par utilisateur — largement assez pour les streaks composites. */
@@ -41,15 +47,24 @@ function loadEngineState(userId: string): EngineState {
     const parsed = JSON.parse(raw) as Partial<EngineState>;
     return {
       logDates: Array.isArray(parsed.logDates) ? parsed.logDates : [],
-      sessionRdvHistory: Array.isArray(parsed.sessionRdvHistory) ? parsed.sessionRdvHistory : [],
-      sessionCallHistory: Array.isArray(parsed.sessionCallHistory) ? parsed.sessionCallHistory : [],
+      sessionRdvHistory: Array.isArray(parsed.sessionRdvHistory)
+        ? parsed.sessionRdvHistory
+        : [],
+      sessionCallHistory: Array.isArray(parsed.sessionCallHistory)
+        ? parsed.sessionCallHistory
+        : [],
       sessionsCompletedCount:
-        typeof parsed.sessionsCompletedCount === "number" ? parsed.sessionsCompletedCount : 0,
-      npaTotal: typeof parsed.npaTotal === "number" ? parsed.npaTotal : 0,
+        typeof parsed.sessionsCompletedCount === 'number'
+          ? parsed.sessionsCompletedCount
+          : 0,
+      npaTotal: typeof parsed.npaTotal === 'number' ? parsed.npaTotal : 0,
       shortcutsToday:
-        parsed.shortcutsToday && typeof parsed.shortcutsToday.date === "string"
-          ? { date: parsed.shortcutsToday.date, count: parsed.shortcutsToday.count || 0 }
-          : { date: "", count: 0 },
+        parsed.shortcutsToday && typeof parsed.shortcutsToday.date === 'string'
+          ? {
+              date: parsed.shortcutsToday.date,
+              count: parsed.shortcutsToday.count || 0,
+            }
+          : { date: '', count: 0 },
     };
   } catch {
     return { ...EMPTY_ENGINE_STATE };
@@ -85,7 +100,10 @@ export function __resetComboEventsInternals(): void {
 }
 
 /** Raccourci qualifié : crédite Vitesse (dédupliqué par raccourci+jour, BUG-02) et marque le raccourci adopté (BUG-06). */
-export function recordShortcut(userId: string, shortcutId: ShortcutId): ApplyEventResult | null {
+export function recordShortcut(
+  userId: string,
+  shortcutId: ShortcutId,
+): ApplyEventResult | null {
   if (!userId) return null;
   if (isDuplicateWithinSecond(`${userId}:shortcut:${shortcutId}`)) return null;
 
@@ -97,21 +115,26 @@ export function recordShortcut(userId: string, shortcutId: ShortcutId): ApplyEve
       : { date: today, count: 1 };
   saveEngineState(userId, engine);
 
-  const result = applyEvent(userId, "shortcut", 1, { actionId: shortcutId });
+  const result = applyEvent(userId, 'shortcut', 1, { actionId: shortcutId });
   markAdopted(shortcutId, userId);
   return result;
 }
 
 /** RDV planifié avec succès côté Salesforce : crédite Impact (10 XP, BUG-03). `source` identifie l'appelant (ex. le flux de log). */
-export function recordRdv(userId: string, source: string): ApplyEventResult | null {
+export function recordRdv(
+  userId: string,
+  source: string,
+): ApplyEventResult | null {
   if (!userId) return null;
   if (isDuplicateWithinSecond(`${userId}:rdv:${source}`)) return null;
 
   const engine = loadEngineState(userId);
-  engine.sessionRdvHistory = [...engine.sessionRdvHistory, 1].slice(-MAX_HISTORY);
+  engine.sessionRdvHistory = [...engine.sessionRdvHistory, 1].slice(
+    -MAX_HISTORY,
+  );
   saveEngineState(userId, engine);
 
-  return applyEvent(userId, "rdv", 1, { actionId: source });
+  return applyEvent(userId, 'rdv', 1, { actionId: source });
 }
 
 /** `log_call` réussi : crédite Régularité (1 crédit par jour Europe/Paris, dédupliqué BUG-02). */
@@ -126,7 +149,7 @@ export function recordLogCall(userId: string): ApplyEventResult | null {
     saveEngineState(userId, engine);
   }
 
-  return applyEvent(userId, "day-logged", 1, { dateParis: today });
+  return applyEvent(userId, 'day-logged', 1, { dateParis: today });
 }
 
 export interface SessionCompleteInput {
@@ -146,26 +169,40 @@ export interface SessionCompleteResult {
 }
 
 function startedBeforeNineAmParis(startedAt: string): boolean {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Paris",
-    hour: "numeric",
-    hourCycle: "h23",
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    hour: 'numeric',
+    hourCycle: 'h23',
   }).formatToParts(new Date(startedAt));
-  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value);
   return Number.isFinite(hour) && hour < 9;
 }
 
 /** Séance terminée avec succès : recalcule et persiste les 3 streaks, détecte et persiste les nouveaux badges (BUG-01). */
-export function recordSessionComplete(userId: string, session: SessionCompleteInput): SessionCompleteResult | null {
+export function recordSessionComplete(
+  userId: string,
+  session: SessionCompleteInput,
+): SessionCompleteResult | null {
   if (!userId) return null;
-  if (isDuplicateWithinSecond(`${userId}:session-complete:${session.sessionId}`)) return null;
+  if (
+    isDuplicateWithinSecond(`${userId}:session-complete:${session.sessionId}`)
+  )
+    return null;
 
   const engine = loadEngineState(userId);
   const today = todayParisIso();
 
-  const logDates = engine.logDates.includes(today) ? engine.logDates : [...engine.logDates, today].slice(-MAX_HISTORY);
-  const sessionRdvHistory = [...engine.sessionRdvHistory, session.rdvCount].slice(-MAX_HISTORY);
-  const sessionCallHistory = [...engine.sessionCallHistory, session.callsCount].slice(-MAX_HISTORY);
+  const logDates = engine.logDates.includes(today)
+    ? engine.logDates
+    : [...engine.logDates, today].slice(-MAX_HISTORY);
+  const sessionRdvHistory = [
+    ...engine.sessionRdvHistory,
+    session.rdvCount,
+  ].slice(-MAX_HISTORY);
+  const sessionCallHistory = [
+    ...engine.sessionCallHistory,
+    session.callsCount,
+  ].slice(-MAX_HISTORY);
   const sessionsCompletedCount = engine.sessionsCompletedCount + 1;
   const npaTotal = engine.npaTotal + session.npaCount;
 
@@ -186,7 +223,8 @@ export function recordSessionComplete(userId: string, session: SessionCompleteIn
   saveStreaks(userId, streaks);
 
   const xp = loadXp(userId);
-  const shortcutsUsedToday = engine.shortcutsToday.date === today ? engine.shortcutsToday.count : 0;
+  const shortcutsUsedToday =
+    engine.shortcutsToday.date === today ? engine.shortcutsToday.count : 0;
   const badgeInput: BadgeCheckInput = {
     sessionsCompletedCount,
     shortcutsUsedToday,

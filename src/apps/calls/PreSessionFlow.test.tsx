@@ -278,7 +278,7 @@ describe('PreSessionFlow', () => {
 
     expect(
       screen.getByRole('note', { name: 'Suggestion de départ' }).textContent,
-    ).toContain('Commence par les rappels : 3 dûs aujourd\'hui');
+    ).toContain("Commence par les rappels : 3 dûs aujourd'hui");
     fireEvent.click(screen.getByRole('button', { name: 'Voir les rappels' }));
     expect(onOpenRecalls).toHaveBeenCalledTimes(1);
   });
@@ -310,7 +310,9 @@ describe('PreSessionFlow', () => {
       />,
     );
 
-    expect(screen.queryByRole('note', { name: 'Suggestion de départ' })).toBeNull();
+    expect(
+      screen.queryByRole('note', { name: 'Suggestion de départ' }),
+    ).toBeNull();
   });
 
   it('exposes the pre-session responsive safeguards in the calls stylesheet', async () => {

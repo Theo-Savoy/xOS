@@ -5,7 +5,10 @@ import { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ControlCenter } from './ControlCenter';
-import { NotificationsProvider, useNotificationsStore } from './notificationsStore';
+import {
+  NotificationsProvider,
+  useNotificationsStore,
+} from './notificationsStore';
 
 const goalHit = {
   id: 42,
@@ -117,9 +120,7 @@ describe('ControlCenter', () => {
   it('dispatches a picker reaction and closes the picker', async () => {
     const user = await openGoalHit();
 
-    await user.click(
-      screen.getByRole('button', { name: 'Plus de réactions' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Plus de réactions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Réagir 🎉' }));
 
     await waitFor(() => expect(postedEmojis()).toContain('🎉'));
@@ -169,9 +170,12 @@ describe('ControlCenter', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ notifications: [shared], unread_count: 1 }), {
-          status: 200,
-        }),
+        new Response(
+          JSON.stringify({ notifications: [shared], unread_count: 1 }),
+          {
+            status: 200,
+          },
+        ),
       ),
     );
     const onOpenApp = vi.fn();
@@ -181,7 +185,9 @@ describe('ControlCenter', () => {
         <ControlCenter accessToken="token" onOpenApp={onOpenApp} />
       </NotificationsProvider>,
     );
-    await user.click(screen.getByRole('button', { name: 'Centre de notifications' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Centre de notifications' }),
+    );
     await waitFor(() => expect(screen.getByText(shared.title)).toBeTruthy());
     await user.click(screen.getByRole('button', { name: 'Ouvrir la séance' }));
 
@@ -247,10 +253,16 @@ describe('ControlCenter', () => {
 
     expect(screen.queryByText(goalReaction.title)).toBeNull();
     await new Promise((resolve) => window.setTimeout(resolve, 550));
-    expect(fetchMock.mock.calls.some(([, init]) => {
-      if (init?.method !== 'POST' || typeof init.body !== 'string') return false;
-      return init.body === JSON.stringify({ action: 'mark_read', ids: [goalReaction.id] });
-    })).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(([, init]) => {
+        if (init?.method !== 'POST' || typeof init.body !== 'string')
+          return false;
+        return (
+          init.body ===
+          JSON.stringify({ action: 'mark_read', ids: [goalReaction.id] })
+        );
+      }),
+    ).toBe(true);
   });
 
   it('does not poll while realtime has received an event recently', async () => {

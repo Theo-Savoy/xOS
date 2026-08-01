@@ -1,6 +1,6 @@
-import type { CockpitSessionRow, ProspectionCockpit } from "./pilotageApi";
-import type { PeriodKpis } from "./types";
-import type { CockpitPeriod } from "./pilotageApi";
+import type { CockpitSessionRow, ProspectionCockpit } from './pilotageApi';
+import type { PeriodKpis } from './types';
+import type { CockpitPeriod } from './pilotageApi';
 
 export function emptyKpis(): PeriodKpis {
   return {
@@ -47,7 +47,7 @@ export function sessionHasActivity(kpis: PeriodKpis): boolean {
 }
 
 export function normalizeSessionId(id: number | string): number {
-  return typeof id === "number" ? id : Number(id);
+  return typeof id === 'number' ? id : Number(id);
 }
 
 export function selectionStaleForSessions(
@@ -77,7 +77,9 @@ export function filterSessionsModeKpis(
   if (selectionStaleForSessions(sessions, selectedSessionIds)) {
     return { kpis: data.team_kpis, allCallers: true };
   }
-  const picked = sessions.filter((s) => selectedSessionIds.has(normalizeSessionId(s.id)));
+  const picked = sessions.filter((s) =>
+    selectedSessionIds.has(normalizeSessionId(s.id)),
+  );
   if (picked.length === sessions.length) {
     return { kpis: data.team_kpis, allCallers: true };
   }
@@ -90,7 +92,7 @@ export function cockpitDataInSync(
   anchor: string | null,
 ): boolean {
   if (data.period !== period) return false;
-  if (period !== "day") return true;
+  if (period !== 'day') return true;
   if (!anchor) return true;
   return data.range?.anchor === anchor;
 }

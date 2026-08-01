@@ -1,8 +1,11 @@
-import { GlassCard } from "../../components/ui";
-import type { CallFunnelStage } from "./CallFunnelCard.helpers";
+import { GlassCard } from '../../components/ui';
+import type { CallFunnelStage } from './CallFunnelCard.helpers';
 
-const percent = new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 0 });
-const countFmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+const percent = new Intl.NumberFormat('fr-FR', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+});
+const countFmt = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 
 function funnelStageWidth(count: number, max: number) {
   if (count <= 0) return 24;
@@ -19,7 +22,7 @@ type CallFunnelCardProps = {
 
 export function CallFunnelCard({
   stages,
-  title = "De l’appel au RDV",
+  title = 'De l’appel au RDV',
   compact = false,
   className,
 }: CallFunnelCardProps) {
@@ -28,9 +31,13 @@ export function CallFunnelCard({
 
   return (
     <GlassCard
-      className={["calls-funnel-card", compact ? "calls-funnel-card--compact" : "", className]
+      className={[
+        'calls-funnel-card',
+        compact ? 'calls-funnel-card--compact' : '',
+        className,
+      ]
         .filter(Boolean)
-        .join(" ")}
+        .join(' ')}
     >
       {title && <h3 className="calls-funnel-card__title">{title}</h3>}
       <div className="calls-funnel" role="img" aria-label="De l’appel au RDV">
@@ -40,10 +47,10 @@ export function CallFunnelCard({
           return (
             <div
               key={stage.key}
-              className={`calls-funnel__stage${stage.count <= 0 ? " calls-funnel__stage--empty" : ""}`}
+              className={`calls-funnel__stage${stage.count <= 0 ? ' calls-funnel__stage--empty' : ''}`}
               style={{
-                ["--funnel-width" as string]: `${width}%`,
-                ["--stage-color" as string]: stage.color,
+                ['--funnel-width' as string]: `${width}%`,
+                ['--stage-color' as string]: stage.color,
                 zIndex: stages.length - index,
               }}
             >
@@ -53,10 +60,14 @@ export function CallFunnelCard({
                   {stage.hint ? <em> · {stage.hint}</em> : null}
                 </span>
                 {!compact && (
-                  <span className="calls-funnel__pct">{percent.format(share)}</span>
+                  <span className="calls-funnel__pct">
+                    {percent.format(share)}
+                  </span>
                 )}
               </div>
-              <strong className="xos-numeric">{countFmt.format(stage.count)}</strong>
+              <strong className="xos-numeric">
+                {countFmt.format(stage.count)}
+              </strong>
             </div>
           );
         })}

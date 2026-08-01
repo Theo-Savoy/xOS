@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { apiFetch } from "../lib/apiClient";
-import { supabase } from "../lib/supabase";
+import { useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { apiFetch } from '../lib/apiClient';
+import { supabase } from '../lib/supabase';
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,10 +19,14 @@ export function useSession() {
       bridging.current = true;
       try {
         const providerRefreshToken = s.provider_refresh_token;
-        await apiFetch(s.access_token, "/api/auth", {
-          method: "POST",
+        await apiFetch(s.access_token, '/api/auth', {
+          method: 'POST',
           ...(providerRefreshToken
-            ? { body: JSON.stringify({ salesforce_refresh_token: providerRefreshToken }) }
+            ? {
+                body: JSON.stringify({
+                  salesforce_refresh_token: providerRefreshToken,
+                }),
+              }
             : {}),
         });
         if (cancelled || generation.current !== gen) return;
@@ -42,21 +46,24 @@ export function useSession() {
       }
     }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (cancelled) return;
-      if (s) {
-        bridge(s, generation.current);
-      } else {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: s } }) => {
+        if (cancelled) return;
+        if (s) {
+          bridge(s, generation.current);
+        } else {
+          setSession(null);
+          setBridgeError(false);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBridgeError(true);
         setSession(null);
-        setBridgeError(false);
         setLoading(false);
-      }
-    }).catch(() => {
-      if (cancelled) return;
-      setBridgeError(true);
-      setSession(null);
-      setLoading(false);
-    });
+      });
 
     const {
       data: { subscription },

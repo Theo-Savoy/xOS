@@ -1,6 +1,6 @@
 /** Salesforce CRM adapter. All organization-specific API names come from mapping. */
-import defaultMapping from "./mapping.js";
-import { decryptRefreshToken } from "./tokenEncryption.js";
+import defaultMapping from './mapping.js';
+import { decryptRefreshToken } from './tokenEncryption.js';
 
 export const SOQL_FETCH_CAP = 2000;
 const SF_TOKEN_TTL_MS = 30 * 60_000;
@@ -25,15 +25,17 @@ export function __sfUserTokenContextsSize() {
 }
 
 export function escapeSOQL(value) {
-  return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 export function escapedList(values) {
-  return values.map((value) => `'${escapeSOQL(value)}'`).join(", ");
+  return values.map((value) => `'${escapeSOQL(value)}'`).join(', ');
 }
 
 function stringList(value) {
-  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item) : [];
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === 'string' && item)
+    : [];
 }
 
 function positiveInteger(value) {
@@ -50,11 +52,12 @@ export function hasRelanceQueryFilters(filters = {}) {
   const followUp = filters.relance || {};
   const excluded = followUp.exclure_si_plus_de || {};
   return (
-    followUp.jamais_appele === true
-    || positiveInteger(followUp.dernier_appel_avant_jours) !== null
-    || positiveInteger(followUp.dernier_appel_dans_jours) !== null
-    || stringList(followUp.dernier_resultat).length > 0
-    || (positiveInteger(excluded.appels) !== null && positiveInteger(excluded.sur_jours) !== null)
+    followUp.jamais_appele === true ||
+    positiveInteger(followUp.dernier_appel_avant_jours) !== null ||
+    positiveInteger(followUp.dernier_appel_dans_jours) !== null ||
+    stringList(followUp.dernier_resultat).length > 0 ||
+    (positiveInteger(excluded.appels) !== null &&
+      positiveInteger(excluded.sur_jours) !== null)
   );
 }
 
@@ -62,10 +65,10 @@ export function hasRelanceQueryFilters(filters = {}) {
 export function hasOpportunityQueryFilters(filters = {}) {
   const enterprise = filters.entreprise || {};
   return (
-    enterprise.opp_ouverte === true
-    || enterprise.opp_ouverte === false
-    || enterprise.opp_perdue === true
-    || enterprise.opp_perdue === false
+    enterprise.opp_ouverte === true ||
+    enterprise.opp_ouverte === false ||
+    enterprise.opp_perdue === true ||
+    enterprise.opp_perdue === false
   );
 }
 
@@ -76,7 +79,7 @@ function needsWideContactFetch(filters = {}) {
 function taskSubquery(mapping) {
   const task = mapping.objects.task;
   const fields = task.fields;
-  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(", ")} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' ORDER BY ${fields.activityDate} DESC)`;
+  return `(SELECT ${[fields.id, fields.activityDate, fields.result, fields.duration].join(', ')} FROM ${task.childRelationship} WHERE ${fields.subtype} = '${escapeSOQL(task.subtypeValue)}' ORDER BY ${fields.activityDate} DESC)`;
 }
 
 function fonctionPresetClause(preset, titleField) {
@@ -84,11 +87,13 @@ function fonctionPresetClause(preset, titleField) {
   for (const like of preset.likes || []) {
     parts.push(`${titleField} LIKE '${escapeSOQL(like)}'`);
   }
-  const exacts = (preset.exacts || []).filter((value) => typeof value === "string" && value);
+  const exacts = (preset.exacts || []).filter(
+    (value) => typeof value === 'string' && value,
+  );
   if (exacts.length) {
     parts.push(`${titleField} IN (${escapedList(exacts)})`);
   }
-  return parts.length ? `(${parts.join(" OR ")})` : null;
+  return parts.length ? `(${parts.join(' OR ')})` : null;
 }
 
 function buildFonctionConditions(fonctionIds, mapping) {
@@ -99,14 +104,19 @@ function buildFonctionConditions(fonctionIds, mapping) {
     .filter(Boolean)
     .map((preset) => fonctionPresetClause(preset, titleField))
     .filter(Boolean);
-  return clauses.length ? [`(${clauses.join(" OR ")})`] : [];
+  return clauses.length ? [`(${clauses.join(' OR ')})`] : [];
 }
 
 /**
  * Builds the Contact SOQL query. Relance and opportunity predicates that SOQL
  * cannot express reliably are completed in filterTargetContacts / filterByOpportunityAccounts.
  */
-export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserId, options = {}) {
+export function buildTargetQuery(
+  filters = {},
+  mapping = defaultMapping,
+  sfUserId,
+  options = {},
+) {
   const account = mapping.objects.account;
   const contact = mapping.objects.contact;
   const enterprise = filters.entreprise || {};
@@ -115,30 +125,63 @@ export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserI
   const conditions = [];
 
   const sectors = stringList(enterprise.secteurs);
-  if (sectors.length) conditions.push(`Account.${account.fields.industry} IN (${escapedList(sectors)})`);
+  if (sectors.length)
+    conditions.push(
+      `Account.${account.fields.industry} IN (${escapedList(sectors)})`,
+    );
   const employeeBands = stringList(enterprise.effectifs);
-  if (employeeBands.length) conditions.push(`Account.${account.fields.employeeCount} IN (${escapedList(employeeBands)})`);
+  if (employeeBands.length)
+    conditions.push(
+      `Account.${account.fields.employeeCount} IN (${escapedList(employeeBands)})`,
+    );
   const customerTypes = stringList(enterprise.type_client);
-  if (customerTypes.length) conditions.push(`Account.${account.fields.customerType} IN (${escapedList(customerTypes)})`);
+  if (customerTypes.length)
+    conditions.push(
+      `Account.${account.fields.customerType} IN (${escapedList(customerTypes)})`,
+    );
   const tiers = stringList(enterprise.tiers);
-  if (tiers.length) conditions.push(`Account.${account.fields.tier} IN (${escapedList(tiers)})`);
+  if (tiers.length)
+    conditions.push(
+      `Account.${account.fields.tier} IN (${escapedList(tiers)})`,
+    );
   const owners = stringList(enterprise.proprietaires);
-  if (owners.length) conditions.push(`Account.${account.fields.ownerId} IN (${escapedList(owners)})`);
-  if (typeof enterprise.compte_principal === "string" && enterprise.compte_principal) {
-    conditions.push(`Account.${account.fields.parentId} = '${escapeSOQL(enterprise.compte_principal)}'`);
+  if (owners.length)
+    conditions.push(
+      `Account.${account.fields.ownerId} IN (${escapedList(owners)})`,
+    );
+  if (
+    typeof enterprise.compte_principal === 'string' &&
+    enterprise.compte_principal
+  ) {
+    conditions.push(
+      `Account.${account.fields.parentId} = '${escapeSOQL(enterprise.compte_principal)}'`,
+    );
   }
   const comptesCibles = stringList(enterprise.comptes_cibles);
-  if (comptesCibles.length) conditions.push(`${contact.fields.accountId} IN (${escapedList(comptesCibles)})`);
+  if (comptesCibles.length)
+    conditions.push(
+      `${contact.fields.accountId} IN (${escapedList(comptesCibles)})`,
+    );
 
-  if (contactFilters.a_telephone === true) conditions.push(`${contact.fields.mobilePhone} != null`);
-  if (contactFilters.exclure_npa !== false) conditions.push(`${contact.fields.doNotCall} = false`);
+  if (contactFilters.a_telephone === true)
+    conditions.push(`${contact.fields.mobilePhone} != null`);
+  if (contactFilters.exclure_npa !== false)
+    conditions.push(`${contact.fields.doNotCall} = false`);
   // Contacts inactifs = inutilisables pour le Call Manager
-  if (contact.fields.inactive) conditions.push(`${contact.fields.inactive} = false`);
+  if (contact.fields.inactive)
+    conditions.push(`${contact.fields.inactive} = false`);
   const decisionLevels = stringList(contactFilters.niveau_decision);
-  if (decisionLevels.length) conditions.push(`${contact.fields.decisionLevel} IN (${escapedList(decisionLevels)})`);
-  conditions.push(...buildFonctionConditions(stringList(contactFilters.fonctions), mapping));
-  if (filters.ownerOnly === true && typeof sfUserId === "string" && sfUserId) {
-    conditions.push(`Account.${account.fields.ownerId} = '${escapeSOQL(sfUserId)}'`);
+  if (decisionLevels.length)
+    conditions.push(
+      `${contact.fields.decisionLevel} IN (${escapedList(decisionLevels)})`,
+    );
+  conditions.push(
+    ...buildFonctionConditions(stringList(contactFilters.fonctions), mapping),
+  );
+  if (filters.ownerOnly === true && typeof sfUserId === 'string' && sfUserId) {
+    conditions.push(
+      `Account.${account.fields.ownerId} = '${escapeSOQL(sfUserId)}'`,
+    );
   }
 
   const select = [
@@ -153,15 +196,19 @@ export function buildTargetQuery(filters = {}, mapping = defaultMapping, sfUserI
     `Account.${account.fields.id}`,
     `Account.${account.fields.name}`,
     ...(includeTasks ? [taskSubquery(mapping)] : []),
-  ].join(", ");
-  const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
-  const limit = needsWideContactFetch(filters) ? SOQL_FETCH_CAP : boundedLimit(filters.limit);
+  ].join(', ');
+  const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
+  const limit = needsWideContactFetch(filters)
+    ? SOQL_FETCH_CAP
+    : boundedLimit(filters.limit);
   return `SELECT ${select} FROM ${contact.name}${where} LIMIT ${limit}`;
 }
 
 function dateAgeDays(dateValue, now) {
   const date = new Date(dateValue);
-  return Number.isNaN(date.getTime()) ? null : (now.getTime() - date.getTime()) / 86_400_000;
+  return Number.isNaN(date.getTime())
+    ? null
+    : (now.getTime() - date.getTime()) / 86_400_000;
 }
 
 function callTasks(record, mapping) {
@@ -173,7 +220,7 @@ function callTasks(record, mapping) {
 function hasAnyCall(record, mapping) {
   const tasks = record?.[mapping.objects.task.childRelationship];
   if (!tasks) return false;
-  if (typeof tasks.totalSize === "number" && tasks.totalSize > 0) return true;
+  if (typeof tasks.totalSize === 'number' && tasks.totalSize > 0) return true;
   return callTasks(record, mapping).length > 0;
 }
 
@@ -192,7 +239,7 @@ function accountIdsFromOpportunityRecords(records, accountField) {
   const ids = new Set();
   for (const record of Array.isArray(records) ? records : []) {
     const accountId = record?.[accountField];
-    if (typeof accountId === "string" && accountId) ids.add(accountId);
+    if (typeof accountId === 'string' && accountId) ids.add(accountId);
   }
   return ids;
 }
@@ -213,28 +260,34 @@ export function __resetOpportunityAccountCache() {
 export function opportunityAccountSetNeeds(filters = {}) {
   const enterprise = filters.entreprise || {};
   const needOpen =
-    enterprise.opp_ouverte === true
-    || enterprise.opp_ouverte === false
-    || (enterprise.opp_perdue === true && enterprise.opp_ouverte !== true);
-  const needLost = enterprise.opp_perdue === true || enterprise.opp_perdue === false;
+    enterprise.opp_ouverte === true ||
+    enterprise.opp_ouverte === false ||
+    (enterprise.opp_perdue === true && enterprise.opp_ouverte !== true);
+  const needLost =
+    enterprise.opp_perdue === true || enterprise.opp_perdue === false;
   return { needOpen, needLost };
 }
 
 async function fetchOpportunityAccountIds(token, mapping, kind) {
   const opportunity = mapping.objects.opportunity;
-  const cache = kind === "lost" ? oppAccountIdCache.lost : oppAccountIdCache.open;
+  const cache =
+    kind === 'lost' ? oppAccountIdCache.lost : oppAccountIdCache.open;
   if (cache.ids && Date.now() - cache.fetchedAt < OPP_ACCOUNT_CACHE_TTL_MS) {
     return { ids: cache.ids, truncated: cache.truncated };
   }
 
-  const soql = kind === "lost"
-    ? `SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.stageName} = '${escapeSOQL(opportunity.closedLostStage)}' LIMIT ${SOQL_FETCH_CAP}`
-    : `SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false LIMIT ${SOQL_FETCH_CAP}`;
+  const soql =
+    kind === 'lost'
+      ? `SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.stageName} = '${escapeSOQL(opportunity.closedLostStage)}' LIMIT ${SOQL_FETCH_CAP}`
+      : `SELECT ${opportunity.fields.accountId} FROM ${opportunity.name} WHERE ${opportunity.fields.isClosed} = false LIMIT ${SOQL_FETCH_CAP}`;
 
   const result = await searchContacts(token, soql);
   if (result.error) return result;
 
-  const ids = accountIdsFromOpportunityRecords(result.records, opportunity.fields.accountId);
+  const ids = accountIdsFromOpportunityRecords(
+    result.records,
+    opportunity.fields.accountId,
+  );
   cache.ids = ids;
   cache.truncated = result.truncated === true;
   cache.fetchedAt = Date.now();
@@ -242,15 +295,23 @@ async function fetchOpportunityAccountIds(token, mapping, kind) {
 }
 
 /** Fetch account IDs with open / lost opportunities (no Contact semi-joins). */
-export async function fetchOpportunityAccountIdSets(token, mapping = defaultMapping, filters = {}) {
+export async function fetchOpportunityAccountIdSets(
+  token,
+  mapping = defaultMapping,
+  filters = {},
+) {
   const { needOpen, needLost } = opportunityAccountSetNeeds(filters);
   if (!needOpen && !needLost) {
     return { open: new Set(), lost: new Set(), truncated: false };
   }
 
   const [openResult, lostResult] = await Promise.all([
-    needOpen ? fetchOpportunityAccountIds(token, mapping, "open") : Promise.resolve({ ids: new Set() }),
-    needLost ? fetchOpportunityAccountIds(token, mapping, "lost") : Promise.resolve({ ids: new Set() }),
+    needOpen
+      ? fetchOpportunityAccountIds(token, mapping, 'open')
+      : Promise.resolve({ ids: new Set() }),
+    needLost
+      ? fetchOpportunityAccountIds(token, mapping, 'lost')
+      : Promise.resolve({ ids: new Set() }),
   ]);
   if (openResult.error) return openResult;
   if (lostResult.error) return lostResult;
@@ -263,7 +324,12 @@ export async function fetchOpportunityAccountIdSets(token, mapping = defaultMapp
 }
 
 /** Mirrors the v2 spec previously encoded in buildTargetQuery SOQL semi-joins. */
-export function filterByOpportunityAccounts(records, filters = {}, mapping = defaultMapping, sets) {
+export function filterByOpportunityAccounts(
+  records,
+  filters = {},
+  mapping = defaultMapping,
+  sets,
+) {
   if (!sets || !hasOpportunityQueryFilters(filters)) {
     return Array.isArray(records) ? records : [];
   }
@@ -292,7 +358,12 @@ export function filterByOpportunityAccounts(records, filters = {}, mapping = def
 }
 
 /** Apply predicates that depend on Task child records returned by SOQL. */
-export function filterTargetContacts(records, filters = {}, mapping, now = new Date()) {
+export function filterTargetContacts(
+  records,
+  filters = {},
+  mapping,
+  now = new Date(),
+) {
   const followUp = filters.relance || {};
   const fields = mapping.objects.task.fields;
   const excluded = followUp.exclure_si_plus_de || {};
@@ -304,13 +375,29 @@ export function filterTargetContacts(records, filters = {}, mapping, now = new D
 
   return (Array.isArray(records) ? records : []).filter((record) => {
     const calls = callTasks(record, mapping);
-    const latestWithResult = calls.find((call) => call[fields.result] != null && call[fields.result] !== "");
+    const latestWithResult = calls.find(
+      (call) => call[fields.result] != null && call[fields.result] !== '',
+    );
 
-    if (followUp.jamais_appele === true && hasAnyCall(record, mapping)) return false;
-    if (beforeDays && calls.some((call) => callInLastNDays(call, beforeDays, now, fields))) return false;
-    if (withinDays && !calls.some((call) => callInLastNDays(call, withinDays, now, fields))) return false;
+    if (followUp.jamais_appele === true && hasAnyCall(record, mapping))
+      return false;
+    if (
+      beforeDays &&
+      calls.some((call) => callInLastNDays(call, beforeDays, now, fields))
+    )
+      return false;
+    if (
+      withinDays &&
+      !calls.some((call) => callInLastNDays(call, withinDays, now, fields))
+    )
+      return false;
 
-    if (wantedResults.length && (!latestWithResult || !wantedResults.includes(latestWithResult[fields.result]))) return false;
+    if (
+      wantedResults.length &&
+      (!latestWithResult ||
+        !wantedResults.includes(latestWithResult[fields.result]))
+    )
+      return false;
     if (maxCalls && recentDays) {
       const recentCalls = calls.filter((call) => {
         const age = dateAgeDays(call[fields.activityDate], now);
@@ -323,26 +410,36 @@ export function filterTargetContacts(records, filters = {}, mapping, now = new D
 }
 
 async function exchangeRefreshToken(refreshToken) {
-  const clientId = process.env.SF_CLIENT_ID || "";
-  const clientSecret = process.env.SF_CLIENT_SECRET || "";
-  const loginUrl = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
-  if (!clientId || !clientSecret || !refreshToken) return { error: "sf_missing_credentials" };
+  const clientId = process.env.SF_CLIENT_ID || '';
+  const clientSecret = process.env.SF_CLIENT_SECRET || '';
+  const loginUrl = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
+  if (!clientId || !clientSecret || !refreshToken)
+    return { error: 'sf_missing_credentials' };
   const response = await fetch(`${loginUrl}/services/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!response.ok) return { error: "sf_auth_error" };
+  if (!response.ok) return { error: 'sf_auth_error' };
   const accessToken = (await response.json()).access_token;
-  return accessToken ? { accessToken } : { error: "sf_auth_error" };
+  return accessToken ? { accessToken } : { error: 'sf_auth_error' };
 }
 
 async function fetchUserSFToken({ client, userId, forceRefresh = false }) {
   const cached = sfUserTokenCache.get(userId);
-  if (!forceRefresh && cached && Date.now() - cached.fetchedAt < SF_TOKEN_TTL_MS) {
+  if (
+    !forceRefresh &&
+    cached &&
+    Date.now() - cached.fetchedAt < SF_TOKEN_TTL_MS
+  ) {
     sfUserTokenContexts.set(cached.accessToken, { client, userId });
-    return { accessToken: cached.accessToken, credential: "user" };
+    return { accessToken: cached.accessToken, credential: 'user' };
   }
   if (cached) {
     sfUserTokenCache.delete(userId);
@@ -353,9 +450,9 @@ async function fetchUserSFToken({ client, userId, forceRefresh = false }) {
   let error;
   try {
     ({ data, error } = await client
-      .from("profiles")
-      .select("sf_refresh_token_encrypted")
-      .eq("id", userId)
+      .from('profiles')
+      .select('sf_refresh_token_encrypted')
+      .eq('id', userId)
       .maybeSingle());
   } catch {
     return null;
@@ -363,12 +460,17 @@ async function fetchUserSFToken({ client, userId, forceRefresh = false }) {
   if (error || !data?.sf_refresh_token_encrypted) return null;
 
   try {
-    const refreshToken = await decryptRefreshToken(data.sf_refresh_token_encrypted);
+    const refreshToken = await decryptRefreshToken(
+      data.sf_refresh_token_encrypted,
+    );
     const result = await exchangeRefreshToken(refreshToken);
     if (result.error) return null;
-    sfUserTokenCache.set(userId, { accessToken: result.accessToken, fetchedAt: Date.now() });
+    sfUserTokenCache.set(userId, {
+      accessToken: result.accessToken,
+      fetchedAt: Date.now(),
+    });
     sfUserTokenContexts.set(result.accessToken, { client, userId });
-    return { accessToken: result.accessToken, credential: "user" };
+    return { accessToken: result.accessToken, credential: 'user' };
   } catch {
     return null;
   }
@@ -380,18 +482,22 @@ export async function fetchSFToken(options = {}) {
     if (userToken) return userToken;
     // Product path is user-OAuth only — do not silently fall back to SF_REFRESH_TOKEN.
     if (options.allowOrgFallback !== true) {
-      return { error: "sf_auth_error" };
+      return { error: 'sf_auth_error' };
     }
   }
-  if (!options.forceRefresh && sfTokenCache.accessToken && Date.now() - sfTokenCache.fetchedAt < SF_TOKEN_TTL_MS) {
+  if (
+    !options.forceRefresh &&
+    sfTokenCache.accessToken &&
+    Date.now() - sfTokenCache.fetchedAt < SF_TOKEN_TTL_MS
+  ) {
     return { accessToken: sfTokenCache.accessToken };
   }
-  const clientId = process.env.SF_CLIENT_ID || "";
-  const clientSecret = process.env.SF_CLIENT_SECRET || "";
-  const refreshToken = process.env.SF_REFRESH_TOKEN || "";
+  const clientId = process.env.SF_CLIENT_ID || '';
+  const clientSecret = process.env.SF_CLIENT_SECRET || '';
+  const refreshToken = process.env.SF_REFRESH_TOKEN || '';
   if (!clientId || !clientSecret || !refreshToken) {
     invalidateSFTokenCache();
-    return { error: "sf_missing_credentials" };
+    return { error: 'sf_missing_credentials' };
   }
   try {
     const result = await exchangeRefreshToken(refreshToken);
@@ -408,7 +514,9 @@ export async function fetchSFToken(options = {}) {
 }
 
 function instanceUrl() {
-  return process.env.SF_INSTANCE_URL || "https://db0000000d7rdeay.my.salesforce.com";
+  return (
+    process.env.SF_INSTANCE_URL || 'https://db0000000d7rdeay.my.salesforce.com'
+  );
 }
 
 async function sfFetchWithRetry(token, makeRequest) {
@@ -417,80 +525,105 @@ async function sfFetchWithRetry(token, makeRequest) {
 
   const userContext = sfUserTokenContexts.get(token);
   if (!userContext) invalidateSFTokenCache();
-  const refreshed = await fetchSFToken(userContext
-    ? { ...userContext, forceRefresh: true }
-    : { forceRefresh: true });
-  if (refreshed.error) return { error: "sf_auth_error" };
+  const refreshed = await fetchSFToken(
+    userContext
+      ? { ...userContext, forceRefresh: true }
+      : { forceRefresh: true },
+  );
+  if (refreshed.error) return { error: 'sf_auth_error' };
 
   response = await makeRequest(refreshed.accessToken);
   return { response, token: refreshed.accessToken };
 }
 
 export async function searchContacts(token, soql, options = {}) {
-  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/query?${new URLSearchParams({ q: soql })}`, {
-    headers: { Authorization: `Bearer ${requestToken}` },
-    signal: AbortSignal.timeout(30_000),
-  });
+  const request = (requestToken) =>
+    fetch(
+      `${instanceUrl()}/services/data/v67.0/query?${new URLSearchParams({ q: soql })}`,
+      {
+        headers: { Authorization: `Bearer ${requestToken}` },
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
   const result = await sfFetchWithRetry(token, request);
   if (result.error) return result;
   const { response } = result;
   if (!response.ok) {
     const message = (await response.text()).slice(0, 500);
-    return { error: "sf_query_error", message };
+    return { error: 'sf_query_error', message };
   }
   let page = await response.json();
   let currentToken = result.token;
   const records = [...(page.records || [])];
   while (
-    page.done === false
-    && page.nextRecordsUrl
-    && records.length < SOQL_FETCH_CAP
-    && !(typeof options.stopWhen === "function" && options.stopWhen(records))
+    page.done === false &&
+    page.nextRecordsUrl &&
+    records.length < SOQL_FETCH_CAP &&
+    !(typeof options.stopWhen === 'function' && options.stopWhen(records))
   ) {
-    const nextRequest = (requestToken) => fetch(`${instanceUrl()}${page.nextRecordsUrl}`, {
-      headers: { Authorization: `Bearer ${requestToken}` },
-      signal: AbortSignal.timeout(30_000),
-    });
+    const nextRequest = (requestToken) =>
+      fetch(`${instanceUrl()}${page.nextRecordsUrl}`, {
+        headers: { Authorization: `Bearer ${requestToken}` },
+        signal: AbortSignal.timeout(30_000),
+      });
     const nextResult = await sfFetchWithRetry(currentToken, nextRequest);
     if (nextResult.error) return nextResult;
     if (!nextResult.response.ok) {
-      return { error: "sf_query_error", message: (await nextResult.response.text()).slice(0, 500) };
+      return {
+        error: 'sf_query_error',
+        message: (await nextResult.response.text()).slice(0, 500),
+      };
     }
     page = await nextResult.response.json();
     currentToken = nextResult.token;
     records.push(...(page.records || []));
   }
   const finalRecords = records.slice(0, SOQL_FETCH_CAP);
-  return { records: finalRecords, truncated: finalRecords.length === SOQL_FETCH_CAP };
+  return {
+    records: finalRecords,
+    truncated: finalRecords.length === SOQL_FETCH_CAP,
+  };
 }
 
 export async function searchSOSL(token, sosl) {
-  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/search?${new URLSearchParams({ q: sosl })}`, {
-    headers: { Authorization: `Bearer ${requestToken}` },
-    signal: AbortSignal.timeout(30_000),
-  });
+  const request = (requestToken) =>
+    fetch(
+      `${instanceUrl()}/services/data/v67.0/search?${new URLSearchParams({ q: sosl })}`,
+      {
+        headers: { Authorization: `Bearer ${requestToken}` },
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
   const result = await sfFetchWithRetry(token, request);
   if (result.error) return result;
   const { response } = result;
   if (!response.ok) {
     const message = (await response.text()).slice(0, 500);
-    return { error: "sf_query_error", message };
+    return { error: 'sf_query_error', message };
   }
   const data = await response.json();
   return { records: data.searchRecords || [] };
 }
 
 async function createSObject(token, objectName, fields) {
-  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/sobjects/${objectName}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${requestToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify(fields),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const request = (requestToken) =>
+    fetch(`${instanceUrl()}/services/data/v67.0/sobjects/${objectName}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${requestToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+      signal: AbortSignal.timeout(30_000),
+    });
   const result = await sfFetchWithRetry(token, request);
   if (result.error) return result;
   const { response } = result;
-  if (!response.ok) return { error: "sf_write_error", message: (await response.text()).slice(0, 500) };
+  if (!response.ok)
+    return {
+      error: 'sf_write_error',
+      message: (await response.text()).slice(0, 500),
+    };
   return { record: await response.json() };
 }
 
@@ -499,27 +632,50 @@ export function createRecord(token, objectName, fields) {
 }
 
 export async function updateSObjects(token, objectName, records) {
-  const request = (requestToken) => fetch(`${instanceUrl()}/services/data/v67.0/composite/sobjects`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${requestToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      allOrNone: false,
-      records: records.map((record) => ({ attributes: { type: objectName }, ...record })),
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const request = (requestToken) =>
+    fetch(`${instanceUrl()}/services/data/v67.0/composite/sobjects`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${requestToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        allOrNone: false,
+        records: records.map((record) => ({
+          attributes: { type: objectName },
+          ...record,
+        })),
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
   const result = await sfFetchWithRetry(token, request);
   if (result.error) return result;
-  if (!result.response.ok) return { error: "sf_write_error", message: (await result.response.text()).slice(0, 500) };
+  if (!result.response.ok)
+    return {
+      error: 'sf_write_error',
+      message: (await result.response.text()).slice(0, 500),
+    };
   return { records: await result.response.json() };
 }
 
 /** YYYY-MM-DD in Europe/Paris — required for Tasks to show in SF activity timelines. */
 export function parisToday() {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
 }
 
-export async function logCall(token, { contactId, accountId, resultat, comments = "", durationSec = 0, ownerId, actorName = "Utilisateur Inconnu" }, mapping = defaultMapping) {
+export async function logCall(
+  token,
+  {
+    contactId,
+    accountId,
+    resultat,
+    comments = '',
+    durationSec = 0,
+    ownerId,
+    actorName = 'Utilisateur Inconnu',
+  },
+  mapping = defaultMapping,
+) {
   const task = mapping.objects.task;
   const fields = task.fields;
   const call = {
@@ -530,7 +686,7 @@ export async function logCall(token, { contactId, accountId, resultat, comments 
     [fields.activityDate]: parisToday(),
     [fields.subject]: `Appel — ${resultat}`,
     [fields.description]: `${comments}\n\n[via X OS par ${actorName}]`,
-    Priority: "Normal",
+    Priority: 'Normal',
   };
   // Duration is optional / unused in the cockpit — omit zero to avoid noisy SF fields.
   if (Number.isFinite(durationSec) && durationSec > 0) {
@@ -547,16 +703,22 @@ export function buildLightningUrl(objectType, recordId) {
 }
 
 /** Batch-fetch email/title for session contact hydration. */
-export async function fetchContactBasicsByIds(token, contactIds, mapping = defaultMapping) {
+export async function fetchContactBasicsByIds(
+  token,
+  contactIds,
+  mapping = defaultMapping,
+) {
   const cf = mapping.objects.contact.fields;
-  const ids = [...new Set((contactIds || []).filter((id) => typeof id === "string" && id))];
+  const ids = [
+    ...new Set((contactIds || []).filter((id) => typeof id === 'string' && id)),
+  ];
   if (!ids.length) return { byId: new Map() };
 
   const soql = [
     `SELECT ${cf.id}, ${cf.email}, ${cf.title}`,
     `FROM ${mapping.objects.contact.name}`,
-    `WHERE ${cf.id} IN (${ids.map((id) => `'${escapeSOQL(id)}'`).join(", ")})`,
-  ].join(" ");
+    `WHERE ${cf.id} IN (${ids.map((id) => `'${escapeSOQL(id)}'`).join(', ')})`,
+  ].join(' ');
 
   const search = await searchContacts(token, soql);
   if (search.error) return { error: search.error };
@@ -597,11 +759,13 @@ export async function fetchContactContext(
     `SELECT ${cf.doNotCall}, ${cf.email}, ${cf.title}`,
     accountId
       ? `, Account.${af.id}, Account.${af.name}, Account.${af.industry}, Account.${af.customerType}, Account.${af.ownerId}`
-      : "",
+      : '',
     `FROM ${contact.name}`,
     `WHERE ${cf.id} = '${escapeSOQL(contactId)}'`,
     `LIMIT 1`,
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   // Limite volontairement élevée : on remonte large (5 ans) pour que la fiche
   // contact montre l'historique complet quand le user clique "Voir tout".
@@ -609,23 +773,23 @@ export async function fetchContactContext(
   // étend la liste. Les RDV/appels anciens restent consultables à la demande.
   const taskLimit = lite ? 12 : 50;
   const taskSoql = [
-    `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(", ")}`,
+    `SELECT ${[tf.id, tf.activityDate, tf.result, tf.subject, tf.description].join(', ')}`,
     `FROM ${task.name}`,
     `WHERE ${tf.whoId} = '${escapeSOQL(contactId)}'`,
     `AND ${tf.subtype} = '${escapeSOQL(task.subtypeValue)}'`,
     `AND ${tf.activityDate} >= LAST_N_YEARS:5`,
     `ORDER BY ${tf.activityDate} DESC NULLS LAST`,
     `LIMIT ${taskLimit}`,
-  ].join(" ");
+  ].join(' ');
 
   const oppSoql = accountId
     ? [
-        `SELECT ${[of.id, of.name, of.stageName, of.isClosed, of.isWon, of.amount, of.closeDate].join(", ")}`,
+        `SELECT ${[of.id, of.name, of.stageName, of.isClosed, of.isWon, of.amount, of.closeDate].join(', ')}`,
         `FROM ${opportunity.name}`,
         `WHERE ${of.accountId} = '${escapeSOQL(accountId)}'`,
         `ORDER BY ${of.isClosed} ASC, ${of.closeDate} DESC NULLS LAST`,
         `LIMIT ${lite ? 6 : 10}`,
-      ].join(" ")
+      ].join(' ')
     : null;
 
   const event = mapping.objects.event;
@@ -643,7 +807,7 @@ export async function fetchContactContext(
     `AND ${ef.startDateTime} >= LAST_N_YEARS:5`,
     `ORDER BY ${ef.startDateTime} DESC NULLS LAST`,
     `LIMIT ${eventLimit}`,
-  ].join(" ");
+  ].join(' ');
 
   const ocrSoql = lite
     ? null
@@ -652,27 +816,34 @@ export async function fetchContactContext(
         `FROM OpportunityContactRole`,
         `WHERE ContactId = '${escapeSOQL(contactId)}'`,
         `LIMIT 50`,
-      ].join(" ");
+      ].join(' ');
 
-  const [contactResult, tasksResult, oppResult, ocrResult, eventResult] = await Promise.all([
-    searchContacts(token, contactAccountSoql),
-    searchContacts(token, taskSoql),
-    oppSoql ? searchContacts(token, oppSoql) : Promise.resolve({ records: [] }),
-    ocrSoql ? searchContacts(token, ocrSoql) : Promise.resolve({ records: [] }),
-    searchContacts(token, eventSoql),
-  ]);
+  const [contactResult, tasksResult, oppResult, ocrResult, eventResult] =
+    await Promise.all([
+      searchContacts(token, contactAccountSoql),
+      searchContacts(token, taskSoql),
+      oppSoql
+        ? searchContacts(token, oppSoql)
+        : Promise.resolve({ records: [] }),
+      ocrSoql
+        ? searchContacts(token, ocrSoql)
+        : Promise.resolve({ records: [] }),
+      searchContacts(token, eventSoql),
+    ]);
 
   if (contactResult.error) return { error: contactResult.error };
   if (tasksResult.error) return { error: tasksResult.error };
   if (oppResult.error) return { error: oppResult.error };
   // Events best-effort : si inaccessible, on continue sans historique RDV.
-  const events = (eventResult.error ? [] : eventResult.records || []).map((record) => ({
-    id: record.Id,
-    subject: record[ef.subject] || null,
-    start_date_time: record[ef.startDateTime] || null,
-    record_url: buildLightningUrl(event.name, record.Id),
-    linked_to_contact: record[ef.whoId] === contactId,
-  }));
+  const events = (eventResult.error ? [] : eventResult.records || []).map(
+    (record) => ({
+      id: record.Id,
+      subject: record[ef.subject] || null,
+      start_date_time: record[ef.startDateTime] || null,
+      record_url: buildLightningUrl(event.name, record.Id),
+      linked_to_contact: record[ef.whoId] === contactId,
+    }),
+  );
   // OCR = OpportunityContactRole (association Contact ↔ Opportunity dans Salesforce).
   const linkedOppIds = new Set(
     (ocrResult.error ? [] : ocrResult.records || [])
@@ -696,12 +867,14 @@ export async function fetchContactContext(
       accountId ? `AND ${af.id} != '${escapeSOQL(accountId)}'` : null,
       `ORDER BY ${af.name} ASC`,
       `LIMIT 3`,
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(' ');
     const peersResult = await searchContacts(token, peersSoql);
     if (!peersResult.error) {
       peerClients = (peersResult.records || []).map((record) => ({
         id: record[af.id],
-        name: record[af.name] || "",
+        name: record[af.name] || '',
         industry: record[af.industry] || null,
         record_url: buildLightningUrl(account.name, record[af.id]),
       }));
@@ -710,11 +883,11 @@ export async function fetchContactContext(
 
   const opportunities = (oppResult.records || []).map((record) => ({
     id: record[of.id],
-    name: record[of.name] || "",
+    name: record[of.name] || '',
     stage_name: record[of.stageName] || null,
     is_closed: Boolean(record[of.isClosed]),
     is_won: Boolean(record[of.isWon]),
-    amount: typeof record[of.amount] === "number" ? record[of.amount] : null,
+    amount: typeof record[of.amount] === 'number' ? record[of.amount] : null,
     close_date: record[of.closeDate] || null,
     record_url: buildLightningUrl(opportunity.name, record[of.id]),
     linked_to_contact: linkedOppIds.has(record[of.id]),
@@ -722,7 +895,9 @@ export async function fetchContactContext(
 
   return {
     contact_record_url: buildLightningUrl(contact.name, contactId),
-    account_record_url: accountId ? buildLightningUrl(account.name, accountId) : null,
+    account_record_url: accountId
+      ? buildLightningUrl(account.name, accountId)
+      : null,
     email: contactRow?.[cf.email] ?? null,
     title: contactRow?.[cf.title] ?? null,
     account_name: accountRow?.[af.name] ?? null,
@@ -744,46 +919,82 @@ export async function fetchContactContext(
   };
 }
 
-export async function updateContactDoNotCall(token, contactId, value, mapping = defaultMapping) {
+export async function updateContactDoNotCall(
+  token,
+  contactId,
+  value,
+  mapping = defaultMapping,
+) {
   const contact = mapping.objects.contact;
-  const request = (requestToken) => fetch(
-    `${instanceUrl()}/services/data/v67.0/sobjects/${contact.name}/${encodeURIComponent(contactId)}`,
-    {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${requestToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ [contact.fields.doNotCall]: Boolean(value) }),
-      signal: AbortSignal.timeout(30_000),
-    },
-  );
+  const request = (requestToken) =>
+    fetch(
+      `${instanceUrl()}/services/data/v67.0/sobjects/${contact.name}/${encodeURIComponent(contactId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${requestToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [contact.fields.doNotCall]: Boolean(value) }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
   const result = await sfFetchWithRetry(token, request);
   if (result.error) return result;
   const { response } = result;
-  if (!response.ok) return { error: "sf_write_error", message: (await response.text()).slice(0, 500) };
+  if (!response.ok)
+    return {
+      error: 'sf_write_error',
+      message: (await response.text()).slice(0, 500),
+    };
   return { ok: true };
 }
 
-export async function createEvent(token, { subject, startDateTime, durationMin, whoId, whatId, ownerId, invitees = [] }, mapping = defaultMapping) {
+export async function createEvent(
+  token,
+  {
+    subject,
+    startDateTime,
+    durationMin,
+    whoId,
+    whatId,
+    ownerId,
+    invitees = [],
+  },
+  mapping = defaultMapping,
+) {
   const event = mapping.objects.event;
   const fields = event.fields;
   const start = new Date(startDateTime);
   const duration = Number(durationMin);
-  if (Number.isNaN(start.getTime()) || !Number.isFinite(duration) || duration <= 0) return { error: "invalid_event" };
+  if (
+    Number.isNaN(start.getTime()) ||
+    !Number.isFinite(duration) ||
+    duration <= 0
+  )
+    return { error: 'invalid_event' };
   const payload = {
     [fields.subject]: subject,
     [fields.startDateTime]: start.toISOString(),
-    [fields.endDateTime]: new Date(start.getTime() + duration * 60_000).toISOString(),
+    [fields.endDateTime]: new Date(
+      start.getTime() + duration * 60_000,
+    ).toISOString(),
   };
   if (whoId) payload[fields.whoId] = whoId;
   if (whatId) payload[fields.whatId] = whatId;
   if (ownerId) payload[fields.ownerId] = ownerId;
   const created = await createSObject(token, event.name, payload);
   if (created.error || !Array.isArray(invitees)) return created;
-  const relations = await Promise.all(invitees
-    .filter((id) => typeof id === "string" && id)
-    .map((invitee) => createSObject(token, event.relationName, {
-      [fields.eventId]: created.record.id,
-      [fields.relationId]: invitee,
-    })));
+  const relations = await Promise.all(
+    invitees
+      .filter((id) => typeof id === 'string' && id)
+      .map((invitee) =>
+        createSObject(token, event.relationName, {
+          [fields.eventId]: created.record.id,
+          [fields.relationId]: invitee,
+        }),
+      ),
+  );
   const failedRelation = relations.find((relation) => relation.error);
   if (failedRelation) return { ...created, inviteeError: failedRelation.error };
   return created;

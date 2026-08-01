@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, GlassCard } from "../../components/ui";
-import { markComboDemoSeen } from "./comboKeyboard";
-import type { ComboSoundGroup } from "./comboSoundPrefs";
-import { useComboOverlay } from "./comboOverlay";
-import { playComboSound, unlockComboAudio, type SoundKind } from "./comboSounds";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button, GlassCard } from '../../components/ui';
+import { markComboDemoSeen } from './comboKeyboard';
+import type { ComboSoundGroup } from './comboSoundPrefs';
+import { useComboOverlay } from './comboOverlay';
+import {
+  playComboSound,
+  unlockComboAudio,
+  type SoundKind,
+} from './comboSounds';
 
 type DemoBeat = {
   at: number;
@@ -15,11 +19,39 @@ type DemoBeat = {
 };
 
 const BEATS: DemoBeat[] = [
-  { at: 0, title: "Combo", body: "Prospection au rythme du clavier.", sound: "demo" },
-  { at: 3_000, title: "1", body: "Résultat — Appel non décroché", sound: "result-pick", chip: "Non décroché" },
-  { at: 7_500, title: "⇧3", body: "Rappel dans 3 jours", sound: "recall", group: "navigation", chip: "+3 j" },
-  { at: 13_000, title: "⌘↵", body: "Loggué · contact suivant", sound: "success" },
-  { at: 17_000, title: "⌘K · ?", body: "Toutes les actions, toujours sous la main.", sound: "whoosh" },
+  {
+    at: 0,
+    title: 'Combo',
+    body: 'Prospection au rythme du clavier.',
+    sound: 'demo',
+  },
+  {
+    at: 3_000,
+    title: '1',
+    body: 'Résultat — Appel non décroché',
+    sound: 'result-pick',
+    chip: 'Non décroché',
+  },
+  {
+    at: 7_500,
+    title: '⇧3',
+    body: 'Rappel dans 3 jours',
+    sound: 'recall',
+    group: 'navigation',
+    chip: '+3 j',
+  },
+  {
+    at: 13_000,
+    title: '⌘↵',
+    body: 'Loggué · contact suivant',
+    sound: 'success',
+  },
+  {
+    at: 17_000,
+    title: '⌘K · ?',
+    body: 'Toutes les actions, toujours sous la main.',
+    sound: 'whoosh',
+  },
 ];
 
 type ComboOnboardingDemoProps = {
@@ -29,7 +61,10 @@ type ComboOnboardingDemoProps = {
 
 const DEMO_MS = 22_000;
 
-export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps) {
+export function ComboOnboardingDemo({
+  open,
+  onClose,
+}: ComboOnboardingDemoProps) {
   const [elapsed, setElapsed] = useState(0);
   const [played, setPlayed] = useState<Set<number>>(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
@@ -37,7 +72,7 @@ export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps)
   const finish = useCallback(
     (skip: boolean) => {
       markComboDemoSeen();
-      if (!skip) playComboSound("success");
+      if (!skip) playComboSound('success');
       onClose();
     },
     [onClose],
@@ -65,7 +100,10 @@ export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps)
     for (const [index, beat] of BEATS.entries()) {
       if (elapsed < beat.at || played.has(index)) continue;
       setPlayed((prev) => new Set(prev).add(index));
-      playComboSound(beat.sound, beat.group ? { group: beat.group } : undefined);
+      playComboSound(
+        beat.sound,
+        beat.group ? { group: beat.group } : undefined,
+      );
     }
     if (elapsed > DEMO_MS) {
       finish(false);
@@ -74,11 +112,18 @@ export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps)
 
   if (!open) return null;
 
-  const current = [...BEATS].reverse().find((beat) => elapsed >= beat.at) ?? BEATS[0];
+  const current =
+    [...BEATS].reverse().find((beat) => elapsed >= beat.at) ?? BEATS[0];
   const progress = Math.min(1, elapsed / DEMO_MS);
 
   return (
-    <div ref={rootRef} className="calls-demo" role="dialog" aria-modal="true" aria-label="Démo Combo">
+    <div
+      ref={rootRef}
+      className="calls-demo"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Démo Combo"
+    >
       <div className="calls-demo__stage">
         <GlassCard className="calls-demo__card">
           <p className="calls-demo__brand">Combo</p>
@@ -86,13 +131,23 @@ export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps)
             {current.title}
           </div>
           <h3>{current.body}</h3>
-          {current.chip && <span className="calls-demo__chip">{current.chip}</span>}
+          {current.chip && (
+            <span className="calls-demo__chip">{current.chip}</span>
+          )}
           <div className="calls-demo__mock" aria-hidden="true">
             <div className="calls-demo__mock-row">
-              <span className={elapsed >= 3_000 ? "is-on" : undefined}>Non décroché</span>
-              <span className={elapsed >= 7_500 ? "is-on" : undefined}>+3 j</span>
+              <span className={elapsed >= 3_000 ? 'is-on' : undefined}>
+                Non décroché
+              </span>
+              <span className={elapsed >= 7_500 ? 'is-on' : undefined}>
+                +3 j
+              </span>
             </div>
-            <div className={`calls-demo__toast${elapsed >= 13_000 ? " is-on" : ""}`}>Loggué · rappel +3 j</div>
+            <div
+              className={`calls-demo__toast${elapsed >= 13_000 ? ' is-on' : ''}`}
+            >
+              Loggué · rappel +3 j
+            </div>
           </div>
           <div className="calls-demo__progress" aria-hidden="true">
             <span style={{ width: `${progress * 100}%` }} />
@@ -103,7 +158,9 @@ export function ComboOnboardingDemo({ open, onClose }: ComboOnboardingDemoProps)
             </Button>
             <Button onClick={() => finish(false)}>C&apos;est parti</Button>
           </div>
-          <p className="calls-muted calls-demo__hint">Esc pour passer · rejouable via ⌘K</p>
+          <p className="calls-muted calls-demo__hint">
+            Esc pour passer · rejouable via ⌘K
+          </p>
         </GlassCard>
       </div>
     </div>

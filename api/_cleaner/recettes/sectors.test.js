@@ -371,9 +371,9 @@ describe('sectors recipe server slice', () => {
       .mockReturnValueOnce({ select: entrySelect })
       .mockReturnValueOnce({ select: undoSelect });
 
-    await expect(
-      undoSectorMerge(ctx, { journalId: 12 }),
-    ).rejects.toMatchObject({ code: 'already_undone', status: 409 });
+    await expect(undoSectorMerge(ctx, { journalId: 12 })).rejects.toMatchObject(
+      { code: 'already_undone', status: 409 },
+    );
     expect(ctx.updateSObjects).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { lazy, type FC, type LazyExoticComponent, type ReactNode } from "react";
+import { lazy, type FC, type LazyExoticComponent, type ReactNode } from 'react';
 import {
   CallsIcon,
   CleanerIcon,
@@ -6,10 +6,11 @@ import {
   DemoOverviewIcon,
   DemoUiIcon,
   HubIcon,
+  ReviewIcon,
   WeeklyIcon,
-} from "./AppIcons";
+} from './AppIcons';
 
-export type AppRole = "admin" | "manager" | "commercial";
+export type AppRole = 'admin' | 'manager' | 'commercial';
 
 export type AppComponentProps = {
   params?: Record<string, string>;
@@ -27,56 +28,63 @@ export interface AppManifest {
 
 export const appRegistry: AppManifest[] = [
   {
-    id: "cleaner",
-    title: "Labo",
+    id: 'cleaner',
+    title: 'Labo',
     icon: <CleanerIcon />,
-    component: lazy(() => import("../apps/cleaner/CleanerApp")),
+    component: lazy(() => import('../apps/cleaner/CleanerApp')),
     defaultSize: { w: 1100, h: 540 },
   },
   {
-    id: "calls",
-    title: "Combo",
+    id: 'calls',
+    title: 'Combo',
     icon: <CallsIcon />,
-    component: lazy(() => import("../apps/calls/CallManagerApp")),
+    component: lazy(() => import('../apps/calls/CallManagerApp')),
     defaultSize: { w: 960, h: 620 },
   },
   {
-    id: "weekly",
-    title: "Lundi",
+    id: 'weekly',
+    title: 'Lundi',
     icon: <WeeklyIcon />,
-    component: lazy(() => import("../apps/weekly/WeeklyApp")),
+    component: lazy(() => import('../apps/weekly/WeeklyApp')),
     defaultSize: { w: 1100, h: 720 },
   },
   {
-    id: "hub",
-    title: "Coulisses",
+    id: 'review',
+    title: 'Bilan',
+    icon: <ReviewIcon />,
+    component: lazy(() => import('../apps/review/ReviewApp')),
+    defaultSize: { w: 1100, h: 700 },
+  },
+  {
+    id: 'hub',
+    title: 'Coulisses',
     icon: <HubIcon />,
-    component: lazy(() => import("../apps/hub/HubApp")),
+    component: lazy(() => import('../apps/hub/HubApp')),
     defaultSize: { w: 820, h: 620 },
     // Panneau système : bruit pour un commercial, réservé au pilotage.
-    roles: ["manager", "admin"],
+    roles: ['manager', 'admin'],
   },
   ...(import.meta.env.DEV
     ? [
         {
-          id: "overview-demo",
-          title: "Aperçu commercial",
+          id: 'overview-demo',
+          title: 'Aperçu commercial',
           icon: <DemoOverviewIcon />,
-          component: lazy(() => import("../apps/demo/OverviewDemo")),
+          component: lazy(() => import('../apps/demo/OverviewDemo')),
           defaultSize: { w: 760, h: 520 },
         },
         {
-          id: "notes-demo",
-          title: "Notes d’équipe",
+          id: 'notes-demo',
+          title: 'Notes d’équipe',
           icon: <DemoNotesIcon />,
-          component: lazy(() => import("../apps/demo/NotesDemo")),
+          component: lazy(() => import('../apps/demo/NotesDemo')),
           defaultSize: { w: 620, h: 460 },
         },
         {
-          id: "ui-demo",
-          title: "Design system",
+          id: 'ui-demo',
+          title: 'Design system',
           icon: <DemoUiIcon />,
-          component: lazy(() => import("../components/ui/demo")),
+          component: lazy(() => import('../components/ui/demo')),
           defaultSize: { w: 800, h: 580 },
         },
       ]

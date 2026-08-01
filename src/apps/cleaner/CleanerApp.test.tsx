@@ -99,9 +99,11 @@ describe('CleanerApp component', () => {
   });
 
   it('keeps the session token in the native module context', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ items: [], total: 0 }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ items: [], total: 0 }), { status: 200 }),
+      );
     vi.stubGlobal('fetch', fetchMock);
     render(<CleanerApp />);
 
@@ -147,7 +149,9 @@ describe('CleanerApp component', () => {
     render(<CleanerApp />);
 
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Recettes du Labo' })).toBeTruthy(),
+      expect(
+        screen.getByRole('heading', { name: 'Recettes du Labo' }),
+      ).toBeTruthy(),
     );
     // Secteurs is manager/admin-only; this session resolves to 'commercial'.
     expect(screen.getAllByRole('button')).toHaveLength(1);

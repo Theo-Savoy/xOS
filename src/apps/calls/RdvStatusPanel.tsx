@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, GlassCard } from "../../components/ui";
-import { fetchRdvSuivi, type RdvSuiviItem, type RdvSuiviStatus } from "./api";
-import type { CockpitPeriod } from "./pilotageApi";
-import "./rdvSuivi.css";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, GlassCard } from '../../components/ui';
+import { fetchRdvSuivi, type RdvSuiviItem, type RdvSuiviStatus } from './api';
+import type { CockpitPeriod } from './pilotageApi';
+import './rdvSuivi.css';
 
 type RdvStatusPanelProps = {
   token: string;
@@ -12,36 +12,45 @@ type RdvStatusPanelProps = {
   onOpenSuivi?: () => void;
 };
 
-type StatusKey = RdvSuiviStatus | "pending";
+type StatusKey = RdvSuiviStatus | 'pending';
 
 const STATUS_META: Record<StatusKey, { label: string; color: string }> = {
-  a_venir: { label: "À venir", color: "var(--rdv-status-upcoming)" },
-  effectue: { label: "Effectué", color: "var(--rdv-status-done)" },
-  annule: { label: "Annulé", color: "var(--rdv-status-cancelled)" },
-  no_show: { label: "No-show", color: "var(--rdv-status-noshow)" },
-  pending: { label: "À renseigner", color: "var(--rdv-status-pending)" },
+  a_venir: { label: 'À venir', color: 'var(--rdv-status-upcoming)' },
+  effectue: { label: 'Effectué', color: 'var(--rdv-status-done)' },
+  annule: { label: 'Annulé', color: 'var(--rdv-status-cancelled)' },
+  no_show: { label: 'No-show', color: 'var(--rdv-status-noshow)' },
+  pending: { label: 'À renseigner', color: 'var(--rdv-status-pending)' },
 };
 
 /** Ordre d'affichage de la barre de répartition. */
-const STATUS_ORDER: StatusKey[] = ["effectue", "annule", "no_show", "a_venir", "pending"];
+const STATUS_ORDER: StatusKey[] = [
+  'effectue',
+  'annule',
+  'no_show',
+  'a_venir',
+  'pending',
+];
 
 function dayKey(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-CA");
+  return new Date(iso).toLocaleDateString('fr-CA');
 }
 
 /** Convertit period + anchor (YYYY-MM-DD) en plage ISO UTC. */
-function periodIsoRange(period: CockpitPeriod, anchor: string): { start: string; end: string } {
-  const [y, m, d] = anchor.split("-").map(Number);
+function periodIsoRange(
+  period: CockpitPeriod,
+  anchor: string,
+): { start: string; end: string } {
+  const [y, m, d] = anchor.split('-').map(Number);
   let startDate = new Date(Date.UTC(y, m - 1, d));
   let endDate = new Date(Date.UTC(y, m - 1, d));
 
-  if (period === "week") {
+  if (period === 'week') {
     const dow = startDate.getUTCDay();
     const mondayOffset = dow === 0 ? 6 : dow - 1;
     startDate.setUTCDate(startDate.getUTCDate() - mondayOffset);
     endDate = new Date(startDate);
     endDate.setUTCDate(endDate.getUTCDate() + 6);
-  } else if (period === "month") {
+  } else if (period === 'month') {
     startDate = new Date(Date.UTC(y, m - 1, 1));
     endDate = new Date(Date.UTC(y, m, 0));
   }
@@ -53,14 +62,27 @@ function periodIsoRange(period: CockpitPeriod, anchor: string): { start: string;
 }
 
 function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }) + " · " + new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return (
+    new Date(iso).toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }) +
+    ' · ' +
+    new Date(iso).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  );
 }
 
-export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSuivi }: RdvStatusPanelProps) {
+export function RdvStatusPanel({
+  token,
+  period,
+  anchor,
+  teamSfUserIds,
+  onOpenSuivi,
+}: RdvStatusPanelProps) {
   const [rdvs, setRdvs] = useState<RdvSuiviItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +102,7 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
       });
       setRdvs(result.rdvs);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur de chargement");
+      setError(err instanceof Error ? err.message : 'Erreur de chargement');
     } finally {
       setLoading(false);
     }
@@ -92,7 +114,7 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
 
   /** Un RDV « à renseigner » = passé et encore « à venir ». */
   const isPending = useCallback(
-    (r: RdvSuiviItem) => dayKey(r.start) < today && r.status === "a_venir",
+    (r: RdvSuiviItem) => dayKey(r.start) < today && r.status === 'a_venir',
     [today],
   );
 
@@ -125,7 +147,8 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
     return copy;
   }, [rdvs, isPending]);
 
-  const displayStatus = (r: RdvSuiviItem): StatusKey => (isPending(r) ? "pending" : r.status);
+  const displayStatus = (r: RdvSuiviItem): StatusKey =>
+    isPending(r) ? 'pending' : r.status;
 
   return (
     <GlassCard className="pilotage-panel rdv-status-panel">
@@ -133,7 +156,9 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
         <div>
           <h3>Statut des RDV</h3>
           <p className="pilotage-panel__hint">
-            {loading ? "Chargement…" : `${total} RDV sur la période sélectionnée.`}
+            {loading
+              ? 'Chargement…'
+              : `${total} RDV sur la période sélectionnée.`}
           </p>
         </div>
         {onOpenSuivi && (
@@ -143,7 +168,11 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
         )}
       </div>
 
-      {error && <p className="pilotage-empty" role="alert">Impossible de charger les statuts RDV.</p>}
+      {error && (
+        <p className="pilotage-empty" role="alert">
+          Impossible de charger les statuts RDV.
+        </p>
+      )}
 
       {!error && !loading && total === 0 && (
         <p className="pilotage-empty">Aucun RDV sur la période.</p>
@@ -152,7 +181,11 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
       {!error && total > 0 && (
         <>
           {/* Barre de répartition proportionnelle */}
-          <div className="rdv-status-bar" role="img" aria-label="Répartition des statuts RDV">
+          <div
+            className="rdv-status-bar"
+            role="img"
+            aria-label="Répartition des statuts RDV"
+          >
             {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => (
               <span
                 key={s}
@@ -171,7 +204,7 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
             {STATUS_ORDER.map((s) => (
               <span key={s} className="rdv-status-legend__item">
                 <span
-                  className={`rdv-status-legend__dot${s === "pending" ? " rdv-status-legend__dot--pulse" : ""}`}
+                  className={`rdv-status-legend__dot${s === 'pending' ? ' rdv-status-legend__dot--pulse' : ''}`}
                   style={{ background: STATUS_META[s].color }}
                 />
                 <strong className="xos-numeric">{counts[s]}</strong>
@@ -195,16 +228,32 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
               {sorted.slice(0, 12).map((r) => {
                 const s = displayStatus(r);
                 return (
-                  <tr key={r.sf_event_id} className={s === "pending" ? "rdv-status-row--pending" : undefined}>
+                  <tr
+                    key={r.sf_event_id}
+                    className={
+                      s === 'pending' ? 'rdv-status-row--pending' : undefined
+                    }
+                  >
                     <td className="xos-numeric">{formatWhen(r.start)}</td>
                     <td>
-                      <strong>{r.contact_name || "—"}</strong>
-                      {r.account_name && <span className="pilotage-muted"> · {r.account_name}</span>}
+                      <strong>{r.contact_name || '—'}</strong>
+                      {r.account_name && (
+                        <span className="pilotage-muted">
+                          {' '}
+                          · {r.account_name}
+                        </span>
+                      )}
                     </td>
-                    <td>{r.owner_name || "—"}</td>
+                    <td>{r.owner_name || '—'}</td>
                     <td className="pilotage-muted">{r.subject}</td>
                     <td>
-                      <span className="rdv-status-badge" style={{ color: STATUS_META[s].color, borderColor: STATUS_META[s].color }}>
+                      <span
+                        className="rdv-status-badge"
+                        style={{
+                          color: STATUS_META[s].color,
+                          borderColor: STATUS_META[s].color,
+                        }}
+                      >
                         {STATUS_META[s].label}
                       </span>
                     </td>
@@ -216,7 +265,8 @@ export function RdvStatusPanel({ token, period, anchor, teamSfUserIds, onOpenSui
 
           {total > 12 && (
             <p className="pilotage-muted rdv-status-more">
-              + {total - 12} autre{total - 12 > 1 ? "s" : ""} RDV — ouvrez le suivi pour tout voir.
+              + {total - 12} autre{total - 12 > 1 ? 's' : ''} RDV — ouvrez le
+              suivi pour tout voir.
             </p>
           )}
         </>

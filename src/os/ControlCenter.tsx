@@ -71,7 +71,9 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
   const pickerRootRef = useRef<HTMLDivElement>(null);
   const pickerButtonRefs = useRef(new Map<number, HTMLButtonElement>());
   const reactionButtonRefs = useRef(new Map<number, HTMLButtonElement>());
-  const [pendingOpenNotificationId, setPendingOpenNotificationId] = useState<number | null>(null);
+  const [pendingOpenNotificationId, setPendingOpenNotificationId] = useState<
+    number | null
+  >(null);
 
   const closePicker = useCallback(() => {
     if (pickerOpenId === null) return;
@@ -90,12 +92,16 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
             const readAt = new Date().toISOString();
             setItems((previous) =>
               previous.map((row) =>
-                row.id === id ? { ...row, read_at: row.read_at ?? readAt } : row,
+                row.id === id
+                  ? { ...row, read_at: row.read_at ?? readAt }
+                  : row,
               ),
             );
             setNotifications((previous) =>
               previous.map((row) =>
-                row.id === id ? { ...row, read_at: row.read_at ?? readAt } : row,
+                row.id === id
+                  ? { ...row, read_at: row.read_at ?? readAt }
+                  : row,
               ),
             );
             setUnread((count) => Math.max(0, count - 1));
@@ -170,7 +176,9 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
       // Render the Realtime row immediately so the toast is not held behind
       // a second authenticated round trip. Reconcile with the API in the
       // background for the authoritative list and unread count.
-      const alreadyPresent = itemsRef.current.some((item) => item.id === notification.id);
+      const alreadyPresent = itemsRef.current.some(
+        (item) => item.id === notification.id,
+      );
       if (!alreadyPresent) {
         processNotifications(
           [notification, ...itemsRef.current].slice(0, 40),
@@ -215,7 +223,9 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
 
   useEffect(() => {
     if (!open || pendingOpenNotificationId === null) return;
-    const item = items.find((candidate) => candidate.id === pendingOpenNotificationId);
+    const item = items.find(
+      (candidate) => candidate.id === pendingOpenNotificationId,
+    );
     if (!item || item.kind !== 'session_goal_hit') return;
     setPickerOpenId(item.id);
     setPendingOpenNotificationId(null);
@@ -344,10 +354,7 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
     ) {
       return false;
     }
-    if (
-      item.kind === 'goal_reaction' &&
-      consumedReactionIds.has(item.id)
-    ) {
+    if (item.kind === 'goal_reaction' && consumedReactionIds.has(item.id)) {
       return false;
     }
     const timestamp = reactedAt[item.id] ?? sharedReactedAt[item.id];
@@ -356,7 +363,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
 
   return (
     <div className="xos-cc">
-      <Button variant="icon"
+      <Button
+        variant="icon"
         type="button"
         className={`xos-cc__trigger${unread > 0 ? ' xos-cc__trigger--badge' : ''}`}
         aria-expanded={open}
@@ -380,7 +388,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
 
       {open && (
         <>
-          <Button variant="ghost"
+          <Button
+            variant="ghost"
             type="button"
             className="xos-cc__backdrop"
             aria-label="Fermer le centre de notifications"
@@ -398,7 +407,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
               </div>
               <div className="xos-cc__head-actions">
                 {unread > 0 && (
-                  <Button variant="ghost"
+                  <Button
+                    variant="ghost"
                     type="button"
                     className="xos-cc__linkbtn"
                     onClick={() => void markAll()}
@@ -406,7 +416,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                     Tout marquer lu
                   </Button>
                 )}
-                <Button variant="icon"
+                <Button
+                  variant="icon"
                   type="button"
                   className="xos-cc__close"
                   aria-label="Fermer"
@@ -444,7 +455,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                     ? Object.fromEntries(
                         Object.entries(item.payload.params).filter(
                           ([key, value]) =>
-                            typeof key === 'string' && typeof value === 'string',
+                            typeof key === 'string' &&
+                            typeof value === 'string',
                         ),
                       )
                     : null;
@@ -490,12 +502,18 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                           aria-label="Réagir"
                         >
                           {QUICK_REACTION_EMOJIS.map((emoji) => (
-                            <Button variant="icon"
+                            <Button
+                              variant="icon"
                               key={emoji}
                               ref={(button) => {
                                 if (emoji === QUICK_REACTION_EMOJIS[0]) {
-                                  if (button) reactionButtonRefs.current.set(item.id, button);
-                                  else reactionButtonRefs.current.delete(item.id);
+                                  if (button)
+                                    reactionButtonRefs.current.set(
+                                      item.id,
+                                      button,
+                                    );
+                                  else
+                                    reactionButtonRefs.current.delete(item.id);
                                 }
                               }}
                               type="button"
@@ -516,7 +534,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                             }
                             className="xos-cc__react-picker"
                           >
-                            <Button variant="icon"
+                            <Button
+                              variant="icon"
                               ref={(button) => {
                                 if (button) {
                                   pickerButtonRefs.current.set(item.id, button);
@@ -548,7 +567,8 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                                 aria-label="Autres réactions"
                               >
                                 {PICKER_REACTION_EMOJIS.map((emoji) => (
-                                  <Button variant="icon"
+                                  <Button
+                                    variant="icon"
                                     key={emoji}
                                     type="button"
                                     role="menuitem"
@@ -596,19 +616,24 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                         </a>
                       )}
                       {actionParams && onOpenApp && (
-                        <Button variant="secondary"
+                        <Button
+                          variant="secondary"
                           type="button"
                           className="xos-cc__sf"
                           onClick={() => {
                             if (unreadItem) void markOne(item.id);
-                            onOpenApp(item.payload.app_id as string, actionParams);
+                            onOpenApp(
+                              item.payload.app_id as string,
+                              actionParams,
+                            );
                           }}
                         >
                           Ouvrir la séance
                         </Button>
                       )}
                       {unreadItem && (
-                        <Button variant="ghost"
+                        <Button
+                          variant="ghost"
                           type="button"
                           className="xos-cc__linkbtn"
                           onClick={() => void markOne(item.id)}

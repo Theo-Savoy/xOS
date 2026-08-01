@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RecapView } from "./RecapView";
-import { tomorrowParisIso, formatIsoDateFr } from "./formControls.helpers";
-import { comboXpStorageKey } from "./comboXp";
-import type { SessionContact, SessionDetail } from "./types";
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RecapView } from './RecapView';
+import { tomorrowParisIso, formatIsoDateFr } from './formControls.helpers';
+import { comboXpStorageKey } from './comboXp';
+import type { SessionContact, SessionDetail } from './types';
 
 function installLocalStorage() {
   const store: Record<string, string> = {};
-  Object.defineProperty(window, "localStorage", {
+  Object.defineProperty(window, 'localStorage', {
     configurable: true,
     value: {
       getItem: (key: string) => store[key] ?? null,
@@ -30,10 +30,10 @@ afterEach(cleanup);
 
 const baseSession: SessionDetail = {
   id: 1,
-  name: "Séance test",
-  status: "active",
-  created_at: "2026-07-10T09:00:00Z",
-  engaged_at: "2026-07-10T09:00:00Z",
+  name: 'Séance test',
+  status: 'active',
+  created_at: '2026-07-10T09:00:00Z',
+  engaged_at: '2026-07-10T09:00:00Z',
 };
 
 function contact(overrides: Partial<SessionContact>): SessionContact {
@@ -41,27 +41,30 @@ function contact(overrides: Partial<SessionContact>): SessionContact {
     id: overrides.id ?? 1,
     position: 1,
     sf_contact_id: `003${overrides.id ?? 1}`,
-    sf_account_id: "001",
-    contact_name: "Alice Martin",
-    account_name: "Acme",
-    phone: "0102030405",
+    sf_account_id: '001',
+    contact_name: 'Alice Martin',
+    account_name: 'Acme',
+    phone: '0102030405',
     title: null,
     linkedin_url: null,
-    status: "called",
-    outcome: "RDV planifié",
+    status: 'called',
+    outcome: 'RDV planifié',
     comments: null,
     sf_task_id: null,
     sf_event_id: null,
-    called_at: "2026-07-10T09:10:00Z",
+    called_at: '2026-07-10T09:10:00Z',
     ...overrides,
   };
 }
 
 const noop = vi.fn();
 
-describe("RecapView nudges", () => {
-  it("always shows the pace nudge when calls were logged", () => {
-    const contacts = [contact({ id: 1, called_at: "2026-07-10T09:10:00Z" }), contact({ id: 2, called_at: "2026-07-10T09:20:00Z" })];
+describe('RecapView nudges', () => {
+  it('always shows the pace nudge when calls were logged', () => {
+    const contacts = [
+      contact({ id: 1, called_at: '2026-07-10T09:10:00Z' }),
+      contact({ id: 2, called_at: '2026-07-10T09:20:00Z' }),
+    ];
     render(
       <RecapView
         session={baseSession}
@@ -73,10 +76,12 @@ describe("RecapView nudges", () => {
         onCreateFollowUp={noop}
       />,
     );
-    expect(screen.getByText(/appels\/min · \d+ min\/appel en moyenne/)).toBeTruthy();
+    expect(
+      screen.getByText(/appels\/min · \d+ min\/appel en moyenne/),
+    ).toBeTruthy();
   });
 
-  it("shows a positive new-record nudge when the weekly stats say so", () => {
+  it('shows a positive new-record nudge when the weekly stats say so', () => {
     const contacts = [contact({ id: 1 })];
     render(
       <RecapView
@@ -90,7 +95,9 @@ describe("RecapView nudges", () => {
         onCreateFollowUp={noop}
       />,
     );
-    expect(screen.getByText("Nouveau record hebdo : 124 appels cette semaine")).toBeTruthy();
+    expect(
+      screen.getByText('Nouveau record hebdo : 124 appels cette semaine'),
+    ).toBeTruthy();
   });
 
   it("frames a non-record week as 'dans ta moyenne', never as underperforming", () => {
@@ -107,12 +114,17 @@ describe("RecapView nudges", () => {
         onCreateFollowUp={noop}
       />,
     );
-    expect(screen.getByText(/Tu es dans ta moyenne, .* appels\/min/)).toBeTruthy();
+    expect(
+      screen.getByText(/Tu es dans ta moyenne, .* appels\/min/),
+    ).toBeTruthy();
     expect(screen.queryByText(/n'as pas battu/)).toBeNull();
   });
 
-  it("suggests a follow-up session for uncontacted contacts", () => {
-    const contacts = [contact({ id: 1 }), contact({ id: 2, status: "pending", called_at: null, outcome: null })];
+  it('suggests a follow-up session for uncontacted contacts', () => {
+    const contacts = [
+      contact({ id: 1 }),
+      contact({ id: 2, status: 'pending', called_at: null, outcome: null }),
+    ];
     render(
       <RecapView
         session={baseSession}
@@ -125,14 +137,22 @@ describe("RecapView nudges", () => {
       />,
     );
     const expectedDate = formatIsoDateFr(tomorrowParisIso());
-    expect(screen.getByText(new RegExp(`1 contact non contacté — créer la séance de relance du ${expectedDate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\?`))).toBeTruthy();
+    expect(
+      screen.getByText(
+        new RegExp(
+          `1 contact non contacté — créer la séance de relance du ${expectedDate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\?`,
+        ),
+      ),
+    ).toBeTruthy();
   });
 
-  it("flags a session closed while contacts were still pending, without moralizing", () => {
-    const contacts = [contact({ id: 1, status: "pending", called_at: null, outcome: null })];
+  it('flags a session closed while contacts were still pending, without moralizing', () => {
+    const contacts = [
+      contact({ id: 1, status: 'pending', called_at: null, outcome: null }),
+    ];
     render(
       <RecapView
-        session={{ ...baseSession, status: "completed" }}
+        session={{ ...baseSession, status: 'completed' }}
         contacts={contacts}
         followUpLoading={false}
         error={null}
@@ -141,14 +161,24 @@ describe("RecapView nudges", () => {
         onCreateFollowUp={noop}
       />,
     );
-    expect(screen.getByText("Séance clôturée sans être terminée — 1 contact à trancher")).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Séance clôturée sans être terminée — 1 contact à trancher',
+      ),
+    ).toBeTruthy();
     expect(screen.queryByText(/aurais pu/)).toBeNull();
   });
 
-  it("shows the combo XP block with per-axis paliers and the last unlocked badge", () => {
+  it('shows the combo XP block with per-axis paliers and the last unlocked badge', () => {
     window.localStorage.setItem(
-      comboXpStorageKey("user-1"),
-      JSON.stringify({ vitesse: 10, impact: 30, regularite: 3, badges: ["premier_pas"], lastSeen: "" }),
+      comboXpStorageKey('user-1'),
+      JSON.stringify({
+        vitesse: 10,
+        impact: 30,
+        regularite: 3,
+        badges: ['premier_pas'],
+        lastSeen: '',
+      }),
     );
     const contacts = [contact({ id: 1 })];
     render(
@@ -162,7 +192,13 @@ describe("RecapView nudges", () => {
         onCreateFollowUp={noop}
       />,
     );
-    expect(screen.getByText("Vitesse · Bronze | Impact · Bronze | Régularité · Bronze")).toBeTruthy();
-    expect(screen.getByText(/Dernier badge débloqué : 🐣 Premier pas/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Vitesse · Bronze | Impact · Bronze | Régularité · Bronze',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Dernier badge débloqué : 🐣 Premier pas/),
+    ).toBeTruthy();
   });
 });

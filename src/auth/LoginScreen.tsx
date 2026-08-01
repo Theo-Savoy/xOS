@@ -1,41 +1,46 @@
-import { useState } from "react";
-import logoXos from "../assets/logo-xos.png";
-import { Button } from "../components/ui";
-import { supabase } from "../lib/supabase";
-import "./login.css";
+import { useState } from 'react';
+import logoXos from '../assets/logo-xos.png';
+import { Button } from '../components/ui';
+import { supabase } from '../lib/supabase';
+import './login.css';
 
-const ALLOWED_DOMAIN = "xos-learning.fr";
+const ALLOWED_DOMAIN = 'xos-learning.fr';
 
 /** Provider OIDC custom Supabase (Phase 8.1) — issuer = My Domain de l'org. */
-export const SALESFORCE_PROVIDER = "custom:salesforce";
+export const SALESFORCE_PROVIDER = 'custom:salesforce';
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   domain_not_allowed: `Seules les adresses @${ALLOWED_DOMAIN} sont autorisées.`,
-  oauth_denied: "Connexion Salesforce annulée.",
-  sf_email_mismatch: "L'email Salesforce ne correspond pas à un compte X OS autorisé.",
-  server_error: "Impossible de démarrer la connexion Salesforce. Réessayez.",
+  oauth_denied: 'Connexion Salesforce annulée.',
+  sf_email_mismatch:
+    "L'email Salesforce ne correspond pas à un compte X OS autorisé.",
+  server_error: 'Impossible de démarrer la connexion Salesforce. Réessayez.',
 };
 
-function authErrorFromLocation(search: string, hash = ""): string | null {
-  const code = new URLSearchParams(search).get("auth_error");
-  if (code) return AUTH_ERROR_MESSAGES[code] ?? "La connexion a échoué. Réessayez.";
+function authErrorFromLocation(search: string, hash = ''): string | null {
+  const code = new URLSearchParams(search).get('auth_error');
+  if (code)
+    return AUTH_ERROR_MESSAGES[code] ?? 'La connexion a échoué. Réessayez.';
   // Échec OAuth Supabase : error/error_description reviennent en query ou en fragment.
   const params = new URLSearchParams(search || undefined);
-  const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
-  const description = params.get("error_description") ?? hashParams.get("error_description");
-  const oauthError = params.get("error") ?? hashParams.get("error");
+  const hashParams = new URLSearchParams(
+    hash.startsWith('#') ? hash.slice(1) : hash,
+  );
+  const description =
+    params.get('error_description') ?? hashParams.get('error_description');
+  const oauthError = params.get('error') ?? hashParams.get('error');
   if (description) return description;
-  if (oauthError) return "La connexion Salesforce a échoué. Réessayez.";
+  if (oauthError) return 'La connexion Salesforce a échoué. Réessayez.';
   return null;
 }
 
 export function LoginScreen() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sfLoading, setSfLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(() =>
-    typeof window !== "undefined"
+    typeof window !== 'undefined'
       ? authErrorFromLocation(window.location.search, window.location.hash)
       : null,
   );
@@ -50,7 +55,7 @@ export function LoginScreen() {
       provider: SALESFORCE_PROVIDER,
       options: {
         redirectTo: window.location.origin,
-        scopes: "openid email profile api refresh_token",
+        scopes: 'openid email profile api refresh_token',
       },
     });
     // Succès = redirection navigateur ; on ne repasse ici qu'en cas d'échec.
@@ -67,7 +72,7 @@ export function LoginScreen() {
     const normalized = email.trim().toLowerCase();
 
     if (!normalized) {
-      setError("Veuillez saisir une adresse email.");
+      setError('Veuillez saisir une adresse email.');
       return;
     }
 
@@ -97,8 +102,14 @@ export function LoginScreen() {
   return (
     <div className="login-screen">
       <div className="login-screen__backdrop" aria-hidden="true" />
-      <div className="login-screen__glow login-screen__glow--a" aria-hidden="true" />
-      <div className="login-screen__glow login-screen__glow--b" aria-hidden="true" />
+      <div
+        className="login-screen__glow login-screen__glow--a"
+        aria-hidden="true"
+      />
+      <div
+        className="login-screen__glow login-screen__glow--b"
+        aria-hidden="true"
+      />
 
       <div className="login-card xos-glass-card">
         <div className="login-card__brand">
@@ -117,15 +128,16 @@ export function LoginScreen() {
           <div className="login-card__success" role="status">
             <h2>Lien envoyé</h2>
             <p>
-              Vérifiez votre boîte mail <strong>{email.trim().toLowerCase()}</strong> et
-              ouvrez le lien pour accéder au bureau.
+              Vérifiez votre boîte mail{' '}
+              <strong>{email.trim().toLowerCase()}</strong> et ouvrez le lien
+              pour accéder au bureau.
             </p>
             <Button
               type="button"
               variant="secondary"
               onClick={() => {
                 setSent(false);
-                setEmail("");
+                setEmail('');
               }}
             >
               Utiliser une autre adresse
@@ -142,7 +154,9 @@ export function LoginScreen() {
                 onClick={() => void handleSalesforceLogin()}
               >
                 <SalesforceMark />
-                {sfLoading ? "Redirection vers Salesforce…" : "Se connecter avec Salesforce"}
+                {sfLoading
+                  ? 'Redirection vers Salesforce…'
+                  : 'Se connecter avec Salesforce'}
               </Button>
             </div>
 
@@ -165,7 +179,7 @@ export function LoginScreen() {
                 />
               </label>
               <Button type="submit" disabled={loading} className="login-submit">
-                {loading ? "Envoi en cours…" : "Recevoir un lien de connexion"}
+                {loading ? 'Envoi en cours…' : 'Recevoir un lien de connexion'}
               </Button>
             </form>
           </>

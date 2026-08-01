@@ -28,15 +28,15 @@ main                                                0fc7edc [origin/main]
 
 ### 2.2 Branches locales — verdict
 
-| Branche | SHA | Worktree | Verdict |
-|---|---|---|---|
-| `main` | `0fc7edc` | repo principal | **GARDER** — branche de prod |
-| `feat/determinism-hardening` | `0fc7edc` | aucun | **SUPPRIMER** — alignée sur main, pas d'apport |
-| `lot-a-backend` | `9d00638` | aucun | **À VÉRIFIER** — n'a pas bougé depuis longtemps, dev probable abandonné |
-| `lot-b-front` | `672e876` | aucun | **À VÉRIFIER** — idem |
-| `Theo-Savoy/auto-r-solution-issues-ouvertes-run-3-20260711T0009` | `7f576b0` | aucun | **À VÉRIFIER** — run auto d'il y a 5 jours |
-| `fix/c18-create-routing` | `58153c4` | `.worktrees/c18-create-routing` | **WORKTREE ORPHELIN** — SHA 58153c4 ≠ main, mais sans usage actuel. Vérifier si le travail a été mergé ou abandonné. |
-| `fix/c27-routing-repro` | `0fc7edc` | `.worktrees/c27-routing-repro` | **WORKTREE INUTILE** — aligné sur main, worktree peut être supprimé |
+| Branche                                                          | SHA       | Worktree                        | Verdict                                                                                                              |
+| ---------------------------------------------------------------- | --------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `main`                                                           | `0fc7edc` | repo principal                  | **GARDER** — branche de prod                                                                                         |
+| `feat/determinism-hardening`                                     | `0fc7edc` | aucun                           | **SUPPRIMER** — alignée sur main, pas d'apport                                                                       |
+| `lot-a-backend`                                                  | `9d00638` | aucun                           | **À VÉRIFIER** — n'a pas bougé depuis longtemps, dev probable abandonné                                              |
+| `lot-b-front`                                                    | `672e876` | aucun                           | **À VÉRIFIER** — idem                                                                                                |
+| `Theo-Savoy/auto-r-solution-issues-ouvertes-run-3-20260711T0009` | `7f576b0` | aucun                           | **À VÉRIFIER** — run auto d'il y a 5 jours                                                                           |
+| `fix/c18-create-routing`                                         | `58153c4` | `.worktrees/c18-create-routing` | **WORKTREE ORPHELIN** — SHA 58153c4 ≠ main, mais sans usage actuel. Vérifier si le travail a été mergé ou abandonné. |
+| `fix/c27-routing-repro`                                          | `0fc7edc` | `.worktrees/c27-routing-repro`  | **WORKTREE INUTILE** — aligné sur main, worktree peut être supprimé                                                  |
 
 ### 2.3 Branches remote obsolètes (déjà mergées dans main)
 
@@ -45,6 +45,7 @@ git branch -r --merged main | grep -v "HEAD\|main"
 ```
 
 **À supprimer sur origin** (10+) :
+
 - `origin/cursor/calls-recall-session-ux-aac5`
 - `origin/cursor/cockpit-ux-followup-aac5`
 - `origin/cursor/list-view-stay-on-log-aac5`
@@ -79,20 +80,21 @@ worktree-fix-refresh-architecture fe27d72 [origin/worktree-fix-refresh-architect
 
 ### 3.1 Migrations locales vs appliquées
 
-| Fichier local | Appliqué en prod ? | Action |
-|---|---|---|
-| `001_initial_schema.sql` → `028_recette_journal.sql` | ✅ OUI | — |
-| `021_call_session_contacts_rdv_owner.sql` | ✅ OUI | — |
-| `029_lock_rls_service_role_tables.sql` | ✅ OUI | — |
-| `021_cleaner_v2.sql` | ❌ NON | code tourne sans → vérifier si nécessaire ou marquer `applied` |
-| `029_notification_dedupe.sql` | ❌ NON | idem |
-| **`030_combo_pre_session_engagement.sql`** | ❌ **NON** | **🔴 BLOQUANT — appliqée avant tout** |
+| Fichier local                                        | Appliqué en prod ? | Action                                                         |
+| ---------------------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `001_initial_schema.sql` → `028_recette_journal.sql` | ✅ OUI             | —                                                              |
+| `021_call_session_contacts_rdv_owner.sql`            | ✅ OUI             | —                                                              |
+| `029_lock_rls_service_role_tables.sql`               | ✅ OUI             | —                                                              |
+| `021_cleaner_v2.sql`                                 | ❌ NON             | code tourne sans → vérifier si nécessaire ou marquer `applied` |
+| `029_notification_dedupe.sql`                        | ❌ NON             | idem                                                           |
+| **`030_combo_pre_session_engagement.sql`**           | ❌ **NON**         | **🔴 BLOQUANT — appliqée avant tout**                          |
 
 ### 3.2 Migration 030 — bloquant P0
 
 **Cause** : la migration existe en local depuis le commit `d89a5e1` (17:59:15) mais n'a jamais été poussée vers la prod.
 
 **Impact** :
+
 - La table `call_sessions` n'a PAS les colonnes `engaged_at` ni `rdv_goal` en prod.
 - L'API `api/_calls/http.js:175`, `:280` et `api/_calls/sessionsRead.js:101`, `:429` font tous des `.select("...engaged_at, rdv_goal")`. PostgREST renvoie une erreur ou la colonne est absente du résultat → tous les reads/write de sessions échouent silencieusement côté frontend.
 - Conséquence : ta "redirection figée après création séance" — `data.session.engaged_at` est `undefined` au lieu de `null`, donc `shouldShowPreSession()` (src/apps/calls/sessionLifecycle.ts:12) retourne `false` parce que `undefined !== null`, et le code tombe sur `setView("sessions")` au lieu de `setView("pre-session")`.
@@ -112,6 +114,7 @@ La prod a eu 25 migrations timestamps (`20260710020943`, `20260710020954`, etc.)
 **Symptôme** : la modale pré-séance a un rendu incohérent (glassmorphisme partiel, layout qui se superpose).
 
 **Cause** :
+
 - `src/apps/calls/calls.css` (4681 lignes) définit **58 classes** `.calls-pre-session*`
 - `src/apps/calls/PreSessionFlow.tsx` (294 lignes) n'en utilise que **28**
 - **~30 classes CSS orphelines** (jamais rendues par le TSX actuel), vestige de 2 refontes parallèles non fusionnées :
@@ -120,7 +123,8 @@ La prod a eu 25 migrations timestamps (`20260710020943`, `20260710020954`, etc.)
   - `.calls-pre-session__stage`, `.calls-pre-session__stage-kicker` → variants "stage" jamais utilisés
   - `.calls-pre-session__objective-picker`, `.calls-pre-session__objective-label` → ancien layout d'objectif
 
-**Impact** : 
+**Impact** :
+
 - Le stepper que tu vois sur l'écran n'est PAS celui des 3 phases promises — c'est un H2 géant "Aujourd'hui, tu appelles" + une grille 2 colonnes (briefing-head + briefing-grid)
 - Le glassmorphisme fonctionne pour le fond du panel (`.calls-modal__panel` ligne 537 a `backdrop-filter: blur(28px) !important`) mais l'inner ne suit pas → tu vois le cockpit au travers
 - Les animations "stage forward/backward" du CSS (lignes ~700) ne sont jamais déclenchées par le TSX
@@ -156,6 +160,7 @@ La prod a eu 25 migrations timestamps (`20260710020943`, `20260710020954`, etc.)
 ### F005 — `ts-prune` / code mort potentiel
 
 `ts-prune` n'a pas été exécuté (pas installé). Mais la grep rapide montre :
+
 - `src/apps/calls/comboOverlay.ts` (et son usage `useComboOverlay`) — vérifier que le hook est utilisé ailleurs que dans PreSessionFlow
 - `src/apps/calls/sessionLifecycle.ts` — exporte `shouldShowPreSession`, `sessionDayKey`, `isStaleSession` ; à grep tous les usages
 

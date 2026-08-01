@@ -1,4 +1,4 @@
-import { Button } from "../../components/ui";
+import { Button } from '../../components/ui';
 import {
   COMBO_SOUND_GROUP_HINTS,
   COMBO_SOUND_GROUP_LABELS,
@@ -7,32 +7,39 @@ import {
   type ComboSoundGroup,
   type ComboSoundPrefs,
   writeSoundPrefs,
-} from "./comboSoundPrefs";
-import { playComboSound } from "./comboSounds";
+} from './comboSoundPrefs';
+import { playComboSound } from './comboSounds';
 
-const GROUP_ORDER: ComboSoundGroup[] = ["log", "rdv", "result", "navigation", "warn", "demo"];
+const GROUP_ORDER: ComboSoundGroup[] = [
+  'log',
+  'rdv',
+  'result',
+  'navigation',
+  'warn',
+  'demo',
+];
 
 type ComboSoundSettingsProps = {
   prefs: ComboSoundPrefs;
   onChange: (next: ComboSoundPrefs) => void;
   masterEnabled: boolean;
-  variant?: "default" | "cmdk";
+  variant?: 'default' | 'cmdk';
 };
 
 export function ComboSoundSettings({
   prefs,
   onChange,
   masterEnabled,
-  variant = "default",
+  variant = 'default',
 }: ComboSoundSettingsProps) {
   const setGroup = (group: ComboSoundGroup, enabled: boolean) => {
     const next = { ...prefs, [group]: enabled };
     onChange(next);
     writeSoundPrefs(next);
     if (enabled && masterEnabled) {
-      if (group === "result") playComboSound("result-pick");
-      else if (group === "log") playComboSound("success");
-      else if (group === "navigation") playComboSound("nav");
+      if (group === 'result') playComboSound('result-pick');
+      else if (group === 'log') playComboSound('success');
+      else if (group === 'navigation') playComboSound('nav');
     }
   };
 
@@ -42,18 +49,20 @@ export function ComboSoundSettings({
   };
 
   return (
-    <div className={`calls-sound-prefs${variant === "cmdk" ? " calls-sound-prefs--cmdk" : ""}`}>
-      {variant !== "cmdk" && (
+    <div
+      className={`calls-sound-prefs${variant === 'cmdk' ? ' calls-sound-prefs--cmdk' : ''}`}
+    >
+      {variant !== 'cmdk' && (
         <div className="calls-sound-prefs__head">
           <h4>Sons</h4>
           <p className="calls-muted">
             {masterEnabled
-              ? "Affinez par catégorie — le mute global reste dans la command bar."
-              : "Sons coupés globalement — réactivez-les via la command bar (⌘K)."}
+              ? 'Affinez par catégorie — le mute global reste dans la command bar.'
+              : 'Sons coupés globalement — réactivez-les via la command bar (⌘K).'}
           </p>
         </div>
       )}
-      {variant === "cmdk" && !masterEnabled && (
+      {variant === 'cmdk' && !masterEnabled && (
         <p className="calls-muted calls-sound-prefs__cmdk-hint">
           Sons coupés — utilisez l&apos;action « Activer les sons » ci-dessus.
         </p>
@@ -87,8 +96,12 @@ export function ComboSoundSettings({
                 onChange={(e) => setGroup(group, e.target.checked)}
               />
               <span className="calls-sound-prefs__copy">
-                <span className="calls-sound-prefs__label">{COMBO_SOUND_GROUP_LABELS[group]}</span>
-                <span className="calls-muted calls-sound-prefs__hint">{COMBO_SOUND_GROUP_HINTS[group]}</span>
+                <span className="calls-sound-prefs__label">
+                  {COMBO_SOUND_GROUP_LABELS[group]}
+                </span>
+                <span className="calls-muted calls-sound-prefs__hint">
+                  {COMBO_SOUND_GROUP_HINTS[group]}
+                </span>
               </span>
             </label>
           </li>

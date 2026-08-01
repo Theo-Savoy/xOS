@@ -1,15 +1,17 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, type RefObject } from 'react';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function getFocusableElements(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => {
-    if (el.tabIndex < 0) return false;
-    if (el.getAttribute("aria-hidden") === "true") return false;
-    if (el.closest("[aria-hidden='true']")) return false;
-    return el.offsetParent !== null || el === document.activeElement;
-  });
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => {
+      if (el.tabIndex < 0) return false;
+      if (el.getAttribute('aria-hidden') === 'true') return false;
+      if (el.closest("[aria-hidden='true']")) return false;
+      return el.offsetParent !== null || el === document.activeElement;
+    },
+  );
 }
 
 /** Focus trap + Esc + body scroll lock for full-screen overlays (glass Modal, Combo). */
@@ -22,9 +24,12 @@ export function useComboOverlay(
   useEffect(() => {
     if (!open) return;
 
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = 'hidden';
 
     const focusInitial = () => {
       const preferred = options?.initialFocusRef?.current;
@@ -39,13 +44,13 @@ export function useComboOverlay(
     const focusTimer = window.setTimeout(focusInitial, 10);
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
         onEscape();
         return;
       }
-      if (event.key !== "Tab") return;
+      if (event.key !== 'Tab') return;
       const root = rootRef.current;
       if (!root) return;
       const items = getFocusableElements(root);
@@ -64,10 +69,10 @@ export function useComboOverlay(
       }
     };
 
-    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener('keydown', onKeyDown, true);
     return () => {
       window.clearTimeout(focusTimer);
-      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener('keydown', onKeyDown, true);
       document.body.style.overflow = previousOverflow;
       previous?.focus?.();
     };

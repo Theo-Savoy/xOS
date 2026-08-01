@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Button, GlassCard, Tag } from "../../components/ui";
+import { useMemo, useState } from 'react';
+import { Button, GlassCard, Tag } from '../../components/ui';
 import {
   CONTACT_LIMIT_OPTIONS,
   CONTACT_LIST_UNLIMITED,
@@ -16,12 +16,12 @@ import {
   type ContactLimit,
   type FilterTree,
   type MaxPerCompany,
-} from "../../crm";
-import { getOpportunityFilterGuidance } from "../../crm/opportunityFilters";
-import { isAccountOwnerFilterCandidate } from "./accountOwners";
-import { ChipGroup, PicklistMultiSelect, TriState } from "./filterControls";
-import { asOptions } from "./filterControls.helpers";
-import type { TeamMember } from "./types";
+} from '../../crm';
+import { getOpportunityFilterGuidance } from '../../crm/opportunityFilters';
+import { isAccountOwnerFilterCandidate } from './accountOwners';
+import { ChipGroup, PicklistMultiSelect, TriState } from './filterControls';
+import { asOptions } from './filterControls.helpers';
+import type { TeamMember } from './types';
 
 type FilterBuilderProps = {
   filters: FilterTree;
@@ -47,10 +47,12 @@ type FilterBuilderProps = {
 };
 
 function limitLabel(limit: ContactLimit): string {
-  return limit === CONTACT_LIST_UNLIMITED ? "Pas de limite (max 2000)" : String(limit);
+  return limit === CONTACT_LIST_UNLIMITED
+    ? 'Pas de limite (max 2000)'
+    : String(limit);
 }
 
-function countEntrepriseFilters(entreprise: FilterTree["entreprise"]): number {
+function countEntrepriseFilters(entreprise: FilterTree['entreprise']): number {
   let count = 0;
   if (entreprise.secteurs.length) count += 1;
   if (entreprise.effectifs.length) count += 1;
@@ -64,7 +66,7 @@ function countEntrepriseFilters(entreprise: FilterTree["entreprise"]): number {
   return count;
 }
 
-function countContactFilters(contact: FilterTree["contact"]): number {
+function countContactFilters(contact: FilterTree['contact']): number {
   let count = 0;
   // Defaults (téléphone + exclure NPA) don't count as "active" filters.
   if (!contact.a_telephone) count += 1;
@@ -74,7 +76,7 @@ function countContactFilters(contact: FilterTree["contact"]): number {
   return count;
 }
 
-function countRelanceFilters(relance: FilterTree["relance"]): number {
+function countRelanceFilters(relance: FilterTree['relance']): number {
   let count = 0;
   if (relance.jamais_appele !== null) count += 1;
   if (relance.dernier_appel_avant_jours !== null) count += 1;
@@ -90,7 +92,10 @@ function SectionSummary({ title, count }: { title: string; count: number }) {
       <span className="calls-fb-section__title">
         {title}
         {count > 0 && (
-          <span className="calls-fb-section__badge" aria-label={`${count} filtre${count > 1 ? "s" : ""} actif${count > 1 ? "s" : ""}`}>
+          <span
+            className="calls-fb-section__badge"
+            aria-label={`${count} filtre${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}`}
+          >
             {count}
           </span>
         )}
@@ -121,25 +126,27 @@ export function FilterBuilder({
   onDeletePreset,
   team = [],
 }: FilterBuilderProps) {
-  const [presetName, setPresetName] = useState("");
+  const [presetName, setPresetName] = useState('');
   const [presetShared, setPresetShared] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState('');
 
-  const setEntreprise = (patch: Partial<FilterTree["entreprise"]>) =>
+  const setEntreprise = (patch: Partial<FilterTree['entreprise']>) =>
     onChange({ ...filters, entreprise: { ...filters.entreprise, ...patch } });
-  const setContact = (patch: Partial<FilterTree["contact"]>) =>
+  const setContact = (patch: Partial<FilterTree['contact']>) =>
     onChange({ ...filters, contact: { ...filters.contact, ...patch } });
-  const setRelance = (patch: Partial<FilterTree["relance"]>) =>
+  const setRelance = (patch: Partial<FilterTree['relance']>) =>
     onChange({ ...filters, relance: { ...filters.relance, ...patch } });
 
   const handleSavePreset = () => {
     const name = presetName.trim();
     if (!name) return;
     onSavePreset(name, presetShared);
-    setPresetName("");
+    setPresetName('');
     setPresetShared(false);
   };
-  const selectedPreset = presets.find((preset) => String(preset.id) === selectedPresetId);
+  const selectedPreset = presets.find(
+    (preset) => String(preset.id) === selectedPresetId,
+  );
   const entrepriseCount = countEntrepriseFilters(filters.entreprise);
   const contactCount = countContactFilters(filters.contact);
   const relanceCount = countRelanceFilters(filters.relance);
@@ -148,12 +155,16 @@ export function FilterBuilder({
     const seen = new Set<string>();
     const options: { value: string; label: string }[] = [];
     for (const member of team) {
-      if (!member.sf_user_id || !isAccountOwnerFilterCandidate(member.sf_user_id)) continue;
+      if (
+        !member.sf_user_id ||
+        !isAccountOwnerFilterCandidate(member.sf_user_id)
+      )
+        continue;
       if (seen.has(member.sf_user_id)) continue;
       seen.add(member.sf_user_id);
       options.push({ value: member.sf_user_id, label: member.label });
     }
-    return options.sort((a, b) => a.label.localeCompare(b.label, "fr"));
+    return options.sort((a, b) => a.label.localeCompare(b.label, 'fr'));
   }, [team]);
 
   return (
@@ -167,15 +178,19 @@ export function FilterBuilder({
             disabled={presetsLoading || presets.length === 0}
             onChange={(e) => {
               setSelectedPresetId(e.target.value);
-              const preset = presets.find((p) => String(p.id) === e.target.value);
+              const preset = presets.find(
+                (p) => String(p.id) === e.target.value,
+              );
               if (preset) onLoadPreset(preset);
             }}
           >
-            <option value="">{presetsLoading ? "Chargement…" : "— Charger un preset —"}</option>
+            <option value="">
+              {presetsLoading ? 'Chargement…' : '— Charger un preset —'}
+            </option>
             {presets.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
-                {p.shared ? " (partagé)" : ""}
+                {p.shared ? ' (partagé)' : ''}
               </option>
             ))}
           </select>
@@ -185,7 +200,7 @@ export function FilterBuilder({
             variant="secondary"
             onClick={() => {
               onDeletePreset(Number(selectedPresetId));
-              setSelectedPresetId("");
+              setSelectedPresetId('');
             }}
           >
             Supprimer
@@ -212,7 +227,7 @@ export function FilterBuilder({
             onClick={handleSavePreset}
             disabled={savingPreset || !presetName.trim()}
           >
-            {savingPreset ? "Sauvegarde…" : "Garder ce filtre pour plus tard"}
+            {savingPreset ? 'Sauvegarde…' : 'Garder ce filtre pour plus tard'}
           </Button>
         </div>
       </div>
@@ -259,10 +274,13 @@ export function FilterBuilder({
               onChange={(proprietaires) => setEntreprise({ proprietaires })}
             />
           ) : team.length === 0 ? (
-            <p className="calls-muted calls-fb-hint">Propriétaire du compte — chargement de l&apos;équipe…</p>
+            <p className="calls-muted calls-fb-hint">
+              Propriétaire du compte — chargement de l&apos;équipe…
+            </p>
           ) : (
             <p className="calls-muted calls-fb-hint">
-              Propriétaire du compte — aucun identifiant Salesforce disponible pour l&apos;équipe.
+              Propriétaire du compte — aucun identifiant Salesforce disponible
+              pour l&apos;équipe.
             </p>
           )}
           <div className="calls-fb-row">
@@ -284,7 +302,11 @@ export function FilterBuilder({
           {(oppGuidance.hint || oppGuidance.note) && (
             <div className="calls-fb-opp-guidance" role="note">
               {oppGuidance.hint && <p>{oppGuidance.hint}</p>}
-              {oppGuidance.note && <p className="calls-fb-opp-guidance__note">{oppGuidance.note}</p>}
+              {oppGuidance.note && (
+                <p className="calls-fb-opp-guidance__note">
+                  {oppGuidance.note}
+                </p>
+              )}
             </div>
           )}
           <label className="calls-field">
@@ -292,9 +314,11 @@ export function FilterBuilder({
             <input
               type="text"
               className="calls-input"
-              value={filters.entreprise.compte_principal ?? ""}
+              value={filters.entreprise.compte_principal ?? ''}
               onChange={(e) =>
-                setEntreprise({ compte_principal: e.target.value.trim() || null })
+                setEntreprise({
+                  compte_principal: e.target.value.trim() || null,
+                })
               }
               placeholder="001…"
             />
@@ -322,7 +346,10 @@ export function FilterBuilder({
           <ChipGroup
             label="Fonction"
             hint="Presets sur le poste (OR entre les cases cochées)"
-            options={FONCTION_PRESETS.map((preset) => ({ value: preset.id, label: preset.label }))}
+            options={FONCTION_PRESETS.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+            }))}
             value={filters.contact.fonctions}
             onChange={(fonctions) => setContact({ fonctions })}
           />
@@ -341,13 +368,16 @@ export function FilterBuilder({
         <SectionSummary title="Relance" count={relanceCount} />
         <div className="calls-fb-section__body">
           <p className="calls-fb-hint">
-            Filtres d&apos;historique d&apos;appel appliqués après la requête CRM (limite Salesforce sur les tâches).
+            Filtres d&apos;historique d&apos;appel appliqués après la requête
+            CRM (limite Salesforce sur les tâches).
           </p>
           <label className="calls-checkbox">
             <input
               type="checkbox"
               checked={!!filters.relance.jamais_appele}
-              onChange={(e) => setRelance({ jamais_appele: e.target.checked ? true : null })}
+              onChange={(e) =>
+                setRelance({ jamais_appele: e.target.checked ? true : null })
+              }
             />
             Jamais appelé
           </label>
@@ -358,10 +388,12 @@ export function FilterBuilder({
                 type="number"
                 min={0}
                 className="calls-input"
-                value={filters.relance.dernier_appel_avant_jours ?? ""}
+                value={filters.relance.dernier_appel_avant_jours ?? ''}
                 onChange={(e) =>
                   setRelance({
-                    dernier_appel_avant_jours: e.target.value ? Number(e.target.value) : null,
+                    dernier_appel_avant_jours: e.target.value
+                      ? Number(e.target.value)
+                      : null,
                   })
                 }
               />
@@ -372,10 +404,12 @@ export function FilterBuilder({
                 type="number"
                 min={0}
                 className="calls-input"
-                value={filters.relance.dernier_appel_dans_jours ?? ""}
+                value={filters.relance.dernier_appel_dans_jours ?? ''}
                 onChange={(e) =>
                   setRelance({
-                    dernier_appel_dans_jours: e.target.value ? Number(e.target.value) : null,
+                    dernier_appel_dans_jours: e.target.value
+                      ? Number(e.target.value)
+                      : null,
                   })
                 }
               />
@@ -394,12 +428,16 @@ export function FilterBuilder({
                 type="number"
                 min={0}
                 className="calls-input"
-                value={filters.relance.exclure_si_plus_de?.appels ?? ""}
+                value={filters.relance.exclure_si_plus_de?.appels ?? ''}
                 onChange={(e) => {
                   const appels = e.target.value ? Number(e.target.value) : null;
                   setRelance({
                     exclure_si_plus_de: appels
-                      ? { appels, sur_jours: filters.relance.exclure_si_plus_de?.sur_jours ?? 30 }
+                      ? {
+                          appels,
+                          sur_jours:
+                            filters.relance.exclure_si_plus_de?.sur_jours ?? 30,
+                        }
                       : null,
                   });
                 }}
@@ -412,7 +450,7 @@ export function FilterBuilder({
                 min={0}
                 className="calls-input"
                 disabled={!filters.relance.exclure_si_plus_de}
-                value={filters.relance.exclure_si_plus_de?.sur_jours ?? ""}
+                value={filters.relance.exclure_si_plus_de?.sur_jours ?? ''}
                 onChange={(e) =>
                   setRelance({
                     exclure_si_plus_de: filters.relance.exclure_si_plus_de
@@ -439,8 +477,8 @@ export function FilterBuilder({
             </Tag>
           ) : matchCount !== null ? (
             <Tag variant="accent">
-              {matchCountCapped ? "≥ " : ""}
-              {matchCount} contact{matchCount > 1 ? "s" : ""} dans les filtres
+              {matchCountCapped ? '≥ ' : ''}
+              {matchCount} contact{matchCount > 1 ? 's' : ''} dans les filtres
             </Tag>
           ) : (
             <Tag>Ajustez les filtres</Tag>
@@ -451,7 +489,9 @@ export function FilterBuilder({
           <select
             className="calls-select"
             value={contactLimit}
-            onChange={(e) => onContactLimitChange(Number(e.target.value) as ContactLimit)}
+            onChange={(e) =>
+              onContactLimitChange(Number(e.target.value) as ContactLimit)
+            }
           >
             {CONTACT_LIMIT_OPTIONS.map((limit) => (
               <option key={limit} value={limit}>
@@ -464,10 +504,12 @@ export function FilterBuilder({
           <span>Max / entreprise</span>
           <select
             className="calls-select"
-            value={maxPerCompany ?? ""}
+            value={maxPerCompany ?? ''}
             onChange={(e) => {
               const value = e.target.value;
-              onMaxPerCompanyChange(value ? (Number(value) as MaxPerCompany) : null);
+              onMaxPerCompanyChange(
+                value ? (Number(value) as MaxPerCompany) : null,
+              );
             }}
             aria-label="Maximum de contacts par entreprise"
           >
@@ -480,11 +522,13 @@ export function FilterBuilder({
           </select>
         </label>
         {previewLoading ? (
-          <Tag role="status" aria-live="polite">Mise à jour de la liste…</Tag>
+          <Tag role="status" aria-live="polite">
+            Mise à jour de la liste…
+          </Tag>
         ) : (
           previewCount !== null && (
             <Tag variant="accent">
-              Aperçu : {previewCount} contact{previewCount > 1 ? "s" : ""}
+              Aperçu : {previewCount} contact{previewCount > 1 ? 's' : ''}
             </Tag>
           )
         )}

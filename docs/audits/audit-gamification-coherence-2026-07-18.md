@@ -93,23 +93,23 @@ Méthode : revue statique exhaustive, recherche de tous les appels de production
 
 ### 2.1 Matrice des 18 seuils
 
-| Palier | Spec Vitesse | Code | Spec Impact | Code | Spec Régularité | Code | Verdict |
-|---|---:|---:|---:|---:|---:|---:|---|
-| Bronze | 10 | 10 | 3 | 3 | 3 | 3 | Conforme |
-| Argent | 30 | 30 | 7 | 7 | 7 | 7 | Conforme |
-| Or | 75 | 75 | 15 | 15 | 14 | 14 | Conforme |
-| Platine | 150 | 150 | 30 | 30 | 30 | 30 | Conforme |
-| Diamant | 300 | 300 | 60 | 60 | 60 | 60 | Conforme |
-| Challenger | 500 | 500 | 100 | 100 | 100 | 100 | Conforme |
+| Palier     | Spec Vitesse | Code | Spec Impact | Code | Spec Régularité | Code | Verdict  |
+| ---------- | -----------: | ---: | ----------: | ---: | --------------: | ---: | -------- |
+| Bronze     |           10 |   10 |           3 |    3 |               3 |    3 | Conforme |
+| Argent     |           30 |   30 |           7 |    7 |               7 |    7 | Conforme |
+| Or         |           75 |   75 |          15 |   15 |              14 |   14 | Conforme |
+| Platine    |          150 |  150 |          30 |   30 |              30 |   30 | Conforme |
+| Diamant    |          300 |  300 |          60 |   60 |              60 |   60 | Conforme |
+| Challenger |          500 |  500 |         100 |  100 |             100 |  100 | Conforme |
 
 Références : spec `docs/specs/combo-gamification-v1.md:40`, implémentation `src/apps/calls/comboXp.ts:35`.
 
 ### 2.2 Fonctions de palier
 
-| Fonction | Constat | Référence | Recommandation |
-|---|---|---|---|
-| `currentPalier` | Correcte sur valeurs finies/positives : renvoie le plus haut seuil atteint. | `src/apps/calls/comboXp.ts:84` | Ajouter les 18 bornes `seuil-1`, `seuil`, `seuil+1` et les valeurs invalides. |
-| `detectPaliers` | Conforme à `previous < threshold && new >= threshold`, y compris plusieurs seuils/axes en un saut. | `src/apps/calls/comboXp.ts:109` | Valider la monotonie et décider si un saut doit notifier chaque palier ou seulement le plus haut. |
+| Fonction         | Constat                                                                                                                                        | Référence                                                                | Recommandation                                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `currentPalier`  | Correcte sur valeurs finies/positives : renvoie le plus haut seuil atteint.                                                                    | `src/apps/calls/comboXp.ts:84`                                           | Ajouter les 18 bornes `seuil-1`, `seuil`, `seuil+1` et les valeurs invalides.                                          |
+| `detectPaliers`  | Conforme à `previous < threshold && new >= threshold`, y compris plusieurs seuils/axes en un saut.                                             | `src/apps/calls/comboXp.ts:109`                                          | Valider la monotonie et décider si un saut doit notifier chaque palier ou seulement le plus haut.                      |
 | `progressToNext` | Cohérente comme progression **intra-segment** ; à 30 Vitesse elle repart à 0 % entre Argent et Or. La spec illustre plutôt un cumul « 30/75 ». | `src/apps/calls/comboXp.ts:92`, `docs/specs/combo-gamification-v1.md:42` | Clarifier le contrat UX : pour « 30/75 », exposer `value`, `nextThreshold` et éventuellement un pourcentage cumulatif. |
 
 ### 2.3 Alignement des axes et duplications
@@ -121,26 +121,26 @@ Références : spec `docs/specs/combo-gamification-v1.md:40`, implémentation `s
 
 ## 3. Cohérence des 8 badges one-timer
 
-| Badge | Critère spec | Critère code | Couverture test | Verdict / recommandation |
-|---|---|---|---|---|
-| Premier pas | 1re séance complétée | `sessionsCompletedCount >= 1` | Oui | Conforme (`comboBadges.ts:31`). |
-| Éclair | 50 raccourcis dans une journée | `shortcutsUsedToday >= 50` | 49/50 | Conforme, mais le moteur amont journalier n'existe pas (`comboBadges.ts:32`). |
-| Trois banderilles | 3 RDV même séance | `rdvInCurrentSession >= 3` | 2/3 | Conforme, sous réserve de RDV réellement validés (`comboBadges.ts:33`). |
-| Lève-tôt | séance avant 9h Europe/Paris | booléen fourni par l'appelant | Cas vrai seulement | Critère conforme, mais aucune fonction ne calcule le fuseau/bord 08:59/09:00 (`comboBadges.ts:34`). |
-| Marathon | séance ≥ 50 contacts terminée | `contactsCompletedInSession >= 50` | 49/50 | Conforme (`comboBadges.ts:35`). |
-| Sang-froid | 10 NPA posées | `npaTotal >= 10` | 9/10 | Conforme (`comboBadges.ts:36`). |
-| Relais | défi collectif atteint | jamais décerné par Combo | Test d'exclusion | Conforme au hors-scope Arena (`comboBadges.ts:47`, spec §6). |
-| Mur des réussites | réussite signée opt-in | booléen fourni par l'appelant | Cas vrai seulement | Conforme (`comboBadges.ts:37`). |
+| Badge             | Critère spec                   | Critère code                       | Couverture test    | Verdict / recommandation                                                                            |
+| ----------------- | ------------------------------ | ---------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| Premier pas       | 1re séance complétée           | `sessionsCompletedCount >= 1`      | Oui                | Conforme (`comboBadges.ts:31`).                                                                     |
+| Éclair            | 50 raccourcis dans une journée | `shortcutsUsedToday >= 50`         | 49/50              | Conforme, mais le moteur amont journalier n'existe pas (`comboBadges.ts:32`).                       |
+| Trois banderilles | 3 RDV même séance              | `rdvInCurrentSession >= 3`         | 2/3                | Conforme, sous réserve de RDV réellement validés (`comboBadges.ts:33`).                             |
+| Lève-tôt          | séance avant 9h Europe/Paris   | booléen fourni par l'appelant      | Cas vrai seulement | Critère conforme, mais aucune fonction ne calcule le fuseau/bord 08:59/09:00 (`comboBadges.ts:34`). |
+| Marathon          | séance ≥ 50 contacts terminée  | `contactsCompletedInSession >= 50` | 49/50              | Conforme (`comboBadges.ts:35`).                                                                     |
+| Sang-froid        | 10 NPA posées                  | `npaTotal >= 10`                   | 9/10               | Conforme (`comboBadges.ts:36`).                                                                     |
+| Relais            | défi collectif atteint         | jamais décerné par Combo           | Test d'exclusion   | Conforme au hors-scope Arena (`comboBadges.ts:47`, spec §6).                                        |
+| Mur des réussites | réussite signée opt-in         | booléen fourni par l'appelant      | Cas vrai seulement | Conforme (`comboBadges.ts:37`).                                                                     |
 
 Les huit IDs sont couverts par les tests, mais `comboBadges.test.ts` ne teste pas « l'état persistant » demandé par la spec (`docs/specs/combo-gamification-v1.md:393`) : `checkBadges` est pur et aucun service n'ajoute les IDs retournés à `ComboXp.badges`. La one-time-ness dépend entièrement d'un `currentBadges` externe non validé (`src/apps/calls/comboBadges.ts:40`). Recommandation : garder `checkBadges` pur, mais tester et intégrer une transaction « détecter + fusionner sans doublon + persister ».
 
 ## 4. Cohérence des 3 streaks
 
-| Streak | Seuil/critère | Comportement actuel | Verdict / recommandation |
-|---|---|---|---|
-| Classique | jours Europe/Paris avec ≥1 log validé | Aujourd'hui compte ; si aujourd'hui est vide, hier maintient la série ; un trou antérieur casse ; doublons éliminés ; meilleur historique calculé. | Conforme pour dates valides (`comboStreaks.ts:21`). Il manque validation et intégration. |
-| Productif | séances récentes consécutives avec ≥3 RDV | Parcours de la fin du tableau tant que `rdvs >= 3`. | Conforme si l'appelant fournit les séances de la plus ancienne à la plus récente (`comboStreaks.ts:64`). L'ordre n'est ni documenté dans le type ni validé. |
-| Intense | séances récentes consécutives à ≥X appels | Même algorithme, seuil par défaut 20. | Algorithme conforme (`comboStreaks.ts:69`), mais 20 est une décision non figée : la spec laisse X ouvert (`docs/specs/combo-gamification-v1.md:457`). |
+| Streak    | Seuil/critère                             | Comportement actuel                                                                                                                                | Verdict / recommandation                                                                                                                                    |
+| --------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Classique | jours Europe/Paris avec ≥1 log validé     | Aujourd'hui compte ; si aujourd'hui est vide, hier maintient la série ; un trou antérieur casse ; doublons éliminés ; meilleur historique calculé. | Conforme pour dates valides (`comboStreaks.ts:21`). Il manque validation et intégration.                                                                    |
+| Productif | séances récentes consécutives avec ≥3 RDV | Parcours de la fin du tableau tant que `rdvs >= 3`.                                                                                                | Conforme si l'appelant fournit les séances de la plus ancienne à la plus récente (`comboStreaks.ts:64`). L'ordre n'est ni documenté dans le type ni validé. |
+| Intense   | séances récentes consécutives à ≥X appels | Même algorithme, seuil par défaut 20.                                                                                                              | Algorithme conforme (`comboStreaks.ts:69`), mais 20 est une décision non figée : la spec laisse X ouvert (`docs/specs/combo-gamification-v1.md:457`).       |
 
 Manquements associés :
 
@@ -150,12 +150,12 @@ Manquements associés :
 
 ## 5. Machine d'état nudge learning
 
-| Phase | Code | Écart à la spec |
-|---|---|---|
-| Intensive | `nudgesSeen = 0`, seuil global 5 | Correct pour K/J/⌘↵/?/1–5 ; incorrect pour L/F (3 attendus). « À chaque occurrence » n'est pas réellement possible : après le premier rappel vu, la phase change. |
-| Régulière | `nudgesSeen = 1`, 10 clics depuis reset, flag session | Seuil conforme. Le test de session n'est jamais exercé avec changement de session (`nudgeLearning.ts:217`). |
-| Espacée | `nudgesSeen = 2`, 30 clics depuis le deuxième reset, flag glissant 7 jours | Fréquence proche de « semaine », mais seuil cumulatif faux : 45 clics totaux. « Semaine » est interprétée comme 168 heures, non semaine calendaire (`nudgeLearning.ts:181`). |
-| Acceptée | `nudgesSeen >= 3`, silence | Conforme après trois appels à `markNudgeSeen` (`nudgeLearning.ts:211`). Il manque la branche adoption clavier. |
+| Phase     | Code                                                                       | Écart à la spec                                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intensive | `nudgesSeen = 0`, seuil global 5                                           | Correct pour K/J/⌘↵/?/1–5 ; incorrect pour L/F (3 attendus). « À chaque occurrence » n'est pas réellement possible : après le premier rappel vu, la phase change.            |
+| Régulière | `nudgesSeen = 1`, 10 clics depuis reset, flag session                      | Seuil conforme. Le test de session n'est jamais exercé avec changement de session (`nudgeLearning.ts:217`).                                                                  |
+| Espacée   | `nudgesSeen = 2`, 30 clics depuis le deuxième reset, flag glissant 7 jours | Fréquence proche de « semaine », mais seuil cumulatif faux : 45 clics totaux. « Semaine » est interprétée comme 168 heures, non semaine calendaire (`nudgeLearning.ts:181`). |
+| Acceptée  | `nudgesSeen >= 3`, silence                                                 | Conforme après trois appels à `markNudgeSeen` (`nudgeLearning.ts:211`). Il manque la branche adoption clavier.                                                               |
 
 La spec elle-même contient une tension : le tableau demande 10 actions depuis le dernier nudge en phase régulière (`docs/specs/combo-gamification-v1.md:183`), alors que l'exemple annonce un deuxième toast après seulement 5 clics supplémentaires (`docs/specs/combo-gamification-v1.md:196`). Les tests ont choisi 10 ; décision produit à figer avant correction.
 
@@ -192,25 +192,25 @@ La spec elle-même contient une tension : le tableau demande 10 actions depuis l
 
 ## 7. Edge cases non couverts — 17 familles
 
-| # | Cas | Risque actuel | Fichier:ligne | Recommandation de test |
-|---:|---|---|---|---|
-| 1 | Changement `userId` dans un composant monté | lecture d'un autre store au prochain rendu, sans test de fuite/état affiché | `useComboXp.ts:125`, `useNudgeLearning.ts:13` | rerender user A → B → logout et vérifier isolation/absence de données A |
-| 2 | Multi-device | aucune synchronisation, par design local-first | `comboXp.ts:51` | documenter explicitement le comportement, tester seulement l'isolation locale |
-| 3 | Logout sur appareil partagé | données personnelles restent dans localStorage | `comboXp.ts:51`, `nudgeLearning.ts:47` | décision produit : conserver ou purge explicite ; test de politique |
-| 4 | localStorage absent/refusé | XP retombe à zéro ; écriture silencieusement perdue | `comboXp.ts:59`, `comboXp.ts:76` | adapter qui lève sur getter/getItem/setItem |
-| 5 | Quota plein | `applyEvent` retourne un succès non persisté | `comboXp.ts:76`, `nudgeLearning.ts:121` | setItem qui lève `QuotaExceededError`, résultat doit signaler la non-persistance |
-| 6 | sessionStorage refusé | crash possible en phase régulière | `nudgeLearning.ts:165` | chaque opération storage doit lever séparément |
-| 7 | Store JSON corrompu ou mauvais types | fallback partiel côté moteur, coercions côté UI duplicat | `comboXp.ts:63`, `useComboXp.ts:83`, `nudgeLearning.ts:108` | fuzz minimal : null, tableau, strings, négatifs, phase forgée |
-| 8 | Date `todayParis` invalide | `RangeError` possible | `comboStreaks.ts:14` | vide, `not-a-date`, 2026-02-30 |
-| 9 | Date de log invalide/future | `bestEver` faux ou crash selon l'ordre | `comboStreaks.ts:42` | invalide seule, invalide mélangée, demain |
-| 10 | Frontières calendrier | risque de régression au changement mois/année/bissextile | `comboStreaks.ts:14` | 31/12→01/01, 28/02→01/03, 29/02 |
-| 11 | Événement XP runtime inconnu | axe `undefined`/état incohérent | `comboXp.ts:124` | forcer donnée désérialisée hors union TS |
-| 12 | Quantité XP 0/négative/fractionnaire/non finie | compteurs non monotones ou invalides | `comboXp.ts:122` | table de validation et refus explicite |
-| 13 | `checkBadges` avec état incomplet/null | faux négatifs silencieux ou crash sur null | `comboBadges.ts:30` | frontière runtime avec schéma validé |
-| 14 | `currentBadges` corrompu | badge déjà gagné potentiellement redécerné | `comboBadges.ts:40` | IDs inconnus, doublons, valeur non-tableau |
-| 15 | Concurrence deux onglets sur XP | read-modify-write perd une mutation | `comboXp.ts:123` | deux lectures du même état puis deux écritures, vérifier absence de lost update |
-| 16 | Concurrence deux onglets sur nudge | clics/rappels vus perdus, flags désynchronisés | `nudgeLearning.ts:155` | adapters intercalant deux transactions |
-| 17 | Mise à jour UI même onglet | pas de subscription/rerender garanti après écriture | `useComboXp.ts:155` | rendre CommandBar ouverte, muter store, attendre affichage mis à jour |
+|   # | Cas                                            | Risque actuel                                                               | Fichier:ligne                                               | Recommandation de test                                                           |
+| --: | ---------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+|   1 | Changement `userId` dans un composant monté    | lecture d'un autre store au prochain rendu, sans test de fuite/état affiché | `useComboXp.ts:125`, `useNudgeLearning.ts:13`               | rerender user A → B → logout et vérifier isolation/absence de données A          |
+|   2 | Multi-device                                   | aucune synchronisation, par design local-first                              | `comboXp.ts:51`                                             | documenter explicitement le comportement, tester seulement l'isolation locale    |
+|   3 | Logout sur appareil partagé                    | données personnelles restent dans localStorage                              | `comboXp.ts:51`, `nudgeLearning.ts:47`                      | décision produit : conserver ou purge explicite ; test de politique              |
+|   4 | localStorage absent/refusé                     | XP retombe à zéro ; écriture silencieusement perdue                         | `comboXp.ts:59`, `comboXp.ts:76`                            | adapter qui lève sur getter/getItem/setItem                                      |
+|   5 | Quota plein                                    | `applyEvent` retourne un succès non persisté                                | `comboXp.ts:76`, `nudgeLearning.ts:121`                     | setItem qui lève `QuotaExceededError`, résultat doit signaler la non-persistance |
+|   6 | sessionStorage refusé                          | crash possible en phase régulière                                           | `nudgeLearning.ts:165`                                      | chaque opération storage doit lever séparément                                   |
+|   7 | Store JSON corrompu ou mauvais types           | fallback partiel côté moteur, coercions côté UI duplicat                    | `comboXp.ts:63`, `useComboXp.ts:83`, `nudgeLearning.ts:108` | fuzz minimal : null, tableau, strings, négatifs, phase forgée                    |
+|   8 | Date `todayParis` invalide                     | `RangeError` possible                                                       | `comboStreaks.ts:14`                                        | vide, `not-a-date`, 2026-02-30                                                   |
+|   9 | Date de log invalide/future                    | `bestEver` faux ou crash selon l'ordre                                      | `comboStreaks.ts:42`                                        | invalide seule, invalide mélangée, demain                                        |
+|  10 | Frontières calendrier                          | risque de régression au changement mois/année/bissextile                    | `comboStreaks.ts:14`                                        | 31/12→01/01, 28/02→01/03, 29/02                                                  |
+|  11 | Événement XP runtime inconnu                   | axe `undefined`/état incohérent                                             | `comboXp.ts:124`                                            | forcer donnée désérialisée hors union TS                                         |
+|  12 | Quantité XP 0/négative/fractionnaire/non finie | compteurs non monotones ou invalides                                        | `comboXp.ts:122`                                            | table de validation et refus explicite                                           |
+|  13 | `checkBadges` avec état incomplet/null         | faux négatifs silencieux ou crash sur null                                  | `comboBadges.ts:30`                                         | frontière runtime avec schéma validé                                             |
+|  14 | `currentBadges` corrompu                       | badge déjà gagné potentiellement redécerné                                  | `comboBadges.ts:40`                                         | IDs inconnus, doublons, valeur non-tableau                                       |
+|  15 | Concurrence deux onglets sur XP                | read-modify-write perd une mutation                                         | `comboXp.ts:123`                                            | deux lectures du même état puis deux écritures, vérifier absence de lost update  |
+|  16 | Concurrence deux onglets sur nudge             | clics/rappels vus perdus, flags désynchronisés                              | `nudgeLearning.ts:155`                                      | adapters intercalant deux transactions                                           |
+|  17 | Mise à jour UI même onglet                     | pas de subscription/rerender garanti après écriture                         | `useComboXp.ts:155`                                         | rendre CommandBar ouverte, muter store, attendre affichage mis à jour            |
 
 ## 8. Qualité de code et cohérence inter-fichiers
 
@@ -248,14 +248,14 @@ Autres manquements fonctionnels :
 
 ## 10. Ambiguïtés internes de la spec à trancher
 
-| Sujet | Contradiction | Décision recommandée |
-|---|---|---|
-| Impact | 10 XP/RDV (`spec:32`) mais paliers en nombre de RDV (`spec:44`) | Stocker des événements/compteurs métier, dériver les XP de présentation ou convertir tous les seuils en XP. |
-| Bronze | seuil Bronze Vitesse = 10 (`spec:46`) mais « Bronze dès le premier raccourci » (`spec:405`) | Garder Bronze à 10 et afficher « progression vers Bronze » dès 1, ou ajouter un état débutant explicitement. |
-| Libellé progression | exemple « Bronze · 30/75 » (`spec:42`) alors que 30 atteint Argent | Afficher « Argent · 30/75 vers Or » ou supprimer le nom atteint dans cette formulation. |
-| Jour férié | reset sur toute journée vide (`spec:154`) mais streak ne casse pas un jour férié (`spec:402`) | Choisir une règle unique, calculable sans calendrier caché. |
-| Nudge régulier | tableau = 10 depuis dernier nudge (`spec:183`), exemple = 5 clics de plus (`spec:196`) | Conserver 10, plus sobre, puis corriger l'exemple. |
-| Intense/composites | seuil intense X ouvert et paliers composites non chiffrés (`spec:167`, question ouverte §10) | Figer `20 appels` et une table de paliers avant d'exposer les labels. |
+| Sujet               | Contradiction                                                                                 | Décision recommandée                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Impact              | 10 XP/RDV (`spec:32`) mais paliers en nombre de RDV (`spec:44`)                               | Stocker des événements/compteurs métier, dériver les XP de présentation ou convertir tous les seuils en XP.  |
+| Bronze              | seuil Bronze Vitesse = 10 (`spec:46`) mais « Bronze dès le premier raccourci » (`spec:405`)   | Garder Bronze à 10 et afficher « progression vers Bronze » dès 1, ou ajouter un état débutant explicitement. |
+| Libellé progression | exemple « Bronze · 30/75 » (`spec:42`) alors que 30 atteint Argent                            | Afficher « Argent · 30/75 vers Or » ou supprimer le nom atteint dans cette formulation.                      |
+| Jour férié          | reset sur toute journée vide (`spec:154`) mais streak ne casse pas un jour férié (`spec:402`) | Choisir une règle unique, calculable sans calendrier caché.                                                  |
+| Nudge régulier      | tableau = 10 depuis dernier nudge (`spec:183`), exemple = 5 clics de plus (`spec:196`)        | Conserver 10, plus sobre, puis corriger l'exemple.                                                           |
+| Intense/composites  | seuil intense X ouvert et paliers composites non chiffrés (`spec:167`, question ouverte §10)  | Figer `20 appels` et une table de paliers avant d'exposer les labels.                                        |
 
 ## 11. Plan de correction recommandé
 

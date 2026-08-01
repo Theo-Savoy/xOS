@@ -60,16 +60,25 @@ export function BulkActionBar({
         aria-label="Commandes disponibles"
       >
         {capabilities.canReassign ? (
-          <Button variant="secondary" onClick={() => onStartAction('reassign-owner')}>
+          <Button
+            variant="secondary"
+            onClick={() => onStartAction('reassign-owner')}
+          >
             Réassigner le propriétaire
           </Button>
         ) : null}
         {capabilities.canBulkEdit ? (
           <>
-            <Button variant="secondary" onClick={() => onStartAction('close-date')}>
+            <Button
+              variant="secondary"
+              onClick={() => onStartAction('close-date')}
+            >
               Modifier la date de clôture
             </Button>
-            <Button variant="secondary" onClick={() => onStartAction('sale-type')}>
+            <Button
+              variant="secondary"
+              onClick={() => onStartAction('sale-type')}
+            >
               Modifier le type de vente
             </Button>
           </>

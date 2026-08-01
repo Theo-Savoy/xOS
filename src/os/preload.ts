@@ -4,14 +4,14 @@
 // ceux utilisés dans registry.tsx — si tu ajoutes une app, ajoute-la ici aussi.
 
 // Production apps
-void import("../apps/calls/CallManagerApp");
-void import("../apps/cleaner/CleanerApp");
-void import("../apps/weekly/WeeklyApp");
-void import("../apps/hub/HubApp");
+void import('../apps/calls/CallManagerApp');
+void import('../apps/cleaner/CleanerApp');
+void import('../apps/weekly/WeeklyApp');
+void import('../apps/hub/HubApp');
 
 // Demo apps (DEV only — gate dynamic import to avoid bundling in prod)
 if (import.meta.env.DEV) {
-  void import("../apps/demo/OverviewDemo");
-  void import("../apps/demo/NotesDemo");
-  void import("../components/ui/demo");
+  void import('../apps/demo/OverviewDemo');
+  void import('../apps/demo/NotesDemo');
+  void import('../components/ui/demo');
 }

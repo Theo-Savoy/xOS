@@ -28,14 +28,15 @@ export function __resetAuthCache() {
  */
 export async function verifyJWT(request) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error("_auth: missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    console.error('_auth: missing SUPABASE_URL or SUPABASE_ANON_KEY');
     return null;
   }
 
-  const authHeader = typeof request.headers?.get === "function"
-    ? request.headers.get("authorization")
-    : request.headers?.authorization || request.headers?.Authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const authHeader =
+    typeof request.headers?.get === 'function'
+      ? request.headers.get('authorization')
+      : request.headers?.authorization || request.headers?.Authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
 
@@ -76,6 +77,6 @@ export async function verifyJWT(request) {
 export function respond(status, body) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
   });
 }

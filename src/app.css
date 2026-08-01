@@ -1,4 +1,4 @@
-@import "./os/theme.css";
+@import './os/theme.css';
 
 /*
  * Viewport shell: fixed inset avoids 100vh/100dvh collapse during macOS

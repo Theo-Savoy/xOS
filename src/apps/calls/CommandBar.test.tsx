@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CommandBar, ShortcutHelp } from "./CommandBar";
-import { DEFAULT_SOUND_PREFS } from "./comboSoundPrefs";
-import { comboStreaksStorageKey } from "./comboStreaks";
-import { comboXpStorageKey } from "./comboXp";
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CommandBar, ShortcutHelp } from './CommandBar';
+import { DEFAULT_SOUND_PREFS } from './comboSoundPrefs';
+import { comboStreaksStorageKey } from './comboStreaks';
+import { comboXpStorageKey } from './comboXp';
 
 function installLocalStorage() {
   const store: Record<string, string> = {};
-  Object.defineProperty(window, "localStorage", {
+  Object.defineProperty(window, 'localStorage', {
     configurable: true,
     value: {
       getItem: (key: string) => store[key] ?? null,
@@ -27,15 +27,21 @@ function installLocalStorage() {
 
 afterEach(cleanup);
 
-describe("CommandBar XP section", () => {
+describe('CommandBar XP section', () => {
   beforeEach(() => {
     installLocalStorage();
   });
 
-  it("shows one line per axis with the current palier when a user is given", () => {
+  it('shows one line per axis with the current palier when a user is given', () => {
     window.localStorage.setItem(
-      comboXpStorageKey("user-1"),
-      JSON.stringify({ vitesse: 30, impact: 70, regularite: 14, badges: ["premier_pas"], lastSeen: "" }),
+      comboXpStorageKey('user-1'),
+      JSON.stringify({
+        vitesse: 30,
+        impact: 70,
+        regularite: 14,
+        badges: ['premier_pas'],
+        lastSeen: '',
+      }),
     );
     render(
       <CommandBar
@@ -54,7 +60,7 @@ describe("CommandBar XP section", () => {
     expect(screen.getByText(/Dernier badge/)).toBeTruthy();
   });
 
-  it("omits the XP section without a current user", () => {
+  it('omits the XP section without a current user', () => {
     render(
       <CommandBar
         open
@@ -65,18 +71,18 @@ describe("CommandBar XP section", () => {
         onSoundPrefsChange={vi.fn()}
       />,
     );
-    expect(screen.queryByLabelText("Progression Combo")).toBeNull();
+    expect(screen.queryByLabelText('Progression Combo')).toBeNull();
   });
 });
 
-describe("CommandBar streak tag", () => {
+describe('CommandBar streak tag', () => {
   beforeEach(() => {
     installLocalStorage();
   });
 
-  it("shows no streak line when the streak is 0", () => {
+  it('shows no streak line when the streak is 0', () => {
     window.localStorage.setItem(
-      comboStreaksStorageKey("user-1"),
+      comboStreaksStorageKey('user-1'),
       JSON.stringify({ classique: 0, productif: 0, intense: 0 }),
     );
     render(
@@ -90,12 +96,12 @@ describe("CommandBar streak tag", () => {
         currentUserId="user-1"
       />,
     );
-    expect(screen.queryByLabelText("Streaks Combo")).toBeNull();
+    expect(screen.queryByLabelText('Streaks Combo')).toBeNull();
   });
 
-  it("shows the classic streak as 🔥 14 jours", () => {
+  it('shows the classic streak as 🔥 14 jours', () => {
     window.localStorage.setItem(
-      comboStreaksStorageKey("user-1"),
+      comboStreaksStorageKey('user-1'),
       JSON.stringify({ classique: 14, productif: 0, intense: 0 }),
     );
     render(
@@ -109,15 +115,22 @@ describe("CommandBar streak tag", () => {
         currentUserId="user-1"
       />,
     );
-    expect(screen.getByText("🔥 14 jours")).toBeTruthy();
+    expect(screen.getByText('🔥 14 jours')).toBeTruthy();
   });
 });
 
-describe("ShortcutHelp — Mes réussites entry", () => {
-  it("opens My Trophies from the help menu when wired", async () => {
+describe('ShortcutHelp — Mes réussites entry', () => {
+  it('opens My Trophies from the help menu when wired', async () => {
     const onOpenMyTrophies = vi.fn();
-    render(<ShortcutHelp open onClose={vi.fn()} onOpenCommandBar={vi.fn()} onOpenMyTrophies={onOpenMyTrophies} />);
-    screen.getByRole("button", { name: "Mes réussites" }).click();
+    render(
+      <ShortcutHelp
+        open
+        onClose={vi.fn()}
+        onOpenCommandBar={vi.fn()}
+        onOpenMyTrophies={onOpenMyTrophies}
+      />,
+    );
+    screen.getByRole('button', { name: 'Mes réussites' }).click();
     expect(onOpenMyTrophies).toHaveBeenCalledTimes(1);
   });
 });

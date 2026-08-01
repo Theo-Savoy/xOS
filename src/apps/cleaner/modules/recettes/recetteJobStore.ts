@@ -9,7 +9,8 @@ import {
   useState,
 } from 'react';
 
-export type RecetteJobStatus = 'idle' | 'pending' | 'running' | 'done' | 'error';
+export type RecetteJobStatus =
+  'idle' | 'pending' | 'running' | 'done' | 'error';
 export type RecetteJobError = { obsoleteId: string; message: string };
 export type RecetteJobSnapshot = {
   status: Exclude<RecetteJobStatus, 'idle'>;

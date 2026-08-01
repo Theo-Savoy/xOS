@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, GlassCard } from "../../components/ui";
-import { ComboSoundSettings } from "./ComboSoundSettings";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, GlassCard } from '../../components/ui';
+import { ComboSoundSettings } from './ComboSoundSettings';
 import {
   type ComboActionDef,
   type ComboActionId,
   filterComboActions,
-} from "./comboKeyboard";
-import type { ComboSoundPrefs } from "./comboSoundPrefs";
-import { INTENSE_STREAK_THRESHOLD } from "./comboStreaks";
-import { useComboOverlay } from "./comboOverlay";
-import { summarizeComboStreaks, useComboXp, type ComboStreakSummary } from "./comboXp";
+} from './comboKeyboard';
+import type { ComboSoundPrefs } from './comboSoundPrefs';
+import { INTENSE_STREAK_THRESHOLD } from './comboStreaks';
+import { useComboOverlay } from './comboOverlay';
+import {
+  summarizeComboStreaks,
+  useComboXp,
+  type ComboStreakSummary,
+} from './comboXp';
 
 type CommandBarProps = {
   open: boolean;
@@ -24,12 +28,12 @@ type CommandBarProps = {
 function formatStreakLine(streak: ComboStreakSummary): string | null {
   if (streak.days <= 0) return null;
   switch (streak.id) {
-    case "classique":
-      return `🔥 ${streak.days} jour${streak.days > 1 ? "s" : ""}`;
-    case "productif":
-      return `🎯 ${streak.days} séance${streak.days > 1 ? "s" : ""} à 3 RDV`;
-    case "intense":
-      return `⚡ ${streak.days} séance${streak.days > 1 ? "s" : ""} à ${INTENSE_STREAK_THRESHOLD} appels`;
+    case 'classique':
+      return `🔥 ${streak.days} jour${streak.days > 1 ? 's' : ''}`;
+    case 'productif':
+      return `🎯 ${streak.days} séance${streak.days > 1 ? 's' : ''} à 3 RDV`;
+    case 'intense':
+      return `⚡ ${streak.days} séance${streak.days > 1 ? 's' : ''} à ${INTENSE_STREAK_THRESHOLD} appels`;
     default:
       return null;
   }
@@ -44,7 +48,7 @@ export function CommandBar({
   onSoundPrefsChange,
   currentUserId,
 }: CommandBarProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,14 +66,14 @@ export function CommandBar({
 
   useComboOverlay(open, rootRef, handleEscape, { initialFocusRef: inputRef });
 
-  const xp = useComboXp(currentUserId ?? "");
-  const streakLines = summarizeComboStreaks(currentUserId ?? "")
+  const xp = useComboXp(currentUserId ?? '');
+  const streakLines = summarizeComboStreaks(currentUserId ?? '')
     .map(formatStreakLine)
     .filter((line): line is string => line !== null);
 
   useEffect(() => {
     if (!open) return;
-    setQuery("");
+    setQuery('');
     setActiveIndex(0);
   }, [open]);
 
@@ -80,17 +84,17 @@ export function CommandBar({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "ArrowDown") {
+      if (event.key === 'ArrowDown') {
         event.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, Math.max(actions.length - 1, 0)));
         return;
       }
-      if (event.key === "ArrowUp") {
+      if (event.key === 'ArrowUp') {
         event.preventDefault();
         setActiveIndex((i) => Math.max(i - 1, 0));
         return;
       }
-      if (event.key === "Enter") {
+      if (event.key === 'Enter') {
         event.preventDefault();
         const action = actions[activeIndex];
         if (action) {
@@ -99,21 +103,30 @@ export function CommandBar({
         }
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open, actions, activeIndex, onClose, onRun]);
 
   if (!open) return null;
 
-  const grouped = actions.reduce<Record<string, ComboActionDef[]>>((acc, action) => {
-    (acc[action.section] ??= []).push(action);
-    return acc;
-  }, {});
+  const grouped = actions.reduce<Record<string, ComboActionDef[]>>(
+    (acc, action) => {
+      (acc[action.section] ??= []).push(action);
+      return acc;
+    },
+    {},
+  );
 
   let flatIndex = -1;
 
   return (
-    <div ref={rootRef} className="calls-cmdk" role="dialog" aria-modal="true" aria-label="Command bar Combo">
+    <div
+      ref={rootRef}
+      className="calls-cmdk"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command bar Combo"
+    >
       <button
         type="button"
         className="calls-cmdk__backdrop"
@@ -134,7 +147,9 @@ export function CommandBar({
           <kbd className="calls-kbd">esc</kbd>
         </div>
         <div className="calls-cmdk__list" role="listbox" aria-label="Actions">
-          {actions.length === 0 && <p className="calls-muted calls-cmdk__empty">Aucune action.</p>}
+          {actions.length === 0 && (
+            <p className="calls-muted calls-cmdk__empty">Aucune action.</p>
+          )}
           {Object.entries(grouped).map(([section, items]) => (
             <div key={section} className="calls-cmdk__group">
               <p className="calls-cmdk__group-label">{section}</p>
@@ -143,10 +158,10 @@ export function CommandBar({
                   flatIndex += 1;
                   const index = flatIndex;
                   const label =
-                    action.id === "toggle-sounds"
+                    action.id === 'toggle-sounds'
                       ? soundsEnabled
-                        ? "Couper les sons"
-                        : "Activer les sons"
+                        ? 'Couper les sons'
+                        : 'Activer les sons'
                       : action.label;
                   return (
                     <li key={action.id}>
@@ -155,7 +170,7 @@ export function CommandBar({
                         role="option"
                         aria-selected={index === activeIndex}
                         aria-label={label}
-                        className={`calls-cmdk__item${index === activeIndex ? " calls-cmdk__item--active" : ""}`}
+                        className={`calls-cmdk__item${index === activeIndex ? ' calls-cmdk__item--active' : ''}`}
                         onMouseEnter={() => setActiveIndex(index)}
                         onClick={() => {
                           onRun(action.id);
@@ -193,7 +208,11 @@ export function CommandBar({
                 ))}
               </ul>
             )}
-            {xp.lastBadge && <p className="calls-cmdk__xp-badge">Dernier badge : {xp.lastBadge.label}</p>}
+            {xp.lastBadge && (
+              <p className="calls-cmdk__xp-badge">
+                Dernier badge : {xp.lastBadge.label}
+              </p>
+            )}
           </div>
         )}
 
@@ -207,7 +226,8 @@ export function CommandBar({
           />
         </details>
         <p className="calls-cmdk__hint">
-          Astuce : <kbd className="calls-kbd">1</kbd> puis <kbd className="calls-kbd">⌘↵</kbd> = combo non décroché
+          Astuce : <kbd className="calls-kbd">1</kbd> puis{' '}
+          <kbd className="calls-kbd">⌘↵</kbd> = combo non décroché
         </p>
       </GlassCard>
     </div>
@@ -221,7 +241,12 @@ type ShortcutHelpProps = {
   onOpenMyTrophies?: () => void;
 };
 
-export function ShortcutHelp({ open, onClose, onOpenCommandBar, onOpenMyTrophies }: ShortcutHelpProps) {
+export function ShortcutHelp({
+  open,
+  onClose,
+  onOpenCommandBar,
+  onOpenMyTrophies,
+}: ShortcutHelpProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => onClose(), [onClose]);
   useComboOverlay(open, rootRef, handleEscape);
@@ -229,22 +254,28 @@ export function ShortcutHelp({ open, onClose, onOpenCommandBar, onOpenMyTrophies
   if (!open) return null;
 
   const left = [
-    ["1–5", "Résultats d'appel"],
-    ["R", "Toggle rappel"],
-    ["⇧1–⇧5", "Délai de rappel"],
-    ["N", "NPA"],
-    ["⌘↵", "Logguer & suivant"],
+    ['1–5', "Résultats d'appel"],
+    ['R', 'Toggle rappel'],
+    ['⇧1–⇧5', 'Délai de rappel'],
+    ['N', 'NPA'],
+    ['⌘↵', 'Logguer & suivant'],
   ] as const;
   const right = [
-    ["K / J", "Suivant / précédent"],
-    ["L / F", "Liste / Fiche"],
-    ["⌘K", "Command bar"],
-    ["?", "Cette aide"],
-    ["Esc", "Fermer"],
+    ['K / J', 'Suivant / précédent'],
+    ['L / F', 'Liste / Fiche'],
+    ['⌘K', 'Command bar'],
+    ['?', 'Cette aide'],
+    ['Esc', 'Fermer'],
   ] as const;
 
   return (
-    <div ref={rootRef} className="calls-help" role="dialog" aria-modal="true" aria-label="Aide raccourcis Combo">
+    <div
+      ref={rootRef}
+      className="calls-help"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Aide raccourcis Combo"
+    >
       <button
         type="button"
         className="calls-help__backdrop"
@@ -302,7 +333,9 @@ export function ShortcutHelp({ open, onClose, onOpenCommandBar, onOpenMyTrophies
               Mes réussites
             </Button>
           )}
-          <span className="calls-muted">Toutes les actions, sons et démo via ⌘K</span>
+          <span className="calls-muted">
+            Toutes les actions, sons et démo via ⌘K
+          </span>
         </div>
       </GlassCard>
     </div>

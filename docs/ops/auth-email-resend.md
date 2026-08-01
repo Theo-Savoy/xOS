@@ -7,11 +7,11 @@ Logo servi en prod : `https://xos.hellotheo.fr/email/logo-xos.png` (fichier `pub
 
 ## Supabase vs Resend — qui fait quoi ?
 
-| | Resend | Supabase |
-|---|---|---|
-| Rôle | **Transport** SMTP (livraison) | **Contenu** du mail (HTML, sujet) |
-| Template magic link | ❌ Ne s’applique pas | ✅ **C’est ici** qu’il faut coller le HTML |
-| Dashboard | resend.com → Domains / API keys | supabase.com → **Auth → Email Templates** |
+|                     | Resend                          | Supabase                                   |
+| ------------------- | ------------------------------- | ------------------------------------------ |
+| Rôle                | **Transport** SMTP (livraison)  | **Contenu** du mail (HTML, sujet)          |
+| Template magic link | ❌ Ne s’applique pas            | ✅ **C’est ici** qu’il faut coller le HTML |
+| Dashboard           | resend.com → Domains / API keys | supabase.com → **Auth → Email Templates**  |
 
 Resend n’a **aucun** template qui override Supabase pour l’auth. Si tu as créé un template dans Resend, il ne sera **jamais** utilisé pour le magic link — seul le template Supabase compte.
 
@@ -34,15 +34,15 @@ Guide Resend officiel : [Send with Supabase SMTP](https://resend.com/docs/send-w
 
 Dashboard projet **xos-portal** → **Authentication** → **SMTP** ([lien direct](https://supabase.com/dashboard/project/vvbslsatsuxgykjczjdt/auth/smtp)) :
 
-| Champ | Valeur |
-|---|---|
-| Enable custom SMTP | ON |
-| Sender email | `xos@hellotheo.fr` |
-| Sender name | `XOS Portal` |
-| Host | `smtp.resend.com` |
-| Port | `465` (SSL) — sinon `587` STARTTLS |
-| Username | `resend` |
-| Password | API key Resend `re_…` |
+| Champ              | Valeur                             |
+| ------------------ | ---------------------------------- |
+| Enable custom SMTP | ON                                 |
+| Sender email       | `xos@hellotheo.fr`                 |
+| Sender name        | `XOS Portal`                       |
+| Host               | `smtp.resend.com`                  |
+| Port               | `465` (SSL) — sinon `587` STARTTLS |
+| Username           | `resend`                           |
+| Password           | API key Resend `re_…`              |
 
 Après activation, augmenter aussi le rate-limit email Auth si besoin : **Authentication → Rate Limits** (le plafond SMTP intégré ne s’applique plus ; Resend Free ≈ 100 emails/jour, 3 000/mois).
 
@@ -60,11 +60,11 @@ Après activation, augmenter aussi le rate-limit email Auth si besoin : **Authen
 
 **Si le mail reste l’ancien — diagnostic en 2 min :**
 
-| Test | Résultat | Cause |
-|---|---|---|
-| Tu changes **seulement le Subject** en `TEST XOS 123`, Save, nouvel envoi | Sujet inchangé | Save non pris (mauvais projet, pas cliqué Save, mauvais onglet) |
-| Sujet OK, body toujours default | HTML invalide pour Go templates → Supabase **retombe sur le default sans erreur visible** | Colle `magic-link-body.html` ou le minimal ci-dessous |
-| Sujet + body OK | — | Résolu |
+| Test                                                                      | Résultat                                                                                  | Cause                                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Tu changes **seulement le Subject** en `TEST XOS 123`, Save, nouvel envoi | Sujet inchangé                                                                            | Save non pris (mauvais projet, pas cliqué Save, mauvais onglet) |
+| Sujet OK, body toujours default                                           | HTML invalide pour Go templates → Supabase **retombe sur le default sans erreur visible** | Colle `magic-link-body.html` ou le minimal ci-dessous           |
+| Sujet + body OK                                                           | —                                                                                         | Résolu                                                          |
 
 Minimal de test (Magic Link body) :
 
@@ -110,11 +110,11 @@ Vérifier les headers du mail reçu (Gmail → ⋮ → Afficher l’original) : 
 
 ## Ce que tu fais vs ce que l’agent fait
 
-| Toi (manuel) | Agent (repo) |
-|---|---|
-| Compte Resend + DNS `hellotheo.fr` | Template HTML + logo public |
-| Coller SMTP + template dans Supabase | Doc ops (ce fichier) |
-| Vérifier deliverability | Commit/deploy quand tu dis OK |
+| Toi (manuel)                         | Agent (repo)                  |
+| ------------------------------------ | ----------------------------- |
+| Compte Resend + DNS `hellotheo.fr`   | Template HTML + logo public   |
+| Coller SMTP + template dans Supabase | Doc ops (ce fichier)          |
+| Vérifier deliverability              | Commit/deploy quand tu dis OK |
 
 ## Notes
 

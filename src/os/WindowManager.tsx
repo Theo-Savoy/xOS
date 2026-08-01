@@ -1,9 +1,9 @@
-import { Suspense, memo, useCallback, type Dispatch } from "react";
-import { Rnd, type RndDragCallback, type RndResizeCallback } from "react-rnd";
-import { Button } from "../components/ui/Button";
-import { WindowBootScreen } from "../components/WindowBootScreen";
-import { getAppManifest } from "./registry";
-import type { AppWindow, WindowAction } from "./windowState";
+import { Suspense, memo, useCallback, type Dispatch } from 'react';
+import { Rnd, type RndDragCallback, type RndResizeCallback } from 'react-rnd';
+import { Button } from '../components/ui/Button';
+import { WindowBootScreen } from '../components/WindowBootScreen';
+import { getAppManifest } from './registry';
+import type { AppWindow, WindowAction } from './windowState';
 
 type WindowManagerProps = {
   windows: AppWindow[];
@@ -23,7 +23,7 @@ export const WindowFrame = memo(function WindowFrame({
 
   const handleParamsChange = useCallback(
     (params?: Record<string, string>) => {
-      dispatch({ type: "setParams", appId, params });
+      dispatch({ type: 'setParams', appId, params });
     },
     [dispatch, appId],
   );
@@ -31,7 +31,7 @@ export const WindowFrame = memo(function WindowFrame({
   const handleDragStop: RndDragCallback = useCallback(
     (_, data) => {
       dispatch({
-        type: "setBounds",
+        type: 'setBounds',
         appId,
         bounds: { x: data.x, y: data.y, w: window.w, h: window.h },
       });
@@ -42,7 +42,7 @@ export const WindowFrame = memo(function WindowFrame({
   const handleResizeStop: RndResizeCallback = useCallback(
     (_, __, element, ___, nextPosition) => {
       dispatch({
-        type: "setBounds",
+        type: 'setBounds',
         appId,
         bounds: {
           x: nextPosition.x,
@@ -56,19 +56,19 @@ export const WindowFrame = memo(function WindowFrame({
   );
 
   const handleFocus = useCallback(() => {
-    dispatch({ type: "focus", appId });
+    dispatch({ type: 'focus', appId });
   }, [dispatch, appId]);
 
   const handleClose = useCallback(() => {
-    dispatch({ type: "close", appId });
+    dispatch({ type: 'close', appId });
   }, [dispatch, appId]);
 
   const handleMinimize = useCallback(() => {
-    dispatch({ type: "minimize", appId });
+    dispatch({ type: 'minimize', appId });
   }, [dispatch, appId]);
 
   const handleToggleMaximize = useCallback(() => {
-    dispatch({ type: "toggleMaximize", appId });
+    dispatch({ type: 'toggleMaximize', appId });
   }, [dispatch, appId]);
 
   const app = getAppManifest(appId);
@@ -82,7 +82,7 @@ export const WindowFrame = memo(function WindowFrame({
     <Rnd
       bounds="parent"
       cancel=".xos-window__controls"
-      className={`xos-rnd-window ${window.maximized ? "xos-rnd-window--maximized" : ""} ${window.minimized ? "xos-rnd-window--minimized" : ""}`}
+      className={`xos-rnd-window ${window.maximized ? 'xos-rnd-window--maximized' : ''} ${window.minimized ? 'xos-rnd-window--minimized' : ''}`}
       disableDragging={window.maximized || window.minimized}
       dragHandleClassName="xos-window__titlebar"
       enableResizing={!window.maximized && !window.minimized}
@@ -125,7 +125,7 @@ export const WindowFrame = memo(function WindowFrame({
               size="sm"
               onClick={handleToggleMaximize}
               type="button"
-              aria-label={`${window.maximized ? "Restaurer" : "Agrandir"} ${app.title}`}
+              aria-label={`${window.maximized ? 'Restaurer' : 'Agrandir'} ${app.title}`}
             />
           </div>
           <span className="xos-window__title">{app.title}</span>

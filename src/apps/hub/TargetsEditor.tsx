@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "../../components/ui";
-import { apiFetch } from "../../lib/apiClient";
-import "./targets.css";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '../../components/ui';
+import { apiFetch } from '../../lib/apiClient';
+import './targets.css';
 
-type MonthlyIndicative = { month: string; label: string; weight: number; raw: number; indicative: number };
+type MonthlyIndicative = {
+  month: string;
+  label: string;
+  weight: number;
+  raw: number;
+  indicative: number;
+};
 type MonthTemplate = { month: string; weight: number };
 
 type TargetRow = {
@@ -22,29 +28,47 @@ type TargetsPayload = {
   rows: TargetRow[];
 };
 
-const money = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const money = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
 const MONTH_LABELS: Record<string, string> = {
-  "01": "Janv.", "02": "Fév.", "03": "Mars", "04": "Avr.", "05": "Mai", "06": "Juin",
-  "07": "Juil.", "08": "Août", "09": "Sept.", "10": "Oct.", "11": "Nov.", "12": "Déc.",
+  '01': 'Janv.',
+  '02': 'Fév.',
+  '03': 'Mars',
+  '04': 'Avr.',
+  '05': 'Mai',
+  '06': 'Juin',
+  '07': 'Juil.',
+  '08': 'Août',
+  '09': 'Sept.',
+  '10': 'Oct.',
+  '11': 'Nov.',
+  '12': 'Déc.',
 };
 
 async function fetchTargets(token: string) {
-  return apiFetch<TargetsPayload>(token, "/api/weekly-targets").catch(() => {
-    throw new Error("targets_unavailable");
+  return apiFetch<TargetsPayload>(token, '/api/weekly-targets').catch(() => {
+    throw new Error('targets_unavailable');
   });
 }
 
-async function saveTargets(token: string, quarter: string, values: Record<string, number | null>) {
-  await apiFetch(token, "/api/weekly-targets", {
-    method: "POST",
+async function saveTargets(
+  token: string,
+  quarter: string,
+  values: Record<string, number | null>,
+) {
+  await apiFetch(token, '/api/weekly-targets', {
+    method: 'POST',
     body: JSON.stringify({ quarter, values }),
   }).catch(() => {
-    throw new Error("targets_save_failed");
+    throw new Error('targets_save_failed');
   });
 }
 
 function parseInput(value: string) {
-  const trimmed = value.replace(/\s/g, "").replace(",", ".");
+  const trimmed = value.replace(/\s/g, '').replace(',', '.');
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN;
@@ -96,36 +120,48 @@ export default function TargetsEditor({ token }: { token: string }) {
     try {
       const next = await fetchTargets(token);
       setPayload(next);
-      setDraft(Object.fromEntries(next.rows.map((row) => [
-        row.sf_user_id,
-        row.quarterly_target === null ? "" : String(row.quarterly_target),
-      ])));
+      setDraft(
+        Object.fromEntries(
+          next.rows.map((row) => [
+            row.sf_user_id,
+            row.quarterly_target === null ? '' : String(row.quarterly_target),
+          ]),
+        ),
+      );
       setSaved(false);
     } catch {
       setError(true);
     }
   }, [token]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const preview = useMemo(() => {
     if (!payload) return [];
     return payload.rows.map((row) => {
-      const parsed = parseInput(draft[row.sf_user_id] ?? "");
+      const parsed = parseInput(draft[row.sf_user_id] ?? '');
       const quarterly = parsed === null || Number.isNaN(parsed) ? null : parsed;
       return {
         ...row,
         quarterly_target: quarterly,
-        monthly_indicative: quarterly ? monthlyFromTemplate(quarterly, payload.month_template) : [],
+        monthly_indicative: quarterly
+          ? monthlyFromTemplate(quarterly, payload.month_template)
+          : [],
       };
     });
   }, [draft, payload]);
 
-  if (error) return <p className="hub-targets-error">Impossible de charger les objectifs.</p>;
-  if (!payload) return <p className="hub-targets-loading">Chargement des objectifs…</p>;
+  if (error)
+    return (
+      <p className="hub-targets-error">Impossible de charger les objectifs.</p>
+    );
+  if (!payload)
+    return <p className="hub-targets-loading">Chargement des objectifs…</p>;
 
   const dirty = payload.rows.some((row) => {
-    const parsed = parseInput(draft[row.sf_user_id] ?? "");
+    const parsed = parseInput(draft[row.sf_user_id] ?? '');
     const current = row.quarterly_target;
     if (parsed === null && current === null) return false;
     if (parsed === null || current === null) return true;
@@ -138,12 +174,19 @@ export default function TargetsEditor({ token }: { token: string }) {
         <p>
           <strong>{payload.quarter.label}</strong>
           {payload.seasonality
-            ? ` · pondération sur ${payload.seasonality.sample_years.length || "—"} ans`
-            : " · mois répartis à parts égales"}
+            ? ` · pondération sur ${payload.seasonality.sample_years.length || '—'} ans`
+            : ' · mois répartis à parts égales'}
         </p>
-        <p className="hub-targets-hint">Objectif trimestre en €. Les mois sont indicatifs, arrondis au millier (somme = objectif).</p>
+        <p className="hub-targets-hint">
+          Objectif trimestre en €. Les mois sont indicatifs, arrondis au millier
+          (somme = objectif).
+        </p>
       </div>
-      <div className="hub-targets-table" role="table" aria-label="Objectifs trimestre">
+      <div
+        className="hub-targets-table"
+        role="table"
+        aria-label="Objectifs trimestre"
+      >
         <div className="hub-targets-head" role="row">
           <span role="columnheader">Commercial</span>
           <span role="columnheader">Objectif TQ</span>
@@ -160,51 +203,67 @@ export default function TargetsEditor({ token }: { token: string }) {
                 type="text"
                 inputMode="numeric"
                 aria-label={`Objectif trimestre de ${row.name}`}
-                value={draft[row.sf_user_id] ?? ""}
+                value={draft[row.sf_user_id] ?? ''}
                 placeholder="—"
                 onChange={(event) => {
-                  setDraft((current) => ({ ...current, [row.sf_user_id]: event.target.value }));
+                  setDraft((current) => ({
+                    ...current,
+                    [row.sf_user_id]: event.target.value,
+                  }));
                   setSaved(false);
                 }}
               />
               <span>€</span>
             </div>
             <div className="hub-targets-months" role="cell">
-              {row.monthly_indicative.length
-                ? row.monthly_indicative.map((month) => (
-                  <span className="hub-targets-month" key={month.month} title={`${Math.round(month.weight * 100)} % · ${money.format(month.raw)} brut`}>
+              {row.monthly_indicative.length ? (
+                row.monthly_indicative.map((month) => (
+                  <span
+                    className="hub-targets-month"
+                    key={month.month}
+                    title={`${Math.round(month.weight * 100)} % · ${money.format(month.raw)} brut`}
+                  >
                     {month.label} ~{money.format(month.indicative)}
                   </span>
                 ))
-                : <span className="hub-targets-month hub-targets-month--empty">—</span>}
+              ) : (
+                <span className="hub-targets-month hub-targets-month--empty">
+                  —
+                </span>
+              )}
             </div>
           </div>
         ))}
       </div>
       <div className="hub-targets-actions">
-        <Button disabled={saving || !dirty} onClick={() => {
-          void (async () => {
-            setSaving(true);
-            try {
-              const values: Record<string, number | null> = {};
-              for (const row of payload.rows) {
-                const parsed = parseInput(draft[row.sf_user_id] ?? "");
-                if (Number.isNaN(parsed)) return;
-                values[row.sf_user_id] = parsed;
+        <Button
+          disabled={saving || !dirty}
+          onClick={() => {
+            void (async () => {
+              setSaving(true);
+              try {
+                const values: Record<string, number | null> = {};
+                for (const row of payload.rows) {
+                  const parsed = parseInput(draft[row.sf_user_id] ?? '');
+                  if (Number.isNaN(parsed)) return;
+                  values[row.sf_user_id] = parsed;
+                }
+                await saveTargets(token, payload.quarter.label, values);
+                await load();
+                setSaved(true);
+              } catch {
+                setError(true);
+              } finally {
+                setSaving(false);
               }
-              await saveTargets(token, payload.quarter.label, values);
-              await load();
-              setSaved(true);
-            } catch {
-              setError(true);
-            } finally {
-              setSaving(false);
-            }
-          })();
-        }}>
-          {saving ? "Enregistrement…" : "Enregistrer"}
+            })();
+          }}
+        >
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
-        {saved && !dirty && <span className="hub-targets-saved">Enregistré</span>}
+        {saved && !dirty && (
+          <span className="hub-targets-saved">Enregistré</span>
+        )}
       </div>
     </div>
   );

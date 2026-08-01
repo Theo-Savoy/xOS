@@ -1,5 +1,5 @@
-import logoXos from "../assets/logo-xos.png";
-import "./boot.css";
+import logoXos from '../assets/logo-xos.png';
+import './boot.css';
 
 type WindowBootScreenProps = {
   label?: string;
@@ -10,9 +10,16 @@ type WindowBootScreenProps = {
  * charge (lazy chunk ou fetch params). Pas de backdrop plein écran ni z-index
  * 20000 — la fenêtre fournit déjà son cadre.
  */
-export function WindowBootScreen({ label = "Ouverture…" }: WindowBootScreenProps) {
+export function WindowBootScreen({
+  label = 'Ouverture…',
+}: WindowBootScreenProps) {
   return (
-    <div className="xos-window-boot" role="status" aria-live="polite" aria-busy="true">
+    <div
+      className="xos-window-boot"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
       <div className="xos-window-boot__ring" aria-hidden="true" />
       <div className="xos-window-boot__content">
         <div className="xos-window-boot__logo-wrap">

@@ -74,7 +74,11 @@ function validateCleanerQuery(input) {
     values.action !== 'status' &&
     values.action !== 'journal'
   )
-    return invalid('invalid_query', 'Sector recipe action is invalid.', 'action');
+    return invalid(
+      'invalid_query',
+      'Sector recipe action is invalid.',
+      'action',
+    );
   if (
     validRecipeResource &&
     ((values.action === 'status' && values.jobId === undefined) ||

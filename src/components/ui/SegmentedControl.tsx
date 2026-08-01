@@ -1,4 +1,4 @@
-import "./ui.css";
+import './ui.css';
 
 // ponytail: styling still lives in calls.css (.calls-fb-control/.calls-chip*) —
 // shared with other calls form controls not yet promoted, so left in place for now.
@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string>({
           <button
             key={opt.value}
             type="button"
-            className={`calls-chip${value.includes(opt.value) ? " calls-chip--active" : ""}`}
+            className={`calls-chip${value.includes(opt.value) ? ' calls-chip--active' : ''}`}
             onClick={() => toggle(opt.value)}
             aria-pressed={value.includes(opt.value)}
           >

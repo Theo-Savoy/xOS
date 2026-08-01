@@ -1,5 +1,5 @@
-@import "../os/theme.css";
-@import "../components/ui/ui.css";
+@import '../os/theme.css';
+@import '../components/ui/ui.css';
 
 .login-screen {
   position: relative;
@@ -126,7 +126,7 @@
 
 .login-divider::before,
 .login-divider::after {
-  content: "";
+  content: '';
   height: 1px;
   background: var(--xos-border);
 }
@@ -157,7 +157,9 @@
   border: 1px solid var(--xos-border);
   border-radius: 0.625rem;
   padding: 0.7rem 0.8rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .login-email-input::placeholder {

@@ -32,7 +32,12 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
   const [section, setSection] = useState<'recipe' | 'journal'>('recipe');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [result, setResult] = useState<
-    | { kind: 'success'; succeeded: number; failed: number; mappings: Array<{ from: string; to: string }> }
+    | {
+        kind: 'success';
+        succeeded: number;
+        failed: number;
+        mappings: Array<{ from: string; to: string }>;
+      }
     | { kind: 'failed'; errors: Array<{ obsoleteId: string; message: string }> }
     | null
   >(null);
@@ -78,8 +83,12 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
   const selectedCount = Object.keys(selectedMapping).length;
   const mappingLabels = useMemo(() => {
     if (!state) return [];
-    const oldLabels = new Map(state.obsoleteSectors.map((item) => [item.id, item.label]));
-    const newLabels = new Map(state.activeSectors.map((item) => [item.id, item.label]));
+    const oldLabels = new Map(
+      state.obsoleteSectors.map((item) => [item.id, item.label]),
+    );
+    const newLabels = new Map(
+      state.activeSectors.map((item) => [item.id, item.label]),
+    );
     return Object.entries(selectedMapping).map(([from, to]) => ({
       from: oldLabels.get(from) || from,
       to: newLabels.get(to) || to,
@@ -138,9 +147,7 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
       }
     } catch (cause) {
       setJob((current) => ({ ...current, running: false }));
-      setError(
-        cause instanceof Error ? cause.message : 'La fusion a échoué.',
-      );
+      setError(cause instanceof Error ? cause.message : 'La fusion a échoué.');
     }
   }, [accessToken, job.running, load, mappingLabels, selectedMapping]);
 
@@ -163,8 +170,8 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
           <p className="cleaner-eyebrow">Recette · Account</p>
           <h2 id="sector-recipe-title">Secteurs obsolètes</h2>
           <p>
-            Choisissez une cible par secteur obsolète, puis lancez la fusion.
-            Le serveur vérifie chaque mapping (dry-run) avant toute écriture.
+            Choisissez une cible par secteur obsolète, puis lancez la fusion. Le
+            serveur vérifie chaque mapping (dry-run) avant toute écriture.
           </p>
         </div>
       </div>
@@ -209,10 +216,7 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
           ) : null}
 
           {state.obsoleteSectors.length === 0 ? (
-            <GlassCard
-              className="cleaner-sector-recipe__empty"
-              role="status"
-            >
+            <GlassCard className="cleaner-sector-recipe__empty" role="status">
               <div>
                 <Tag variant="success">✓</Tag>
                 <h3>
@@ -236,14 +240,14 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
                     checked={allSelected}
                     indeterminate={selected.size > 0 && !allSelected}
                     label={
-                      allSelected
-                        ? 'Tout désélectionner'
-                        : 'Tout sélectionner'
+                      allSelected ? 'Tout désélectionner' : 'Tout sélectionner'
                     }
                     onChange={(checked) => {
                       setSelected(
                         checked
-                          ? new Set(state.obsoleteSectors.map((item) => item.id))
+                          ? new Set(
+                              state.obsoleteSectors.map((item) => item.id),
+                            )
                           : new Set(),
                       );
                     }}
@@ -271,8 +275,7 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
                       aria-valuemax={Math.max(job.total, 1)}
                     >
                       <span className="cleaner-sector-job__label">
-                        {job.processed}/{job.total}{' '}
-                        secteurs traités
+                        {job.processed}/{job.total} secteurs traités
                       </span>
                       <div
                         className="cleaner-sector-job__bar"
@@ -285,9 +288,7 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
                               job.total > 0
                                 ? Math.min(
                                     100,
-                                    (job.processed /
-                                      job.total) *
-                                      100,
+                                    (job.processed / job.total) * 100,
                                   )
                                 : 0
                             }%`,
@@ -353,7 +354,14 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
                             {sector.sampleAccounts.map((account) => (
                               <li key={account.id}>
                                 <span>{account.name || account.id}</span>
-                                <a href={account.recordUrl} target="_blank" rel="noopener noreferrer" className="cleaner-sector-row__sf-link">Salesforce ↗</a>
+                                <a
+                                  href={account.recordUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="cleaner-sector-row__sf-link"
+                                >
+                                  Salesforce ↗
+                                </a>
                               </li>
                             ))}
                           </ul>
@@ -385,8 +393,8 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
           {selectedCount} secteur{selectedCount > 1 ? 's' : ''} obsolète
           {selectedCount > 1 ? 's' : ''} vont être fusionnés vers{' '}
           {selectedTargets} secteur{selectedTargets > 1 ? 's' : ''} actif
-          {selectedTargets > 1 ? 's' : ''}, modifiant {selectedAccounts}{' '}
-          compte{selectedAccounts > 1 ? 's' : ''} au total.
+          {selectedTargets > 1 ? 's' : ''}, modifiant {selectedAccounts} compte
+          {selectedAccounts > 1 ? 's' : ''} au total.
         </p>
         <p className="cleaner-sector-modal__hint">
           Le serveur lance un dry-run sur chaque mapping avant toute écriture.
@@ -409,12 +417,17 @@ export function SectorsRecipeView({ accessToken }: CleanerModuleProps) {
               {result.succeeded} fusion{result.succeeded === 1 ? '' : 's'}{' '}
               réussie{result.succeeded === 1 ? '' : 's'}.
             </p>
-            <div className="cleaner-sector-before-after" aria-label="Avant après">
+            <div
+              className="cleaner-sector-before-after"
+              aria-label="Avant après"
+            >
               <strong>Avant → après</strong>
               <ul>
                 {result.mappings.map((mapping) => (
                   <li key={`${mapping.from}-${mapping.to}`}>
-                    <span>{mapping.from}</span><span aria-hidden="true">→</span><strong>{mapping.to}</strong>
+                    <span>{mapping.from}</span>
+                    <span aria-hidden="true">→</span>
+                    <strong>{mapping.to}</strong>
                   </li>
                 ))}
               </ul>

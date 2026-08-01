@@ -1,15 +1,15 @@
-import assert from "node:assert/strict";
+import assert from 'node:assert/strict';
 import {
   boundedLimit,
   buildTargetQuery,
   filterTargetContacts,
   hasRelanceQueryFilters,
   SOQL_FETCH_CAP,
-} from "../api/_crm/salesforce.js";
-import mapping from "../api/_crm/mapping.js";
+} from '../api/_crm/salesforce.js';
+import mapping from '../api/_crm/mapping.js';
 
 const baseFilters = {
-  entreprise: { secteurs: ["Finance", "Transports"] },
+  entreprise: { secteurs: ['Finance', 'Transports'] },
   contact: {},
   relance: {},
 };
@@ -17,11 +17,22 @@ const baseFilters = {
 const industryQuery = buildTargetQuery(baseFilters, mapping, null);
 assert.match(
   industryQuery,
-  new RegExp(`Account\\.${mapping.objects.account.fields.industry} IN \\('Finance', 'Transports'\\)`),
+  new RegExp(
+    `Account\\.${mapping.objects.account.fields.industry} IN \\('Finance', 'Transports'\\)`,
+  ),
 );
-assert.match(industryQuery, new RegExp(`${mapping.objects.contact.fields.doNotCall} = false`));
-assert.match(industryQuery, new RegExp(`${mapping.objects.contact.fields.title}`));
-assert.match(industryQuery, new RegExp(`${mapping.objects.contact.fields.linkedin}`));
+assert.match(
+  industryQuery,
+  new RegExp(`${mapping.objects.contact.fields.doNotCall} = false`),
+);
+assert.match(
+  industryQuery,
+  new RegExp(`${mapping.objects.contact.fields.title}`),
+);
+assert.match(
+  industryQuery,
+  new RegExp(`${mapping.objects.contact.fields.linkedin}`),
+);
 assert.doesNotMatch(industryQuery, /NOT IN \(SELECT WhoId FROM Task/);
 assert.match(industryQuery, /LIMIT 200$/);
 
@@ -43,7 +54,10 @@ assert.equal(boundedLimit(2000), 2000);
 assert.equal(boundedLimit(9000), 2000);
 
 const fonctionQuery = buildTargetQuery(
-  { ...baseFilters, contact: { fonctions: ["responsable_formation", "directeur_formation"] } },
+  {
+    ...baseFilters,
+    contact: { fonctions: ['responsable_formation', 'directeur_formation'] },
+  },
   mapping,
   null,
 );
@@ -52,7 +66,10 @@ assert.match(fonctionQuery, /Title IN \('RF'\)/);
 assert.match(fonctionQuery, /Title LIKE '%direct%formation%'/);
 
 const rhQuery = buildTargetQuery(
-  { ...baseFilters, contact: { fonctions: ["responsable_rh", "directeur_rh"] } },
+  {
+    ...baseFilters,
+    contact: { fonctions: ['responsable_rh', 'directeur_rh'] },
+  },
   mapping,
   null,
 );
@@ -62,50 +79,88 @@ assert.match(rhQuery, /Title LIKE '%drh%'/);
 assert.match(rhQuery, /Title IN \('CHRO'\)/);
 
 const tierQuery = buildTargetQuery(
-  { ...baseFilters, entreprise: { ...baseFilters.entreprise, tiers: ["A", "D"] } },
+  {
+    ...baseFilters,
+    entreprise: { ...baseFilters.entreprise, tiers: ['A', 'D'] },
+  },
   mapping,
   null,
 );
 assert.match(
   tierQuery,
-  new RegExp(`Account\\.${mapping.objects.account.fields.tier} IN \\('A', 'D'\\)`),
+  new RegExp(
+    `Account\\.${mapping.objects.account.fields.tier} IN \\('A', 'D'\\)`,
+  ),
 );
-assert.deepEqual(mapping.objects.account.tiers, ["A", "B", "C", "D"]);
+assert.deepEqual(mapping.objects.account.tiers, ['A', 'B', 'C', 'D']);
 
 const unknownPresetQuery = buildTargetQuery(
-  { ...baseFilters, contact: { fonctions: ["preset_inexistant"] } },
+  { ...baseFilters, contact: { fonctions: ['preset_inexistant'] } },
   mapping,
   null,
 );
 assert.doesNotMatch(unknownPresetQuery, /preset_inexistant/);
 
-const now = new Date("2026-07-10T12:00:00Z");
+const now = new Date('2026-07-10T12:00:00Z');
 const records = [
   {
-    Id: "003never",
+    Id: '003never',
     Tasks: null,
   },
   {
-    Id: "003recent",
+    Id: '003recent',
     Tasks: {
-      records: [{ ActivityDate: "2026-07-09", Resultat_call__c: "Appel décroché", CallDurationInSeconds: 30 }],
+      records: [
+        {
+          ActivityDate: '2026-07-09',
+          Resultat_call__c: 'Appel décroché',
+          CallDurationInSeconds: 30,
+        },
+      ],
     },
   },
   {
-    Id: "003old",
+    Id: '003old',
     Tasks: {
-      records: [{ ActivityDate: "2026-05-01", Resultat_call__c: "Appel décroché", CallDurationInSeconds: 30 }],
+      records: [
+        {
+          ActivityDate: '2026-05-01',
+          Resultat_call__c: 'Appel décroché',
+          CallDurationInSeconds: 30,
+        },
+      ],
     },
   },
 ];
 
-const neverCalled = filterTargetContacts(records, { relance: { jamais_appele: true } }, mapping, now);
-assert.deepEqual(neverCalled.map((r) => r.Id), ["003never"]);
+const neverCalled = filterTargetContacts(
+  records,
+  { relance: { jamais_appele: true } },
+  mapping,
+  now,
+);
+assert.deepEqual(
+  neverCalled.map((r) => r.Id),
+  ['003never'],
+);
 
-const before30 = filterTargetContacts(records, { relance: { dernier_appel_avant_jours: 30 } }, mapping, now);
-assert.deepEqual(before30.map((r) => r.Id).sort(), ["003never", "003old"]);
+const before30 = filterTargetContacts(
+  records,
+  { relance: { dernier_appel_avant_jours: 30 } },
+  mapping,
+  now,
+);
+assert.deepEqual(before30.map((r) => r.Id).sort(), ['003never', '003old']);
 
-const within7 = filterTargetContacts(records, { relance: { dernier_appel_dans_jours: 7 } }, mapping, now);
-assert.deepEqual(within7.map((r) => r.Id), ["003recent"]);
+const within7 = filterTargetContacts(
+  records,
+  { relance: { dernier_appel_dans_jours: 7 } },
+  mapping,
+  now,
+);
+assert.deepEqual(
+  within7.map((r) => r.Id),
+  ['003recent'],
+);
 
-console.log("call-target-query.check.js: OK");
+console.log('call-target-query.check.js: OK');

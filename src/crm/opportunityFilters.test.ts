@@ -1,40 +1,50 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   SF_MAX_OPPORTUNITY_SEMI_JOINS,
   countOpportunitySemiJoins,
   getOpportunityFilterGuidance,
-} from "./opportunityFilters";
+} from './opportunityFilters';
 
-describe("opportunityFilters", () => {
-  it("never exceeds the Salesforce semi-join budget for any tri-state combo", () => {
+describe('opportunityFilters', () => {
+  it('never exceeds the Salesforce semi-join budget for any tri-state combo', () => {
     for (const opp_ouverte of [null, true, false] as const) {
       for (const opp_perdue of [null, true, false] as const) {
-        expect(countOpportunitySemiJoins({ opp_ouverte, opp_perdue })).toBeLessThanOrEqual(
-          SF_MAX_OPPORTUNITY_SEMI_JOINS,
-        );
+        expect(
+          countOpportunitySemiJoins({ opp_ouverte, opp_perdue }),
+        ).toBeLessThanOrEqual(SF_MAX_OPPORTUNITY_SEMI_JOINS);
       }
     }
   });
 
-  it("counts the open+lost combination as 2 semi-joins", () => {
-    expect(countOpportunitySemiJoins({ opp_ouverte: true, opp_perdue: true })).toBe(2);
+  it('counts the open+lost combination as 2 semi-joins', () => {
+    expect(
+      countOpportunitySemiJoins({ opp_ouverte: true, opp_perdue: true }),
+    ).toBe(2);
   });
 
-  it("counts lost=false as one semi-join", () => {
-    expect(countOpportunitySemiJoins({ opp_ouverte: null, opp_perdue: false })).toBe(1);
+  it('counts lost=false as one semi-join', () => {
+    expect(
+      countOpportunitySemiJoins({ opp_ouverte: null, opp_perdue: false }),
+    ).toBe(1);
   });
 
-  it("explains the open+lost combination in the UI guidance", () => {
-    const guidance = getOpportunityFilterGuidance({ opp_ouverte: true, opp_perdue: true });
-    expect(guidance.hint).toContain("ouverte");
-    expect(guidance.hint).toContain("perdue");
+  it('explains the open+lost combination in the UI guidance', () => {
+    const guidance = getOpportunityFilterGuidance({
+      opp_ouverte: true,
+      opp_perdue: true,
+    });
+    expect(guidance.hint).toContain('ouverte');
+    expect(guidance.hint).toContain('perdue');
     expect(guidance.note).toBeNull();
     expect(guidance.disabled.opp_perdue).not.toContain(false);
   });
 
-  it("describes lost=false in the UI guidance", () => {
-    const guidance = getOpportunityFilterGuidance({ opp_ouverte: null, opp_perdue: false });
-    expect(guidance.hint).toContain("sans opportunité");
+  it('describes lost=false in the UI guidance', () => {
+    const guidance = getOpportunityFilterGuidance({
+      opp_ouverte: null,
+      opp_perdue: false,
+    });
+    expect(guidance.hint).toContain('sans opportunité');
     expect(guidance.disabled.opp_perdue).toEqual([]);
   });
 });

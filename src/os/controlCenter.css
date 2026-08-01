@@ -19,7 +19,7 @@
 }
 
 .xos-cc__trigger:hover,
-.xos-cc__trigger[aria-expanded="true"] {
+.xos-cc__trigger[aria-expanded='true'] {
   background: rgba(255, 255, 255, 0.08);
   border-color: color-mix(in srgb, var(--xos-border) 80%, transparent);
 }
@@ -157,7 +157,11 @@
 .xos-cc__item--unread {
   border-color: color-mix(in srgb, var(--xos-accent) 45%, var(--xos-border));
   background:
-    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--xos-accent) 18%, transparent), transparent 55%),
+    radial-gradient(
+      ellipse at 100% 0%,
+      color-mix(in srgb, var(--xos-accent) 18%, transparent),
+      transparent 55%
+    ),
     rgba(255, 255, 255, 0.045);
 }
 
@@ -212,7 +216,8 @@
   gap: 0.3rem;
   padding: 0.25rem 0.5rem;
   border-radius: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--xos-accent-salesforce) 45%, var(--xos-border));
+  border: 1px solid
+    color-mix(in srgb, var(--xos-accent-salesforce) 45%, var(--xos-border));
   background: color-mix(in srgb, var(--xos-accent-salesforce) 14%, transparent);
   color: #9ad8f5;
   text-decoration: none;
@@ -255,7 +260,9 @@
   font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
 }
 
 .xos-cc__react:hover:not(:disabled) {

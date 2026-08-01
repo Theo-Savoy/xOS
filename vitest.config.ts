@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 // Three repo-level test-env fixes live here:
 // 1. The shell inherits NODE_ENV=production (Vercel deploys ship it), which
@@ -15,17 +15,17 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   test: {
-    env: { NODE_ENV: "test" },
+    env: { NODE_ENV: 'test' },
     include: [
-      "src/**/*.{test,spec}.{ts,tsx}",
-      "api/**/*.{test,spec}.{js,ts}",
-      "middleware.test.js",
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'api/**/*.{test,spec}.{js,ts}',
+      'middleware.test.js',
     ],
     exclude: [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.{idea,git,cache,output,temp}/**",
-      ".worktrees/**",
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '.worktrees/**',
     ],
   },
 });

@@ -10,7 +10,6 @@
 
 ## Synthèse
 
-
 | #   | Chantier                                                                                               | Priorité | Domaine             |
 | --- | ------------------------------------------------------------------------------------------------------ | -------- | ------------------- |
 |     |                                                                                                        |          |                     |
@@ -27,7 +26,6 @@
 | C12 | Design tokens : hex dupliqués hors `theme.css`                                                         | **P3**   | Design / UI         |
 | C13 | Polish lint/hooks/a11y (warnings ciblés)                                                               | **P3**   | Polish / UX         |
 
-
 ---
 
 ## C1 — P0 · Jobs bulk secteurs incompatibles serverless + polling infini côté client
@@ -37,8 +35,10 @@
 **Constat** :
 
 1. `sectorJobs = new Map()` (`sectors.js:20`) est un store **en mémoire de process**. `startBulkSectorJob` répond `{jobId}` immédiatement et lance le job dans une promesse flottante (`void Promise.resolve().then(...)`, `sectors.js:699`). Sur Vercel serverless :
-  - l'exécution peut être gelée dès que la réponse part → le job peut **ne jamais s'exécuter** ;
-  - le `GET action=status` suivant peut atterrir sur **une autre instance lambda** → `job_not_found` (404) alors que le job existe ailleurs. Ça marche en dev (process unique), c'est cassé/aléatoire en prod.
+
+- l'exécution peut être gelée dès que la réponse part → le job peut **ne jamais s'exécuter** ;
+- le `GET action=status` suivant peut atterrir sur **une autre instance lambda** → `job_not_found` (404) alors que le job existe ailleurs. Ça marche en dev (process unique), c'est cassé/aléatoire en prod.
+
 2. Côté client, `runBulk` (`SectorsRecipeView.tsx:106-143`) poll dans un `while (!done)` **sans cap d'essais, sans timeout, sans vérification `res.ok`**. Sur un 404 `job_not_found`, `status.status` est `undefined` → **boucle infinie** à 1 req/1,5 s, UI figée sur « Fusion en cours ».
 
 **Correctif recommandé (le plus simple, supprime le problème au lieu de le patcher)** : supprimer entièrement le système de jobs serveur. Le client orchestre séquentiellement avec les actions unitaires **déjà existantes et robustes** : pour chaque secteur sélectionné, `POST action=preview_merge` (dry-run) puis `POST action=apply_merge` avec `expectedAccountIds` (la garde `stale_preview` existe déjà, `sectors.js:388-396`). Deux passes : d'abord tous les dry-runs (si un seul échoue → rien n'est écrit, sémantique V17d conservée), puis les applies. Progression réelle affichée localement (`i/total`), plus aucun état serveur, plus de polling.
@@ -55,7 +55,10 @@
 **Fichier** : `src/apps/cleaner/shell/CleanerShell.tsx:165-168`
 
 ```tsx
-<span data-testid="cleaner-session-state" data-access-token={accessToken ?? ''} />
+<span
+  data-testid="cleaner-session-state"
+  data-access-token={accessToken ?? ''}
+/>
 ```
 
 **Constat** : le token d'accès Supabase (JWT porteur des droits API) est sérialisé dans un attribut DOM en production. N'importe quelle extension navigateur / capture DOM / outil de session-replay peut le lire. C'est un hook de test qui a fui.
@@ -248,4 +251,3 @@ Pas de refactor gratuit (périmètre chirurgical) : ces fichiers sont testés et
 - `eslint` : 2 erreurs / 22 warnings (détail en C8/C13)
 - `vitest` : 742 ✅ / 8 ❌ (détail en C3) — objectif post-C3 : 750 ✅
 - `knip` : 6 fichiers, 1 dépendance, 76 exports signalés (dont faux positifs — voir C8)
-

@@ -1,7 +1,7 @@
-import { GlassCard, Tag } from "../../components/ui";
-import type { DedupEntry } from "../../crm";
+import { GlassCard, Tag } from '../../components/ui';
+import type { DedupEntry } from '../../crm';
 
-export type DedupMode = "avertir" | "exclure";
+export type DedupMode = 'avertir' | 'exclure';
 
 type DedupBannerProps = {
   dedup: DedupEntry[];
@@ -17,24 +17,25 @@ export function DedupBanner({ dedup, mode, onModeChange }: DedupBannerProps) {
       <div className="calls-dedup__text">
         <Tag variant="alert">Doublons</Tag>
         <p>
-          <strong>{dedup.length}</strong> contact{dedup.length > 1 ? "s sont" : " est"} déjà dans
-          une séance (dont celles de collègues).
+          <strong>{dedup.length}</strong> contact
+          {dedup.length > 1 ? 's sont' : ' est'} déjà dans une séance (dont
+          celles de collègues).
         </p>
       </div>
       <div className="calls-tristate calls-dedup__toggle">
         <button
           type="button"
-          className={`calls-tristate__opt${mode === "avertir" ? " calls-tristate__opt--active" : ""}`}
-          onClick={() => onModeChange("avertir")}
-          aria-pressed={mode === "avertir"}
+          className={`calls-tristate__opt${mode === 'avertir' ? ' calls-tristate__opt--active' : ''}`}
+          onClick={() => onModeChange('avertir')}
+          aria-pressed={mode === 'avertir'}
         >
           Avertir
         </button>
         <button
           type="button"
-          className={`calls-tristate__opt${mode === "exclure" ? " calls-tristate__opt--active" : ""}`}
-          onClick={() => onModeChange("exclure")}
-          aria-pressed={mode === "exclure"}
+          className={`calls-tristate__opt${mode === 'exclure' ? ' calls-tristate__opt--active' : ''}`}
+          onClick={() => onModeChange('exclure')}
+          aria-pressed={mode === 'exclure'}
         >
           Exclure
         </button>

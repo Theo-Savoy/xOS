@@ -302,7 +302,10 @@
 
 .pilotage-heatmap__months {
   display: grid;
-  grid-template-columns: var(--heatmap-row-label) repeat(var(--week-cols, 1), minmax(0, 1fr));
+  grid-template-columns: var(--heatmap-row-label) repeat(
+      var(--week-cols, 1),
+      minmax(0, 1fr)
+    );
   gap: var(--heatmap-gap);
   align-items: end;
   min-height: 1rem;
@@ -331,7 +334,10 @@
 
 .pilotage-heatmap__matrix-row {
   display: grid;
-  grid-template-columns: var(--heatmap-row-label) repeat(var(--week-cols, 1), minmax(0, 1fr));
+  grid-template-columns: var(--heatmap-row-label) repeat(
+      var(--week-cols, 1),
+      minmax(0, 1fr)
+    );
   gap: var(--heatmap-gap);
   align-items: stretch;
 }
@@ -361,7 +367,10 @@
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.03);
-  transition: border-color 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    transform 0.1s ease,
+    box-shadow 0.12s ease;
 }
 
 .pilotage-heatmap__cell--calls {
@@ -391,10 +400,15 @@
 }
 
 .pilotage-heatmap__cell--selected {
-  border-color: color-mix(in srgb, var(--xos-accent) 80%, var(--xos-surface-plain));
+  border-color: color-mix(
+    in srgb,
+    var(--xos-accent) 80%,
+    var(--xos-surface-plain)
+  );
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--xos-accent) 45%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--xos-surface-plain) 18%, transparent);
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--xos-surface-plain) 18%, transparent);
 }
 
 .pilotage-heatmap__cell--empty {
@@ -415,8 +429,6 @@
 .pilotage-heatmap__cell--active .pilotage-heatmap__day {
   opacity: 0.92;
 }
-
-
 
 .pilotage-funnel-block {
   display: grid;
@@ -577,7 +589,8 @@
 .pilotage-table td {
   text-align: left;
   padding: 0.4rem 0.35rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--xos-border) 70%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--xos-border) 70%, transparent);
   vertical-align: top;
 }
 
@@ -697,7 +710,9 @@
   border-radius: 0.65rem;
   background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .pilotage-session-chip:hover {
@@ -759,7 +774,9 @@
   text-align: left;
   cursor: pointer;
   font: inherit;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .pilotage-caller-card:hover {

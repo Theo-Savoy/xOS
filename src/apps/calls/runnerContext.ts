@@ -1,4 +1,4 @@
-import type { SessionContact } from "./types";
+import type { SessionContact } from './types';
 
 /** Which session row should drive CRM context (tasks, opps, SF URLs). */
 export function resolveContextContactId(
@@ -11,7 +11,7 @@ export function resolveContextContactId(
     const focused = contacts.find((contact) => contact.id === focusedContactId);
     if (focused) return focusedContactId;
   }
-  return contacts.find((contact) => contact.status === "pending")?.id ?? null;
+  return contacts.find((contact) => contact.status === 'pending')?.id ?? null;
 }
 
 /**
@@ -24,9 +24,12 @@ export function pendingContactsAhead(
   limit: number,
 ): SessionContact[] {
   if (limit <= 0) return [];
-  const startIndex = currentId == null
-    ? -1
-    : contacts.findIndex((contact) => contact.id === currentId);
+  const startIndex =
+    currentId == null
+      ? -1
+      : contacts.findIndex((contact) => contact.id === currentId);
   const slice = startIndex >= 0 ? contacts.slice(startIndex + 1) : contacts;
-  return slice.filter((contact) => contact.status === "pending").slice(0, limit);
+  return slice
+    .filter((contact) => contact.status === 'pending')
+    .slice(0, limit);
 }

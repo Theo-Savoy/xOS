@@ -1,5 +1,7 @@
 /** Transforme une liste de valeurs simples en options {value, label}. */
-export function asOptions<T extends string>(values: readonly T[]): { value: T; label: string }[] {
+export function asOptions<T extends string>(
+  values: readonly T[],
+): { value: T; label: string }[] {
   return values.map((value) => ({ value, label: value }));
 }
 

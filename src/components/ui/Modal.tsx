@@ -27,7 +27,8 @@ export type ModalProps = {
   variant?: 'default' | 'glass';
 };
 
-const FOCUSABLE = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
   open,
@@ -83,7 +84,11 @@ export function Modal({
     event.stopPropagation();
   return createPortal(
     <div
-      className={isGlass ? 'xos-modal-backdrop xos-modal-backdrop--glass' : 'xos-modal-backdrop'}
+      className={
+        isGlass
+          ? 'xos-modal-backdrop xos-modal-backdrop--glass'
+          : 'xos-modal-backdrop'
+      }
       data-testid="modal-backdrop"
       onClick={onClose}
     >
@@ -97,18 +102,34 @@ export function Modal({
       >
         <header className="xos-modal__header">
           <h2 id={titleId}>{title}</h2>
-          <button type="button" className="xos-modal__close" aria-label="Fermer" onClick={onClose}>×</button>
+          <button
+            type="button"
+            className="xos-modal__close"
+            aria-label="Fermer"
+            onClick={onClose}
+          >
+            ×
+          </button>
         </header>
         {children ? <div className="xos-modal__body">{children}</div> : null}
         {primaryAction || secondaryAction ? (
           <footer className="xos-modal__actions">
             {secondaryAction ? (
-              <Button type="button" variant="secondary" disabled={secondaryAction.disabled} onClick={secondaryAction.onClick}>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={secondaryAction.disabled}
+                onClick={secondaryAction.onClick}
+              >
                 {secondaryAction.label}
               </Button>
             ) : null}
             {primaryAction ? (
-              <Button type="button" disabled={primaryAction.disabled} onClick={primaryAction.onClick}>
+              <Button
+                type="button"
+                disabled={primaryAction.disabled}
+                onClick={primaryAction.onClick}
+              >
                 {primaryAction.label}
               </Button>
             ) : null}

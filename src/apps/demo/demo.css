@@ -3,7 +3,11 @@
   padding: clamp(1.25rem, 3vw, 2rem);
   color: var(--xos-text);
   background:
-    radial-gradient(circle at 80% 0%, rgba(139, 91, 250, 0.14), transparent 38%),
+    radial-gradient(
+      circle at 80% 0%,
+      rgba(139, 91, 250, 0.14),
+      transparent 38%
+    ),
     rgba(4, 8, 28, 0.6);
 }
 

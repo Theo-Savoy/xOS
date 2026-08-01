@@ -118,9 +118,7 @@ describe('CleanerShell navigation', () => {
       },
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Secteurs obsolètes/ }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Secteurs obsolètes/ }));
 
     expect(screen.getByRole('tab', { name: 'Recettes' })).toBeTruthy();
     expect(
@@ -136,54 +134,48 @@ describe('CleanerShell navigation', () => {
   it('completes a sector merge from Labo navigation with the V17d dry-run flow', async () => {
     let recipeReads = 0;
     let jobPolls = 0;
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(async (_input, init) => {
-        if (init?.method === 'POST') {
-          const body = JSON.parse(String(init.body));
-          if (body.action === 'bulk_apply') {
-            return new Response(JSON.stringify({ ok: true, jobId: 'job-1' }), {
-              status: 200,
-            });
-          }
-          return new Response(JSON.stringify({ updated: 1, failed: 0 }), {
+    const fetchMock = vi.fn().mockImplementation(async (_input, init) => {
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        if (body.action === 'bulk_apply') {
+          return new Response(JSON.stringify({ ok: true, jobId: 'job-1' }), {
             status: 200,
           });
         }
-        const url =
-          typeof _input === 'string'
-            ? _input
-            : _input?.url || '';
-        if (url.includes('action=status')) {
-          jobPolls += 1;
-          return new Response(
-            JSON.stringify({
-              status: jobPolls >= 2 ? 'done' : 'running',
-              total: 1,
-              processed: jobPolls,
-              errors: [],
-            }),
-            { status: 200 },
-          );
-        }
-        recipeReads += 1;
+        return new Response(JSON.stringify({ updated: 1, failed: 0 }), {
+          status: 200,
+        });
+      }
+      const url = typeof _input === 'string' ? _input : _input?.url || '';
+      if (url.includes('action=status')) {
+        jobPolls += 1;
         return new Response(
           JSON.stringify({
-            obsoleteSectors:
-              recipeReads === 1
-                ? [{ id: 'finance', label: 'Finance', accountCount: 1 }]
-                : [],
-            activeSectors: [
-              { id: 'transports', label: 'Transports', accountCount: 4 },
-            ],
-            suggestedMappings: { finance: 'transports' },
-            accountsPerSector:
-              recipeReads === 1 ? { finance: ['001-a'] } : {},
-            capabilities: { canApplyMerge: true },
+            status: jobPolls >= 2 ? 'done' : 'running',
+            total: 1,
+            processed: jobPolls,
+            errors: [],
           }),
           { status: 200 },
         );
-      });
+      }
+      recipeReads += 1;
+      return new Response(
+        JSON.stringify({
+          obsoleteSectors:
+            recipeReads === 1
+              ? [{ id: 'finance', label: 'Finance', accountCount: 1 }]
+              : [],
+          activeSectors: [
+            { id: 'transports', label: 'Transports', accountCount: 4 },
+          ],
+          suggestedMappings: { finance: 'transports' },
+          accountsPerSector: recipeReads === 1 ? { finance: ['001-a'] } : {},
+          capabilities: { canApplyMerge: true },
+        }),
+        { status: 200 },
+      );
+    });
     vi.stubGlobal('fetch', fetchMock);
     renderShell({
       role: 'manager',
@@ -206,9 +198,7 @@ describe('CleanerShell navigation', () => {
     });
 
     // Open the recipe from the cockpit tile (legacy path still works).
-    fireEvent.click(
-      screen.getByRole('button', { name: /Secteurs obsolètes/ }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Secteurs obsolètes/ }));
     await screen.findByText(/Finance/);
     // The new flow exposes a single 'Fusionner N secteurs' button — no
     // separate preview / confirm step. Clicking it opens a confirmation
@@ -216,12 +206,8 @@ describe('CleanerShell navigation', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: /Fusionner 1 secteur/ }),
     );
-    expect(
-      await screen.findByText(/serveur lance un dry-run/i),
-    ).toBeTruthy();
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Fusionner' }),
-    );
+    expect(await screen.findByText(/serveur lance un dry-run/i)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Fusionner' }));
     // The success modal appears after the job completes.
     expect(
       await screen.findByText(/1 fusion réussie/, {}, { timeout: 6000 }),
@@ -233,7 +219,9 @@ describe('CleanerShell navigation', () => {
 
     expect(screen.getByRole('heading', { name: 'Labo' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Accueil' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Recettes du Labo' })).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Recettes du Labo' }),
+    ).toBeTruthy();
     expect(screen.queryByTestId('cleaner-cockpit')).toBeNull();
     expect(screen.queryByLabelText('Fermer Accueil')).toBeNull();
   });

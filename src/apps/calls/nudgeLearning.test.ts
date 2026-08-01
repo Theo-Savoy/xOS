@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   NUDGE_LEARNING_KEY_PREFIX,
   __resetNudgeLearningInternals,
@@ -13,11 +13,11 @@ import {
   shouldShowNudge,
   type ShortcutId,
   type StorageLike,
-} from "./nudgeLearning";
+} from './nudgeLearning';
 
-const USER_ID = "user-test-1";
-const SHORTCUT: ShortcutId = "K";
-const OTHER_SHORTCUT: ShortcutId = "J";
+const USER_ID = 'user-test-1';
+const SHORTCUT: ShortcutId = 'K';
+const OTHER_SHORTCUT: ShortcutId = 'J';
 
 function installStorage() {
   const local: Record<string, string> = {};
@@ -48,7 +48,7 @@ function clickTimes(shortcutId: ShortcutId, count: number) {
   return last;
 }
 
-describe("nudgeLearning", () => {
+describe('nudgeLearning', () => {
   beforeEach(() => {
     const stores = installStorage();
     localStore = stores.local;
@@ -63,29 +63,29 @@ describe("nudgeLearning", () => {
     __resetNudgeLearningInternals();
   });
 
-  it("starts in intensive phase with shouldShow false", () => {
+  it('starts in intensive phase with shouldShow false', () => {
     const state = loadLearningState(SHORTCUT, USER_ID);
-    expect(state.phase).toBe("intensive");
+    expect(state.phase).toBe('intensive');
     expect(state.nudgesSeen).toBe(0);
     expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
   });
 
-  it("shows intensive nudge after 5 mouse clicks", () => {
+  it('shows intensive nudge after 5 mouse clicks', () => {
     const fourth = clickTimes(SHORTCUT, 4);
     expect(fourth.shouldShow).toBe(false);
 
     const fifth = registerMouseClick(SHORTCUT, USER_ID);
     expect(fifth.shouldShow).toBe(true);
-    expect(fifth.state.phase).toBe("intensive");
+    expect(fifth.state.phase).toBe('intensive');
     expect(fifth.state.mouseCount).toBe(5);
   });
 
-  it("moves to reguliere after markNudgeSeen and stays hidden until 10 more clicks", () => {
+  it('moves to reguliere after markNudgeSeen and stays hidden until 10 more clicks', () => {
     clickTimes(SHORTCUT, 5);
     markNudgeSeen(SHORTCUT, USER_ID);
 
     const state = loadLearningState(SHORTCUT, USER_ID);
-    expect(state.phase).toBe("reguliere");
+    expect(state.phase).toBe('reguliere');
     expect(state.nudgesSeen).toBe(1);
     expect(state.mouseCount).toBe(0);
     expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
@@ -95,17 +95,17 @@ describe("nudgeLearning", () => {
 
     const afterTen = registerMouseClick(SHORTCUT, USER_ID);
     expect(afterTen.shouldShow).toBe(true);
-    expect(afterTen.state.phase).toBe("reguliere");
+    expect(afterTen.state.phase).toBe('reguliere');
   });
 
-  it("moves to espacee after second nudge and shows at 30 cumulative clicks, not 45 (BUG-05)", () => {
+  it('moves to espacee after second nudge and shows at 30 cumulative clicks, not 45 (BUG-05)', () => {
     clickTimes(SHORTCUT, 5);
     markNudgeSeen(SHORTCUT, USER_ID);
     clickTimes(SHORTCUT, 10);
     markNudgeSeen(SHORTCUT, USER_ID);
 
     const state = loadLearningState(SHORTCUT, USER_ID);
-    expect(state.phase).toBe("espacee");
+    expect(state.phase).toBe('espacee');
     expect(state.nudgesSeen).toBe(2);
     expect(state.totalMouseCount).toBe(15);
     expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
@@ -118,11 +118,11 @@ describe("nudgeLearning", () => {
 
     const afterThirtieth = registerMouseClick(SHORTCUT, USER_ID);
     expect(afterThirtieth.shouldShow).toBe(true);
-    expect(afterThirtieth.state.phase).toBe("espacee");
+    expect(afterThirtieth.state.phase).toBe('espacee');
     expect(afterThirtieth.state.totalMouseCount).toBe(30);
   });
 
-  it("enters acceptee after 3 nudges seen and never shows again", () => {
+  it('enters acceptee after 3 nudges seen and never shows again', () => {
     clickTimes(SHORTCUT, 5);
     markNudgeSeen(SHORTCUT, USER_ID);
     clickTimes(SHORTCUT, 10);
@@ -131,7 +131,7 @@ describe("nudgeLearning", () => {
     markNudgeSeen(SHORTCUT, USER_ID);
 
     const state = loadLearningState(SHORTCUT, USER_ID);
-    expect(state.phase).toBe("acceptee");
+    expect(state.phase).toBe('acceptee');
     expect(state.nudgesSeen).toBe(3);
 
     const burst = clickTimes(SHORTCUT, 100);
@@ -139,7 +139,7 @@ describe("nudgeLearning", () => {
     expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
   });
 
-  it("persists state in localStorage", () => {
+  it('persists state in localStorage', () => {
     clickTimes(SHORTCUT, 5);
     markNudgeSeen(SHORTCUT, USER_ID);
 
@@ -148,16 +148,16 @@ describe("nudgeLearning", () => {
     const parsed = JSON.parse(raw!) as Record<string, unknown>;
     expect(parsed.K).toMatchObject({
       nudgesSeen: 1,
-      phase: "reguliere",
+      phase: 'reguliere',
       mouseCount: 0,
     });
 
     const reloaded = loadLearningState(SHORTCUT, USER_ID);
     expect(reloaded.nudgesSeen).toBe(1);
-    expect(reloaded.phase).toBe("reguliere");
+    expect(reloaded.phase).toBe('reguliere');
   });
 
-  it("tracks each shortcut independently", () => {
+  it('tracks each shortcut independently', () => {
     const kFifth = clickTimes(SHORTCUT, 5);
     expect(kFifth.shouldShow).toBe(true);
 
@@ -170,7 +170,7 @@ describe("nudgeLearning", () => {
     expect(loadLearningState(OTHER_SHORTCUT, USER_ID).nudgesSeen).toBe(0);
   });
 
-  it("handles 100 clicks at once for intensive phase", () => {
+  it('handles 100 clicks at once for intensive phase', () => {
     let sawShow = false;
     for (let i = 0; i < 100; i += 1) {
       const result = registerMouseClick(SHORTCUT, USER_ID);
@@ -180,11 +180,11 @@ describe("nudgeLearning", () => {
     const state = loadLearningState(SHORTCUT, USER_ID);
     expect(sawShow).toBe(true);
     expect(state.mouseCount).toBe(100);
-    expect(state.phase).toBe("intensive");
+    expect(state.phase).toBe('intensive');
     expect(state.nudgesSeen).toBe(0);
   });
 
-  it("does not re-show until dismissed after threshold is reached", () => {
+  it('does not re-show until dismissed after threshold is reached', () => {
     const fifth = clickTimes(SHORTCUT, 5);
     expect(fifth.shouldShow).toBe(true);
 
@@ -193,25 +193,35 @@ describe("nudgeLearning", () => {
     expect(sixth.state.mouseCount).toBe(6);
   });
 
-  describe("BUG-04: per-shortcut intensive thresholds", () => {
-    it("shows the intensive nudge for L after 3 clicks, not 5", () => {
-      const second = clickTimes("L", 2);
+  describe('BUG-04: per-shortcut intensive thresholds', () => {
+    it('shows the intensive nudge for L after 3 clicks, not 5', () => {
+      const second = clickTimes('L', 2);
       expect(second.shouldShow).toBe(false);
 
-      const third = registerMouseClick("L", USER_ID);
+      const third = registerMouseClick('L', USER_ID);
       expect(third.shouldShow).toBe(true);
     });
 
-    it("shows the intensive nudge for F after 3 clicks, not 5", () => {
-      const second = clickTimes("F", 2);
+    it('shows the intensive nudge for F after 3 clicks, not 5', () => {
+      const second = clickTimes('F', 2);
       expect(second.shouldShow).toBe(false);
 
-      const third = registerMouseClick("F", USER_ID);
+      const third = registerMouseClick('F', USER_ID);
       expect(third.shouldShow).toBe(true);
     });
 
-    it("still requires 5 clicks for K/J/digits/cmd-enter/?", () => {
-      for (const id of ["K", "J", "1", "2", "3", "4", "5", "cmd-enter", "?"] as const) {
+    it('still requires 5 clicks for K/J/digits/cmd-enter/?', () => {
+      for (const id of [
+        'K',
+        'J',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        'cmd-enter',
+        '?',
+      ] as const) {
         const fourth = clickTimes(id, 4);
         expect(fourth.shouldShow).toBe(false);
         const fifth = registerMouseClick(id, USER_ID);
@@ -221,18 +231,18 @@ describe("nudgeLearning", () => {
     });
   });
 
-  describe("BUG-06: markAdopted on keyboard use", () => {
-    it("clic clavier après 2 rappels vus → nudges suivants silencieux", () => {
+  describe('BUG-06: markAdopted on keyboard use', () => {
+    it('clic clavier après 2 rappels vus → nudges suivants silencieux', () => {
       clickTimes(SHORTCUT, 5);
       markNudgeSeen(SHORTCUT, USER_ID);
       clickTimes(SHORTCUT, 10);
       markNudgeSeen(SHORTCUT, USER_ID);
-      expect(loadLearningState(SHORTCUT, USER_ID).phase).toBe("espacee");
+      expect(loadLearningState(SHORTCUT, USER_ID).phase).toBe('espacee');
 
       markAdopted(SHORTCUT, USER_ID);
 
       const state = loadLearningState(SHORTCUT, USER_ID);
-      expect(state.phase).toBe("acceptee");
+      expect(state.phase).toBe('acceptee');
       expect(state.nudgesSeen).toBe(3);
 
       const burst = clickTimes(SHORTCUT, 100);
@@ -240,7 +250,7 @@ describe("nudgeLearning", () => {
       expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
     });
 
-    it("does not reset mouse counters on adoption", () => {
+    it('does not reset mouse counters on adoption', () => {
       clickTimes(SHORTCUT, 5);
       markAdopted(SHORTCUT, USER_ID);
       const state = loadLearningState(SHORTCUT, USER_ID);
@@ -248,11 +258,11 @@ describe("nudgeLearning", () => {
       expect(state.totalMouseCount).toBe(5);
     });
 
-    it("silences nudges immediately even from the very first keyboard use", () => {
+    it('silences nudges immediately even from the very first keyboard use', () => {
       clickTimes(SHORTCUT, 2);
       markAdopted(SHORTCUT, USER_ID);
       expect(shouldShowNudge(SHORTCUT, USER_ID)).toBe(false);
-      expect(loadLearningState(SHORTCUT, USER_ID).phase).toBe("acceptee");
+      expect(loadLearningState(SHORTCUT, USER_ID).phase).toBe('acceptee');
     });
   });
 });

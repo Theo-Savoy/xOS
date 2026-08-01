@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { createDialerLogQueue } from "./dialerLogQueue";
+import { describe, expect, it } from 'vitest';
+import { createDialerLogQueue } from './dialerLogQueue';
 
-describe("createDialerLogQueue", () => {
-  it("runs tasks in order without dropping any", async () => {
+describe('createDialerLogQueue', () => {
+  it('runs tasks in order without dropping any', async () => {
     const order: number[] = [];
     const queue = createDialerLogQueue();
     let releaseFirst!: () => void;
@@ -30,13 +30,13 @@ describe("createDialerLogQueue", () => {
     expect(queue.getPending()).toBe(0);
   });
 
-  it("keeps draining after a task failure", async () => {
+  it('keeps draining after a task failure', async () => {
     const order: number[] = [];
     const queue = createDialerLogQueue();
 
     queue.enqueue(async () => {
       order.push(1);
-      throw new Error("boom");
+      throw new Error('boom');
     });
     queue.enqueue(async () => {
       order.push(2);
@@ -46,7 +46,7 @@ describe("createDialerLogQueue", () => {
     expect(order).toEqual([1, 2]);
   });
 
-  it("notifies pending count changes", async () => {
+  it('notifies pending count changes', async () => {
     const counts: number[] = [];
     const queue = createDialerLogQueue((n) => counts.push(n));
     queue.enqueue(async () => {

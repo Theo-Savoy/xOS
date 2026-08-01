@@ -2,11 +2,15 @@
 
 export const INTENSE_STREAK_THRESHOLD = 20;
 
-export type ComboStreakId = "classique" | "productif" | "intense";
+export type ComboStreakId = 'classique' | 'productif' | 'intense';
 
 export type ComboStreaksState = Record<ComboStreakId, number>;
 
-const EMPTY_STREAKS_STATE: ComboStreaksState = { classique: 0, productif: 0, intense: 0 };
+const EMPTY_STREAKS_STATE: ComboStreaksState = {
+  classique: 0,
+  productif: 0,
+  intense: 0,
+};
 
 export function comboStreaksStorageKey(userId: string): string {
   return `xos-combo-streaks:${userId}`;
@@ -19,9 +23,9 @@ export function loadStreaks(userId: string): ComboStreaksState {
     if (!raw) return { ...EMPTY_STREAKS_STATE };
     const parsed = JSON.parse(raw) as Partial<ComboStreaksState>;
     return {
-      classique: typeof parsed.classique === "number" ? parsed.classique : 0,
-      productif: typeof parsed.productif === "number" ? parsed.productif : 0,
-      intense: typeof parsed.intense === "number" ? parsed.intense : 0,
+      classique: typeof parsed.classique === 'number' ? parsed.classique : 0,
+      productif: typeof parsed.productif === 'number' ? parsed.productif : 0,
+      intense: typeof parsed.intense === 'number' ? parsed.intense : 0,
     };
   } catch {
     return { ...EMPTY_STREAKS_STATE };
@@ -30,7 +34,10 @@ export function loadStreaks(userId: string): ComboStreaksState {
 
 export function saveStreaks(userId: string, streaks: ComboStreaksState): void {
   try {
-    window.localStorage?.setItem(comboStreaksStorageKey(userId), JSON.stringify(streaks));
+    window.localStorage?.setItem(
+      comboStreaksStorageKey(userId),
+      JSON.stringify(streaks),
+    );
   } catch {
     /* ignore */
   }
@@ -45,16 +52,26 @@ export interface SessionStreakResult {
   currentSessions: number;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function shiftDate(dateStr: string, deltaDays: number): string {
+  if (!ISO_DATE_RE.test(dateStr)) return dateStr;
   const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
   d.setUTCDate(d.getUTCDate() + deltaDays);
   return d.toISOString().slice(0, 10);
 }
 
 /** Streak "classique" : jours calendaires consécutifs avec ≥ 1 log_call. Aujourd'hui compte, hier compte (streak pas encore cassé), un jour manquant casse. */
-export function computeStreak(logDates: string[], todayParis: string): StreakResult {
+export function computeStreak(
+  logDates: string[],
+  todayParis: string,
+): StreakResult {
   const days = new Set(logDates);
-  return { currentDays: computeCurrentDays(days, todayParis), bestEver: computeBestEver(days) };
+  return {
+    currentDays: computeCurrentDays(days, todayParis),
+    bestEver: computeBestEver(days),
+  };
 }
 
 function computeCurrentDays(days: Set<string>, todayParis: string): number {
@@ -86,7 +103,10 @@ function computeBestEver(days: Set<string>): number {
   return best;
 }
 
-function trailingRun(values: number[], meetsThreshold: (value: number) => boolean): number {
+function trailingRun(
+  values: number[],
+  meetsThreshold: (value: number) => boolean,
+): number {
   let count = 0;
   for (let i = values.length - 1; i >= 0; i--) {
     if (!meetsThreshold(values[i])) break;
@@ -96,11 +116,18 @@ function trailingRun(values: number[], meetsThreshold: (value: number) => boolea
 }
 
 /** Streak "productif" : séances consécutives (les plus récentes) avec ≥ 3 RDV chacune. */
-export function computeProductifStreak(sessionRdvs: number[]): SessionStreakResult {
+export function computeProductifStreak(
+  sessionRdvs: number[],
+): SessionStreakResult {
   return { currentSessions: trailingRun(sessionRdvs, (rdvs) => rdvs >= 3) };
 }
 
 /** Streak "intense" : séances consécutives (les plus récentes) à ≥ threshold appels. */
-export function computeIntenseStreak(sessionCalls: number[], threshold: number = INTENSE_STREAK_THRESHOLD): SessionStreakResult {
-  return { currentSessions: trailingRun(sessionCalls, (calls) => calls >= threshold) };
+export function computeIntenseStreak(
+  sessionCalls: number[],
+  threshold: number = INTENSE_STREAK_THRESHOLD,
+): SessionStreakResult {
+  return {
+    currentSessions: trailingRun(sessionCalls, (calls) => calls >= threshold),
+  };
 }

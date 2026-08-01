@@ -4,10 +4,10 @@
 
 Les seuls fichiers embarqués dans le build sont les **woff2** dans `public/fonts/` :
 
-| Fichier | Usage |
-|---------|--------|
+| Fichier                     | Usage                                             |
+| --------------------------- | ------------------------------------------------- |
 | `brockmann-*-webfont.woff2` | Titres et texte (Regular, Medium, SemiBold, Bold) |
-| `NeueMontreal-*.woff2` | Chiffres et tableaux (`tabular-nums`) |
+| `NeueMontreal-*.woff2`      | Chiffres et tableaux (`tabular-nums`)             |
 
 Déclarés dans `src/os/theme.css` via `@font-face` avec `font-display: swap`.
 

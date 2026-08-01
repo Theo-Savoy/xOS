@@ -11,6 +11,7 @@ npm test -- --run
 ```
 
 Échecs principaux :
+
 - `api/calls.test.js` : contrat v1 (`outcome`, `success`, fetch SF inline) vs v2 (`resultat`, `ok`, adapter)
 - `api/calls-list.test.js` : imports v1 supprimés (`buildSoqlQuery`, `parseFilters`, …)
 - `scripts/call-target-query.test.js` et `scripts/calls-v2-logic.test.js` : collectés par Vitest sans `describe/it`
@@ -19,40 +20,40 @@ npm test -- --run
 
 ### 1. Persistance Supabase (`api/calls.js`)
 
-| Test ciblé | RED (attendu) | GREEN |
-|---|---|---|
-| `npm test -- api/calls.test.js -t "compensates when contact insert fails"` | absent → ajouté, échoue sans rollback | `contacts_creation_failed` + delete compensatoire |
-| `npm test -- api/calls.test.js -t "local persistence fails after SF success"` | absent → 200 malgré update error | `contact_update_failed` 500 + `sf_task_id` |
-| `npm test -- api/calls.test.js -t "session lookup DB error"` | absent → 404 masqué | `session_lookup_failed` 500 |
-| `npm test -- api/calls.test.js -t "follow-up contact lookup fails"` | absent → 200/400 incorrect | `session_contacts_lookup_failed` 500 |
+| Test ciblé                                                                    | RED (attendu)                         | GREEN                                             |
+| ----------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------- |
+| `npm test -- api/calls.test.js -t "compensates when contact insert fails"`    | absent → ajouté, échoue sans rollback | `contacts_creation_failed` + delete compensatoire |
+| `npm test -- api/calls.test.js -t "local persistence fails after SF success"` | absent → 200 malgré update error      | `contact_update_failed` 500 + `sf_task_id`        |
+| `npm test -- api/calls.test.js -t "session lookup DB error"`                  | absent → 404 masqué                   | `session_lookup_failed` 500                       |
+| `npm test -- api/calls.test.js -t "follow-up contact lookup fails"`           | absent → 200/400 incorrect            | `session_contacts_lookup_failed` 500              |
 
 ### 2. Presets strict + erreurs DB (`api/presets.js`)
 
-| Test ciblé | RED | GREEN |
-|---|---|---|
-| `npm test -- api/presets.test.js -t "rejects partial or non-integer strings"` | `parsePresetId("1abc")` → 1 | `null` → 400 `invalid_id` |
-| `npm test -- api/presets.test.js -t "lookup fails"` | 404 masqué | 500 `preset_lookup_failed` |
+| Test ciblé                                                                    | RED                         | GREEN                      |
+| ----------------------------------------------------------------------------- | --------------------------- | -------------------------- |
+| `npm test -- api/presets.test.js -t "rejects partial or non-integer strings"` | `parsePresetId("1abc")` → 1 | `null` → 400 `invalid_id`  |
+| `npm test -- api/presets.test.js -t "lookup fails"`                           | 404 masqué                  | 500 `preset_lookup_failed` |
 
 ### 3. Validation Event + succès partiel
 
-| Test ciblé | RED | GREEN |
-|---|---|---|
-| `npm test -- api/calls.test.js -t "invalid start datetime"` | accepte `"tomorrow"` | 400 `invalid_start` via `isValidEventStart` |
-| `npm test -- api/calls.test.js -t "partial invitee failure"` | `{ok:true}` | 502 `event_invitee_failed` + `sf_event_id` persisté |
+| Test ciblé                                                   | RED                  | GREEN                                               |
+| ------------------------------------------------------------ | -------------------- | --------------------------------------------------- |
+| `npm test -- api/calls.test.js -t "invalid start datetime"`  | accepte `"tomorrow"` | 400 `invalid_start` via `isValidEventStart`         |
+| `npm test -- api/calls.test.js -t "partial invitee failure"` | `{ok:true}`          | 502 `event_invitee_failed` + `sf_event_id` persisté |
 
 ### 4. Mapping sémantique
 
-| Test ciblé | RED | GREEN |
-|---|---|---|
+| Test ciblé                             | RED                             | GREEN                                                                          |
+| -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | `node scripts/calls-v2-logic.check.js` | literals en dur dans `calls.js` | `mapping.objects.task.resultSemantic.{rdv,followUpNoAnswer,followUpVoicemail}` |
 
 ### 5. Tests v2 réécrits
 
-| Fichier | RED | GREEN |
-|---|---|---|
-| `api/calls.test.js` | 7 échecs contrat v1 | 29 tests v2 (adapter mocké) |
-| `api/calls-list.test.js` | 21 échecs imports v1 | 9 tests adapter + POST v2 |
-| `api/presets.test.js` | absent | 11 tests ajoutés |
+| Fichier                       | RED                              | GREEN                                    |
+| ----------------------------- | -------------------------------- | ---------------------------------------- |
+| `api/calls.test.js`           | 7 échecs contrat v1              | 29 tests v2 (adapter mocké)              |
+| `api/calls-list.test.js`      | 21 échecs imports v1             | 9 tests adapter + POST v2                |
+| `api/presets.test.js`         | absent                           | 11 tests ajoutés                         |
 | Scripts renommés `*.check.js` | 2 fichiers Vitest vides en échec | exclus de Vitest, exécutables via `node` |
 
 ## Commandes gate de sortie (GREEN final)
@@ -93,6 +94,7 @@ git diff --check                                # succès
 ### État RED initial (re-revue)
 
 Points bloquants identifiés :
+
 - `assertSessionOwner`/`assertSessionContact` : `.single()` transformait PGRST116 en 500 au lieu de 404
 - `skip_contact`/`complete_session` : update sans contrôle d'erreur → 200 fantôme
 - GET `/api/calls` : erreurs DB masquées (listes/stats vides)
@@ -102,16 +104,16 @@ Points bloquants identifiés :
 
 ### Cycle TDD RED → GREEN (fix2)
 
-| Zone | Test RED ajouté | GREEN |
-|---|---|---|
-| assert maybeSingle + PGRST116 | `returns 404 when session absent (PGRST116)` log_call + GET detail | `isNotFoundError` + `.maybeSingle()` |
-| skip/complete update | `returns 500 when skip/complete update fails` | `contact_update_failed` / `session_update_failed` |
-| GET stats/list/detail | `returns 500 when sessions/contacts lookup fails` | erreurs explicites `*_lookup_failed` |
-| ISO strict | `rejects impossible dates and invalid offsets` | validation calendrier + bornes heure/minute/offset |
-| parsePresetId safe | `rejects unsafe integers` presets.test + check.js | `Number.isSafeInteger` + longueur chaîne |
-| Couverture calls-list | dedup, invalid limit/preset, SF query error, cache header | 18 tests POST + adapter |
-| Couverture calls | invalid JSON/body/action, create_session validations, isolation owner/contact, log_event validations | 58 tests calls |
-| Couverture presets | creation/delete errors, safe integer | 20 tests presets |
+| Zone                          | Test RED ajouté                                                                                      | GREEN                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| assert maybeSingle + PGRST116 | `returns 404 when session absent (PGRST116)` log_call + GET detail                                   | `isNotFoundError` + `.maybeSingle()`               |
+| skip/complete update          | `returns 500 when skip/complete update fails`                                                        | `contact_update_failed` / `session_update_failed`  |
+| GET stats/list/detail         | `returns 500 when sessions/contacts lookup fails`                                                    | erreurs explicites `*_lookup_failed`               |
+| ISO strict                    | `rejects impossible dates and invalid offsets`                                                       | validation calendrier + bornes heure/minute/offset |
+| parsePresetId safe            | `rejects unsafe integers` presets.test + check.js                                                    | `Number.isSafeInteger` + longueur chaîne           |
+| Couverture calls-list         | dedup, invalid limit/preset, SF query error, cache header                                            | 18 tests POST + adapter                            |
+| Couverture calls              | invalid JSON/body/action, create_session validations, isolation owner/contact, log_event validations | 58 tests calls                                     |
+| Couverture presets            | creation/delete errors, safe integer                                                                 | 20 tests presets                                   |
 
 ### Commandes gate de sortie (GREEN fix2)
 

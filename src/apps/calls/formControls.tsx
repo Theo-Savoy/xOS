@@ -1,15 +1,15 @@
-import { useId } from "react";
-import { Button } from "../../components/ui/Button";
-import { RDV_GOAL_PRESETS } from "./rdvCelebrate";
-import type { SessionType } from "./types";
-import { SESSION_TYPE_OPTIONS } from "./types";
+import { useId } from 'react';
+import { Button } from '../../components/ui/Button';
+import { RDV_GOAL_PRESETS } from './rdvCelebrate';
+import type { SessionType } from './types';
+import { SESSION_TYPE_OPTIONS } from './types';
 
 /** @deprecated moved to src/components/ui/DatePicker — import from there in new code. */
-export { DatePicker } from "../../components/ui/DatePicker";
+export { DatePicker } from '../../components/ui/DatePicker';
 
 /** Sélecteur de type de séance (chips mono-sélection). */
 export function SessionTypePicker({
-  label = "Type de séance",
+  label = 'Type de séance',
   value,
   onChange,
   id,
@@ -34,7 +34,7 @@ export function SessionTypePicker({
             key={opt.value}
             type="button"
             role="radio"
-            className={`calls-chip${value === opt.value ? " calls-chip--active" : ""}`}
+            className={`calls-chip${value === opt.value ? ' calls-chip--active' : ''}`}
             aria-checked={value === opt.value}
             onClick={() => onChange(opt.value)}
           >
@@ -47,13 +47,13 @@ export function SessionTypePicker({
 }
 
 const RDV_GOAL_OPTIONS: { value: number | null; label: string }[] = [
-  { value: null, label: "—" },
+  { value: null, label: '—' },
   ...RDV_GOAL_PRESETS.map((n) => ({ value: n, label: String(n) })),
 ];
 
 /** Objectif de RDV pour la séance (chips / segment, pas de select natif). */
 export function RdvGoalPicker({
-  label = "Objectif de RDV",
+  label = 'Objectif de RDV',
   value,
   onChange,
   compact = false,
@@ -72,7 +72,11 @@ export function RdvGoalPicker({
     return (
       <div className="calls-rdv-goal" id={fieldId}>
         <span className="calls-rdv-goal__label">{label}</span>
-        <div className="calls-seg calls-rdv-goal__seg" role="radiogroup" aria-label={label}>
+        <div
+          className="calls-seg calls-rdv-goal__seg"
+          role="radiogroup"
+          aria-label={label}
+        >
           {RDV_GOAL_OPTIONS.map((opt) => (
             <Button
               variant="ghost"
@@ -81,7 +85,7 @@ export function RdvGoalPicker({
               type="button"
               role="radio"
               aria-checked={value === opt.value}
-              className={`calls-seg__btn calls-rdv-goal__btn${value === opt.value ? " calls-seg__btn--active" : ""}`}
+              className={`calls-seg__btn calls-rdv-goal__btn${value === opt.value ? ' calls-seg__btn--active' : ''}`}
               onClick={() => onChange(opt.value)}
             >
               {opt.label}
@@ -105,7 +109,7 @@ export function RdvGoalPicker({
             key={opt.label}
             type="button"
             role="radio"
-            className={`calls-chip${value === opt.value ? " calls-chip--active" : ""}`}
+            className={`calls-chip${value === opt.value ? ' calls-chip--active' : ''}`}
             aria-checked={value === opt.value}
             onClick={() => onChange(opt.value)}
           >
@@ -116,4 +120,3 @@ export function RdvGoalPicker({
     </div>
   );
 }
-

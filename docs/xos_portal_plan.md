@@ -190,6 +190,7 @@ Arena garde sa vocation (challenges d'équipe + reconnaissance collective) mais 
 - **Médaille collective** (badge 🤝 Relais) décernée à tous les contributeurs d'un défi atteint — anonyme par défaut, opt-in pour signature.
 
 **Coordination avec Combo V1** :
+
 - Combo émet déjà les `kind` de notifs `defi_collectif_atteint` et `relais` (réservés mais pas émis — cf. `combo-gamification-v1.md` §3.1). Arena les consommera sans changement d'API.
 - Tables déjà migrées : `challenges`, `challenge_results`, `badges` (migration `001_initial_schema.sql`).
 

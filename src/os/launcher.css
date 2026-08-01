@@ -79,7 +79,7 @@
   transition: background 80ms ease;
 }
 
-.xos-launcher__item[aria-selected="true"],
+.xos-launcher__item[aria-selected='true'],
 .xos-launcher__item:hover {
   background: rgba(139, 91, 250, 0.18);
 }
@@ -186,7 +186,9 @@
   font-size: 0.85rem;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .xos-launcher-form__input:focus,
@@ -241,7 +243,9 @@
   font-weight: 500;
   cursor: pointer;
   border: 0;
-  transition: transform 0.1s ease, filter 0.15s ease;
+  transition:
+    transform 0.1s ease,
+    filter 0.15s ease;
 }
 
 .xos-launcher-form__button--primary {
@@ -311,4 +315,3 @@
 .xos-launcher-form__autocomplete-item:hover {
   background: rgba(139, 91, 250, 0.15);
 }
-

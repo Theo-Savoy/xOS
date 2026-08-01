@@ -1,28 +1,34 @@
-# Ops — Fonctions Vercel (plafond Hobby = 12 ; 6/12 utilisées)
+# Ops — Fonctions Vercel (plafond Hobby = 12 ; 9/12 utilisées)
 
 **Constat 2026-07-11** : le plan Hobby Vercel limite à **12 Serverless Functions**.
 
-**Mise à jour** : consolidations **B** et **C** appliquées (`search` + `log` → `launcher`, `sso-bridge` + `auth/salesforce` → `auth`).
+**Mise à jour 2026-08-01** : inventaire corrigé après audit. Les fonctions `notifications`, `weekly-targets` et `crm/picklists` étaient manquantes dans l'inventaire précédent (annoncé à tort 6/12).
 
-## Inventaire actuel (handlers HTTP) — après cutover Labo Task 10
+## Inventaire actuel (handlers HTTP) — après audit 2026-08-01
 
-| #    | Fichier           | Rôle                                             | Touché par     |
-| ---- | ----------------- | ------------------------------------------------ | -------------- |
-| 1    | `api/cleaner.js`  | Workspace, analytics, history, preview, execute  | Labo natif     |
-| 2    | `api/launcher.js` | SOSL + `/log` + `/create`                        | Cmd+K          |
-| 3    | `api/auth.js`     | Bridge cookie + liaison OAuth SF par utilisateur | Login / compte |
-| 4    | `api/calls.js`    | Sessions + list_contacts + presets               | Calls app      |
-| 5    | `api/status.js`   | Statut Hub, réglages équipe et rôles             | Hub 2.3        |
-| 6    | `api/perf.js`     | Agrégats Weekly Perf (Pulse, Pipeline, Effort)   | Lot 3.1        |
-| 7–12 | **libres**        | Réserve                                          | —              |
+| #     | Fichier                 | Rôle                                                                    | Touché par                                |
+| ----- | ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------- |
+| 1     | `api/cleaner.js`        | Workspace, analytics, history, preview, execute                         | Labo natif                                |
+| 2     | `api/launcher.js`       | SOSL + `/log` + `/create`                                               | Cmd+K                                     |
+| 3     | `api/auth.js`           | Bridge cookie + liaison OAuth SF par utilisateur                        | Login / compte                            |
+| 4     | `api/calls.js`          | Sessions + list_contacts + presets                                      | Combo (calls)                             |
+| 5     | `api/status.js`         | Statut Hub, réglages équipe et rôles                                    | Coulisses (Hub)                           |
+| 6     | `api/perf.js`           | Agrégats Weekly Perf (Pulse, Pipeline, Effort)                          | Lundi (Weekly)                            |
+| 7     | `api/notifications.js`  | Notifications utilisateur temps réel                                    | Shell desktop                             |
+| 8     | `api/weekly-targets.js` | Targets trimestrielles (CRUD)                                           | Lundi (Weekly)                            |
+| 9     | `api/crm/picklists.js`  | Picklists Salesforce (cache)                                            | Combo (calls)                             |
+| 10    | `api/review.js`         | Cockpit macro Bilan (KPIs, breakdown, funnel, attention, calls, shared) | Bilan (review) — _untracked, à committer_ |
+| 11–12 | **libres**              | Réserve                                                                 | —                                         |
 
-Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `api/_calls/*`, `api/_config/*`.
+**Attention** : `api/review.js` est codé mais non commité. Une fois commité, le compteur passe à **10/12, 2 slots libres**.
+
+Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `api/_calls/*`, `api/_config/*`, `api/_cleaner/*`, `api/_review/*`, `api/_weekly/*`.
 
 ### Activation OAuth utilisateur (lot 8.1b)
 
 - ✅ Migration `supabase/migrations/015_salesforce_user_oauth.sql` appliquée en Production le 2026-07-11.
 - ✅ `SF_TOKEN_ENCRYPTION_KEY` ajoutée à Vercel Production (32 octets aléatoires, base64).
-- `SF_REFRESH_TOKEN` : optionnel, réservé aux scripts legacy / fallback explicite (`allowOrgFallback`). Le runtime produit utilise uniquement l’OAuth utilisateur.
+- `SF_REFRESH_TOKEN` : optionnel, réservé aux scripts legacy / fallback explicite (`allowOrgFallback`). Le runtime produit utilise uniquement l'OAuth utilisateur.
 - Callback Connected App : `https://xos.hellotheo.fr/api/auth?flow=salesforce-callback`.
 - Authorize URL : `SF_INSTANCE_URL` (My Domain org), pas `login.salesforce.com`.
 - Ne jamais faire tourner la clé de chiffrement sans relier ensuite tous les comptes Salesforce.
@@ -61,25 +67,19 @@ Helpers **non exposés** (importés seulement) : `api/_auth.js`, `api/_crm/*`, `
 
 ## Besoins futurs
 
-| Endpoint prévu     | Phase | Slot                             |
-| ------------------ | ----- | -------------------------------- |
-| `status` (Hub)     | 2.3   | livré (`api/status.js`)          |
-| `perf` (Weekly)    | 3.1   | livré (`api/perf.js`)            |
-| `business-review`  | 6.1   | réserve / consolidation C        |
-| `arena/*`          | 5.1   | Pro ou consolidation C           |
-| `chat` + `slack/*` | 7.x   | Pro ou consolidation C           |
-| callback OAuth SF  | 8.1   | idéalement dans `auth.js` unique |
+| Endpoint prévu            | Phase | Slot                                       |
+| ------------------------- | ----- | ------------------------------------------ |
+| `review` (Bilan)          | 6.1   | codé untracked — **10/12 après commit**    |
+| `copilot` (Copilot)       | 9.1   | 11/12 après livraison                      |
+| `telnyx/*` (Power Dialer) | 11.x  | 12/12 minimum — **plafond atteint**        |
+| `chat` + `slack/*`        | 7.x   | >12 — **Pro ou consolidation obligatoire** |
 
-## Stratégie restante
+**Stratégie slots** : après Bilan (10/12), il reste 2 slots pour Copilot + Telnyx. Telnyx seul peut consommer 1-2 fonctions (webhooks). Copilot ajoute +1. Le plafond est atteint dès la livraison de Copilot OU Telnyx, whichever comes first.
 
-### C — Fait → **−2**
+Options si plafond atteint :
 
-4. **Router Launcher** `api/launcher.js` : `search` + `log`.
-5. **Auth router** `api/auth.js` : `salesforce` + `sso-bridge`.
-
-### D — Cutover Labo livré
-
-Les fonctions legacy `refresh.py`, `update.js`, `history.js` et `version.js`, ainsi que `public/dashboard.html`, ont été retirées après la gate de parité. Labo lit et journalise via `api/cleaner.js` et Supabase ; les blobs historiques restent une sauvegarde tant que leur suppression n’a pas reçu d’accord explicite.
+- **Consolider** : pattern `?resource=` déjà utilisé par `cleaner.js` et `calls.js`. Appliquer à `perf.js` + `weekly-targets.js` (peuvent partager un handler). Coût : ~1 jour par consolidation.
+- **Passer Pro** : 20 $/mois, supprime définitivement la contrainte. Décision reportée par Théo (2026-08-01).
 
 ## Règles pour les agents
 
@@ -87,8 +87,3 @@ Les fonctions legacy `refresh.py`, `update.js`, `history.js` et `version.js`, ai
 2. Pas de nouveau nested `api/foo/bar.js` sauf si on accepte +1 fonction.
 3. Helpers uniquement sous `api/_…` (import only).
 4. Documenter tout merge dans la PR (avant/après inventaire).
-
-## Décision produit
-
-- **Fait** : consolidations **B** et **C**, Hub 2.3, Weekly 3.1 et Labo natif → **6 fonctions**, soit **6 slots libres**.
-- **Moyen terme** : conserver les six slots pour les lots futurs ; aucune fonction legacy Cleaner ne doit être réintroduite.

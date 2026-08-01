@@ -1,10 +1,10 @@
-import { GlassCard, Tag } from "../../components/ui";
-import "./demo.css";
+import { GlassCard, Tag } from '../../components/ui';
+import './demo.css';
 
 const metrics = [
-  { label: "Pipeline actif", value: "428 k€", change: "+12 %" },
-  { label: "Rendez-vous", value: "34", change: "+6" },
-  { label: "Taux de closing", value: "28 %", change: "+3 pts" },
+  { label: 'Pipeline actif', value: '428 k€', change: '+12 %' },
+  { label: 'Rendez-vous', value: '34', change: '+6' },
+  { label: 'Taux de closing', value: '28 %', change: '+3 pts' },
 ];
 
 export default function OverviewDemo() {

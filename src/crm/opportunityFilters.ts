@@ -1,9 +1,12 @@
-import type { FilterTree } from "./index";
+import type { FilterTree } from './index';
 
 /** Salesforce allows at most 2 IN/NOT IN subqueries per SOQL WHERE clause. */
 export const SF_MAX_OPPORTUNITY_SEMI_JOINS = 2;
 
-type EntrepriseOpp = Pick<FilterTree["entreprise"], "opp_ouverte" | "opp_perdue">;
+type EntrepriseOpp = Pick<
+  FilterTree['entreprise'],
+  'opp_ouverte' | 'opp_perdue'
+>;
 
 /** Mirrors `filterByOpportunityAccounts` in api/_crm/salesforce.js — keep in sync. */
 export function countOpportunitySemiJoins(entreprise: EntrepriseOpp): number {
@@ -32,39 +35,45 @@ export type OpportunityFilterGuidance = {
     opp_ouverte: (boolean | null)[];
     opp_perdue: (boolean | null)[];
   };
-  disabledReasons: Partial<Record<"opp_ouverte" | "opp_perdue", Partial<Record<string, string>>>>;
+  disabledReasons: Partial<
+    Record<'opp_ouverte' | 'opp_perdue', Partial<Record<string, string>>>
+  >;
 };
 
-export function getOpportunityFilterGuidance(entreprise: EntrepriseOpp): OpportunityFilterGuidance {
+export function getOpportunityFilterGuidance(
+  entreprise: EntrepriseOpp,
+): OpportunityFilterGuidance {
   const { opp_ouverte, opp_perdue } = entreprise;
   const semiJoinCount = countOpportunitySemiJoins(entreprise);
   const atLimit = semiJoinCount >= SF_MAX_OPPORTUNITY_SEMI_JOINS;
 
-  const disabled: OpportunityFilterGuidance["disabled"] = {
+  const disabled: OpportunityFilterGuidance['disabled'] = {
     opp_ouverte: [],
     opp_perdue: [],
   };
-  const disabledReasons: OpportunityFilterGuidance["disabledReasons"] = {};
+  const disabledReasons: OpportunityFilterGuidance['disabledReasons'] = {};
 
   let hint: string | null = null;
   const note: string | null = null;
 
   if (opp_perdue === true && opp_ouverte === true) {
-    hint = "Comptes avec au moins une opportunité ouverte et au moins une opportunité perdue.";
+    hint =
+      'Comptes avec au moins une opportunité ouverte et au moins une opportunité perdue.';
   } else if (opp_perdue === true && opp_ouverte === false) {
-    hint = "Comptes avec une opportunité perdue et aucune opportunité ouverte.";
+    hint = 'Comptes avec une opportunité perdue et aucune opportunité ouverte.';
   } else if (opp_perdue === true) {
-    hint = "Comptes avec une opportunité perdue et aucune opportunité ouverte.";
+    hint = 'Comptes avec une opportunité perdue et aucune opportunité ouverte.';
   } else if (opp_perdue === false && opp_ouverte === true) {
-    hint = "Comptes avec au moins une opportunité ouverte et sans opportunité perdue.";
+    hint =
+      'Comptes avec au moins une opportunité ouverte et sans opportunité perdue.';
   } else if (opp_perdue === false && opp_ouverte === false) {
-    hint = "Comptes sans opportunité ouverte ni opportunité perdue.";
+    hint = 'Comptes sans opportunité ouverte ni opportunité perdue.';
   } else if (opp_perdue === false) {
-    hint = "Comptes sans opportunité au stade perdu.";
+    hint = 'Comptes sans opportunité au stade perdu.';
   } else if (opp_ouverte === true) {
-    hint = "Comptes avec au moins une opportunité ouverte.";
+    hint = 'Comptes avec au moins une opportunité ouverte.';
   } else if (opp_ouverte === false) {
-    hint = "Comptes sans opportunité ouverte.";
+    hint = 'Comptes sans opportunité ouverte.';
   }
 
   return {
