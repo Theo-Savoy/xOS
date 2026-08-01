@@ -1,0 +1,9 @@
+{
+  "data": {
+    "call_control_id": "dryrun_cc_abc123",
+    "call_leg_id": "dryrun_leg_xyz789",
+    "call_session_id": "dryrun_session_001",
+    "is_alive": true,
+    "record_type": "call"
+  }
+}
