@@ -71,14 +71,12 @@ describe('shared.js', () => {
       expect(result.status).toBe(500);
     });
 
-    it('always filters by revoked_at IS NULL (contract with migration 015)', async () => {
+    it('always filters by revoked_at IS NULL (contract with migration 036)', async () => {
       const client = makeListClient({ rows: [], isManager: true });
       await listShared(client, 'user-1', 'manager');
       const chain = client.from.mock.results[0].value;
-      chain.is.mock.calls.forEach((call) => {
-        expect(call[0]).toBe('revoked_at');
-        expect(call[1]).toBeNull();
-      });
+      // Non-vacuous: assert the call happened, not just iterate over empty array.
+      expect(chain.is).toHaveBeenCalledWith('revoked_at', null);
     });
   });
 

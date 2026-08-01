@@ -27,34 +27,9 @@ export default tseslint.config(
   },
   {
     files: [
+      'src/apps/**/*.{ts,tsx}',
       'src/os/**/*.{ts,tsx}',
       'src/auth/**/*.{ts,tsx}',
-    ],
-    rules: {
-      // Frontière modules Combo: interdire les deep imports depuis l'extérieur
-      // de apps/calls/. CallManagerApp.tsx et modules/* sont exempted (entry
-      // point + boundary interne).
-      // Évite la dérive pendant Phase 11 (8-9 semaines, agents parallèles).
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '**/apps/calls/modules/*/**',
-                '**/apps/calls/modules/*',
-              ],
-              message:
-                'Cross-module deep imports into apps/calls/modules/* are forbidden. Import only from CallManagerApp.tsx (entry point).',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: [
-      'src/apps/**/*.{ts,tsx}',
     ],
     rules: {
       'no-restricted-syntax': [
@@ -63,6 +38,46 @@ export default tseslint.config(
           selector: "JSXOpeningElement[name.name='button']",
           message:
             'Use <Button> from src/components/ui instead of a native <button> (vivier UI — see docs/audits/audit-consolidation-2026-07-17.md).',
+        },
+      ],
+    },
+  },
+  {
+    // Frontière modules Combo: interdire les deep imports depuis la RACINE de
+    // apps/calls/ (où aucun fichier ne devrait connaître l'intérieur des modules
+    // sauf CallManagerApp.tsx, l'entry point). Évite la dérive pendant Phase 11.
+    //
+    // Whitelist: fichiers partagés historiquement qui font du cross-module
+    // (formControls, EventPanel, CommandBar). À migrer dans un module commun
+    // lors d'un refactor dédié (post-Phase 11). Jusque-là, la règle catch
+    // uniquement les NOUVEAUX imports interdits.
+    files: [
+      'src/apps/calls/*.{ts,tsx}',
+      'src/apps/calls/*',
+    ],
+    ignores: [
+      '**/CallManagerApp.tsx',
+      '**/CommandBar.tsx',
+      '**/CommandBar.test.tsx',
+      '**/EventPanel.tsx',
+      '**/formControls.tsx',
+      '**/CallManagerFixes.test.tsx',
+      '**/responsive.test.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                './modules/*/**',
+                './modules/*',
+              ],
+              message:
+                'Do not deep-import into apps/calls/modules/* from the apps/calls/ root. CallManagerApp.tsx is the only entry point allowed to traverse modules.',
+            },
+          ],
         },
       ],
     },
