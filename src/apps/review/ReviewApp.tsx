@@ -234,10 +234,7 @@ export default function ReviewApp() {
         apiFetch<Breakdown>(token, `${base}&resource=breakdown`),
         apiFetch<Funnel>(token, `${base}&resource=funnel`),
         apiFetch<CallStats>(token, `${base}&resource=calls`),
-        apiFetch<Attention>(
-          token,
-          `/api/review?resource=attention${ownerParam}`,
-        ),
+        apiFetch<Attention>(token, `${base}&resource=attention`),
         apiFetch<{ analyses: SharedAnalysis[] }>(
           token,
           '/api/review?resource=shared',
