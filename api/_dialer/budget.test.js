@@ -1,165 +1,129 @@
-import { describe, expect, it } from 'vitest';
-import {
-  checkBudget,
-  startSessionBudget,
-  addSessionCost,
-  endSessionBudget,
-  getSessionSpent,
-  BUDGET_REASONS,
-} from './budget.js';
+import { describe, expect, it, vi } from 'vitest';
+import { reserveBudget, releaseReservation, loadUserEntitlements, BUDGET_REASONS } from './budget.js';
 
-const FLAGS = {
-  enabled: true,
-  dryRun: false,
-  budgetSessionCents: 300,
-  budgetUserDayCents: 1000,
-  budgetOrgMonthCents: 15000,
-  rateRps: 5,
-  rateBurst: 20,
-  alertThresholdPct: 80,
-};
+function mockClient(rpcImpl, fromImpl) {
+  return {
+    rpc: vi.fn(rpcImpl),
+    from: vi.fn(fromImpl ?? (() => ({}) )),
+  };
+}
 
-describe('checkBudget — disabled flag', () => {
-  it('rejects when dialer disabled', () => {
-    const r = checkBudget({
-      flags: { ...FLAGS, enabled: false },
-      requestedCostCents: 1,
-    });
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('dialer_disabled');
-  });
-});
-
-describe('checkBudget — dry-run', () => {
-  it('always allows when dry-run on', () => {
-    const r = checkBudget({
-      flags: { ...FLAGS, dryRun: true },
-      requestedCostCents: 999999,
-      userSpentTodayCents: 999999,
-      orgSpentMonthCents: 999999,
+describe('reserveBudget — délégué au RPC atomique remote', () => {
+  it('propage un allowed=true avec reservation_id', async () => {
+    const client = mockClient(async () => ({
+      data: { allowed: true, reservation_id: 'res-1', estimated_cost_cents: 1 },
+      error: null,
+    }));
+    const r = await reserveBudget(client, {
+      userId: 'u1',
+      campaignId: 7,
+      estimatedCostCents: 1,
+      caps: { sessionCents: 300, userDayCents: 1000, orgMonthCents: 15000, userDayCalls: 50, userMonthCalls: 500 },
     });
     expect(r.allowed).toBe(true);
-    expect(r.reason).toBe('dry_run');
+    expect(r.reservationId).toBe('res-1');
+    expect(client.rpc).toHaveBeenCalledWith('dialer_reserve_budget', expect.objectContaining({
+      p_user_id: 'u1',
+      p_campaign_id: 7,
+      p_estimated_cost_cents: 1,
+      p_session_cap_cents: 300,
+      p_user_day_call_cap: 50,
+      p_user_month_call_cap: 500,
+    }));
   });
 
-  it('explicit dryRun=false behaves like production', () => {
-    const r = checkBudget({
-      flags: { ...FLAGS, dryRun: false },
-      campaignId: 'c1',
-      requestedCostCents: 301,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 0,
+  it('traduit un allowed=false en raison propre', async () => {
+    const client = mockClient(async () => ({
+      data: { allowed: false, reason: 'budget_exceeded_org_month' },
+      error: null,
+    }));
+    const r = await reserveBudget(client, {
+      userId: 'u1',
+      estimatedCostCents: 1,
+      caps: { sessionCents: 300, userDayCents: 1000, orgMonthCents: 15000, userDayCalls: 50, userMonthCalls: 500 },
     });
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('budget_exceeded_session');
+    expect(r).toEqual({ allowed: false, reason: 'budget_exceeded_org_month' });
+  });
+
+  it('throw si le RPC renvoie une erreur (fail-loud, pas de faux allowed)', async () => {
+    const client = mockClient(async () => ({ data: null, error: { message: 'boom' } }));
+    await expect(
+      reserveBudget(client, {
+        userId: 'u1',
+        estimatedCostCents: 1,
+        caps: { sessionCents: 300, userDayCents: 1000, orgMonthCents: 15000, userDayCalls: 50, userMonthCalls: 500 },
+      }),
+    ).rejects.toThrow(/dialer_reserve_budget failed/);
   });
 });
 
-describe('checkBudget — session tier', () => {
-  it('rejects when session cap exceeded', () => {
-    startSessionBudget('c1', { limitCents: 300 });
-    addSessionCost('c1', 250);
-    const r = checkBudget({
-      flags: FLAGS,
-      campaignId: 'c1',
-      requestedCostCents: 60,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 0,
-    });
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('budget_exceeded_session');
-    expect(r.budgetSessionCentsRemaining).toBe(50);
-    endSessionBudget('c1');
+describe('releaseReservation — cycle de vie', () => {
+  it('no-op sans reservationId', async () => {
+    const client = mockClient(async () => ({ data: null, error: null }));
+    await releaseReservation(client, null);
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  it('skips session tier when no campaignId', () => {
-    const r = checkBudget({
-      flags: FLAGS,
-      requestedCostCents: 9999,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 0,
+  it('appelle le RPC release avec le résultat demandé', async () => {
+    const client = mockClient(async () => ({ data: null, error: null }));
+    await releaseReservation(client, 'res-1', { result: 'consumed' });
+    expect(client.rpc).toHaveBeenCalledWith('dialer_release_reservation', {
+      p_reservation_id: 'res-1',
+      p_result: 'consumed',
     });
-    // Falls through to user/org tier. Here it would fail user cap.
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('budget_exceeded_user_day');
+  });
+
+  it('log les erreurs sans throw (best effort)', async () => {
+    const client = mockClient(async () => ({ data: null, error: { message: 'nope' } }));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await releaseReservation(client, 'res-1');
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
-describe('checkBudget — user-day tier', () => {
-  it('rejects when user cap exceeded', () => {
-    const r = checkBudget({
-      flags: FLAGS,
-      requestedCostCents: 50,
-      userSpentTodayCents: 980,
-      orgSpentMonthCents: 0,
+describe('loadUserEntitlements — contrat remote', () => {
+  it('retourne les caps de l’entitlement', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: vi.fn(async () => ({
+        data: { enabled: true, dry_run: false, budget_day_cents: 2500, calls_day_limit: 40, calls_month_limit: 400 },
+        error: null,
+      })),
+    };
+    const client = mockClient(undefined, () => chain);
+    const e = await loadUserEntitlements(client, 'u1');
+    expect(e).toEqual({
+      enabled: true,
+      dryRun: false,
+      budgetDayCents: 2500,
+      callsDayLimit: 40,
+      callsMonthLimit: 400,
     });
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('budget_exceeded_user_day');
-    expect(r.budgetUserDayCentsRemaining).toBe(20);
+  });
+
+  it('retombe sur des défauts sûrs quand l’entitlement est absent', async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: vi.fn(async () => ({ data: null, error: { code: 'PGRST116' } })),
+    };
+    const client = mockClient(undefined, () => chain);
+    const e = await loadUserEntitlements(client, 'u1');
+    expect(e).toEqual({
+      enabled: false,
+      dryRun: true,
+      budgetDayCents: 1000,
+      callsDayLimit: 50,
+      callsMonthLimit: 500,
+    });
   });
 });
 
-describe('checkBudget — org-month tier', () => {
-  it('rejects when org cap exceeded', () => {
-    const r = checkBudget({
-      flags: FLAGS,
-      requestedCostCents: 50,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 14990,
-    });
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toBe('budget_exceeded_org_month');
-  });
-
-  it('returns alert=warning at 80% org cap', () => {
-    const r = checkBudget({
-      flags: FLAGS,
-      requestedCostCents: 1,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 12000, // 80% of 15000
-    });
-    expect(r.allowed).toBe(true);
-    expect(r.alertLevel).toBe('warning');
-    expect(r.reason).toBe('warning');
-  });
-
-  it('returns alert=ok below 80%', () => {
-    const r = checkBudget({
-      flags: FLAGS,
-      requestedCostCents: 1,
-      userSpentTodayCents: 0,
-      orgSpentMonthCents: 100, // < 1%
-    });
-    expect(r.allowed).toBe(true);
-    expect(r.alertLevel).toBe('ok');
-    expect(r.reason).toBe('ok');
-  });
-});
-
-describe('session counter', () => {
-  it('tracks spend in-memory', () => {
-    startSessionBudget('c2');
-    expect(getSessionSpent('c2')).toBe(0);
-    addSessionCost('c2', 5);
-    addSessionCost('c2', 3);
-    expect(getSessionSpent('c2')).toBe(8);
-    endSessionBudget('c2');
-    expect(getSessionSpent('c2')).toBe(0);
-  });
-
-  it('addSessionCost on unknown campaign is no-op', () => {
-    expect(() => addSessionCost('nope', 100)).not.toThrow();
-    expect(getSessionSpent('nope')).toBe(0);
-  });
-});
-
-describe('BUDGET_REASONS export', () => {
-  it('exposes the 5 reason codes', () => {
-    expect(BUDGET_REASONS.OK).toBe('ok');
-    expect(BUDGET_REASONS.SESSION_EXCEEDED).toBe('budget_exceeded_session');
-    expect(BUDGET_REASONS.USER_EXCEEDED).toBe('budget_exceeded_user_day');
+describe('BUDGET_REASONS', () => {
+  it('expose les raisons du contrat remote', () => {
     expect(BUDGET_REASONS.ORG_EXCEEDED).toBe('budget_exceeded_org_month');
-    expect(BUDGET_REASONS.DISABLED).toBe('dialer_disabled');
-    expect(BUDGET_REASONS.DRY_RUN).toBe('dry_run');
+    expect(BUDGET_REASONS.SESSION_EXCEEDED).toBe('budget_exceeded_session');
   });
 });

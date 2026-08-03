@@ -2,111 +2,232 @@
  * api/_dialer/webhooks.js — Telnyx webhook receiver.
  *
  * Spec: docs/specs/lot-11.1-telnyx-infra.md §2.5, §2.4.
+ * Audit: docs/audits/lot-11.1-go-nogo-transport.md P0-4 / P1-1 / P1-7.
  *
- * Responsibilities (this commit):
- *  1. Ed25519 signature verification via standardwebhooks
- *  2. Idempotency: persist event to dialer_webhook_events (de-dupe by event_id)
- *  3. Stub the event router — actual handlers land in 11.2/11.3
+ * Responsibilities:
+ *  1. Ed25519 signature verification via node:crypto (NO standardwebhooks).
+ *     Telnyx signs `${timestamp}|${rawBody}` in pure Ed25519 and sends the
+ *     headers `telnyx-signature-ed25519` + `telnyx-timestamp`. The
+ *     `standardwebhooks` package would be WRONG here: it signs
+ *     `id.timestamp.payload` (Standard Webhooks spec), a different string.
+ *  2. Idempotency: persist to dialer_webhook_events (dedupe by event_id),
+ *     insert-first so the PK is the lock (no race window).
+ *  3. Persist rejected signature attempts (signature_ok=false) BEFORE
+ *     returning 401 — the only sensor on this public endpoint.
+ *  4. Event router stays a stub — handlers land in 11.2/11.3.
  *
- * Why we don't dispatch yet: the call state machine doesn't exist (11.2).
- * We persist the event so 11.2 can re-process from the table if needed.
+ * The webhook endpoint is OPEN (no JWT): the signature IS the auth.
  */
 
+import { createPublicKey, generateKeyPairSync, verify as cryptoVerify } from 'node:crypto';
 import { loadDialerConfig } from './config.js';
+import { checkAndRecordWebhook, extractEventId } from './idempotency.js';
+import { getServiceClient } from '../_calls/http.js';
 
-const SIG_HEADER = 'telnyx-signature';
-const EVENT_ID_HEADER = 'telnyx-webhook-id';
+export const SIG_HEADER = 'telnyx-signature-ed25519';
+export const TS_HEADER = 'telnyx-timestamp';
 
-export async function handleWebhook(req, res) {
-  const cfg = loadDialerConfig();
+// SPKI prefix for an Ed25519 public key in DER form.
+const SPKI_ED25519_PREFIX = Buffer.from(
+  '302a300506032b6570032100',
+  'hex',
+);
 
-  // 1) Signature verification (mandatory, fail-closed)
-  const signature = req.headers[SIG_HEADER];
-  if (!signature) {
-    return { status: 401, body: { error: 'missing_signature' } };
+/**
+ * Parse the Telnyx webhook public key. Accepts either the raw base64 form
+ * (as Telnyx dashboard exposes it) or the `base64:` prefixed form used by
+ * the env example. Returns a KeyObject, or null when the key is unusable.
+ */
+function telnyxPublicKey(base64Key) {
+  if (!base64Key) return null;
+  const raw = Buffer.from(base64Key.replace(/^base64:/, ''), 'base64');
+  if (raw.length !== 32) return null;
+  try {
+    return createPublicKey({
+      key: Buffer.concat([SPKI_ED25519_PREFIX, raw]),
+      format: 'der',
+      type: 'spki',
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify a Telnyx Ed25519 webhook signature.
+ * Telnyx signs `${timestamp}|${rawBody}`; headers are
+ * `telnyx-signature-ed25519` (base64 sig) and `telnyx-timestamp` (unix seconds).
+ *
+ * Fail-closed: never throws, always returns { ok } or { ok:false, reason }.
+ * `nowMs` is injectable so tests can exercise the replay window deterministically.
+ */
+export function verifyTelnyxSignature({
+  rawBody,
+  signatureB64,
+  timestamp,
+  publicKeyB64,
+  toleranceSec,
+  nowMs = Date.now(),
+}) {
+  if (!signatureB64) return { ok: false, reason: 'missing_signature' };
+  if (!timestamp) return { ok: false, reason: 'missing_timestamp' };
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return { ok: false, reason: 'bad_timestamp' };
+  if (Math.abs(nowMs / 1000 - ts) > toleranceSec) {
+    return { ok: false, reason: 'timestamp_out_of_tolerance' };
+  }
+  const key = telnyxPublicKey(publicKeyB64);
+  if (!key) return { ok: false, reason: 'bad_public_key' };
+  let ok;
+  try {
+    ok = cryptoVerify(
+      null,
+      Buffer.from(`${timestamp}|${rawBody}`, 'utf8'),
+      key,
+      Buffer.from(signatureB64, 'base64'),
+    );
+  } catch {
+    return { ok: false, reason: 'signature_malformed' };
+  }
+  return ok ? { ok: true } : { ok: false, reason: 'signature_invalid' };
+}
+
+/** Deterministic id from the Telnyx event body: data.id, else sha256(body).
+ * Implemented in idempotency.js — kept here as a re-export for callers of
+ * webhooks.js that need it without importing idempotency directly. */
+
+/**
+ * Handle an incoming Telnyx webhook.
+ * @param {Request} request - Web standard Request (Vercel convention).
+ * @returns {Promise<Response>}
+ */
+export async function handleWebhook(request) {
+  let cfg;
+  try {
+    cfg = loadDialerConfig();
+  } catch (err) {
+    // Fail-closed: missing public key or API env → 503, never fail-open.
+    console.error('[dialer.webhooks] config error:', err instanceof Error ? err.message : err);
+    return json(503, { error: 'dialer_not_configured' });
   }
 
-  // Read raw body. Vercel exposes req.body already parsed — we need raw bytes.
-  // The convention in this codebase: when consumed by `parseBody`, the raw
-  // body is preserved at req.rawBody (set by vercel.json body parser config).
-  const rawBody = req.rawBody ?? '';
-  if (!rawBody) {
-    return { status: 400, body: { error: 'missing_raw_body' } };
+  // Raw body — read BEFORE any .json() (body is single-consumption).
+  let rawBody;
+  try {
+    rawBody = await request.text();
+  } catch {
+    return json(400, { error: 'unreadable_body' });
+  }
+  if (!rawBody || rawBody.trim() === '') {
+    return json(400, { error: 'missing_body' });
   }
 
   if (!cfg.webhookPublicKey) {
-    return { status: 503, body: { error: 'webhook_public_key_not_configured' } };
+    return json(503, { error: 'webhook_public_key_not_configured' });
   }
 
-  let verified;
-  try {
-    // Standard Webhooks spec — Telnyx uses this.
-    // Lazy import: the lib may not be installed yet on this branch.
-    const { Webhook } = await import('standardwebhooks').catch(() => ({}));
-    if (!Webhook) {
-      return {
-        status: 501,
-        body: {
-          error: 'standardwebhooks_not_installed',
-          message:
-            'Run `npm install standardwebhooks` before merging. Webhook signature verification cannot proceed.',
-        },
-      };
-    }
-    const wh = new Webhook(cfg.webhookPublicKey);
-    verified = wh.verify(rawBody, Object.fromEntries(
-      Object.entries(req.headers).map(([k, v]) => [k.toLowerCase(), String(v)]),
-    ));
-  } catch (err) {
-    return {
-      status: 401,
-      body: {
-        error: 'signature_invalid',
-        message: err instanceof Error ? err.message : 'verification_failed',
-      },
-    };
+  const signatureB64 = request.headers.get(SIG_HEADER);
+  const timestamp = request.headers.get(TS_HEADER);
+
+  const check = verifyTelnyxSignature({
+    rawBody,
+    signatureB64,
+    timestamp,
+    publicKeyB64: cfg.webhookPublicKey,
+    toleranceSec: cfg.webhookToleranceSec,
+  });
+
+  const eventId = extractEventId(rawBody);
+  const eventType = extractEventType(rawBody);
+
+  if (!check.ok) {
+    // P1-7: persist the rejected attempt BEFORE returning 401. This is the
+    // only sensor on a JWT-less endpoint. Best effort — a failed insert must
+    // not mask the 401.
+    await recordAttempt({ eventId, eventType, rawBody, ok: false, reason: check.reason });
+    return json(401, { error: check.reason });
   }
 
-  // 2) Extract event metadata
-  const eventId =
-    req.headers[EVENT_ID_HEADER] ??
-    verified.id ??
-    cryptoRandomId();
+  const client = getServiceClient();
+  if (!client) {
+    // Fail-closed: without persistence we cannot guarantee dedup. Do NOT
+    // return 200 with a "persisted" lie.
+    return json(503, { error: 'service_client_unavailable' });
+  }
 
-  // 3) Idempotency: this stub does not yet insert into dialer_webhook_events
-  //    (no Supabase client wiring in 11.1). In 11.2 we'll wire it via
-  //    the same pattern as api/_calls/ — service-role client.
-  //
-  // The placeholder below documents the intended flow but does not write.
-  // When the Supabase client is wired, this becomes:
-  //   const { error: insertErr } = await client
-  //     .from('dialer_webhook_events')
-  //     .insert({ event_id, event_type: verified.event_type, ... });
-  //   if (insertErr?.code === '23505') return { status: 200, body: { status: 'duplicate' } };
+  const { isDuplicate } = await checkAndRecordWebhook(client, {
+    eventId,
+    eventType,
+    payload: safeParse(rawBody),
+    signatureOk: true,
+  });
 
-  // 4) Event router — stub
-  // 11.2 will add: switch (verified.event_type) { case 'call.answered': ... }
-  return {
-    status: 200,
-    body: {
-      status: 'received',
-      event_id: eventId,
-      event_type: verified.event_type ?? 'unknown',
-      note: 'event persisted (stub: Supabase client not yet wired)',
-    },
-  };
+  // 4) Event router — stub. 11.2 will add:
+  //   switch (eventType) { case 'call.answered': ... }
+  return json(isDuplicate ? 200 : 200, {
+    status: isDuplicate ? 'duplicate' : 'received',
+    event_id: eventId,
+    event_type: eventType,
+    persisted: true,
+  });
 }
 
-function cryptoRandomId() {
-  return (
-    'evt_' +
-    Date.now().toString(36) +
-    '_' +
-    Math.random().toString(36).slice(2, 10)
-  );
+/** Best-effort persistence of a rejected signature attempt. */
+async function recordAttempt({ eventId, eventType, rawBody, ok, reason }) {
+  const client = getServiceClient();
+  if (!client) return;
+  try {
+    const { error } = await client.from('dialer_webhook_events').insert({
+      event_id: eventId,
+      event_type: eventType || 'unknown',
+      payload: safeParse(rawBody),
+      signature_ok: ok,
+      status: 'failed',
+      error_message: reason || 'signature_invalid',
+    });
+    if (error) console.error('[dialer.webhooks] failed to record rejected attempt:', error.message);
+  } catch (err) {
+    console.error('[dialer.webhooks] failed to record rejected attempt:', err);
+  }
+}
+
+function extractEventType(rawBody) {
+  try {
+    const t = JSON.parse(rawBody)?.data?.event_type;
+    return typeof t === 'string' ? t : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function safeParse(rawBody) {
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return { _raw: rawBody.slice(0, 2000) };
+  }
+}
+
+function json(status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
 }
 
 export const WEBHOOK_HEADERS = {
   SIG: SIG_HEADER,
-  EVENT_ID: EVENT_ID_HEADER,
+  TS: TS_HEADER,
 };
+
+/** Test-only hook: generate a fresh Ed25519 pair for signing payloads. */
+export function __testKeyPair() {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  return {
+    publicKeyB64: publicKey.export({ format: 'der', type: 'spki' }).subarray(12).toString('base64'),
+    privateKey,
+  };
+}

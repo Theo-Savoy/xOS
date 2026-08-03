@@ -6,14 +6,12 @@
 export { loadDialerConfig, loadDialerFlags } from './config.js';
 export { TokenBucket, RateLimiter } from './rateLimit.js';
 export {
-  checkBudget,
-  startSessionBudget,
-  addSessionCost,
-  endSessionBudget,
-  getSessionSpent,
-  querySpendWindow,
+  reserveBudget,
+  releaseReservation,
+  loadUserEntitlements,
   BUDGET_REASONS,
 } from './budget.js';
 export { buildAuditRow, writeAudit, withAudit, AUDIT_RESULTS } from './audit.js';
 export { handleWebhook, WEBHOOK_HEADERS } from './webhooks.js';
-export { checkAndRecordWebhook } from './idempotency.js';
+export { checkAndRecordWebhook, extractEventId } from './idempotency.js';
+export { dialContact, dialParallel, hangupCall, telnyxClient } from './telnyx.js';

@@ -38,9 +38,16 @@ function isPublic(pathname) {
   return false;
 }
 
-/** Auth bridge + SF OAuth — JWT/callback handled inside the route, not via cookie. */
+/** Auth bridge + SF OAuth + Telnyx webhook — JWT/callback handled inside the route, not via cookie.
+ * /api/dialer is OPEN by design: the Telnyx webhook endpoint (?resource=webhooks) cannot carry
+ * a JWT — its auth is the Ed25519 signature (see api/_dialer/webhooks.js). The router itself
+ * enforces JWT on every OTHER resource (api/dialer.js checks verifyJWT when resource != webhooks). */
 function isAuthBridge(pathname) {
-  return pathname === '/api/auth' || pathname === '/api/sso-bridge';
+  return (
+    pathname === '/api/auth' ||
+    pathname === '/api/sso-bridge' ||
+    pathname === '/api/dialer'
+  );
 }
 
 // Routes protégées par le header Authorization: Bearer ***

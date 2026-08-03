@@ -1,173 +1,115 @@
 /**
- * api/_dialer/budget.js — 3-tier budget guard.
+ * api/_dialer/budget.js — Budget guard backed by the dialer_reserve_budget RPC.
  *
  * Spec: docs/specs/lot-11.1-telnyx-infra.md §2.2.
+ * Audit: docs/audits/lot-11.1-go-nogo-transport.md P1-3 (circuit breaker),
+ * B10 (dialer_query_spend was a phantom — the remote actually has
+ * dialer_reserve_budget).
  *
- * Tiers:
- *   - per session (in-memory counter, locked to a campaign)
- *   - per user per day (sum of cost_cents in dialer_calls/dialer_audit_log for that user today)
- *   - per organization per month (sum for the whole team this month)
+ * The REMOTE schema (xos-portal, migrations 041/042 applied directly, no
+ * committed file) is the source of truth:
+ *   - RPC dialer_reserve_budget(p_user_id, p_campaign_id, p_estimated_cost_cents,
+ *       p_session_cap_cents, p_user_day_cap_cents, p_org_month_cap_cents,
+ *       p_user_day_call_cap, p_user_month_call_cap, p_day_start, p_month_start)
+ *     → jsonb { allowed, reason } | { allowed, reservation_id, estimated_cost_cents }
+ *   - Table dialer_budget_reservations (atomic reservation ledger, advisory lock)
+ *   - Table dialer_user_entitlements (per-user caps: enabled, dry_run,
+ *     budget_day_cents, calls_day_limit, calls_month_limit)
  *
- * Return shape:
- *   { allowed, reason, budgetSessionCentsRemaining, budgetUserDayCentsRemaining,
- *     budgetOrgMonthCentsRemaining, alertLevel }
- *
- * alertLevel: 'ok' | 'warning' (>=80%) | 'exceeded'.
- *
- * This module is the SINGLE source of truth for budget decisions. Every dial,
- * every minute of recording, every AI call goes through here.
+ * The RPC does spend + reservation atomically: concurrent dials cannot
+ * double-spend the same cap. This replaces the old in-memory Map + phantom
+ * dialer_query_spend entirely.
  */
 
-const REASON = {
+import { getParisDateRange } from '../_calls/http.js';
+
+export const BUDGET_REASONS = {
   OK: 'ok',
-  WARNING: 'warning',
+  INVALID_COST: 'invalid_cost',
   SESSION_EXCEEDED: 'budget_exceeded_session',
   USER_EXCEEDED: 'budget_exceeded_user_day',
   ORG_EXCEEDED: 'budget_exceeded_org_month',
+  CALLS_USER_DAY: 'calls_exceeded_user_day',
+  CALLS_USER_MONTH: 'calls_exceeded_user_month',
   DISABLED: 'dialer_disabled',
   DRY_RUN: 'dry_run',
 };
 
 /**
- * In-memory session counter (set by orchestrator when campaign starts).
- * Key: campaignId → { spentCents, startedAtIso }
- */
-const sessionCounters = new Map();
-
-export function startSessionBudget(campaignId, { limitCents } = {}) {
-  sessionCounters.set(campaignId, {
-    spentCents: 0,
-    limitCents: limitCents ?? null,
-    startedAt: new Date().toISOString(),
-  });
-}
-
-export function addSessionCost(campaignId, costCents) {
-  const counter = sessionCounters.get(campaignId);
-  if (!counter) return;
-  counter.spentCents += costCents;
-}
-
-export function endSessionBudget(campaignId) {
-  sessionCounters.delete(campaignId);
-}
-
-export function getSessionSpent(campaignId) {
-  return sessionCounters.get(campaignId)?.spentCents ?? 0;
-}
-
-/**
- * Check budget before a new action.
+ * Reserve budget for one dial via the atomic RPC.
+ * @param {object} client - supabase service-role client
  * @param {object} params
- * @param {object} params.flags       - result of loadDialerFlags()
- * @param {string|null} params.campaignId - for session-level check
- * @param {number} params.requestedCostCents - what the next action will cost (estimate)
- * @param {number} params.userSpentTodayCents - sum from DB
- * @param {number} params.orgSpentMonthCents  - sum from DB
- * @returns {object} decision
+ * @param {string} params.userId
+ * @param {number|null} params.campaignId
+ * @param {number} params.estimatedCostCents - estimate for this dial (>=1)
+ * @param {object} params.caps - { sessionCents, userDayCents, orgMonthCents, userDayCalls, userMonthCalls }
+ * @returns {Promise<{allowed:boolean, reason?:string, reservationId?:string, estimatedCostCents?:number}>}
  */
-export function checkBudget({
-  flags,
+export async function reserveBudget(client, {
+  userId,
   campaignId = null,
-  requestedCostCents,
-  userSpentTodayCents = 0,
-  orgSpentMonthCents = 0,
+  estimatedCostCents,
+  caps,
 }) {
-  if (!flags.enabled) {
+  const { todayStart, monthStart } = getParisDateRange();
+  const { data, error } = await client.rpc('dialer_reserve_budget', {
+    p_user_id: userId,
+    p_campaign_id: campaignId,
+    p_estimated_cost_cents: estimatedCostCents,
+    p_session_cap_cents: caps.sessionCents,
+    p_user_day_cap_cents: caps.userDayCents,
+    p_org_month_cap_cents: caps.orgMonthCents,
+    p_user_day_call_cap: caps.userDayCalls,
+    p_user_month_call_cap: caps.userMonthCalls,
+    p_day_start: todayStart.toISOString(),
+    p_month_start: monthStart.toISOString(),
+  });
+  if (error) throw new Error(`dialer_reserve_budget failed: ${error.message}`);
+  const result = data && typeof data === 'object' ? data : { allowed: false };
+  if (!result.allowed) {
     return {
       allowed: false,
-      reason: REASON.DISABLED,
-      alertLevel: 'ok',
-      budgetSessionCentsRemaining: 0,
-      budgetUserDayCentsRemaining: 0,
-      budgetOrgMonthCentsRemaining: 0,
+      reason: result.reason || 'budget_blocked',
     };
   }
-
-  if (flags.dryRun) {
-    return {
-      allowed: true,
-      reason: REASON.DRY_RUN,
-      alertLevel: 'ok',
-      budgetSessionCentsRemaining: Number.MAX_SAFE_INTEGER,
-      budgetUserDayCentsRemaining: Number.MAX_SAFE_INTEGER,
-      budgetOrgMonthCentsRemaining: Number.MAX_SAFE_INTEGER,
-    };
-  }
-
-  // Tier 1: session
-  const sessionSpent = campaignId ? getSessionSpent(campaignId) : 0;
-  const sessionRemaining = flags.budgetSessionCents - sessionSpent;
-  if (campaignId && sessionRemaining < requestedCostCents) {
-    return {
-      allowed: false,
-      reason: REASON.SESSION_EXCEEDED,
-      alertLevel: 'exceeded',
-      budgetSessionCentsRemaining: sessionRemaining,
-      budgetUserDayCentsRemaining: flags.budgetUserDayCents - userSpentTodayCents,
-      budgetOrgMonthCentsRemaining: flags.budgetOrgMonthCents - orgSpentMonthCents,
-    };
-  }
-
-  // Tier 2: user per day
-  const userRemaining = flags.budgetUserDayCents - userSpentTodayCents;
-  if (userRemaining < requestedCostCents) {
-    return {
-      allowed: false,
-      reason: REASON.USER_EXCEEDED,
-      alertLevel: 'exceeded',
-      budgetSessionCentsRemaining: sessionRemaining,
-      budgetUserDayCentsRemaining: userRemaining,
-      budgetOrgMonthCentsRemaining: flags.budgetOrgMonthCents - orgSpentMonthCents,
-    };
-  }
-
-  // Tier 3: org per month
-  const orgRemaining = flags.budgetOrgMonthCents - orgSpentMonthCents;
-  if (orgRemaining < requestedCostCents) {
-    return {
-      allowed: false,
-      reason: REASON.ORG_EXCEEDED,
-      alertLevel: 'exceeded',
-      budgetSessionCentsRemaining: sessionRemaining,
-      budgetUserDayCentsRemaining: userRemaining,
-      budgetOrgMonthCentsRemaining: orgRemaining,
-    };
-  }
-
-  // Compute alert level based on org-wide usage
-  const orgPct = (orgSpentMonthCents / flags.budgetOrgMonthCents) * 100;
-  const alertLevel =
-    orgPct >= flags.alertThresholdPct ? 'warning' : 'ok';
-
   return {
     allowed: true,
-    reason: alertLevel === 'warning' ? REASON.WARNING : REASON.OK,
-    alertLevel,
-    budgetSessionCentsRemaining: sessionRemaining,
-    budgetUserDayCentsRemaining: userRemaining,
-    budgetOrgMonthCentsRemaining: orgRemaining,
+    reservationId: result.reservation_id,
+    estimatedCostCents: result.estimated_cost_cents ?? estimatedCostCents,
   };
 }
 
 /**
- * Query user/organization spend from Supabase.
- * Returns { userSpentTodayCents, orgSpentMonthCents }.
- * Sum from dialer_calls.cost_cents WHERE logged_at >= startOfWindow.
+ * Release a reservation (no-op for dry-run, dial failed before any spend).
  */
-export async function querySpendWindow(client, { userId, windowStartIso }) {
-  // User-day: sum dialer_calls.cost_cents where logged_by = userId AND logged_at >= startOfDay
-  // Org-month: sum over all users
-  // Use parameterized SQL via rpc for performance.
-  const { data, error } = await client.rpc('dialer_query_spend', {
-    p_user_id: userId,
-    p_window_start: windowStartIso,
+export async function releaseReservation(client, reservationId, { result = 'released' } = {}) {
+  if (!reservationId) return;
+  const { error } = await client.rpc('dialer_release_reservation', {
+    p_reservation_id: reservationId,
+    p_result: result,
   });
-  if (error) throw new Error(`Failed to query spend window: ${error.message}`);
-  return {
-    userSpentTodayCents: data?.user_total ?? 0,
-    orgSpentMonthCents: data?.org_total ?? 0,
-  };
+  if (error) {
+    console.error('[dialer.budget] release_reservation failed:', error.message);
+  }
 }
 
-export const BUDGET_REASONS = REASON;
+/**
+ * Load per-user entitlements (fallback to safe defaults when absent).
+ */
+export async function loadUserEntitlements(client, userId) {
+  const { data, error } = await client
+    .from('dialer_user_entitlements')
+    .select('enabled, dry_run, budget_day_cents, calls_day_limit, calls_month_limit')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error && error.code !== 'PGRST116') {
+    console.error('[dialer.budget] load entitlements failed:', error.message);
+  }
+  return {
+    enabled: data?.enabled ?? false,
+    dryRun: data?.dry_run ?? true,
+    budgetDayCents: data?.budget_day_cents ?? 1000,
+    callsDayLimit: data?.calls_day_limit ?? 50,
+    callsMonthLimit: data?.calls_month_limit ?? 500,
+  };
+}

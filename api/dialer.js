@@ -2,100 +2,229 @@
  * api/dialer.js — Telnyx Power Dialer router.
  *
  * Spec: docs/specs/lot-11.1-telnyx-infra.md §3.
+ * Audit: docs/audits/lot-11.1-go-nogo-transport.md P0-2 (Response), P0-6 (client stub),
+ * P1-3 (circuit breaker), P2-5 (maxDuration).
  *
  * Resources:
- *   GET  /api/dialer?resource=config         — env, flags, budget remaining
- *   POST /api/dialer?resource=campaigns     — create campaign (11.2)
+ *   GET  /api/dialer?resource=config        — env, flags, budget remaining (open read)
+ *   POST /api/dialer?resource=webhooks      — Telnyx webhook receiver (OPEN: Ed25519 is the auth)
+ *   POST /api/dialer?resource=dial          — dial one contact (JWT + flags + budget gate)
  *   GET  /api/dialer?resource=campaigns     — list user's campaigns (11.2)
  *   GET  /api/dialer?resource=calls         — list calls (11.2)
- *   POST /api/dialer?resource=webhooks      — Telnyx webhook receiver (signature-verified)
- *   GET  /api/dialer?resource=audit        — audit log read (manager/admin only, 11.1)
+ *   GET  /api/dialer?resource=audit         — audit log read (manager/admin only, 11.1+)
  *
- * Lot 11.1 only ships:
- *   - The router (this file) returning 503 for non-implemented resources
- *   - GET ?resource=config for inspection
- *   - POST ?resource=webhooks for signature verification + idempotency
+ * Auth model (critical, mirrors middleware.js isAuthBridge):
+ *   - `webhooks` is OPEN. Telnyx cannot send a JWT; the Ed25519 signature is the auth.
+ *   - EVERY other resource requires a valid JWT (verifyJWT).
+ *   - `config` is an open read (state inspection without side effects).
  *
- * Other resources return 501 Not Implemented until their respective lots.
+ * Unified dry-run (audit §8-d): cfg.isDryRun OR flags.dryRun — the most
+ * pessimistic wins. One boolean, exposed to the whole layer.
  */
 
+import { verifyJWT } from './_auth.js';
+import { getServiceClient, jsonResponse } from './_calls/http.js';
 import { loadDialerConfig, loadDialerFlags } from './_dialer/config.js';
 import { handleWebhook } from './_dialer/webhooks.js';
+import { reserveBudget, releaseReservation, loadUserEntitlements } from './_dialer/budget.js';
+import { buildAuditRow, writeAudit } from './_dialer/audit.js';
+import { dialContact } from './_dialer/telnyx.js';
 
-const NOT_IMPLEMENTED = (resource) => ({
-  status: 501,
-  body: {
+export const config = { maxDuration: 30 };
+
+const headers = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+};
+const json = (status, body) => jsonResponse(status, body, headers);
+
+const NOT_IMPLEMENTED = (resource) =>
+  json(501, {
     error: 'not_implemented',
     resource,
     message: `Resource ${resource} ships in a later lot (see docs/specs/lot-11.1-telnyx-infra.md).`,
-  },
-});
+  });
 
-async function handleConfig(client, { req, res, user }) {
+async function handleConfig(client) {
   const cfg = loadDialerConfig();
   const flags = await loadDialerFlags(client);
-  return {
-    status: 200,
-    body: {
-      env: cfg.env,
-      is_dry_run: cfg.isDryRun,
-      has_caller_id: Boolean(cfg.callerId),
-      has_webhook_public_key: Boolean(cfg.webhookPublicKey),
-      flags: {
-        enabled: flags.enabled,
-        dry_run: flags.dryRun,
-        budget_session_cents: flags.budgetSessionCents,
-        budget_user_day_cents: flags.budgetUserDayCents,
-        budget_org_month_cents: flags.budgetOrgMonthCents,
-        rate_rps: flags.rateRps,
-        rate_burst: flags.rateBurst,
-      },
+  return json(200, {
+    env: cfg.env,
+    is_dry_run: cfg.isDryRun,
+    has_caller_id: Boolean(cfg.callerId),
+    has_webhook_public_key: Boolean(cfg.webhookPublicKey),
+    flags: {
+      enabled: flags.enabled,
+      dry_run: flags.dryRun,
+      budget_session_cents: flags.budgetSessionCents,
+      budget_user_day_cents: flags.budgetUserDayCents,
+      budget_org_month_cents: flags.budgetOrgMonthCents,
+      rate_rps: flags.rateRps,
+      rate_burst: flags.rateBurst,
     },
-  };
+  });
 }
 
-export default async function handler(req, res) {
-  // The dialer router is wired but disabled until Théo opts in via settings.
-  // Pre-flight: reject everything if dialer_enabled=false, EXCEPT ?resource=config
-  // (so QA can read state without triggering side-effects).
-  const url = new URL(req.url, `https://${req.headers.host ?? 'localhost'}`);
+/**
+ * POST ?resource=dial — dial ONE contact through Telnyx.
+ * Gate order: JWT → flags.enabled → budget check → Telnyx dial.
+ * On ORG_EXCEEDED the kill switch is flipped (P1-3) — dialer_enabled=false.
+ */
+async function handleDial(request, user) {
+  const client = getServiceClient();
+  if (!client) return json(500, { error: 'service_client_unavailable' });
+
+  const flags = await loadDialerFlags(client);
+  if (!flags.enabled) {
+    return json(503, { error: 'dialer_disabled' });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'invalid_json_body' });
+  }
+
+  const to = body?.to;
+  const connectionId = body?.connection_id;
+  const webhookUrl = body?.webhook_url;
+  if (!to || !connectionId || !webhookUrl) {
+    return json(400, {
+      error: 'missing_fields',
+      required: ['to', 'connection_id', 'webhook_url'],
+    });
+  }
+
+  const cfg = loadDialerConfig();
+  const isDryRun = cfg.isDryRun || flags.dryRun === true;
+
+  // Per-user entitlements (remote contract): enabled/dry_run/caps per user.
+  const entitlements = await loadUserEntitlements(client, user.id);
+  if (!entitlements.enabled && !isDryRun) {
+    return json(403, { error: 'dialer_entitlement_denied' });
+  }
+
+  // Budget reservation — atomic (advisory lock in RPC). Estimated cost of one
+  // outbound FR dial ≈ 1 cent.
+  const reservation = await reserveBudget(client, {
+    userId: user.id,
+    campaignId: body?.campaign_id ?? null,
+    estimatedCostCents: 1,
+    caps: {
+      sessionCents: flags.budgetSessionCents,
+      userDayCents: entitlements.budgetDayCents,
+      orgMonthCents: flags.budgetOrgMonthCents,
+      userDayCalls: entitlements.callsDayLimit,
+      userMonthCalls: entitlements.callsMonthLimit,
+    },
+  });
+
+  if (!reservation.allowed) {
+    if (reservation.reason === 'budget_exceeded_org_month') {
+      // P1-3: flip the kill switch + audit (best effort, non-blocking).
+      // settings.value is jsonb; the migration stores dialer_enabled as the
+      // JSON string "false" — JSON.stringify(false) produces exactly that.
+      const { error: updateErr } = await client
+        .from('settings')
+        .update({ value: JSON.stringify(false) })
+        .eq('key', 'dialer_enabled');
+      if (updateErr) {
+        console.error('[dialer] kill switch update failed:', updateErr.message);
+      }
+      await writeAudit(client, buildAuditRow({
+        actorUserId: user.id,
+        actorKind: 'system',
+        action: 'settings_update',
+        payload: { key: 'dialer_enabled', set: false, reason: 'budget_org_month_exceeded' },
+        result: 'budget_exceeded',
+        errorCode: 'budget_exceeded_org_month',
+      })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+    }
+    return json(429, { error: reservation.reason, reservation });
+  }
+
+  try {
+    const dialed = await dialContact({
+      apiKey: cfg.apiKey,
+      connectionId,
+      from: body?.from ?? cfg.callerId,
+      to,
+      webhookUrl,
+      clientState: { sessionId: body?.session_id ?? null, contactId: body?.contact_id ?? null, userId: user.id },
+      amd: body?.amd ?? 'premium',
+      dryRun: isDryRun,
+      record: Boolean(body?.record),
+    });
+
+    // Reservation consumed (cost was incurred / simulated) — keep the row.
+    await releaseReservation(client, reservation.reservationId, { result: 'consumed' });
+
+    await writeAudit(client, buildAuditRow({
+      actorUserId: user.id,
+      actorKind: 'user',
+      action: 'dial',
+      payload: { to, connection_id: connectionId, dry_run: isDryRun },
+      costCents: 1,
+      result: 'success',
+      metadata: { env: cfg.env, dry_run: isDryRun },
+    })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+
+    return json(200, { ok: true, dry_run: isDryRun, ...dialed });
+  } catch (err) {
+    // Dial failed — release the reservation so the cap isn't eaten.
+    await releaseReservation(client, reservation.reservationId, { result: 'released' });
+    await writeAudit(client, buildAuditRow({
+      actorUserId: user.id,
+      actorKind: 'user',
+      action: 'dial',
+      payload: { to, connection_id: connectionId, dry_run: isDryRun },
+      result: 'failed',
+      errorCode: err instanceof Error ? err.code ?? err.name : 'unknown',
+    })).catch(() => {});
+    return json(502, { error: 'dial_failed', message: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+export default async function handler(request) {
+  const url = new URL(request.url);
   const resource = url.searchParams.get('resource');
 
   try {
-    // 1) config — open read
+    // 1) config — open read (state inspection, no side effects)
     if (resource === 'config') {
-      const client = await getSupabaseServiceClient(req);
-      return await handleConfig(client, { req, res, user: null });
+      const client = getServiceClient();
+      if (!client) return json(500, { error: 'service_client_unavailable' });
+      return await handleConfig(client);
     }
 
-    // 2) webhooks — Telnyx calls us, no user auth (signature is the auth)
-    if (resource === 'webhooks' && req.method === 'POST') {
-      return await handleWebhook(req, res);
+    // 2) webhooks — OPEN (Telnyx cannot carry a JWT; Ed25519 signature is the auth)
+    if (resource === 'webhooks' && request.method === 'POST') {
+      return await handleWebhook(request);
     }
 
-    // 3) audit — manager/admin only
+    // 3) audit — manager/admin only (implemented in a follow-up)
     if (resource === 'audit') {
-      // implemented in a follow-up: query dialer_audit_log filtered by user
       return NOT_IMPLEMENTED(resource);
     }
 
-    // 4) All other resources are gated by dialer_enabled flag and require JWT
-    const client = await getSupabaseServiceClient(req);
-    const user = await getAuthedUser(client, req);
-    if (!user) {
-      return { status: 401, body: { error: 'unauthenticated' } };
-    }
+    // 4) All other resources: JWT required + dialer_enabled gate
+    const user = await verifyJWT(request);
+    if (!user) return json(401, { error: 'unauthenticated' });
+
+    const client = getServiceClient();
+    if (!client) return json(500, { error: 'service_client_unavailable' });
 
     const flags = await loadDialerFlags(client);
     if (!flags.enabled) {
-      return {
-        status: 503,
-        body: {
-          error: 'dialer_disabled',
-          message:
-            'Dialer feature is currently disabled. Enable via settings.dialer_enabled.',
-        },
-      };
+      return json(503, {
+        error: 'dialer_disabled',
+        message: 'Dialer feature is currently disabled. Enable via settings.dialer_enabled.',
+      });
+    }
+
+    if (resource === 'dial' && request.method === 'POST') {
+      return await handleDial(request, user);
     }
 
     // Defer to lot 11.2+
@@ -105,30 +234,13 @@ export default async function handler(req, res) {
       case 'calls':
         return NOT_IMPLEMENTED(resource);
       default:
-        return {
-          status: 400,
-          body: {
-            error: 'unknown_resource',
-            valid: ['config', 'webhooks', 'campaigns', 'calls', 'audit'],
-          },
-        };
+        return json(400, {
+          error: 'unknown_resource',
+          valid: ['config', 'webhooks', 'dial', 'campaigns', 'calls', 'audit'],
+        });
     }
   } catch (err) {
     console.error('[dialer.handler] unexpected error:', err);
-    return {
-      status: 500,
-      body: {
-        error: 'internal_error',
-        message: err instanceof Error ? err.message : 'unknown',
-      },
-    };
+    return json(500, { error: 'internal_error' });
   }
-}
-
-// Helpers (placeholders — wired to the real _auth.js in a follow-up commit)
-async function getSupabaseServiceClient() {
-  throw new Error('getSupabaseServiceClient not yet wired (11.1 stub)');
-}
-async function getAuthedUser() {
-  throw new Error('getAuthedUser not yet wired (11.1 stub)');
 }

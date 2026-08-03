@@ -14,6 +14,13 @@ describe('middleware route classifiers', () => {
     expect(isAuthBridge('/api/calls')).toBe(false);
   });
 
+  it('lets the Telnyx webhook through the middleware (signature is the auth)', () => {
+    // P0-1: Telnyx cannot send a JWT — /api/dialer must not be walled by
+    // middleware. The router itself enforces JWT on non-webhook resources.
+    expect(isAuthBridge('/api/dialer')).toBe(true);
+    expect(isProtected('/api/dialer')).toBe(true);
+  });
+
   it('keeps SPA root public and native APIs protected by default', () => {
     expect(isPublic('/')).toBe(true);
     expect(isPublic('/assets/index.js')).toBe(true);

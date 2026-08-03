@@ -85,6 +85,7 @@ export async function loadDialerFlags(client) {
     'dialer_rate_rps',
     'dialer_rate_burst',
     'dialer_alert_threshold_pct',
+    'dialer_webhook_tolerance_sec',
   ];
   const { data, error } = await client
     .from('settings')
@@ -106,5 +107,6 @@ export async function loadDialerFlags(client) {
     rateRps: Number(map.dialer_rate_rps ?? 5),
     rateBurst: Number(map.dialer_rate_burst ?? 20),
     alertThresholdPct: Number(map.dialer_alert_threshold_pct ?? 80),
+    webhookToleranceSec: Number(map.dialer_webhook_tolerance_sec ?? 300),
   });
 }

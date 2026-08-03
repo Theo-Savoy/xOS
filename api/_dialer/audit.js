@@ -88,32 +88,32 @@ export async function withAudit(client, row, actionFn) {
   try {
     const result = await actionFn();
     if (auditId) {
-      // Optional: update the audit row with the result (best effort)
-      try {
-        await client
-          .from('dialer_audit_log')
-          .update({
-            result: 'success',
-            duration_ms: Date.now() - new Date(row.ts).getTime(),
-          })
-          .eq('id', auditId);
-      } catch {
-        /* ignore */
+      // Optional: update the audit row with the result (best effort).
+      // supabase-js does NOT reject on error — it resolves { data, error }.
+      // A try/catch here catches nothing; read `error` explicitly (P1-6).
+      const { error } = await client
+        .from('dialer_audit_log')
+        .update({
+          result: 'success',
+          duration_ms: Date.now() - new Date(row.ts).getTime(),
+        })
+        .eq('id', auditId);
+      if (error) {
+        console.error('[dialer.audit] failed to mark audit success:', error.message);
       }
     }
     return result;
   } catch (err) {
     if (auditId) {
-      try {
-        await client
-          .from('dialer_audit_log')
-          .update({
-            result: 'failed',
-            error_code: err.code ?? 'unknown',
-          })
-          .eq('id', auditId);
-      } catch {
-        /* ignore */
+      const { error } = await client
+        .from('dialer_audit_log')
+        .update({
+          result: 'failed',
+          error_code: err.code ?? 'unknown',
+        })
+        .eq('id', auditId);
+      if (error) {
+        console.error('[dialer.audit] failed to mark audit failure:', error.message);
       }
     }
     throw err;
