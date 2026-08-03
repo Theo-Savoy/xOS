@@ -20,7 +20,7 @@ export type RtcCallHandle = {
 
 export type RtcClientHandle = {
   connect: () => Promise<void> | void;
-  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string; preferred_codecs?: Array<{ mimeType: string; clockRate: number; channels?: number }> }) => RtcCallHandle;
+  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
   disconnect: () => Promise<void> | void;
 };
@@ -33,31 +33,6 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   noiseSuppression: true,
   autoGainControl: true,
 };
-
-/** Codecs préférés : OPUS en premier (qualité 2026-08-04). Le SDK 2.27.8
- * expose `preferred_codecs?: RTCRtpCodecCapability[]` dans ICallOptions.
- * ATTENTION (2 fixes) : setCodecPreferences exige des objets IDENTIQUES aux
- * capacités réelles du navigateur (mimeType + clockRate + sdpFmtpLine…).
- * Construire les objets à la main lève "Required member is undefined" puis
- * "Missing codec from codec capabilities". On prend donc les codecs réels
- * via RTCRtpSender.getCapabilities('audio') et on réordonne OPUS en tête. */
-export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: number; channels?: number; sdpFmtpLine?: string }> | undefined {
-  try {
-    const caps = RTCRtpSender.getCapabilities?.('audio');
-    const codecs = caps?.codecs?.filter((c) =>
-      ['audio/opus', 'audio/pcmu', 'audio/pcma'].includes(c.mimeType.toLowerCase()),
-    );
-    if (!codecs || codecs.length === 0) return undefined;
-    const order = ['audio/opus', 'audio/pcmu', 'audio/pcma'];
-    const sorted = [...codecs].sort(
-      (a, b) =>
-        order.indexOf(a.mimeType.toLowerCase()) - order.indexOf(b.mimeType.toLowerCase()),
-    );
-    return sorted as Array<{ mimeType: string; clockRate: number; channels?: number; sdpFmtpLine?: string }>;
-  } catch {
-    return undefined; // capabilities indisponibles : on laisse le défaut SDK
-  }
-}
 
 export async function createRtcClient(token: string | null): Promise<RtcClientHandle | null> {
   if (!token) return null; // dry-run : le serveur n'a rien émis
