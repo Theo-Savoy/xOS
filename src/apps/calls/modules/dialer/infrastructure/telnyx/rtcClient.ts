@@ -25,6 +25,15 @@ export type RtcClientHandle = {
   disconnect: () => Promise<void> | void;
 };
 
+/** Constraints audio qualité (qualité 2026-08-04) : le SDK accepte un objet
+ * MediaTrackConstraints au lieu de `audio: true` — on force le traitement
+ * qualité du micro (annulation d'écho, suppression du bruit, AGC). */
+export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
 export async function createRtcClient(token: string | null): Promise<RtcClientHandle | null> {
   if (!token) return null; // dry-run : le serveur n'a rien émis
   const { TelnyxRTC } = await import('@telnyx/webrtc');

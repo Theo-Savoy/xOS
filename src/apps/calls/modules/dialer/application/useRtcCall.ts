@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallPhase } from '../domain/CallState';
-import { createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
+import { AUDIO_CONSTRAINTS, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
 
 export type RtcCallStatus = {
@@ -185,7 +185,9 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           const audioEl = document.querySelector<HTMLAudioElement>('audio[data-rtc-remote]');
           const call = client.newCall({
             destinationNumber: destination,
-            audio: true,
+            // Constraints qualité : traitement du micro (écho, bruit, gain) —
+            // au lieu de `audio: true` (qualité 2026-08-04).
+            audio: AUDIO_CONSTRAINTS,
             ...(callerNumber ? { callerNumber } : {}),
             ...(audioEl ? { remoteElement: audioEl } : {}),
           });
