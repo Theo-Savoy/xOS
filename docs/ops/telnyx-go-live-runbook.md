@@ -57,12 +57,14 @@ Le webhook Telnyx doit atteindre `POST /api/dialer?resource=webhooks` en HTTPS p
 https://<DEPLOYMENT>.vercel.app/api/dialer?resource=webhooks
 ```
 
-**Option test local :** tunnel cloudflared pointant sur `vercel dev --listen 5174` :
+**Option test local : tunnel cloudflared pointant sur `vercel dev --listen 5174` :**
 ```bash
-cloudflared tunnel --url http://localhost:5174
+./scripts/tunnel.sh start
+# → affiche + persiste l'URL dans .tunnel-url
 # → https://<random>.trycloudflare.com/api/dialer?resource=webhooks
 ```
-(Quick Tunnel : l'URL change à chaque redémarrage — uniquement pour le smoke test.)
+(Quick Tunnel : l'URL change à chaque relance — uniquement pour le smoke test.
+`./scripts/tunnel.sh url` relit l'URL persistée ; `stop` l'arrête.)
 
 Dans l'Application Telnyx (étape 2), renseigner cette URL comme webhook **Event Webhook**, événements minimum : `call.initiated`, `call.answered`, `call.hangup`.
 
@@ -101,15 +103,21 @@ update public.settings set value = '"false"'::jsonb where key = 'dialer_dry_run'
 
 ## Étape 8 — L'UNIQUE appel de test
 
-Un seul appel, vers un destinataire autorisé (numéro perso de Théo ou ligne interne) :
+Un seul appel, vers un destinataire autorisé (numéro perso de Théo ou ligne interne).
 
+**Option UI (recommandée — session JWT déjà authentifiée) :**
+1. Ouvrir l'URL tunnel (`./scripts/tunnel.sh url`), se connecter (magic link).
+2. Prospection → bouton **Dialer** (vue `?view=dialer`).
+3. Coller le numéro E.164, vérifier le Connection ID (Application ID), cliquer **Appeler**.
+
+**Option curl :**
 ```bash
 curl -sS -X POST 'https://<HOST>/api/dialer?resource=dial' \
-  -H "Authorization: Bearer $JWT" \
+  -H "Authorization: Bearer ***" \
   -H 'Content-Type: application/json' \
   -d '{
     "to": "+336XXXXXXXX",
-    "connection_id": "<CONNECTION-UUID>",
+    "connection_id": "<APPLICATION-UUID>",
     "webhook_url": "https://<HOST>/api/dialer?resource=webhooks"
   }'
 ```
