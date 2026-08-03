@@ -37,14 +37,14 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 };
 
 /**
- * Codec préféré G.722 (test 2026-08-04). Théo a raison sur le mécanisme :
- * si le navigateur parle G.722 avec Telnyx ET que l'opérateur du mobile
- * accepte G.722 sur l'interconnexion, il n'y a PAS de transcodage → la HD
- * (7 kHz) se propage jusqu'au mobile. En OPUS, Telnyx doit transcoder
- * OPUS→G.711 pour le PSTN → perte de large bande.
- * On part des codecs RÉELS du navigateur (objets valides pour
- * setCodecPreferences) et on réordonne : G722 d'abord, OPUS en fallback,
- * PCMU/PCMA en dernier recours.
+ * Codec préféré (test 2026-08-04, verdict) : comparatif chiffré OPUS vs G.722
+ * sur deux appels réels (call reports Telnyx) :
+ *   - OPUS : jitter 8.6ms, concealment 5,  stable
+ *   - G722 : jitter 1.2ms, concealment 10.9 (2x plus), bitrate entrant 13kbps
+ * → G.722 n'apporte AUCUNE amélioration mesurable : bitrate toujours faible,
+ * concealment doublé. Le plafond est l'audio entrant (PSTN), pas le codec.
+ * Décision : OPUS en tête (codec natif WebRTC, meilleur masquage de pertes),
+ * G.722 en fallback.
  */
 export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }> | undefined {
   try {
@@ -53,7 +53,7 @@ export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: numbe
       ['audio/g722', 'audio/opus', 'audio/pcmu', 'audio/pcma'].includes(c.mimeType.toLowerCase()),
     );
     if (!codecs || codecs.length === 0) return undefined;
-    const order = ['audio/g722', 'audio/opus', 'audio/pcmu', 'audio/pcma'];
+    const order = ['audio/opus', 'audio/g722', 'audio/pcmu', 'audio/pcma'];
     const sorted = [...codecs].sort(
       (a, b) =>
         order.indexOf(a.mimeType.toLowerCase()) - order.indexOf(b.mimeType.toLowerCase()),
