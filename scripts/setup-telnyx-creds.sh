@@ -36,18 +36,18 @@ ask_var() {
   local value="" attempts=0
   while [ "$attempts" -lt 5 ]; do
     attempts=$((attempts + 1))
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "  ÉTAPE $label"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "  1) Où la trouver :"
-    echo "$where" | sed 's/^/     /'
-    echo ""
-    echo "  2) Ce que tu colles :"
-    echo "$what" | sed 's/^/     /'
+    echo "" >&2
+    echo "═══════════════════════════════════════════════════════════════" >&2
+    echo "  ÉTAPE $label" >&2
+    echo "═══════════════════════════════════════════════════════════════" >&2
+    echo "  1) Où la trouver :" >&2
+    echo "$where" | sed 's/^/     /' >&2
+    echo "" >&2
+    echo "  2) Ce que tu colles :" >&2
+    echo "$what" | sed 's/^/     /' >&2
     printf '\n  Colle la valeur ici (invisible) puis Entrée : ' >&2
     IFS= read -r -s value || { echo "✗ lecture impossible — abandon." >&2; exit 1; }
-    echo ""
+    echo "" >&2
     if [ -z "$value" ]; then
       echo "✗ champ vide — abandon." >&2
       exit 1
