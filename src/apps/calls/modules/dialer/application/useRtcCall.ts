@@ -115,9 +115,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }
 
       // 2. Token WebRTC (le serveur n'en émet pas en dry-run — G2).
+      // B7 : on transmet le caller_number choisi pour validation serveur.
       let rtcToken: string | null = null;
       try {
-        const res = await fetchRtcToken(token);
+        const res = await fetchRtcToken(token, callerNumber);
         rtcToken = res.token;
       } catch (e) {
         // Pas de token : si on est en dry-run c'est normal (simulation),
@@ -156,13 +157,15 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }
 
       // 4. Réel : brancher le micro, écouter les événements, composer.
+      // B1 (audit 11.3) : le constructeur NE connecte PAS — sans connect()
+      // le socket n'ouvre jamais, telnyx.ready ne fire pas, l'appel ne part
+      // pas. On enregistre les listeners PUIS on connecte.
       client.on('telnyx.ready', () => {
         try {
           // callerNumber = caller ID choisi dans le sélecteur (peut être le
           // mobile vérifié — Telnyx l'autorise pour un dial sortant humain).
           // remoteElement : élément <audio> où le SDK attache le flux distant —
-          // SANS lui, l'appel part mais on n'entend RIEN côté navigateur
-          // (c'était le bug "on n'a pas branché ça"). On l'attache au montage.
+          // SANS lui, l'appel part mais on n'entend RIEN côté navigateur.
           const audioEl = document.querySelector<HTMLAudioElement>('audio[data-rtc-remote]');
           const call = client.newCall({
             destinationNumber: destination,
@@ -179,6 +182,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       client.on('telnyx.notification', (data) => {
         const n = data as TelnyxNotification;
         const s = n?.call?.state ?? n?.call?.callState;
+        // B3 (audit 11.3) : les notifications sans état d'appel (vertoClientReady,
+        // userMediaError, peerConnectionFailureError…) ne doivent PAS toucher la
+        // machine à états — sinon l'UI bascule en « Terminé » dès la connexion.
+        if (!s) return;
         const p = phaseFromTelnyx(s);
         if (p === 'connected') {
           timerRef.current = setInterval(() => {
@@ -203,6 +210,20 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         setError(msg);
         setPhaseSafe('failed');
       });
+
+      // B4 (audit 11.3) : stopper le stream de pré-vol — le SDK gère son propre
+      // getUserMedia via audio:true. Évite la double capture et le voyant micro
+      // qui reste allumé après raccrochage.
+      stream.getTracks().forEach((t) => t.stop());
+
+      // B1 : connecter APRÈS l'enregistrement des listeners.
+      try {
+        await client.connect();
+      } catch (e) {
+        setPhaseSafe('failed');
+        setError(e instanceof Error ? e.message : 'Connexion WebRTC refusée.');
+        return false;
+      }
       return true;
     },
     [token, dryRun, setPhaseSafe, stopTimer],

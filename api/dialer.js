@@ -133,6 +133,31 @@ async function handleWebrtcToken(request, user) {
     return json(409, { error: 'no_rtc_credential' });
   }
 
+  // B7 (audit 11.3) : validation du caller_number contre dialer_phone_numbers —
+  // le navigateur ne doit pas pouvoir choisir un numéro qui n'appartient pas à
+  // l'utilisateur. Le sélecteur frontend l'envoie ; on vérifie ici.
+  let callerNumber = null;
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const requestedCaller = body?.caller_number;
+  if (requestedCaller) {
+    const { data: owned } = await client
+      .from('dialer_phone_numbers')
+      .select('e164')
+      .eq('owner_user_id', user.id)
+      .eq('e164', requestedCaller)
+      .in('status', ['active', 'cooldown'])
+      .maybeSingle();
+    if (!owned) {
+      return json(403, { error: 'caller_number_not_owned' });
+    }
+    callerNumber = owned.e164;
+  }
+
   const token = await issueRtcToken({
     apiKey: cfg.apiKey,
     credentialId: entitlements.telnyxCredentialId,
@@ -144,13 +169,13 @@ async function handleWebrtcToken(request, user) {
     actorUserId: user.id,
     actorKind: 'user',
     action: 'webrtc_token',
-    payload: { credential_id: entitlements.telnyxCredentialId },
+    payload: { credential_id: entitlements.telnyxCredentialId, caller_number: callerNumber },
     costCents: 0,
     result: 'success',
     metadata: { env: cfg.env, dry_run: false },
   })).catch((e) => console.error('[dialer] audit write failed:', e.message));
 
-  return json(200, { dry_run: false, token, expires_in: 600 });
+  return json(200, { dry_run: false, token, caller_number: callerNumber, expires_in: 600 });
 }
 
 /**

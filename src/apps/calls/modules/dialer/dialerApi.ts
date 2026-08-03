@@ -128,12 +128,15 @@ export type RtcTokenResult = {
  * Obtient un token WebRTC éphémère (audit 11.2 B.2). En dry-run, le serveur
  * renvoie { token: null } — le navigateur ne peut pas se connecter.
  */
-export async function fetchRtcToken(token: string): Promise<RtcTokenResult> {
+export async function fetchRtcToken(
+  token: string,
+  callerNumber?: string,
+): Promise<RtcTokenResult> {
   try {
     return await apiFetch<RtcTokenResult>(
       token,
       '/api/dialer?resource=webrtc_token',
-      { method: 'POST', body: '{}' },
+      { method: 'POST', body: JSON.stringify({ caller_number: callerNumber ?? null }) },
     );
   } catch (err) {
     if (err instanceof ApiError) {

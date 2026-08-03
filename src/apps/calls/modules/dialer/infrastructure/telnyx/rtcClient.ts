@@ -19,6 +19,7 @@ export type RtcCallHandle = {
 };
 
 export type RtcClientHandle = {
+  connect: () => Promise<void> | void;
   newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
   disconnect: () => Promise<void> | void;
