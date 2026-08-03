@@ -30,6 +30,7 @@ type SessionsViewProps = {
   onOpenRecalls: () => void;
   onOpenPilotage?: () => void;
   onOpenRdvSuivi?: () => void;
+  onOpenDialer?: () => void;
   onUpdateSession: (
     sessionId: number,
     patch: {
@@ -139,6 +140,7 @@ export function SessionsView({
   onOpenRecalls,
   onOpenPilotage,
   onOpenRdvSuivi,
+  onOpenDialer,
   onUpdateSession,
   onDeleteSession,
   onShareSession,
@@ -281,6 +283,11 @@ export function SessionsView({
           {canPilotage && onOpenPilotage && (
             <Button variant="secondary" onClick={onOpenPilotage}>
               Pilotage
+            </Button>
+          )}
+          {onOpenDialer && (
+            <Button variant="secondary" onClick={onOpenDialer}>
+              Dialer
             </Button>
           )}
           <Button variant="secondary" onClick={onRefresh} disabled={loading}>

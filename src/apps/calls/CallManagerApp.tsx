@@ -51,6 +51,7 @@ import {
 } from './modules/gamification/comboEvents';
 import { PilotageView } from './modules/pilotage/PilotageView';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
+import { DialerView } from './modules/dialer/DialerView';
 import { supabase } from '../../lib/supabase';
 import type { AppRole } from '../../os/registry';
 import { createDialerLogQueue } from './modules/runner/dialerLogQueue';
@@ -89,6 +90,7 @@ import type {
 } from './types';
 import { todayParisIso } from './formControls.helpers';
 import './calls.css';
+import './calls-dialer.css';
 
 const CONTEXT_PREFETCH_AHEAD = 3;
 const CONTEXT_CACHE_MAX = 32;
@@ -104,6 +106,7 @@ type View =
   | 'recalls'
   | 'pilotage'
   | 'rdv-suivi'
+  | 'dialer'
   | 'loading-params';
 
 function viewFromParams(view?: string, sessionId?: string): View {
@@ -111,6 +114,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
   switch (view) {
     case 'pilotage':
       return 'pilotage';
+    case 'dialer':
+      return 'dialer';
     case 'new':
       return 'new';
     case 'abm':
@@ -134,6 +139,8 @@ function navigationParamsForView(
   switch (view) {
     case 'pilotage':
       return { view: 'pilotage' };
+    case 'dialer':
+      return { view: 'dialer' };
     case 'new':
       return { view: 'new' };
     case 'account-search':
@@ -1909,6 +1916,7 @@ export default function CallManagerApp({
           onOpenRecalls={() => void openRecalls()}
           onOpenPilotage={() => setView('pilotage')}
           onOpenRdvSuivi={() => setView('rdv-suivi')}
+          onOpenDialer={() => setView('dialer')}
           onUpdateSession={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
           onShareSession={(id) => setShareSessionId(id)}
@@ -1924,6 +1932,8 @@ export default function CallManagerApp({
       )}
 
       {view === 'rdv-suivi' && <RdvSuiviView onBack={goToSessions} />}
+
+      {view === 'dialer' && <DialerView token={token} onBack={goToSessions} />}
 
       {view === 'new' && (
         <NewSessionView

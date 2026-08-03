@@ -16,3 +16,6 @@ Logo_*.png
 /test-results/
 /playwright-report/
 /playwright/.cache/
+.tunnel-url
+.tunnel.log
+.tunnel.pid

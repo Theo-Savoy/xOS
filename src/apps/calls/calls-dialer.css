@@ -1,0 +1,82 @@
+/* Dialer Telnyx — vue click-to-call (B2B, un appel à la fois). */
+.calls-dialer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 720px;
+  width: 100%;
+}
+
+.calls-dialer .xos-glass-card {
+  padding: 1rem;
+}
+
+.calls-dialer h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+}
+
+.calls-dialer__config-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.calls-dialer__config-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calls-dialer__form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.calls-dialer__form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--xos-muted, #8a8f98);
+}
+
+.calls-dialer__form input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--xos-border, rgba(255, 255, 255, 0.14));
+  background: var(--xos-input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--xos-text, #e8eaed);
+  font-size: 0.9rem;
+}
+
+.calls-dialer__hint {
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+
+.calls-dialer__error {
+  color: #ff8a80;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.calls-dialer__result pre {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.calls-dialer__note {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin: 0;
+}
