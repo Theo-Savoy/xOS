@@ -76,6 +76,7 @@ export async function loadDialerFlags(client) {
   const keys = [
     'dialer_enabled',
     'dialer_dry_run',
+    'dialer_enabled_until',
     'dialer_budget_session_cents',
     'dialer_budget_user_day_cents',
     'dialer_budget_org_month_cents',
@@ -92,8 +93,21 @@ export async function loadDialerFlags(client) {
 
   const map = Object.fromEntries((data ?? []).map((row) => [row.key, row.value]));
 
+  // Fenêtre à expiration automatique (audit 11.2 D1) : si dialer_enabled_until
+  // est renseignée et dépassée, le dialer est traité comme désactivé — plus
+  // jamais besoin d'une discipline manuelle de 3 UPDATE pour refermer la fenêtre.
+  const enabledUntilRaw = map.dialer_enabled_until;
+  const enabledUntilMs = enabledUntilRaw
+    ? Date.parse(String(enabledUntilRaw).replace(/["']/g, ''))
+    : NaN;
+  const windowExpired =
+    Number.isFinite(enabledUntilMs) && Date.now() > enabledUntilMs;
+
   return Object.freeze({
-    enabled: map.dialer_enabled === 'true' || map.dialer_enabled === true,
+    enabled:
+      (map.dialer_enabled === 'true' || map.dialer_enabled === true) &&
+      !windowExpired,
+    enabledUntil: Number.isFinite(enabledUntilMs) ? new Date(enabledUntilMs) : null,
     dryRun:
       map.dialer_dry_run === undefined
         ? null

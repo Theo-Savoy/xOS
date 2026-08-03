@@ -117,7 +117,11 @@ export function DialerView({
     }
   }, [token, to, connectionId, webhookUrl]);
 
-  const dryRunActive = config?.is_dry_run === true || config?.flags.dry_run === true;
+  // Trois niveaux, comme le serveur (fix codex lot-11.2 : entitlement oublié).
+  const dryRunActive =
+    config?.is_dry_run === true ||
+    config?.flags.dry_run === true ||
+    config?.entitlement?.dry_run === true;
   const enabled = config?.flags.enabled === true;
 
   return (
