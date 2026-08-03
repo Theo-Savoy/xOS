@@ -97,10 +97,17 @@ async function handleDial(request, user) {
   }
 
   const cfg = loadDialerConfig();
-  const isDryRun = cfg.isDryRun || flags.dryRun === true;
 
   // Per-user entitlements (remote contract): enabled/dry_run/caps per user.
   const entitlements = await loadUserEntitlements(client, user.id);
+
+  // Unified dry-run: the most pessimistic of ALL THREE levels wins — config,
+  // org flags, and per-user entitlement. (Audit P0: entitlements.dryRun used
+  // to be loaded but never read → a user with enabled=true,dry_run=true could
+  // place a REAL call once the org flag flipped to false.)
+  const isDryRun =
+    cfg.isDryRun || flags.dryRun === true || entitlements.dryRun === true;
+
   if (!entitlements.enabled && !isDryRun) {
     return json(403, { error: 'dialer_entitlement_denied' });
   }
