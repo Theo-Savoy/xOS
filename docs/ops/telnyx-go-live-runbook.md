@@ -82,7 +82,7 @@ Sur **Vercel** (ou `.env.local` pour le test tunnel), configurer :
 | `WEBHOOK_TELNYX_PUBLIC_KEY` | clé publique Ed25519 (étape 4) |
 | `WEBHOOK_TELNYX_TOLERANCE_SEC` | `300` (optionnel) |
 
-Fail-closed garanti par le code : toute variable manquante → erreur 503, aucun appel possible.
+Fail-closed garanti par le code : la clé API Telnyx manquante → erreur 503, aucun appel possible. (La clé webhook, elle, est optionnelle en trial — elle ne sert qu'à vérifier les événements de retour, cf. commit `19e3897`.)
 
 ## Étape 6 — Entitlement du testeur (~1 min)
 
@@ -99,14 +99,16 @@ update public.settings set value = '"true"'::jsonb  where key = 'dialer_enabled'
 update public.settings set value = '"false"'::jsonb where key = 'dialer_dry_run';
 ```
 
-> Double garde-fou : le dial réel exige `flags.enabled` **et** `entitlement.enabled` **et** `dry_run=false` aux deux niveaux (config + flags). La plus pessimiste gagne.
+> Triple garde-fou (audit 2026-08-03, fix `3086a30`) : le dial réel exige
+> `flags.enabled` **et** `entitlement.enabled` **et** `dry_run=false` aux TROIS
+> niveaux (config + flags org + entitlement user). La plus pessimiste gagne.
 
 ## Étape 8 — L'UNIQUE appel de test
 
 Un seul appel, vers un destinataire autorisé (numéro perso de Théo ou ligne interne).
 
 **Option UI (recommandée — session JWT déjà authentifiée) :**
-1. Ouvrir l'URL tunnel (`./scripts/tunnel.sh url`), se connecter (magic link).
+1. Ouvrir l'app **en local** (`http://localhost:5174`) — **pas besoin du tunnel pour l'appel trial** : le dial est une requête sortante vers Telnyx, aucun webhook entrant à recevoir (clé Ed25519 indisponible en trial → événements 503 de toute façon).
 2. Prospection → bouton **Dialer** (vue `?view=dialer`).
 3. Coller le numéro E.164, vérifier le Connection ID (Application ID), cliquer **Appeler**.
 
@@ -139,10 +141,10 @@ from public.dialer_webhook_events order by received_at desc limit 10;
 
 Checklist :
 - [ ] Appel audible depuis le destinataire.
-- [ ] Webhooks `call.initiated` / `call.answered` / `call.hangup` reçus, signature validée.
-- [ ] Réservation budget : `consumed`, coût réel renseigné.
+- [ ] **N/A (trial)** Webhooks `call.*` reçus + signature validée — impossible en trial : la clé Ed25519 est paid-only, le receiver répond 503. `dialer_webhook_events` restera vide, c'est le comportement attendu. → critère paid.
+- [ ] Réservation budget : `consumed`.
 - [ ] Audit : `dial / success`.
-- [ ] Aucune erreur de signature dans les logs.
+- [ ] Aucune erreur dans les logs de `vercel dev`.
 
 ## Étape 10 — Retour en fail-closed
 
