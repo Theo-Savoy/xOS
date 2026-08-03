@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallPhase } from '../domain/CallState';
-import { AUDIO_CONSTRAINTS, getHighBitrateCodecs, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
+import { AUDIO_CONSTRAINTS, getPreferredCodecs, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
 
 export type RtcCallStatus = {
@@ -214,11 +214,12 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
             // Constraints qualité : traitement du micro (écho, bruit, gain) —
             // au lieu de `audio: true` (qualité 2026-08-04).
             audio: AUDIO_CONSTRAINTS,
-            // OPUS bitrate haut (2026-08-04) : codecs RÉELS du navigateur avec
-            // sdpFmtpLine réécrit (maxaveragebitrate=128000;stereo=1). Objets
-            // valides pour setCodecPreferences (payloadType/clockRate matchent).
-            ...(getHighBitrateCodecs()
-              ? { preferred_codecs: getHighBitrateCodecs() }
+            // Codec préféré (test 2026-08-04) : G.722 en tête si le navigateur
+            // et l'opérateur le supportent (pas de transcodage → HD jusqu'au
+            // mobile), OPUS en fallback. Objets réels du navigateur = valides
+            // pour setCodecPreferences.
+            ...(getPreferredCodecs()
+              ? { preferred_codecs: getPreferredCodecs() }
               : {}),
             ...(callerNumber ? { callerNumber } : {}),
             ...(audioEl ? { remoteElement: audioEl } : {}),
