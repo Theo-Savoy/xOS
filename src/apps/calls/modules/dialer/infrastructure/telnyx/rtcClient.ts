@@ -37,14 +37,12 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 };
 
 /**
- * Codec préféré (test 2026-08-04, verdict) : comparatif chiffré OPUS vs G.722
- * sur deux appels réels (call reports Telnyx) :
- *   - OPUS : jitter 8.6ms, concealment 5,  stable
- *   - G722 : jitter 1.2ms, concealment 10.9 (2x plus), bitrate entrant 13kbps
- * → G.722 n'apporte AUCUNE amélioration mesurable : bitrate toujours faible,
- * concealment doublé. Le plafond est l'audio entrant (PSTN), pas le codec.
- * Décision : OPUS en tête (codec natif WebRTC, meilleur masquage de pertes),
- * G.722 en fallback.
+ * Codec préféré (test 2026-08-04, verdict lot-11.4) : le "13 kbps" était un
+ * artefact de calcul (delta ÷ 5s au lieu de 1s). Bitrate réel : G.722 = 64
+ * kbps CBR plat, OPUS = 31 kbps médian / 53 kbps en parole. Aucun
+ * plafonnement. La mauvaise qualité perçue = latence (RTT 470-500ms, buffer-
+ * bloat Wi-Fi) + boucle acoustique de l'auto-appel (echo). Décision : OPUS en
+ * tête (codec natif WebRTC), G.722 en fallback. Ne PAS toucher au fmtp.
  */
 export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }> | undefined {
   try {
