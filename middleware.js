@@ -34,7 +34,16 @@ function isPublic(pathname) {
   if (pathname.startsWith('/assets/')) return true;
   if (pathname.startsWith('/fonts/')) return true;
   if (pathname.startsWith('/favicon')) return true;
-  if (/\.(png|webp|svg|ico|jpe?g|gif)$/i.test(pathname)) return true;
+  if (/\\.(png|webp|svg|ico|jpe?g|gif)$/i.test(pathname)) return true;
+  // Préfixes du serveur de dev Vite : en dev les modules sont servis depuis
+  // /src/, /@vite/, /@react-refresh, /@fs/, /node_modules/. En prod le build
+  // empaquette tout dans /assets/ — ces préfixes n'existent pas, donc aucune
+  // donnée protégée n'est exposée. (Le code source est déjà public côté Vite.)
+  if (pathname.startsWith('/src/')) return true;
+  if (pathname.startsWith('/@vite/')) return true;
+  if (pathname.startsWith('/@react-refresh')) return true;
+  if (pathname.startsWith('/@fs/')) return true;
+  if (pathname.startsWith('/node_modules/')) return true;
   return false;
 }
 

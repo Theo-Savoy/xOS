@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "devCommand": "NODE_ENV=development vite",
   "outputDirectory": "dist",
   "headers": [
     {

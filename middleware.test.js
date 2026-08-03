@@ -28,6 +28,19 @@ describe('middleware route classifiers', () => {
     expect(isProtected('/api/cleaner')).toBe(true);
     expect(isProtected('/api/status')).toBe(true);
   });
+
+  it('lets Vite dev-server modules through (fix écran blanc en dev)', () => {
+    // En dev, Vite sert les modules depuis /src/, /@vite/, /@react-refresh,
+    // /@fs/, /node_modules/. Le middleware les bloquait → 401 → écran blanc.
+    expect(isPublic('/src/main.tsx')).toBe(true);
+    expect(isPublic('/@vite/client')).toBe(true);
+    expect(isPublic('/@react-refresh')).toBe(true);
+    expect(isPublic('/@fs/Users/theosavoy/src/App.tsx')).toBe(true);
+    expect(isPublic('/node_modules/.vite/deps/react.js')).toBe(true);
+    // Les données restent protégées : pas de trou vers /api/*.
+    expect(isProtected('/api/calls')).toBe(true);
+    expect(isPublic('/api/calls')).toBe(false);
+  });
 });
 
 describe('middleware() runtime', () => {
