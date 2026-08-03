@@ -186,8 +186,8 @@ async function handleDial(request, user) {
   }
 }
 
-export default async function handler(request) {
-  const url = new URL(request.url);
+export async function handler(request) {
+  const url = new URL(request.url, 'http://localhost');
   const resource = url.searchParams.get('resource');
 
   try {
@@ -244,3 +244,9 @@ export default async function handler(request) {
     return json(500, { error: 'internal_error' });
   }
 }
+
+// Vercel Web Handlers: method exports make the runtime pass a standards-based
+// Request and forward the returned Response. A default function export would
+// instead be treated as a Node (req, res) handler.
+export const GET = handler;
+export const POST = handler;

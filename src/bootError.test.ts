@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Le filet de sécurité vit inline dans index.html (il doit tourner avant le
 // module ES d'entrée). On extrait ce script et on l'évalue dans jsdom.
-const bootScript = readFileSync(`${process.cwd()}/index.html`, "utf-8").match(
-  /<script>([\s\S]*?)<\/script>/,
-)?.[1];
+const bootScript = vi.hoisted(() => {
+  // jsdom externalise `node:fs`; le helper hoisté s'exécute avant que Vitest
+  // n'enveloppe le graphe de modules dans l'environnement navigateur.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("node:fs") as typeof import("node:fs");
+  return fs.readFileSync(`${process.cwd()}/index.html`, "utf-8").match(
+    /<script>([\s\S]*?)<\/script>/,
+  )?.[1];
+});
 
 function loadTrap() {
   document.body.innerHTML = '<div id="root"></div>';

@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import handler from './dialer.js';
+import { GET, POST, handler } from './dialer.js';
 
 const { mockVerifyJWT } = vi.hoisted(() => ({ mockVerifyJWT: vi.fn() }));
 
@@ -101,6 +101,21 @@ describe('routeur /api/dialer', () => {
     const res = await handler(req('resource=config'));
     expect(res).toBeInstanceOf(Response);
     expect(res.headers.get('content-type')).toMatch(/application\/json/);
+  });
+
+  it('expose les Web Handlers GET et POST attendus par Vercel', () => {
+    expect(GET).toBe(handler);
+    expect(POST).toBe(handler);
+  });
+
+  it('accepte l’URL relative transmise par le runtime Vercel local', async () => {
+    const res = await handler({
+      url: '/api/dialer?resource=config',
+      method: 'GET',
+      headers: new Headers(),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).env).toBe('dryrun');
   });
 
   it('503 dialer_disabled quand le flag est false (resource gardée)', async () => {

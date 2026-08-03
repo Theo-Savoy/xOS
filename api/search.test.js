@@ -234,6 +234,9 @@ describe('GET /api/launcher', () => {
   beforeEach(() => {
     __resetSFTokenCache();
     vi.restoreAllMocks();
+    // This suite exercises the legacy org-refresh path. Keep it independent
+    // from a developer's local Supabase service-role configuration.
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
     vi.stubEnv('SF_CLIENT_ID', 'test-client-id');
     vi.stubEnv('SF_CLIENT_SECRET', 'test-client-secret');
     vi.stubEnv('SF_REFRESH_TOKEN', 'test-refresh-token');
