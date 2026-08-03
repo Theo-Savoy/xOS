@@ -6,21 +6,16 @@
 # Sécurité :
 #   - saisie en mode silencieux (read -s) quand stdin est un TTY : les valeurs
 #     ne sont jamais ré-échoées à l'écran, donc jamais capturées dans le chat ;
-#   - tous les messages passent sur stderr ; seul le résultat (masqué) sort sur
-#     stdout ;
+#   - tous les messages passent sur stderr ; seule la valeur transite sur stdout ;
 #   - aucune valeur complète n'est imprimée : confirmations tronquées (début***fin) ;
 #   - sauvegarde horodatée de .env.local avant toute écriture ;
 #   - chmod 600 sur .env.local après écriture.
 #
 # Usage : ./scripts/setup-telnyx-creds.sh   (depuis la racine du dépôt)
 #
-# Récupération des infos sur Telnyx (portal.telnyx.com) :
-#   TELNYX_API_KEY_DEV        → API Keys → Create API Key (permissions : Call Control / Voice)
-#   TELNYX_CALLER_ID_DEV      → Numbers → My Numbers → numéro approuvé (format E.164)
-#   WEBHOOK_TELNYX_PUBLIC_KEY → Voice API (Programmable Voice) → Applications → [app]
-#                               → Webhook → Public key (clé Ed25519)
-#   connection_id             → Voice API (Programmable Voice) → Applications → [app]
-#                               → Connection ID (UUID associé à l'application)
+# ⚠️  Portée : TELNYX_CALLER_ID_DEV est un fallback DEV (smoke test). En usage
+# réel, chaque utilisateur opt-in aura son/ses numéros alloués en base
+# (allocation autonome via l'API Telnyx) — pas de variable d'env par user.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -42,9 +37,11 @@ ask_var() {
   while [ "$attempts" -lt 5 ]; do
     attempts=$((attempts + 1))
     echo ""
-    echo "── $label ──"
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "  $label"
+    echo "═══════════════════════════════════════════════════════════════"
     echo "$help"
-    printf 'Colle la valeur (invisible) : ' >&2
+    printf 'Colle la valeur ici (invisible) : ' >&2
     IFS= read -r -s value || { echo "✗ lecture impossible — abandon." >&2; exit 1; }
     echo ""
     if [ -z "$value" ]; then
@@ -67,18 +64,26 @@ echo " (saisie invisible ; valeurs jamais affichées ni loguées)" >&2
 echo "═══════════════════════════════════════════════════════════════" >&2
 
 TELNYX_API_KEY_DEV="$(ask_var \
-  "TELNYX_API_KEY_DEV" \
-  "📌 Telnyx : portal.telnyx.com → API Keys → Create API Key
-   Permissions minimales : Call Control (calls).
-   La clé commence par 'KEY…' et n'est affichée qu'une seule fois :
-   si tu l'as perdue, révoque-la et recrée-en une." \
+  "1/4 — TELNYX_API_KEY_DEV (clé API)" \
+  "📌 Où la trouver sur Telnyx (portal.telnyx.com) :
+   • Menu latéral gauche → 'API Keys'
+   • Bouton 'Create API Key'
+   • Nom : xos-dialer-dev
+   • Permissions : cocher 'Call Control' (et Voice si proposé)
+   • Cliquer 'Create' → LA CLÉ N'EST AFFICHÉE QU'UNE SEULE FOIS.
+     Copie-la immédiatement (elle commence par 'KEY…').
+   • Si tu l'as perdue : révoque-la et recrée-en une." \
   '^(KEY[A-Za-z0-9_-]+|[A-Za-z0-9]{32,64})$' \
   'KEY… (commence par KEY, ~40+ caractères)')"
 
 TELNYX_CALLER_ID_DEV="$(ask_var \
-  "TELNYX_CALLER_ID_DEV" \
-  "📌 Telnyx : Numbers → My Numbers → numéro approuvé (statut Active).
-   Format E.164 : +33 suivi de 9 chiffres (ex : +33123456789)." \
+  "2/4 — TELNYX_CALLER_ID_DEV (numéro appelant)" \
+  "📌 Où le trouver sur Telnyx :
+   • Menu latéral gauche → 'Numbers' → 'My Numbers'
+   • Repère le numéro FR approuvé (statut 'Active')
+   • Clique dessus pour afficher le numéro complet
+   • Saisis-le au format E.164 : +33 suivi de 9 chiffres
+     (ex : 01 23 45 67 89 → +33123456789)." \
   '^\+33[0-9]{9}$' \
   '+33123456789')"
 
@@ -90,16 +95,24 @@ if [[ "$TELNYX_CALLER_ID_DEV" =~ ^\+33[67] ]]; then
 fi
 
 WEBHOOK_TELNYX_PUBLIC_KEY="$(ask_var \
-  "WEBHOOK_TELNYX_PUBLIC_KEY" \
-  "📌 Telnyx : Voice API (Programmable Voice) → Applications → [ton application]
-   → Webhook → section 'Public key' (clé Ed25519, base64). Copie la chaîne complète." \
+  "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé de signature webhook)" \
+  "📌 Où la trouver sur Telnyx :
+   • Menu latéral gauche → 'Voice' (Programmable Voice) → 'Applications'
+   • Ouvre ton application (ex : xos-dialer-dev)
+   • Section 'Webhook' → champ 'Webhook public key'
+   • Copie la chaîne complète (clé Ed25519, base64 ~44 caractères).
+     ⚠️  C'est la clé PUBLIQUE (pas le secret) — ne pas confondre avec l'API key." \
   '^[A-Za-z0-9+/]{40,}={0,2}$' \
   'base64 (chaîne de ~44 caractères)')"
 
 CONNECTION_ID="$(ask_var \
-  "connection_id" \
-  "📌 Telnyx : Voice API (Programmable Voice) → Applications → [ton application]
-   → Connection ID (UUID associé à l'application, utilisé comme connection_id du dial)." \
+  "4/4 — connection_id (ID de connexion de l'application)" \
+  "📌 Où le trouver sur Telnyx :
+   • Menu latéral gauche → 'Voice' (Programmable Voice) → 'Applications'
+   • Ouvre ton application (ex : xos-dialer-dev)
+   • En-tête / paramètres de l'application → 'Connection ID'
+   • Copie l'UUID (format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
+   C'est le connection_id utilisé par le dial (POST /v2/calls)." \
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
   '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d')"
 
