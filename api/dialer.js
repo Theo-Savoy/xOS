@@ -152,6 +152,10 @@ async function handleDial(request, user) {
   }
 
   try {
+    // Idempotence : un command_id unique par intention (P0 codex). Deux clics
+    // ou un retry après timeout rejouent le MÊME id → Telnyx ignore le doublon
+    // au lieu de créer deux appels réels.
+    const commandId = `xos-dial-${crypto.randomUUID()}`;
     const dialed = await dialContact({
       apiKey: cfg.apiKey,
       connectionId,
@@ -162,6 +166,7 @@ async function handleDial(request, user) {
       amd: body?.amd ?? 'premium',
       dryRun: isDryRun,
       record: Boolean(body?.record),
+      commandId,
     });
 
     // Reservation consumed (cost was incurred / simulated) — keep the row.
@@ -171,7 +176,7 @@ async function handleDial(request, user) {
       actorUserId: user.id,
       actorKind: 'user',
       action: 'dial',
-      payload: { to, connection_id: connectionId, dry_run: isDryRun },
+      payload: { to, connection_id: connectionId, dry_run: isDryRun, command_id: commandId },
       costCents: 1,
       result: 'success',
       metadata: { env: cfg.env, dry_run: isDryRun },

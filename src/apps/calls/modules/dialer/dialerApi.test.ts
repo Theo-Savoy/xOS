@@ -53,7 +53,10 @@ describe('dialCall', () => {
     const fetchMock = mockFetchOnce(200, {
       ok: true,
       dry_run: true,
-      call_id: 'call-123',
+      call_control_id: 'call-ctrl-123',
+      call_leg_id: 'call-leg-1',
+      call_session_id: 'call-sess-1',
+      command_id: 'xos-dial-abc',
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -64,7 +67,7 @@ describe('dialCall', () => {
       sessionId: 7,
     });
     expect(res.ok).toBe(true);
-    expect(res.call_id).toBe('call-123');
+    expect(res.call_control_id).toBe('call-ctrl-123');
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/dialer?resource=dial');

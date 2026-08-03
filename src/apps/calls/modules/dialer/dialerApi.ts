@@ -39,8 +39,13 @@ export type DialCallParams = {
 export type DialCallResult = {
   ok: boolean;
   dry_run: boolean;
-  call_id?: string;
+  /** Contrat réel Telnyx (POST /v2/calls) : call_control_id, call_leg_id,
+   * call_session_id. L'ancien champ call_id n'existe pas côté Telnyx — les
+   * tests qui mockaient call_id vérifiaient un contrat erroné (P0 codex). */
+  call_control_id?: string;
   call_leg_id?: string;
+  call_session_id?: string;
+  command_id?: string | null;
   error?: string;
   message?: string;
 };

@@ -69,6 +69,7 @@ export async function dialContact({
   amd = 'premium',
   dryRun = false,
   record = false,
+  commandId,
 }) {
   const { data } = await telnyxPost(
     '/calls',
@@ -82,6 +83,10 @@ export async function dialContact({
       answering_machine_detection: amd,
       sip_region: 'Europe',
       timeout_secs: 30,
+      // Idempotence Telnyx : un même command_id = une seule création d'appel.
+      // Le routeur en génère un par intention (audit P0 codex) pour que deux
+      // clics / un retry ne produisent pas deux appels réels.
+      ...(commandId ? { command_id: commandId } : {}),
       ...(record ? { record: 'record-from-answer', record_channels: 'single' } : {}),
     },
     apiKey,
@@ -91,6 +96,7 @@ export async function dialContact({
     callControlId: data.call_control_id,
     callLegId: data.call_leg_id,
     callSessionId: data.call_session_id,
+    commandId: commandId ?? null,
   };
 }
 

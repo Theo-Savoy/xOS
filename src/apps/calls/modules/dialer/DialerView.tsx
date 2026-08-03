@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, GlassCard, Tag } from '../../../../components/ui';
 import {
   DialerApiError,
@@ -63,6 +63,9 @@ export function DialerView({
         : ''),
   );
   const [dialing, setDialing] = useState(false);
+  // Garde synchrone anti-double-clic (P0 codex) : disabled={dialing} ne suffit
+  // pas car setState est asynchrone — deux clics rapprochés = deux vrais appels.
+  const dialingRef = useRef(false);
   const [result, setResult] = useState<DialCallResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,10 +83,12 @@ export function DialerView({
   }, [loadConfig]);
 
   const onDial = useCallback(async () => {
+    // Garde synchrone : un appel déjà en vol bloque les clics suivants.
+    if (dialingRef.current) return;
     setError(null);
     setResult(null);
     if (!to.trim()) {
-      setError('Numéro requis (format E.164, ex : +33123456789).');
+      setError('Numéro requis (format E.164, ex : +331****6789).');
       return;
     }
     if (!connectionId.trim()) {
@@ -94,6 +99,7 @@ export function DialerView({
       setError('Webhook URL requise.');
       return;
     }
+    dialingRef.current = true;
     setDialing(true);
     try {
       setResult(
@@ -106,6 +112,7 @@ export function DialerView({
     } catch (err) {
       setError(formatError(err));
     } finally {
+      dialingRef.current = false;
       setDialing(false);
     }
   }, [token, to, connectionId, webhookUrl]);
