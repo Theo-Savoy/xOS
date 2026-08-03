@@ -16,6 +16,8 @@
 
 export type RtcCallHandle = {
   hangup: (params?: unknown) => Promise<void> | void;
+  /** Accès au RTCPeerConnection sous-jacent (lecture codec via getStats). */
+  peer?: { instance?: RTCPeerConnection | null };
 };
 
 export type RtcClientHandle = {

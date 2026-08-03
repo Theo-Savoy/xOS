@@ -57,6 +57,31 @@ function phaseFromTelnyx(state?: string): CallPhase | null {
   }
 }
 
+/**
+ * Lit le codec audio ACTIF depuis RTCPeerConnection.getStats() — la source de
+ * vérité WebRTC (le stats.frame du SDK ne contient pas le codec). Appelé quand
+ * l'appel devient connected. (Diagnostic qualité 2026-08-04.)
+ */
+function readCodecFromPeer(call: RtcCallHandle | null, onCodec: (codec: string) => void): void {
+  try {
+    const pc = call?.peer?.instance;
+    if (!pc) return;
+    void pc.getStats().then((stats) => {
+      let codecName: string | null = null;
+      stats.forEach((report) => {
+        if (report.type === 'codec' && report.mimeType?.toLowerCase().includes('audio/')) {
+          codecName = String(report.mimeType);
+        }
+      });
+      if (codecName) onCodec(codecName);
+    }).catch(() => {
+      /* lecture stats facultative */
+    });
+  } catch {
+    /* peer non accessible : on garde le défaut */
+  }
+}
+
 export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }) {
   const [phase, setPhase] = useState<CallPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +249,11 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           timerRef.current = setInterval(() => {
             setDurationSec((sec) => sec + 1);
           }, 1000);
+          // Lecture du codec actif (source de vérité : getStats du peer).
+          // Le stats.frame du SDK ne contient pas le codec — on le lit ici.
+          void readCodecFromPeer(callRef.current, (codec) => {
+            setCallStats((prev) => ({ ...(prev ?? { mos: 0 }), codec }));
+          });
         }
         if (p === 'ended' || p === 'failed') {
           stopTimer();
@@ -249,27 +279,26 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       });
 
       // Stats qualité (diagnostic 2026-08-04) : le SDK émet telnyx.stats.frame
-      // avec MOS/jitter/RTT et le codec réellement négocié. On l'affiche dans
-      // l'UI pour savoir si l'appel tourne en OPUS ou G.711 et la qualité perçue.
-      client.on('telnyx.stats.frame', (data) => {
+      // avec MOS/jitter/RTT. Le frame est ENVELOPPÉ dans { data: payload }
+      // (vérifié dans le bundle : StatsFrame,function({data:e})…). Le codec
+      // n'y figure pas — on le lit via pc.getStats() directement (type 'codec').
+      client.on('telnyx.stats.frame', (raw) => {
         try {
-          const d = data as {
-            jitter?: number; rtt?: number; mos?: number; quality?: string;
-            inboundAudio?: { codec?: string; codecName?: string };
-            remoteInboundAudio?: { codec?: string; codecName?: string };
+          const frame = raw as {
+            data?: {
+              jitter?: number; rtt?: number; mos?: number; quality?: string;
+              inboundAudio?: { codec?: string; codecName?: string };
+              remoteInboundAudio?: { codec?: string; codecName?: string };
+            };
           };
-          const codec =
-            d.inboundAudio?.codecName ??
-            d.inboundAudio?.codec ??
-            d.remoteInboundAudio?.codecName ??
-            d.remoteInboundAudio?.codec;
-          if (d.mos !== undefined || codec) {
-            setCallStats({
-              mos: typeof d.mos === 'number' ? d.mos : 0,
-              codec: codec ? String(codec) : undefined,
-              jitterMs: typeof d.jitter === 'number' ? d.jitter : undefined,
-              rttMs: typeof d.rtt === 'number' ? d.rtt : undefined,
-            });
+          const d = frame.data ?? (frame as { jitter?: number; rtt?: number; mos?: number });
+          if (d && (typeof d.jitter === 'number' || typeof d.mos === 'number')) {
+            setCallStats((prev) => ({
+              mos: typeof d.mos === 'number' ? d.mos : (prev?.mos ?? 0),
+              codec: prev?.codec,
+              jitterMs: typeof d.jitter === 'number' ? d.jitter : prev?.jitterMs,
+              rttMs: typeof d.rtt === 'number' ? d.rtt : prev?.rttMs,
+            }));
           }
         } catch {
           /* stats facultatives : ne pas casser l'appel */
