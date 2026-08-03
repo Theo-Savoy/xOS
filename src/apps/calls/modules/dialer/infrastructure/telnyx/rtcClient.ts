@@ -20,7 +20,7 @@ export type RtcCallHandle = {
 
 export type RtcClientHandle = {
   connect: () => Promise<void> | void;
-  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string }) => RtcCallHandle;
+  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string; preferred_codecs?: Array<{ mimeType: string }> }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
   disconnect: () => Promise<void> | void;
 };
@@ -33,6 +33,16 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   noiseSuppression: true,
   autoGainControl: true,
 };
+
+/** Codecs préférés : OPUS en premier (qualité 2026-08-04). Le SDK 2.27.8
+ * expose `preferred_codecs?: RTCRtpCodecCapability[]` dans ICallOptions — on
+ * force la négociation sur OPUS (adaptatif, tolérant aux pertes) au lieu de
+ * retomber sur G.711 (64 kbps fixe, qualité téléphone). */
+export const PREFERRED_CODECS: Array<{ mimeType: string }> = [
+  { mimeType: 'audio/opus' },
+  { mimeType: 'audio/PCMU' },
+  { mimeType: 'audio/PCMA' },
+];
 
 export async function createRtcClient(token: string | null): Promise<RtcClientHandle | null> {
   if (!token) return null; // dry-run : le serveur n'a rien émis
