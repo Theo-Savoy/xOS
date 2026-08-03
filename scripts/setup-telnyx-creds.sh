@@ -96,7 +96,8 @@ fi
 
 WEBHOOK_TELNYX_PUBLIC_KEY="$(ask_var \
   "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé publique du webhook)" \
-  "Menu gauche → Voice → Applications → ouvre ton application
+  "Menu gauche → Real-Time Communication → Voice → Programmable Voice
+   → onglet 'Voice API Applications' → ouvre ton application
    → section 'Webhook' → champ 'Webhook public key'." \
   "La chaîne base64 complète telle qu'affichée (clé Ed25519).
    Exemple : 6q7HnU7H1GJ8tY4aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4" \
@@ -104,10 +105,13 @@ WEBHOOK_TELNYX_PUBLIC_KEY="$(ask_var \
   'base64 (~44 caractères)'  )"
 
 CONNECTION_ID="$(ask_var \
-  "4/4 — connection_id (ID de connexion)" \
-  "Menu gauche → Voice → Applications → ouvre ton application
-   → l'UUID 'Connection ID' affiché en tête de fiche." \
-  "L'UUID complet tel qu'affiché.
+  "4/4 — connection_id (= Application ID)" \
+  "Menu gauche → Real-Time Communication → Voice → Programmable Voice
+   → onglet 'Voice API Applications' → ouvre ton application
+   → champ 'Application ID' en haut de la fiche.
+   ⚠️ C'est CET ID qu'on passe comme connection_id du dial (la doc Telnyx
+   dit explicitement : 'connection_id: which is the Application ID')." \
+  "L'UUID de l'application tel qu'affiché.
    Exemple : 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d" \
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
   '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d'  )"
