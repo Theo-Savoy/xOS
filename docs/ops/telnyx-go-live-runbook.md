@@ -3,6 +3,7 @@
 > Statut : **EN ATTENTE** — bloqué sur KYC Telnyx (incident technique côté Telnyx).
 > Décision prise le 2026-08-03 : **numéro fixe FR** + **mode click-to-call** (démarchage **B2B** pour Combo, pas de B2C). Pas de mobile 06/07 (réservé à l'interpersonnel). Pas de mode prédictif/progressif (exigerait un NPV, non garanti au catalogue Telnyx France). Cadre réglementaire détaillé : `docs/compliance/demarchage-b2b-france.md`.
 > Transport validé en dry-run complet le 2026-08-03 (commit `14ec106`).
+> **Piège trial D60 (vérifié par la console 2026-08-03 22:06)** : en compte trial, un appel sortant vers un numéro **non vérifié** est refusé ~1,6 s après l'offre SIP — l'UI dit « Appel terminé » sans erreur. Le flux WebRTC est pourtant sain (connect → ready → newCall → getUserMedia → offer). **Toute destination de test doit être vérifiée d'abord** (Dashboard → Numbers → Verified, ou le SMS de vérification reçu au moment de l'appel). Seuls les numéros vérifiés sont appelables tant que le compte est en trial.
 
 Ce runbook s'exécute **le jour où le KYC est débloqué**. Objectif : un seul appel réel contrôlé, puis retour en fail-closed. Durée cible : ~15 minutes si tout est prêt.
 
