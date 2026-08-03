@@ -60,13 +60,17 @@ describe('loadDialerConfig', () => {
     expect(cfg.apiKey).toBe('DRYRUN_KEY');
   });
 
-  it('throws when webhook public key missing in prod/dev', () => {
+  it('webhook key optional in dev/prod — receiver is the guard, not config', () => {
     resetEnv({
       TELNYX_ENV: 'dev',
       TELNYX_API_KEY_DEV: 'KEY',
       WEBHOOK_TELNYX_PUBLIC_KEY: '',
     });
-    expect(() => loadDialerConfig()).toThrow(/WEBHOOK_TELNYX_PUBLIC_KEY/);
+    const cfg = loadDialerConfig();
+    expect(cfg.webhookPublicKey).toBeNull();
+    // La clé ne sert qu'à vérifier les webhooks de RETOUR (événements des appels
+    // sortants) ; le receiver répond 503 sans clé (webhooks.js), le dial sort.
+    expect(cfg.isDryRun).toBe(false);
   });
 
   it('dry-run does not require webhook key', () => {

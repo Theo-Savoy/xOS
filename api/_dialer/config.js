@@ -8,7 +8,9 @@
  * - default = 'dev' if NODE_ENV !== 'production', else 'prod'.
  * - dryrun: never hits the network. Returns fixture responses.
  * - Missing API key (other than dryrun) → throws. Fail-closed.
- * - WEBHOOK_TELNYX_PUBLIC_KEY required (Ed25519). Missing → throws.
+ * - WEBHOOK_TELNYX_PUBLIC_KEY optional ici : la clé ne sert qu'à vérifier les
+ *   webhooks de retour (événements des appels sortants). Sans elle, le receiver
+ *   répond 503 (webhooks.js) — le dial sort quand même. Fail-closed préservé.
  */
 
 const VALID_ENVS = new Set(['dev', 'prod', 'dryrun']);
@@ -52,11 +54,6 @@ export function loadDialerConfig() {
   );
 
   const webhookPublicKey = readEnv('WEBHOOK_TELNYX_PUBLIC_KEY');
-  if (!webhookPublicKey && !isDryRun) {
-    throw new Error(
-      'WEBHOOK_TELNYX_PUBLIC_KEY is required. Telnyx webhooks must be verified via Ed25519.',
-    );
-  }
 
   const toleranceSec = Number(readEnv('WEBHOOK_TELNYX_TOLERANCE_SEC') ?? '300');
 
