@@ -72,7 +72,7 @@ describe('DialerView', () => {
 
   it('posts the dial payload when Appeler is clicked', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, configBody));
-    const dialBody = { ok: true, dry_run: false, call_id: 'call-123' };
+    const dialBody = { ok: true, dry_run: false, call_control_id: 'call-123' };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, dialBody));
 
     render(

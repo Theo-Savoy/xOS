@@ -165,6 +165,7 @@ describe('routeur /api/dialer', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.dry_run).toBe(true);
-    expect(body.callControlId).toBeTruthy();
+    expect(body.call_control_id).toBeTruthy();
+    expect(body.command_id).toMatch(/^xos-dial-/);
   });
 });

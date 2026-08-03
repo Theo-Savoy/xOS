@@ -124,7 +124,7 @@ curl -sS -X POST 'https://<HOST>/api/dialer?resource=dial' \
   }'
 ```
 
-Réponse attendue : `200` avec `call_id` Telnyx réel, `dry_run: false`.
+Résultat attendu : `200` avec `call_control_id` Telnyx réel, `dry_run: false`.
 
 ## Étape 9 — Vérifications post-appel (~2 min)
 

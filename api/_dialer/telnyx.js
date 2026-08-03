@@ -93,10 +93,13 @@ export async function dialContact({
     dryRun,
   );
   return {
-    callControlId: data.call_control_id,
-    callLegId: data.call_leg_id,
-    callSessionId: data.call_session_id,
-    commandId: commandId ?? null,
+    // Noms Telnyx bruts (snake_case) — alignés sur le contrat API réel.
+    // (Round 2 audit claude : renvoyer camelCase cassait le frontend qui lit
+    // call_control_id ; une seule casse partout = snake_case Telnyx.)
+    call_control_id: data.call_control_id,
+    call_leg_id: data.call_leg_id,
+    call_session_id: data.call_session_id,
+    command_id: commandId ?? null,
   };
 }
 
