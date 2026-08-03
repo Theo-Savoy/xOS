@@ -29,22 +29,24 @@ Ce runbook s'exécute **le jour où le KYC est débloqué**. Objectif : un seul 
 
 > ⚠️ **Réglementation (B2B inclus)** : les numéros 06/07 sont interdits comme identifiant appelant pour tout usage automatisé, et les systèmes automatisés d'appels (prédictif/progressif) exigent un NPV (0162, 0163, 0270…). Combo reste en click-to-call humain → un fixe standard suffit, cf. `docs/compliance/demarchage-b2b-france.md`.
 
-## Étape 2 — Créer la Call Control Application (~3 min)
+## Étape 2 — Créer la Voice API Application (~3 min)
 
-1. **Call Control → Applications → Create Application**.
+Le produit s'appelle **Programmable Voice** (anciennement "Call Control"). Dans le portail Telnyx :
+
+1. **Voice API → Applications → Create Application**.
 2. Nom : `xos-dialer-dev` (ou `-prod` le jour venu).
-3. Type : **Call Control** (pas messaging).
+3. Type : **Programmable Voice** (Voice API), pas messaging.
 4. Webhook URL : renseigner l'URL publique de production/preview (voir étape 4 — on peut remplir plus tard et revenir éditer).
-5. Enregistrer l'**Application ID** (UUID).
+5. Enregistrer l'**Application ID** (UUID) et le **Connection ID** (UUID associé à l'application) — c'est ce dernier qui servira de `connection_id` au dial.
+6. Récupérer la **clé publique Ed25519** du webhook (section Webhook de l'application).
 
-## Étape 3 — Créer la connexion sortante (~3 min)
+## Étape 3 — Outbound Voice Profile (~3 min)
 
-1. **Call Control → Connections → Create Connection** :
-   - Type : **Call Control (outbound)**.
-   - Lier à l'Application de l'étape 2.
-   - Auth : API Key (pas SIP credentials).
-2. Rattacher le numéro de l'étape 1 à cette connexion (ou vérifier l'association automatique).
-3. Noter le **Connection ID** (UUID) — c'est le `connection_id` du body `dial`.
+1. **Voice API → Outbound Voice Profiles → Create Profile** :
+   - Nom : `xos-dialer-outbound`.
+   - Associer l'application de l'étape 2 (ou la connection associée).
+   - Activer la destination **France** (whitelisted destinations) et un **daily spend limit** bas (ex. $5) pour la fenêtre de test.
+2. Le profile contrôle routing, billing et limites ; un profile désactivé bloque les appels sortants (double kill switch opérationnel).
 
 ## Étape 4 — URL webhook publique (~2 min)
 
