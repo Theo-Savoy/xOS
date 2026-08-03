@@ -153,7 +153,46 @@ update public.settings set value = '"false"'::jsonb where key = 'dialer_enabled'
 update public.settings set value = '"true"'::jsonb  where key = 'dialer_dry_run';
 ```
 
-Si un incident survient à n'importe quel moment : exécuter immédiatement l'étape 10 (kill switch manuel). Le kill switch automatique ORG_EXCEEDED est déjà en place côté code.
+Si un incident survient à n'importe quel moment : exécuter immédiatement l'étape 10 (kill switch manuel). Le kill switch automatique ORG_EXCEEDED est déjà en place côté code. Depuis le commit `9b1fa85`, la fenêtre s'expire automatiquement via `dialer_enabled_until` (optionnel) — plus jamais de discipline manuelle en 3 UPDATE à retenir.
+
+---
+
+## PHASE B — Audio bidirectionnel (WebRTC + bridge deux jambes)
+
+> État : **bloquée côté Telnyx** — compte encore en trial (pas de clé Ed25519,
+> aucun webhook_endpoint). Le code Phase A est livré (`cfd19fc`), les prérequis
+> Telnyx ci-dessous sont ce qui débloque.
+
+### Prérequis Telnyx (quand le compte passe paid)
+
+1. **Clé publique Ed25519** → la récupérer dans Telnyx Dashboard → Voice → Webhook public key (générée au passage paid) → `scripts/setup-telnyx-creds.sh` étape 3
+2. **URL Vercel stable** → plus de Quick Tunnel : l'URL du déploiement Vercel (`https://xos-dechet-repo.vercel.app`) sert de base webhook
+3. **Event Webhook configuré** → Telnyx Dashboard → Voice API Application → Webhook URL : `https://xos-dechet-repo.vercel.app/api/dialer?resource=webhooks` — ou via API : `POST /v2/webhook_endpoints { url, webhook_secret }`
+
+### Checklist code (après prérequis)
+
+| # | Tâche | Fichier | Migration |
+|---|---|---|---|
+| 1 | Migration : `owner_user_id` + index unique partiel (1 appel actif/user) + contrainte `parallelism = 1` | `supabase/migrations/044_dialer_calls_one_active_per_user.sql` | ✅ prête |
+| 2 | Event router `call.*` (initiated/answered/hangup/machine.detection.ended) | `api/_dialer/webhooks.js` (remplace le stub `:169-171`) | |
+| 3 | `insertCall` / `updateCallFromEvent` → `dialer_calls` (table orpheline D2) | **nouveau** `api/_dialer/calls.js` | |
+| 4 | `handleDial` : jambe agent `sip:{sip_username}@sip.telnyx.com` → prospect `link_to` → bridge ; `409 already_on_call` sur 23505 | `api/dialer.js` | |
+| 5 | `time_limit_secs: 1800` sur les deux jambes + `bridgeCalls()` | `api/_dialer/telnyx.js` | |
+| 6 | `useRtcCall` : `newCall()` → `on(inbound) + answer()` ; **retirer la capacité de composer** (le serveur décide) | `src/apps/calls/modules/dialer/application/useRtcCall.ts` | |
+| 7 | Réconciliation coût sur `call.hangup` (`duration_sec × dialer_cost_cents_per_min`) | `api/_dialer/webhooks.js` | |
+
+### Garanties fail-closed audio (audit 11.2 B.8)
+
+G1 triple gate token · G2 dry-run = pas de token · G3 TTL 600s + audit ·
+G4 1 appel actif/user (index) · G5 durée bornée (`time_limit_secs`) ·
+G6 kill switch sondé par l'UI · G7 fenêtre auto-expirante · G8 SDK confiné.
+
+### Critère de succès Phase B (binaire)
+
+Le commercial clique → son téléphone (navigateur) sonne → il décroche → **ensuite**
+le prospect est composé → les deux parlent → Raccrocher → la fenêtre se referme.
+L'humain est en ligne AVANT que le prospect ne sonne (jambe agent `answered_at`
+< jambe prospect `started_at` = preuve horodatée de conformité ARCEP).
 
 ## Rollback d'urgence
 
