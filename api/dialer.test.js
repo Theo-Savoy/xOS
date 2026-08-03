@@ -118,6 +118,21 @@ describe('routeur /api/dialer', () => {
     expect((await res.json()).env).toBe('dryrun');
   });
 
+  it('config exige désormais un JWT (fix visibilité audit §2.3)', async () => {
+    mockVerifyJWT.mockResolvedValue(null);
+    const res = await handler(req('resource=config'));
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toBe('unauthenticated');
+  });
+
+  it('config renvoie l’entitlement de l’utilisateur courant', async () => {
+    const res = await handler(req('resource=config'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.entitlement).toBeDefined();
+    expect(typeof body.entitlement.enabled).toBe('boolean');
+  });
+
   it('503 dialer_disabled quand le flag est false (resource gardée)', async () => {
     // Empty settings → loadDialerFlags defaults enabled=false.
     mockFrom.mockImplementation(() => makeChain([]));

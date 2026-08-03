@@ -45,14 +45,23 @@ const NOT_IMPLEMENTED = (resource) =>
     message: `Resource ${resource} ships in a later lot (see docs/specs/lot-11.1-telnyx-infra.md).`,
   });
 
-async function handleConfig(client) {
+async function handleConfig(client, user) {
   const cfg = loadDialerConfig();
   const flags = await loadDialerFlags(client);
+  // Entitlement de l'utilisateur courant (exigé : config n'est plus un open read,
+  // cf. audit claude §2.3 — il fuitait env/budgets sans auth).
+  const entitlements = user
+    ? await loadUserEntitlements(client, user.id)
+    : { enabled: false, dryRun: true };
   return json(200, {
     env: cfg.env,
     is_dry_run: cfg.isDryRun,
     has_caller_id: Boolean(cfg.callerId),
     has_webhook_public_key: Boolean(cfg.webhookPublicKey),
+    entitlement: {
+      enabled: entitlements.enabled,
+      dry_run: entitlements.dryRun,
+    },
     flags: {
       enabled: flags.enabled,
       dry_run: flags.dryRun,
@@ -203,29 +212,30 @@ export async function handler(request) {
   const resource = url.searchParams.get('resource');
 
   try {
-    // 1) config — open read (state inspection, no side effects)
-    if (resource === 'config') {
-      const client = getServiceClient();
-      if (!client) return json(500, { error: 'service_client_unavailable' });
-      return await handleConfig(client);
-    }
-
-    // 2) webhooks — OPEN (Telnyx cannot carry a JWT; Ed25519 signature is the auth)
+    // 1) webhooks — OPEN (Telnyx cannot carry a JWT; Ed25519 signature is the auth)
     if (resource === 'webhooks' && request.method === 'POST') {
       return await handleWebhook(request);
     }
 
-    // 3) audit — manager/admin only (implemented in a follow-up)
+    // 2) audit — manager/admin only (implemented in a follow-up)
     if (resource === 'audit') {
       return NOT_IMPLEMENTED(resource);
     }
 
-    // 4) All other resources: JWT required + dialer_enabled gate
+    // 3) All other resources (config, dial, …): JWT required.
+    // config est protégé depuis le fix visibilité (audit §2.3) : il renvoyait
+    // env/budgets/état caller ID à quiconque sans auth.
     const user = await verifyJWT(request);
     if (!user) return json(401, { error: 'unauthenticated' });
 
     const client = getServiceClient();
     if (!client) return json(500, { error: 'service_client_unavailable' });
+
+    // config — JWT requis mais PAS de gate enabled : c'est le panneau d'état,
+    // il doit rester lisible même quand le dialer est désactivé.
+    if (resource === 'config') {
+      return await handleConfig(client, user);
+    }
 
     const flags = await loadDialerFlags(client);
     if (!flags.enabled) {

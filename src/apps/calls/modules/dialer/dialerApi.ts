@@ -24,6 +24,10 @@ export type DialerConfig = {
   is_dry_run: boolean;
   has_caller_id: boolean;
   has_webhook_public_key: boolean;
+  entitlement: {
+    enabled: boolean;
+    dry_run: boolean;
+  };
   flags: DialerFlags;
 };
 

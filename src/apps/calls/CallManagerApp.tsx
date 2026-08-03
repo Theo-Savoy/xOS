@@ -52,7 +52,9 @@ import {
 import { PilotageView } from './modules/pilotage/PilotageView';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerView } from './modules/dialer/DialerView';
+import { fetchDialerConfig } from './modules/dialer/dialerApi';
 import { supabase } from '../../lib/supabase';
+import { Button } from '../../components/ui';
 import type { AppRole } from '../../os/registry';
 import { createDialerLogQueue } from './modules/runner/dialerLogQueue';
 import { NewSessionView } from './modules/sessions/NewSessionView';
@@ -229,6 +231,9 @@ export default function CallManagerApp({
   );
   const [appRole, setAppRole] = useState<AppRole>('commercial');
   const canPilotage = appRole === 'manager' || appRole === 'admin';
+  // Entitlement dialer : le bouton + la vue ne s'affichent que pour les
+  // utilisateurs entitlementés (fix visibilité audit §2.3).
+  const [canDialer, setCanDialer] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const sessionsRef = useRef<SessionSummary[]>([]);
   const [stats, setStats] = useState<CallStats | null>(null);
@@ -489,6 +494,17 @@ export default function CallManagerApp({
     const email = session?.user?.email;
     if (!email) return;
     let cancelled = false;
+    // Entitlement dialer : fetch config (JWT) — le bouton n'apparaît que si
+    // l'utilisateur est entitlementé (fix visibilité audit §2.3).
+    if (token) {
+      void fetchDialerConfig(token)
+        .then((cfg) => {
+          if (!cancelled) setCanDialer(Boolean(cfg.entitlement?.enabled));
+        })
+        .catch(() => {
+          if (!cancelled) setCanDialer(false);
+        });
+    }
     void supabase
       .from('profiles')
       .select('role')
@@ -1898,6 +1914,7 @@ export default function CallManagerApp({
           loading={sessionsLoading}
           error={sessionsError}
           canPilotage={canPilotage}
+          canDialer={canDialer}
           onRefresh={refreshSessions}
           onNewSession={() => {
             setView('new');
@@ -1933,7 +1950,21 @@ export default function CallManagerApp({
 
       {view === 'rdv-suivi' && <RdvSuiviView onBack={goToSessions} />}
 
-      {view === 'dialer' && <DialerView token={token} onBack={goToSessions} />}
+      {view === 'dialer' &&
+        (canDialer ? (
+          <DialerView token={token} onBack={goToSessions} />
+        ) : (
+          <div className="calls-view" style={{ padding: '2rem' }}>
+            <h2>Accès restreint</h2>
+            <p>
+              Le dialer n'est pas activé pour ce compte. Contacte un
+              administrateur pour activer l'accès.
+            </p>
+            <Button variant="secondary" onClick={goToSessions}>
+              Retour
+            </Button>
+          </div>
+        ))}
 
       {view === 'new' && (
         <NewSessionView
