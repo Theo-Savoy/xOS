@@ -158,12 +158,17 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // 4. Réel : brancher le micro, écouter les événements, composer.
       client.on('telnyx.ready', () => {
         try {
-          // localStream n'existe pas dans ICallOptions : le SDK attache le
-          // micro via audio:true et l'audio sortant via remoteElement.
+          // callerNumber = caller ID choisi dans le sélecteur (peut être le
+          // mobile vérifié — Telnyx l'autorise pour un dial sortant humain).
+          // remoteElement : élément <audio> où le SDK attache le flux distant —
+          // SANS lui, l'appel part mais on n'entend RIEN côté navigateur
+          // (c'était le bug "on n'a pas branché ça"). On l'attache au montage.
+          const audioEl = document.querySelector<HTMLAudioElement>('audio[data-rtc-remote]');
           const call = client.newCall({
             destinationNumber: destination,
             audio: true,
             ...(callerNumber ? { callerNumber } : {}),
+            ...(audioEl ? { remoteElement: audioEl } : {}),
           });
           callRef.current = call;
         } catch (e) {

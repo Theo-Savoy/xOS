@@ -177,6 +177,10 @@ export function DialerView({ token, onBack }: DialerViewProps) {
 
         <GlassCard>
           <h3>Appeler (click-to-call, un appel à la fois)</h3>
+          {/* Sortie audio distante : le SDK WebRTC attache le flux ici.
+              Sans cet élément, l'appel part mais on n'entend rien (bug
+              "on n'a pas branché ça"). Autoplay autorisé après geste user. */}
+          <audio data-rtc-remote autoPlay className="calls-dialer__rtc-audio" />
           <div className="calls-dialer__call-status">
             <Tag variant={isActive ? 'accent' : 'muted'}>{PHASE_LABEL[phase]}</Tag>
             {phase === 'connected' && durationSec > 0 && (

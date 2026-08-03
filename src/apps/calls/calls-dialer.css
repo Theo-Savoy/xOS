@@ -44,6 +44,10 @@
   font-weight: 600;
 }
 
+.calls-dialer__rtc-audio {
+  display: none; /* le flux distant joue via l'audio, sans élément visible */
+}
+
 .calls-dialer__form {
   display: grid;
   gap: 0.6rem;
