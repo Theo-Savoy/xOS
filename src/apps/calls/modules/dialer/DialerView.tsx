@@ -55,6 +55,7 @@ export function DialerView({ token, onBack }: DialerViewProps) {
   const [config, setConfig] = useState<DialerConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [to, setTo] = useState('');
+  const [callerNumber, setCallerNumber] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<{ dry_run: boolean } | null>(null);
 
@@ -70,6 +71,14 @@ export function DialerView({ token, onBack }: DialerViewProps) {
   useEffect(() => {
     void loadConfig();
   }, [loadConfig]);
+
+  // Sélection par défaut : premier numéro actif (le sélecteur s'alimente dès
+  // que la config est chargée).
+  useEffect(() => {
+    if (!callerNumber && config?.caller_numbers?.length) {
+      setCallerNumber(config.caller_numbers[0].e164);
+    }
+  }, [config, callerNumber]);
 
   // Trois niveaux, comme le serveur (fix codex lot-11.2 : entitlement oublié).
   const dryRunActive =
@@ -90,11 +99,11 @@ export function DialerView({ token, onBack }: DialerViewProps) {
       setFormError('Numéro requis (format E.164, ex : +331****6789).');
       return;
     }
-    const started = await startCall(to.trim());
+    const started = await startCall(to.trim(), callerNumber.trim() || undefined);
     if (started) {
       setResult({ dry_run: dryRunActive });
     }
-  }, [to, startCall, dryRunActive]);
+  }, [to, callerNumber, startCall, dryRunActive]);
 
   return (
     <div className="calls-view">
@@ -190,6 +199,35 @@ export function DialerView({ token, onBack }: DialerViewProps) {
                 autoComplete="off"
                 disabled={isActive}
               />
+            </label>
+            <label>
+              Appeler en tant que (caller ID)
+              {config?.caller_numbers?.length ? (
+                <select
+                  value={callerNumber}
+                  onChange={(e) => setCallerNumber(e.target.value)}
+                  disabled={isActive}
+                >
+                  {config.caller_numbers.map((n) => (
+                    <option key={n.e164} value={n.e164}>
+                      {n.label ? `${n.label} — ` : ''}
+                      {n.e164}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="tel"
+                  value={callerNumber}
+                  onChange={(e) => setCallerNumber(e.target.value)}
+                  placeholder="+331****6789 (fallback config)"
+                  autoComplete="off"
+                  disabled={isActive}
+                />
+              )}
+              <span className="calls-dialer__hint">
+                Numéro affiché au prospect (allocation par utilisateur).
+              </span>
             </label>
             <Button
               onClick={() => void onDial()}

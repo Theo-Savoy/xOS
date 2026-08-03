@@ -29,6 +29,7 @@ function makeChain(rows, maybeSingleData = null) {
     in: vi.fn(() => chain),
     maybeSingle: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     single: vi.fn(async () => ({ data: maybeSingleData, error: null })),
+    order: vi.fn(() => chain),
     then(onFulfilled) {
       return Promise.resolve({ data: rows, error: null }).then(onFulfilled);
     },

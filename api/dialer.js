@@ -53,11 +53,35 @@ async function handleConfig(client, user) {
   const entitlements = user
     ? await loadUserEntitlements(client, user.id)
     : { enabled: false, dryRun: true };
+
+  // Numéros de caller ID alloués à l'utilisateur (sélecteur Phase A —
+  // table dialer_phone_numbers, prévue par le schéma depuis le début).
+  let callerNumbers = [];
+  if (user) {
+    const { data: numbers, error: numbersErr } = await client
+      .from('dialer_phone_numbers')
+      .select('e164, label, status, priority')
+      .eq('owner_user_id', user.id)
+      .in('status', ['active', 'cooldown'])
+      .order('priority', { ascending: true });
+    if (numbersErr) {
+      console.error('[dialer.config] load caller numbers failed:', numbersErr.message);
+    } else {
+      callerNumbers = (numbers ?? []).map((n) => ({
+        e164: n.e164,
+        label: n.label ?? null,
+        status: n.status,
+        priority: n.priority ?? 99,
+      }));
+    }
+  }
+
   return json(200, {
     env: cfg.env,
     is_dry_run: cfg.isDryRun,
     has_caller_id: Boolean(cfg.callerId),
     has_webhook_public_key: Boolean(cfg.webhookPublicKey),
+    caller_numbers: callerNumbers,
     entitlement: {
       enabled: entitlements.enabled,
       dry_run: entitlements.dryRun,

@@ -94,9 +94,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   /**
    * Lance un appel. C'est le SEUL point d'entrée d'un appel (humain, explicite).
    * Retourne true si l'appel est parti, false si bloqué avant (micro refusé…).
+   * callerNumber : identifiant appelant affiché (sélecteur Phase A).
    */
   const startCall = useCallback(
-    async (destination: string): Promise<boolean> => {
+    async (destination: string, callerNumber?: string): Promise<boolean> => {
       if (phaseRef.current === 'dialing' || phaseRef.current === 'connected') {
         return false; // garde synchrone anti-double-dial
       }
@@ -162,6 +163,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           const call = client.newCall({
             destinationNumber: destination,
             audio: true,
+            ...(callerNumber ? { callerNumber } : {}),
           });
           callRef.current = call;
         } catch (e) {

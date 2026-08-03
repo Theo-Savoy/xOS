@@ -17,6 +17,10 @@ const configBody = {
   is_dry_run: false,
   has_caller_id: true,
   has_webhook_public_key: false,
+  caller_numbers: [
+    { e164: '+336****8001', label: 'Mobile vérifié (Théo)', status: 'active', priority: 1 },
+    { e164: '+334****1891', label: 'Numéro FR dev', status: 'active', priority: 2 },
+  ],
   entitlement: { enabled: true, dry_run: true },
   flags: {
     enabled: true,
