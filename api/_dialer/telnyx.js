@@ -32,8 +32,9 @@ export class TelnyxError extends Error {
 }
 
 /** Single network choke point. Dry-run short-circuits BEFORE fetch. */
-async function telnyxPost(path, body, apiKey, dryRun) {
+async function telnyxPost(path, body, apiKey, dryRun, { raw = false } = {}) {
   if (dryRun) {
+    if (raw) return 'DRYRUN_RTC_JWT';
     return path.startsWith('/calls/') && path.endsWith('/actions/hangup')
       ? hangupFixture
       : dialFixture;
@@ -51,7 +52,9 @@ async function telnyxPost(path, body, apiKey, dryRun) {
     const errBody = await res.json().catch(() => ({}));
     throw new TelnyxError(res.status, errBody);
   }
-  return res.json();
+  // POST /v2/telephony_credentials/{id}/token renvoie le JWT en texte brut,
+  // pas l'enveloppe { data }. (Audit 11.2 — le piège d'implémentation.)
+  return raw ? res.text() : res.json();
 }
 
 /**
@@ -138,6 +141,17 @@ export async function dialParallel({
     }),
   );
   return results;
+}
+
+export async function issueRtcToken({ apiKey, credentialId, ttlSec = 600, dryRun = false }) {
+  // Le corps EST le JWT (texte brut) — pas l'enveloppe { data }.
+  return telnyxPost(
+    `/telephony_credentials/${encodeURIComponent(credentialId)}/token`,
+    { expires_in: ttlSec },
+    apiKey,
+    dryRun,
+    { raw: true },
+  );
 }
 
 /** Hang up an active call by call_control_id. */

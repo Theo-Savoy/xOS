@@ -99,7 +99,9 @@ export async function releaseReservation(client, reservationId, { result = 'rele
 export async function loadUserEntitlements(client, userId) {
   const { data, error } = await client
     .from('dialer_user_entitlements')
-    .select('enabled, dry_run, budget_day_cents, calls_day_limit, calls_month_limit')
+    .select(
+      'enabled, dry_run, budget_day_cents, calls_day_limit, calls_month_limit, telnyx_credential_id',
+    )
     .eq('user_id', userId)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') {
@@ -111,5 +113,6 @@ export async function loadUserEntitlements(client, userId) {
     budgetDayCents: data?.budget_day_cents ?? 1000,
     callsDayLimit: data?.calls_day_limit ?? 50,
     callsMonthLimit: data?.calls_month_limit ?? 500,
+    telnyxCredentialId: data?.telnyx_credential_id ?? null,
   };
 }

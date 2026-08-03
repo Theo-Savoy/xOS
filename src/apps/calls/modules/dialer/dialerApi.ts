@@ -111,3 +111,32 @@ export async function dialCall(
     throw err;
   }
 }
+
+export type RtcTokenResult = {
+  dry_run: boolean;
+  token: string | null;
+  expires_in: number;
+};
+
+/**
+ * Obtient un token WebRTC éphémère (audit 11.2 B.2). En dry-run, le serveur
+ * renvoie { token: null } — le navigateur ne peut pas se connecter.
+ */
+export async function fetchRtcToken(token: string): Promise<RtcTokenResult> {
+  try {
+    return await apiFetch<RtcTokenResult>(
+      token,
+      '/api/dialer?resource=webrtc_token',
+      { method: 'POST', body: '{}' },
+    );
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new DialerApiError(
+        err.status,
+        (err.body as { error?: string } | undefined)?.error ?? `http_${err.status}`,
+        err.message,
+      );
+    }
+    throw err;
+  }
+}

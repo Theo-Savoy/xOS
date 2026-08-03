@@ -100,6 +100,7 @@ describe('loadUserEntitlements — contrat remote', () => {
       budgetDayCents: 2500,
       callsDayLimit: 40,
       callsMonthLimit: 400,
+      telnyxCredentialId: null,
     });
   });
 
@@ -117,6 +118,7 @@ describe('loadUserEntitlements — contrat remote', () => {
       budgetDayCents: 1000,
       callsDayLimit: 50,
       callsMonthLimit: 500,
+      telnyxCredentialId: null,
     });
   });
 });

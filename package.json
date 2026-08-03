@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
+    "@telnyx/webrtc": "^2.27.8",
     "@vercel/blob": "^2",
     "cmdk": "^1.1.1",
     "react": "^19",
@@ -38,7 +39,7 @@
     "globals": "^16",
     "jsdom": "^29.1.1",
     "prettier": "^3",
-    "typescript": "~6.0.2",
+    "typescript": "^6.0.2",
     "typescript-eslint": "^8",
     "vite": "^8",
     "vitest": "^4.1.10"

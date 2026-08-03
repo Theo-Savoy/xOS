@@ -32,6 +32,18 @@
   gap: 0.4rem;
 }
 
+.calls-dialer__call-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.calls-dialer__duration {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .calls-dialer__form {
   display: grid;
   gap: 0.6rem;

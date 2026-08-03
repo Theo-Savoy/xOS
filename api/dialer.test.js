@@ -20,15 +20,15 @@ const { mockFrom, mockRpc } = vi.hoisted(() => ({
  * used by loadDialerFlags: .from('settings').select().in(). A thenable that
  * resolves { data, error } so `await chain` works.
  */
-function makeChain(rows) {
+function makeChain(rows, maybeSingleData = null) {
   const chain = {
     select: vi.fn(() => chain),
     insert: vi.fn(() => chain),
     update: vi.fn(() => chain),
     eq: vi.fn(() => chain),
     in: vi.fn(() => chain),
-    maybeSingle: vi.fn(async () => ({ data: null, error: null })),
-    single: vi.fn(async () => ({ data: null, error: null })),
+    maybeSingle: vi.fn(async () => ({ data: maybeSingleData, error: null })),
+    single: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     then(onFulfilled) {
       return Promise.resolve({ data: rows, error: null }).then(onFulfilled);
     },
@@ -131,6 +131,40 @@ describe('routeur /api/dialer', () => {
     const body = await res.json();
     expect(body.entitlement).toBeDefined();
     expect(typeof body.entitlement.enabled).toBe('boolean');
+  });
+
+  it('webrtc_token en dry-run émet aucun token (G2)', async () => {
+    // Dry-run est le défaut des settings du beforeEach.
+    const res = await handler(
+      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.dry_run).toBe(true);
+    expect(body.token).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('webrtc_token refuse 409 sans credential RTC', async () => {
+    // Fenêtre réelle (dry_run=false partout) mais entitlement sans
+    // telnyx_credential_id → 409 no_rtc_credential.
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation(() =>
+      makeChain(
+        [
+          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+          { key: 'dialer_dry_run', value: 'false' },
+        ],
+        // Entitlement réel : enabled, dry_run=false, mais SANS credential RTC.
+        { enabled: true, dry_run: false, telnyx_credential_id: null },
+      ),
+    );
+    const res = await handler(
+      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('no_rtc_credential');
   });
 
   it('503 dialer_disabled quand le flag est false (resource gardée)', async () => {

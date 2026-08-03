@@ -88,10 +88,9 @@ export default tseslint.config(
     // src/apps/calls/modules/dialer/infrastructure/telnyx/**. Cela évite que
     // d'autres modules ou apps n'appellent l'API Telnyx directement.
     //
-    // Note: tant que la lib Telnyx n'est pas installée, cette règle catche
-    // uniquement les imports du barrel `apps/calls/modules/dialer` hors
-    // infrastructure/telnyx. Sera renforcée en 11.2 quand le SDK sera
-    // ajouté.
+    // Note: la lib Telnyx (@telnyx/webrtc) est installée depuis la Phase A
+    // 11.2 — import restreint au dossier infrastructure/telnyx (G8). Tout
+    // accès direct ailleurs est une erreur.
     files: [
       'src/**/*.{ts,tsx}',
     ],
@@ -107,11 +106,12 @@ export default tseslint.config(
           patterns: [
             {
               group: [
+                '@telnyx/*',
                 '**/modules/dialer/infrastructure/telnyx/**',
                 '**/modules/dialer/infrastructure/telnyx',
               ],
               message:
-                'Direct imports of Telnyx infrastructure are forbidden outside modules/dialer/infrastructure/telnyx/. Use the public dialer API instead.',
+                'Direct imports of Telnyx infrastructure or the Telnyx SDK are forbidden outside modules/dialer/infrastructure/telnyx/. Use the public dialer API instead.',
             },
           ],
         },

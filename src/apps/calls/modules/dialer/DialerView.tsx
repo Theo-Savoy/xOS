@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, GlassCard, Tag } from '../../../../components/ui';
 import {
   DialerApiError,
-  dialCall,
   fetchDialerConfig,
-  type DialCallResult,
   type DialerConfig,
 } from './dialerApi';
+import { useRtcCall, type RtcCallStatus } from './application/useRtcCall';
 
 export type DialerViewProps = {
   token: string;
   onBack: () => void;
-  /** Surcharge pour les tests : webhook par défaut. */
-  defaultWebhookUrl?: string;
 };
-
-const WEBHOOK_HINT =
-  'webhook du dial : en dev c\u2019est le tunnel cloudflared, en prod l\u2019URL Vercel.';
 
 function formatError(err: unknown): string {
   if (err instanceof DialerApiError) {
@@ -46,28 +40,23 @@ function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function DialerView({
-  token,
-  onBack,
-  defaultWebhookUrl,
-}: DialerViewProps) {
+const PHASE_LABEL: Record<RtcCallStatus['phase'], string> = {
+  idle: 'Prêt',
+  dialing: 'Composition…',
+  ringing: 'Sonnerie…',
+  connected: 'En communication',
+  on_hold: 'En attente',
+  wrapping: 'Fermeture…',
+  ended: 'Terminé',
+  failed: 'Échec',
+};
+
+export function DialerView({ token, onBack }: DialerViewProps) {
   const [config, setConfig] = useState<DialerConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [to, setTo] = useState('');
-  const [connectionId, setConnectionId] = useState('');
-  const [webhookUrl, setWebhookUrl] = useState(
-    () =>
-      defaultWebhookUrl ??
-      (typeof window !== 'undefined'
-        ? `${window.location.origin}/api/dialer?resource=webhooks`
-        : ''),
-  );
-  const [dialing, setDialing] = useState(false);
-  // Garde synchrone anti-double-clic (P0 codex) : disabled={dialing} ne suffit
-  // pas car setState est asynchrone — deux clics rapprochés = deux vrais appels.
-  const dialingRef = useRef(false);
-  const [result, setResult] = useState<DialCallResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ dry_run: boolean } | null>(null);
 
   const loadConfig = useCallback(async () => {
     setConfigError(null);
@@ -82,47 +71,30 @@ export function DialerView({
     void loadConfig();
   }, [loadConfig]);
 
-  const onDial = useCallback(async () => {
-    // Garde synchrone : un appel déjà en vol bloque les clics suivants.
-    if (dialingRef.current) return;
-    setError(null);
-    setResult(null);
-    if (!to.trim()) {
-      setError('Numéro requis (format E.164, ex : +331****6789).');
-      return;
-    }
-    if (!connectionId.trim()) {
-      setError('Connection ID requis (Application ID Telnyx).');
-      return;
-    }
-    if (!webhookUrl.trim()) {
-      setError('Webhook URL requise.');
-      return;
-    }
-    dialingRef.current = true;
-    setDialing(true);
-    try {
-      setResult(
-        await dialCall(token, {
-          to: to.trim(),
-          connectionId: connectionId.trim(),
-          webhookUrl: webhookUrl.trim(),
-        }),
-      );
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      dialingRef.current = false;
-      setDialing(false);
-    }
-  }, [token, to, connectionId, webhookUrl]);
-
   // Trois niveaux, comme le serveur (fix codex lot-11.2 : entitlement oublié).
   const dryRunActive =
     config?.is_dry_run === true ||
     config?.flags.dry_run === true ||
     config?.entitlement?.dry_run === true;
   const enabled = config?.flags.enabled === true;
+
+  const { phase, error, durationSec, startCall, hangup, isActive } = useRtcCall({
+    token,
+    dryRun: dryRunActive,
+  });
+
+  const onDial = useCallback(async () => {
+    setResult(null);
+    setFormError(null);
+    if (!to.trim()) {
+      setFormError('Numéro requis (format E.164, ex : +331****6789).');
+      return;
+    }
+    const started = await startCall(to.trim());
+    if (started) {
+      setResult({ dry_run: dryRunActive });
+    }
+  }, [to, startCall, dryRunActive]);
 
   return (
     <div className="calls-view">
@@ -132,6 +104,11 @@ export function DialerView({
           <h2>Dialer Telnyx</h2>
         </div>
         <div className="calls-view__actions">
+          {isActive && (
+            <Button variant="danger" onClick={hangup}>
+              Raccrocher
+            </Button>
+          )}
           <Button variant="secondary" onClick={onBack}>
             Retour
           </Button>
@@ -191,6 +168,17 @@ export function DialerView({
 
         <GlassCard>
           <h3>Appeler (click-to-call, un appel à la fois)</h3>
+          <div className="calls-dialer__call-status">
+            <Tag variant={isActive ? 'accent' : 'muted'}>{PHASE_LABEL[phase]}</Tag>
+            {phase === 'connected' && durationSec > 0 && (
+              <span className="calls-dialer__duration">{durationSec}s</span>
+            )}
+            {phase === 'connected' && (
+              <span className="calls-dialer__hint">
+                — raccroche avec le bouton Raccrocher ou en fermant l'appel
+              </span>
+            )}
+          </div>
           <div className="calls-dialer__form">
             <label>
               Numéro (E.164)
@@ -198,45 +186,26 @@ export function DialerView({
                 type="tel"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                placeholder="+33123456789"
+                placeholder="+331****6789"
                 autoComplete="off"
+                disabled={isActive}
               />
-            </label>
-            <label>
-              Connection ID (Application ID Telnyx)
-              <input
-                type="text"
-                value={connectionId}
-                onChange={(e) => setConnectionId(e.target.value)}
-                placeholder="1a2b3c4d-…"
-                autoComplete="off"
-              />
-            </label>
-            <label>
-              Webhook URL
-              <input
-                type="text"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="https://…/api/dialer?resource=webhooks"
-                autoComplete="off"
-              />
-              <span className="calls-dialer__hint">{WEBHOOK_HINT}</span>
             </label>
             <Button
               onClick={() => void onDial()}
-              disabled={dialing}
+              disabled={isActive}
               variant={dryRunActive ? 'secondary' : 'primary'}
             >
-              {dialing ? 'Appel en cours…' : dryRunActive ? 'Dial dry-run' : 'Appeler'}
+              {dryRunActive ? 'Dial dry-run' : 'Appeler'}
             </Button>
           </div>
 
+          {formError && <p className="calls-dialer__error">{formError}</p>}
           {error && <p className="calls-dialer__error">{error}</p>}
 
-          {result && (
+          {result && phase === 'ended' && (
             <div className="calls-dialer__result">
-              <h4>Résultat</h4>
+              <h4>Appel terminé</h4>
               <pre>{JSON.stringify(result, null, 2)}</pre>
             </div>
           )}

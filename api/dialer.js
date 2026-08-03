@@ -28,7 +28,7 @@ import { loadDialerConfig, loadDialerFlags } from './_dialer/config.js';
 import { handleWebhook } from './_dialer/webhooks.js';
 import { reserveBudget, releaseReservation, loadUserEntitlements } from './_dialer/budget.js';
 import { buildAuditRow, writeAudit } from './_dialer/audit.js';
-import { dialContact } from './_dialer/telnyx.js';
+import { dialContact, hangupCall, issueRtcToken } from './_dialer/telnyx.js';
 
 export const config = { maxDuration: 30 };
 
@@ -72,6 +72,61 @@ async function handleConfig(client, user) {
       rate_burst: flags.rateBurst,
     },
   });
+}
+
+/**
+ * POST ?resource=webrtc_token — token éphémère pour le SDK WebRTC.
+ * (Audit 11.2 B.2) Mêmes gates que le dial : JWT → flags → entitlement →
+ * dry-run. En dry-run, AUCUN token n'est émis : le navigateur ne peut pas se
+ * connecter parce qu'il n'a rien avec quoi se connecter (G2).
+ */
+async function handleWebrtcToken(request, user) {
+  const client = getServiceClient();
+  if (!client) return json(500, { error: 'service_client_unavailable' });
+
+  const flags = await loadDialerFlags(client);
+  if (!flags.enabled) {
+    return json(503, { error: 'dialer_disabled' });
+  }
+
+  const cfg = loadDialerConfig();
+  const entitlements = await loadUserEntitlements(client, user.id);
+
+  const isDryRun =
+    cfg.isDryRun || flags.dryRun === true || entitlements.dryRun === true;
+
+  if (!entitlements.enabled && !isDryRun) {
+    return json(403, { error: 'dialer_entitlement_denied' });
+  }
+
+  // Dry-run : pas de token. Le navigateur reçoit { token: null } et reste en
+  // mode simulation — impossible de transformer ça en vrai appel.
+  if (isDryRun) {
+    return json(200, { dry_run: true, token: null, expires_in: 0 });
+  }
+
+  if (!entitlements.telnyxCredentialId) {
+    return json(409, { error: 'no_rtc_credential' });
+  }
+
+  const token = await issueRtcToken({
+    apiKey: cfg.apiKey,
+    credentialId: entitlements.telnyxCredentialId,
+    ttlSec: 600,
+    dryRun: false,
+  });
+
+  await writeAudit(client, buildAuditRow({
+    actorUserId: user.id,
+    actorKind: 'user',
+    action: 'webrtc_token',
+    payload: { credential_id: entitlements.telnyxCredentialId },
+    costCents: 0,
+    result: 'success',
+    metadata: { env: cfg.env, dry_run: false },
+  })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+
+  return json(200, { dry_run: false, token, expires_in: 600 });
 }
 
 /**
@@ -247,6 +302,13 @@ export async function handler(request) {
 
     if (resource === 'dial' && request.method === 'POST') {
       return await handleDial(request, user);
+    }
+
+    // Token WebRTC éphémère (audit 11.2 B.2) : mêmes gates que le dial, mais
+    // en dry-run on n'émet AUCUN token — le navigateur ne peut pas se
+    // connecter parce qu'il n'a rien avec quoi se connecter (G2).
+    if (resource === 'webrtc_token' && request.method === 'POST') {
+      return await handleWebrtcToken(request, user);
     }
 
     // Defer to lot 11.2+
