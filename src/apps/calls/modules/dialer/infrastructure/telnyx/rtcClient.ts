@@ -36,6 +36,40 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
 };
 
+/**
+ * Codec OPUS bitrate haut (2026-08-04). OPUS par défaut peut négocier en bas
+ * débit (32 kbps). On part des codecs RÉELS du navigateur (setCodecPreferences
+ * exige des objets valides : mimeType+clockRate+payloadType doivent matcher)
+ * et on réécrit le sdpFmtpLine OPUS avec maxaveragebitrate=128000 + stéréo.
+ * NOTE : ce levier agit sur le leg navigateur→Telnyx. L'audio final côté PSTN
+ * (téléphone) reste plafonné G.711 8kHz — c'est la limite du réseau télécom.
+ */
+export function getHighBitrateCodecs(): Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }> | undefined {
+  try {
+    const caps = RTCRtpSender.getCapabilities?.('audio');
+    const codecs = caps?.codecs?.filter((c) =>
+      c.mimeType.toLowerCase() === 'audio/opus' ||
+      c.mimeType.toLowerCase() === 'audio/pcmu' ||
+      c.mimeType.toLowerCase() === 'audio/pcma',
+    );
+    if (!codecs || codecs.length === 0) return undefined;
+    return codecs.map((c) => {
+      if (c.mimeType.toLowerCase() === 'audio/opus') {
+        // maxaveragebitrate=128000 + stéréo + FEC (résilience pertes)
+        const base = c.sdpFmtpLine ?? 'minptime=10;useinbandfec=1';
+        const fmtp = base.includes('maxaveragebitrate')
+          ? base.replace(/maxaveragebitrate=\d+/, 'maxaveragebitrate=128000')
+          : `${base};maxaveragebitrate=128000`;
+        const withStereo = fmtp.includes('stereo') ? fmtp : `${fmtp};stereo=1`;
+        return { ...c, sdpFmtpLine: withStereo };
+      }
+      return c;
+    }) as Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }>;
+  } catch {
+    return undefined; // capabilities indisponibles : on laisse le défaut SDK
+  }
+}
+
 export async function createRtcClient(token: string | null): Promise<RtcClientHandle | null> {
   if (!token) return null; // dry-run : le serveur n'a rien émis
   const { TelnyxRTC } = await import('@telnyx/webrtc');

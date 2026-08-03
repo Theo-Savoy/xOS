@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallPhase } from '../domain/CallState';
-import { AUDIO_CONSTRAINTS, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
+import { AUDIO_CONSTRAINTS, getHighBitrateCodecs, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
 
 export type RtcCallStatus = {
@@ -214,11 +214,12 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
             // Constraints qualité : traitement du micro (écho, bruit, gain) —
             // au lieu de `audio: true` (qualité 2026-08-04).
             audio: AUDIO_CONSTRAINTS,
-            // NOTE (2026-08-04) : PAS de preferred_codecs. OPUS est le codec
-            // par défaut et le premier proposé par Chromium/Arc
-            // (vérifié : getCapabilities liste audio/opus en tête). Le réglage
-            // serveur (codecs=[OPUS,...] sur la Credential Connection) fait le
-            // reste. Forcer via setCodecPreferences cassait l'appel.
+            // OPUS bitrate haut (2026-08-04) : codecs RÉELS du navigateur avec
+            // sdpFmtpLine réécrit (maxaveragebitrate=128000;stereo=1). Objets
+            // valides pour setCodecPreferences (payloadType/clockRate matchent).
+            ...(getHighBitrateCodecs()
+              ? { preferred_codecs: getHighBitrateCodecs() }
+              : {}),
             ...(callerNumber ? { callerNumber } : {}),
             ...(audioEl ? { remoteElement: audioEl } : {}),
           });
