@@ -29,7 +29,14 @@ type TelnyxNotification = {
   event?: string;
 };
 
-function phaseFromTelnyx(state?: string): CallPhase {
+/**
+ * Mapping état SDK → CallPhase. Retourne null pour les états NON reconnus :
+ * l'UI ne doit JAMAIS basculer en « ended » sur un état qu'elle ne comprend
+ * pas — c'était le bug {dry_run:false} affiché sans erreur (audit 11.3 B3,
+ * corrigé 2026-08-03 : un état inconnu doit rester sur la phase courante,
+ * pas prétendre que l'appel est terminé).
+ */
+function phaseFromTelnyx(state?: string): CallPhase | null {
   switch (state) {
     case 'new':
     case 'requesting':
@@ -46,7 +53,7 @@ function phaseFromTelnyx(state?: string): CallPhase {
     case 'destroy':
       return 'ended';
     default:
-      return 'idle';
+      return null; // état inconnu : ne pas toucher à la phase
   }
 }
 
@@ -57,11 +64,19 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callRef = useRef<RtcCallHandle | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dialTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phaseRef = useRef<CallPhase>('idle');
 
   const setPhaseSafe = useCallback((p: CallPhase) => {
     phaseRef.current = p;
     setPhase(p);
+  }, []);
+
+  const clearDialTimeout = useCallback(() => {
+    if (dialTimeoutRef.current) {
+      clearTimeout(dialTimeoutRef.current);
+      dialTimeoutRef.current = null;
+    }
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -75,6 +90,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   // Nettoyage à la sortie de la vue : raccrocher + fermer le socket.
   useEffect(() => {
     return () => {
+      clearDialTimeout();
       stopTimer();
       try {
         callRef.current?.hangup();
@@ -185,8 +201,17 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         // B3 (audit 11.3) : les notifications sans état d'appel (vertoClientReady,
         // userMediaError, peerConnectionFailureError…) ne doivent PAS toucher la
         // machine à états — sinon l'UI bascule en « Terminé » dès la connexion.
-        if (!s) return;
+        if (!s) {
+          // Log de diagnostic : on voit ce que le SDK envoie réellement.
+          console.debug('[rtc] notification sans état:', n);
+          return;
+        }
         const p = phaseFromTelnyx(s);
+        if (p === null) {
+          // État SDK non reconnu : ne pas prétendre que l'appel est fini.
+          console.debug('[rtc] état SDK non mappé:', s, n);
+          return;
+        }
         if (p === 'connected') {
           timerRef.current = setInterval(() => {
             setDurationSec((sec) => sec + 1);
@@ -195,12 +220,16 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         if (p === 'ended' || p === 'failed') {
           stopTimer();
         }
-        setPhaseSafe(p === 'idle' ? 'ended' : p);
+        setPhaseSafe(p);
       });
       client.on('telnyx.socket.close', () => {
         stopTimer();
         if (phaseRef.current === 'connected' || phaseRef.current === 'dialing') {
-          setPhaseSafe('ended');
+          // Le socket s'est fermé pendant un appel/composition : c'est un échec
+          // réseau (token refusé, session expirée, coupure). On le dit — pas de
+          // silence.
+          setError('Connexion WebRTC perdue (socket fermé) — vérifie le token et réessaie.');
+          setPhaseSafe('failed');
         }
       });
       client.on('telnyx.error', (e) => {
@@ -224,13 +253,26 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         setError(e instanceof Error ? e.message : 'Connexion WebRTC refusée.');
         return false;
       }
+
+      // Timeout de diagnostic : si après 20 s on est toujours en dialing sans
+      // ringing/connected (telnyx.ready n'a pas fire, newCall pas exécuté), on
+      // le dit au lieu de rester bloqué silencieusement sur « Composition… ».
+      dialTimeoutRef.current = setTimeout(() => {
+        if (phaseRef.current === 'dialing') {
+          setError(
+            'Aucune réponse du serveur WebRTC après 20 s — token refusé ou réseau bloqué. Vérifie la console navigateur.',
+          );
+          setPhaseSafe('failed');
+        }
+      }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, stopTimer],
+    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */
   const hangup = useCallback(() => {
+    clearDialTimeout();
     stopTimer();
     try {
       callRef.current?.hangup();

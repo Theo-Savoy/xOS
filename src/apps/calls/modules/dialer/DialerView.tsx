@@ -245,9 +245,19 @@ export function DialerView({ token, onBack }: DialerViewProps) {
           {formError && <p className="calls-dialer__error">{formError}</p>}
           {error && <p className="calls-dialer__error">{error}</p>}
 
+          {phase === 'failed' && !error && (
+            <p className="calls-dialer__error">
+              L'appel a échoué — consulte la console navigateur (F12) pour le
+              détail WebRTC.
+            </p>
+          )}
+
           {result && phase === 'ended' && (
             <div className="calls-dialer__result">
               <h4>Appel terminé</h4>
+              <p className="calls-dialer__hint">
+                Durée : {durationSec}s
+              </p>
               <pre>{JSON.stringify(result, null, 2)}</pre>
             </div>
           )}
