@@ -20,7 +20,7 @@ export type RtcCallHandle = {
 
 export type RtcClientHandle = {
   connect: () => Promise<void> | void;
-  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string; preferred_codecs?: Array<{ mimeType: string }> }) => RtcCallHandle;
+  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string; preferred_codecs?: Array<{ mimeType: string; clockRate: number; channels?: number }> }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
   disconnect: () => Promise<void> | void;
 };
@@ -37,11 +37,13 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 /** Codecs préférés : OPUS en premier (qualité 2026-08-04). Le SDK 2.27.8
  * expose `preferred_codecs?: RTCRtpCodecCapability[]` dans ICallOptions — on
  * force la négociation sur OPUS (adaptatif, tolérant aux pertes) au lieu de
- * retomber sur G.711 (64 kbps fixe, qualité téléphone). */
-export const PREFERRED_CODECS: Array<{ mimeType: string }> = [
-  { mimeType: 'audio/opus' },
-  { mimeType: 'audio/PCMU' },
-  { mimeType: 'audio/PCMA' },
+ * retomber sur G.711 (64 kbps fixe, qualité téléphone).
+ * ATTENTION : RTCRtpCodecCapability exige clockRate (+ channels pour OPUS),
+ * sinon setCodecPreferences lève "Required member is undefined". */
+export const PREFERRED_CODECS: Array<{ mimeType: string; clockRate: number; channels?: number }> = [
+  { mimeType: 'audio/opus', clockRate: 48000, channels: 2 },
+  { mimeType: 'audio/PCMU', clockRate: 8000 },
+  { mimeType: 'audio/PCMA', clockRate: 8000 },
 ];
 
 export async function createRtcClient(token: string | null): Promise<RtcClientHandle | null> {
