@@ -4,6 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>X OS</title>
+    <script>
+      // Filet de sécurité écran blanc : une erreur pendant l'évaluation du
+      // graphe de modules ES se produit AVANT que main.tsx n'appelle
+      // createRoot — ni l'ErrorBoundary ni l'overlay Vite ne peuvent la voir,
+      // et #root reste vide. On l'affiche à la place.
+      function xosBootError(err) {
+        var root = document.getElementById('root');
+        if (!root || root.childElementCount || !err) return;
+        var pre = document.createElement('pre');
+        pre.style.cssText =
+          'margin:0;padding:24px;min-height:100vh;box-sizing:border-box;background:#0d173f;color:#ff8b8b;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;';
+        pre.textContent = 'X OS — erreur au démarrage\n\n' + (err.stack || err.message || String(err));
+        root.appendChild(pre);
+      }
+      addEventListener('error', function (e) {
+        xosBootError(e.error || e.message);
+      });
+      addEventListener('unhandledrejection', function (e) {
+        xosBootError(e.reason);
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
