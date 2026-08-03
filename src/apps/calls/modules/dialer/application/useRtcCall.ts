@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallPhase } from '../domain/CallState';
-import { AUDIO_CONSTRAINTS, PREFERRED_CODECS, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
+import { AUDIO_CONSTRAINTS, getPreferredCodecs, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
 
 export type RtcCallStatus = {
@@ -189,9 +189,12 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
             // Constraints qualité : traitement du micro (écho, bruit, gain) —
             // au lieu de `audio: true` (qualité 2026-08-04).
             audio: AUDIO_CONSTRAINTS,
-            // Force la négociation sur OPUS (qualité 2026-08-04) : le SDK
-            // 2.27.8 expose preferred_codecs dans ICallOptions.
-            preferred_codecs: PREFERRED_CODECS,
+            // Force la négociation sur OPUS (qualité 2026-08-04) : codecs RÉELS
+            // du navigateur réordonnés (setCodecPreferences exige les objets
+            // exacts de getCapabilities, pas des objets construits à la main).
+            ...(getPreferredCodecs()
+              ? { preferred_codecs: getPreferredCodecs() }
+              : {}),
             ...(callerNumber ? { callerNumber } : {}),
             ...(audioEl ? { remoteElement: audioEl } : {}),
           });
