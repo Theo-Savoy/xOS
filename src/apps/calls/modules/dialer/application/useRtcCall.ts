@@ -61,6 +61,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   const [phase, setPhase] = useState<CallPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [durationSec, setDurationSec] = useState(0);
+  const [callStats, setCallStats] = useState<{ mos: number; codec?: string; jitterMs?: number; rttMs?: number } | null>(null);
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callRef = useRef<RtcCallHandle | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -242,6 +243,34 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         setPhaseSafe('failed');
       });
 
+      // Stats qualité (diagnostic 2026-08-04) : le SDK émet telnyx.stats.frame
+      // avec MOS/jitter/RTT et le codec réellement négocié. On l'affiche dans
+      // l'UI pour savoir si l'appel tourne en OPUS ou G.711 et la qualité perçue.
+      client.on('telnyx.stats.frame', (data) => {
+        try {
+          const d = data as {
+            jitter?: number; rtt?: number; mos?: number; quality?: string;
+            inboundAudio?: { codec?: string; codecName?: string };
+            remoteInboundAudio?: { codec?: string; codecName?: string };
+          };
+          const codec =
+            d.inboundAudio?.codecName ??
+            d.inboundAudio?.codec ??
+            d.remoteInboundAudio?.codecName ??
+            d.remoteInboundAudio?.codec;
+          if (d.mos !== undefined || codec) {
+            setCallStats({
+              mos: typeof d.mos === 'number' ? d.mos : 0,
+              codec: codec ? String(codec) : undefined,
+              jitterMs: typeof d.jitter === 'number' ? d.jitter : undefined,
+              rttMs: typeof d.rtt === 'number' ? d.rtt : undefined,
+            });
+          }
+        } catch {
+          /* stats facultatives : ne pas casser l'appel */
+        }
+      });
+
       // B4 (audit 11.3) : stopper le stream de pré-vol — le SDK gère son propre
       // getUserMedia via audio:true. Évite la double capture et le voyant micro
       // qui reste allumé après raccrochage.
@@ -296,8 +325,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     phase,
     error,
     durationSec,
+    callStats,
     startCall,
     hangup,
-    isActive: phase === 'dialing' || phase === 'ringing' || phase === 'connected' || phase === 'on_hold',
+    isActive:
+      phase === 'dialing' || phase === 'ringing' || phase === 'connected' || phase === 'on_hold',
   };
 }

@@ -87,7 +87,7 @@ export function DialerView({ token, onBack }: DialerViewProps) {
     config?.entitlement?.dry_run === true;
   const enabled = config?.flags.enabled === true;
 
-  const { phase, error, durationSec, startCall, hangup, isActive } = useRtcCall({
+  const { phase, error, durationSec, callStats, startCall, hangup, isActive } = useRtcCall({
     token,
     dryRun: dryRunActive,
   });
@@ -185,6 +185,13 @@ export function DialerView({ token, onBack }: DialerViewProps) {
             <Tag variant={isActive ? 'accent' : 'muted'}>{PHASE_LABEL[phase]}</Tag>
             {phase === 'connected' && durationSec > 0 && (
               <span className="calls-dialer__duration">{durationSec}s</span>
+            )}
+            {callStats?.codec && (
+              <Tag variant={callStats.codec.toUpperCase().includes('OPUS') ? 'accent' : 'warning'}>
+                {callStats.codec.toUpperCase()}
+                {callStats.mos ? ` · MOS ${callStats.mos.toFixed(1)}` : ''}
+                {callStats.jitterMs ? ` · ${Math.round(callStats.jitterMs)}ms` : ''}
+              </Tag>
             )}
             {phase === 'connected' && (
               <span className="calls-dialer__hint">
