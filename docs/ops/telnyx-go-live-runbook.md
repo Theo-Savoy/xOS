@@ -1,7 +1,7 @@
 # Runbook GO — Premier appel Telnyx réel (Phase 11)
 
 > Statut : **EN ATTENTE** — bloqué sur KYC Telnyx (incident technique côté Telnyx).
-> Décision prise le 2026-08-03 : **numéro fixe FR** (pas de mobile 06/07 — option absente du catalogue Telnyx pour la France, et risque réglementaire supérieur).
+> Décision prise le 2026-08-03 : **numéro fixe FR** + **mode click-to-call** (démarchage **B2B** pour Combo, pas de B2C). Pas de mobile 06/07 (réservé à l'interpersonnel). Pas de mode prédictif/progressif (exigerait un NPV, non garanti au catalogue Telnyx France). Cadre réglementaire détaillé : `docs/compliance/demarchage-b2b-france.md`.
 > Transport validé en dry-run complet le 2026-08-03 (commit `14ec106`).
 
 Ce runbook s'exécute **le jour où le KYC est débloqué**. Objectif : un seul appel réel contrôlé, puis retour en fail-closed. Durée cible : ~15 minutes si tout est prêt.
@@ -27,7 +27,7 @@ Ce runbook s'exécute **le jour où le KYC est débloqué**. Objectif : un seul 
 - Noter le numéro au format E.164 : `+33XXXXXXXXX` → variable `TELNYX_CALLER_ID_DEV`.
 - Vérifier dans la fiche du numéro : statut *active*, pas de restriction messaging-only.
 
-> ⚠️ Ne pas acheter de numéro "mobile" même s'il apparaît un jour au catalogue : la réglementation française sur l'appel automatisé sortant est plus restrictive pour les 06/07 (cf. recherche ARCEP/CCRF à documenter avant usage intensif).
+> ⚠️ **Réglementation (B2B inclus)** : les numéros 06/07 sont interdits comme identifiant appelant pour tout usage automatisé, et les systèmes automatisés d'appels (prédictif/progressif) exigent un NPV (0162, 0163, 0270…). Combo reste en click-to-call humain → un fixe standard suffit, cf. `docs/compliance/demarchage-b2b-france.md`.
 
 ## Étape 2 — Créer la Call Control Application (~3 min)
 
