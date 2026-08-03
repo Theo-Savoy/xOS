@@ -32,16 +32,20 @@ mask() {
 
 # --- collecte d'une variable : messages sur stderr, valeur seule sur stdout ----
 ask_var() {
-  local label="$1" help="$2" regex="$3" hint="$4"
+  local label="$1" where="$2" what="$3" regex="$4" hint="$5"
   local value="" attempts=0
   while [ "$attempts" -lt 5 ]; do
     attempts=$((attempts + 1))
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  $label"
+    echo "  ÉTAPE $label"
     echo "═══════════════════════════════════════════════════════════════"
-    echo "$help"
-    printf 'Colle la valeur ici (invisible) : ' >&2
+    echo "  1) Où la trouver :"
+    echo "$where" | sed 's/^/     /'
+    echo ""
+    echo "  2) Ce que tu colles :"
+    echo "$what" | sed 's/^/     /'
+    printf '\n  Colle la valeur ici (invisible) puis Entrée : ' >&2
     IFS= read -r -s value || { echo "✗ lecture impossible — abandon." >&2; exit 1; }
     echo ""
     if [ -z "$value" ]; then
@@ -52,7 +56,7 @@ ask_var() {
       printf '%s' "$value"
       return 0
     fi
-    echo "✗ format invalide. Exemple : $hint" >&2
+    echo "✗ Ce n'est pas au bon format. Exemple attendu : $hint" >&2
   done
   echo "✗ trop de tentatives — abandon." >&2
   exit 1
@@ -65,27 +69,23 @@ echo "════════════════════════�
 
 TELNYX_API_KEY_DEV="$(ask_var \
   "1/4 — TELNYX_API_KEY_DEV (clé API)" \
-  "📌 Où la trouver sur Telnyx (portal.telnyx.com) :
-   • Menu latéral gauche → 'API Keys'
-   • Bouton 'Create API Key'
-   • Nom : xos-dialer-dev
-   • Permissions : cocher 'Call Control' (et Voice si proposé)
-   • Cliquer 'Create' → LA CLÉ N'EST AFFICHÉE QU'UNE SEULE FOIS.
-     Copie-la immédiatement (elle commence par 'KEY…').
-   • Si tu l'as perdue : révoque-la et recrée-en une." \
+  "Menu gauche → API Keys → bouton 'Create API Key' → nom 'xos-dialer-dev'
+   → permission 'Call Control' → 'Create'.
+   ⚠️ La clé n'est affichée qu'UNE SEULE FOIS à la création :
+   copie-la immédiatement." \
+  "La clé complète telle qu'affichée par Telnyx, y compris le préfixe KEY.
+   Exemple : KEY0123456789abcdef0123456789abcdef0123456789abcdef" \
   '^(KEY[A-Za-z0-9_-]+|[A-Za-z0-9]{32,64})$' \
-  'KEY… (commence par KEY, ~40+ caractères)')"
+  'KEY0123456789abcdef… (commence par KEY)'  )"
 
 TELNYX_CALLER_ID_DEV="$(ask_var \
   "2/4 — TELNYX_CALLER_ID_DEV (numéro appelant)" \
-  "📌 Où le trouver sur Telnyx :
-   • Menu latéral gauche → 'Numbers' → 'My Numbers'
-   • Repère le numéro FR approuvé (statut 'Active')
-   • Clique dessus pour afficher le numéro complet
-   • Saisis-le au format E.164 : +33 suivi de 9 chiffres
-     (ex : 01 23 45 67 89 → +33123456789)." \
+  "Menu gauche → Numbers → My Numbers → clique sur ton numéro FR approuvé
+   (statut 'Active') pour afficher le numéro complet." \
+  "Le numéro au format international : +33 puis 9 chiffres.
+   Si Telnyx affiche 01 23 45 67 89, tu colles : +33123456789" \
   '^\+33[0-9]{9}$' \
-  '+33123456789')"
+  '+33123456789'  )"
 
 # Alerte réglementaire si le numéro est un mobile 06/07 (interdit pour l'usage
 # automatisé en France, cf. docs/compliance/demarchage-b2b-france.md).
@@ -95,26 +95,22 @@ if [[ "$TELNYX_CALLER_ID_DEV" =~ ^\+33[67] ]]; then
 fi
 
 WEBHOOK_TELNYX_PUBLIC_KEY="$(ask_var \
-  "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé de signature webhook)" \
-  "📌 Où la trouver sur Telnyx :
-   • Menu latéral gauche → 'Voice' (Programmable Voice) → 'Applications'
-   • Ouvre ton application (ex : xos-dialer-dev)
-   • Section 'Webhook' → champ 'Webhook public key'
-   • Copie la chaîne complète (clé Ed25519, base64 ~44 caractères).
-     ⚠️  C'est la clé PUBLIQUE (pas le secret) — ne pas confondre avec l'API key." \
+  "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé publique du webhook)" \
+  "Menu gauche → Voice → Applications → ouvre ton application
+   → section 'Webhook' → champ 'Webhook public key'." \
+  "La chaîne base64 complète telle qu'affichée (clé Ed25519).
+   Exemple : 6q7HnU7H1GJ8tY4aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4" \
   '^[A-Za-z0-9+/]{40,}={0,2}$' \
-  'base64 (chaîne de ~44 caractères)')"
+  'base64 (~44 caractères)'  )"
 
 CONNECTION_ID="$(ask_var \
-  "4/4 — connection_id (ID de connexion de l'application)" \
-  "📌 Où le trouver sur Telnyx :
-   • Menu latéral gauche → 'Voice' (Programmable Voice) → 'Applications'
-   • Ouvre ton application (ex : xos-dialer-dev)
-   • En-tête / paramètres de l'application → 'Connection ID'
-   • Copie l'UUID (format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
-   C'est le connection_id utilisé par le dial (POST /v2/calls)." \
+  "4/4 — connection_id (ID de connexion)" \
+  "Menu gauche → Voice → Applications → ouvre ton application
+   → l'UUID 'Connection ID' affiché en tête de fiche." \
+  "L'UUID complet tel qu'affiché.
+   Exemple : 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d" \
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
-  '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d')"
+  '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d'  )"
 
 # --- écriture ----------------------------------------------------------------
 if [ -f "$ENV_FILE" ]; then
