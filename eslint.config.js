@@ -82,4 +82,40 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Telnyx boundary (Phase 11): tout accès direct à la lib Telnyx ou aux
+    // helpers d'infrastructure Telnyx doit passer par
+    // src/apps/calls/modules/dialer/infrastructure/telnyx/**. Cela évite que
+    // d'autres modules ou apps n'appellent l'API Telnyx directement.
+    //
+    // Note: tant que la lib Telnyx n'est pas installée, cette règle catche
+    // uniquement les imports du barrel `apps/calls/modules/dialer` hors
+    // infrastructure/telnyx. Sera renforcée en 11.2 quand le SDK sera
+    // ajouté.
+    files: [
+      'src/**/*.{ts,tsx}',
+    ],
+    ignores: [
+      '**/modules/dialer/infrastructure/telnyx/**',
+      '**/modules/dialer/index.ts',
+      '**/dialer/**/*.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/modules/dialer/infrastructure/telnyx/**',
+                '**/modules/dialer/infrastructure/telnyx',
+              ],
+              message:
+                'Direct imports of Telnyx infrastructure are forbidden outside modules/dialer/infrastructure/telnyx/. Use the public dialer API instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
