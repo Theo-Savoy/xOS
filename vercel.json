@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "devCommand": "NODE_ENV=development vite",
+  "devCommand": "NODE_ENV=development vite --port $PORT",
   "outputDirectory": "dist",
   "headers": [
     {
