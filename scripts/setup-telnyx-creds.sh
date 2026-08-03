@@ -31,8 +31,9 @@ mask() {
 }
 
 # --- collecte d'une variable : messages sur stderr, valeur seule sur stdout ----
+# Si optional=1, un Entrée sans valeur = skip (on renvoie la chaîne vide).
 ask_var() {
-  local label="$1" where="$2" what="$3" regex="$4" hint="$5"
+  local label="$1" where="$2" what="$3" regex="$4" hint="$5" optional="${6:-0}"
   local value="" attempts=0
   while [ "$attempts" -lt 5 ]; do
     attempts=$((attempts + 1))
@@ -48,6 +49,11 @@ ask_var() {
     printf '\n  Colle la valeur ici (invisible) puis Entrée : ' >&2
     IFS= read -r -s value || { echo "✗ lecture impossible — abandon." >&2; exit 1; }
     echo "" >&2
+    if [ -z "$value" ] && [ "$optional" -eq 1 ]; then
+      echo "→ Champ laissé vide (optionnel) : on continue." >&2
+      printf '%s' ""
+      return 0
+    fi
     if [ -z "$value" ]; then
       echo "✗ champ vide — abandon." >&2
       exit 1
@@ -95,14 +101,18 @@ if [[ "$TELNYX_CALLER_ID_DEV" =~ ^\+33[67] ]]; then
 fi
 
 WEBHOOK_TELNYX_PUBLIC_KEY="$(ask_var \
-  "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé publique du webhook)" \
+  "3/4 — WEBHOOK_TELNYX_PUBLIC_KEY (clé publique du webhook) — OPTIONNEL" \
   "Menu gauche → Real-Time Communication → Voice → Programmable Voice
    → onglet 'Voice API Applications' → ouvre ton application
-   → section 'Webhook' → champ 'Webhook public key'." \
+   → section 'Webhook' → champ 'Webhook public key'.
+   ⚠️ Feature PAID-ONLY : indisponible en trial. En trial, appuie sur Entrée
+   sans rien coller pour passer (le dial réel fonctionne sans, seule la
+   validation des webhooks attend le passage paid)." \
   "La chaîne base64 complète telle qu'affichée (clé Ed25519).
    Exemple : 6q7HnU7H1GJ8tY4aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4" \
   '^[A-Za-z0-9+/]{40,}={0,2}$' \
-  'base64 (~44 caractères)'  )"
+  'base64 (~44 caractères)' \
+  1)"
 
 CONNECTION_ID="$(ask_var \
   "4/4 — connection_id (= Application ID)" \
@@ -125,6 +135,15 @@ fi
 
 upsert() {
   local var="$1" value="$2"
+  # Ne pas écrire une variable vide (ex. clé webhook skip en trial) :
+  # on retire juste une éventuelle ancienne valeur.
+  if [ -z "$value" ]; then
+    if [ -f "$ENV_FILE" ]; then
+      grep -v "^${var}=" "$ENV_FILE" > "$ENV_FILE.tmp" || true
+      mv "$ENV_FILE.tmp" "$ENV_FILE"
+    fi
+    return 0
+  fi
   if [ -f "$ENV_FILE" ]; then
     grep -v "^${var}=" "$ENV_FILE" > "$ENV_FILE.tmp" || true
     mv "$ENV_FILE.tmp" "$ENV_FILE"
