@@ -15,6 +15,7 @@ Ce runbook s'exécute **le jour où le KYC est débloqué**. Objectif : un seul 
 - [x] Budget atomique via RPC + kill switch ORG_EXCEEDED — testé.
 - [x] `dialer_enabled=false`, `dialer_dry_run=true` en base (état fail-closed par défaut).
 - [x] **Config Credential Connection optimisée (2026-08-03)** : `ani_override=None` (le `callerNumber` du SDK est respecté — sinon numéro masqué côté destinataire), `localization=FR`, `call_parking_enabled=false` (sinon l'appel WebRTC part mais ne sonne pas), Outbound Voice Profile `Portal` assigné (whitelist US/CA/FR).
+- [x] **Codecs (2026-08-04) — cause de la qualité horrible** : la connection n'offrait que `['G722','G711U','G711A','G729']` — SANS OPUS. Le navigateur proposait OPUS mais Telnyx ne le listait pas → négociation sur G.711 (64 kbps, qualité téléphone). Fix : `codecs=['OPUS','G722','G711U','G711A']` → OPUS négocié (qualité voix WebRTC). C'est LE réglage codec de la connection (le Outbound Voice Profile n'expose pas de codecs).
 
 ## Étape 0 — Vérifier le déblocage KYC (~2 min)
 
