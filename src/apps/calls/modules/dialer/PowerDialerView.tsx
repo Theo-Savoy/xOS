@@ -46,9 +46,10 @@ const DEMO_NUMBERS = [
 
 export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
   const [demo, setDemo] = useState(false);
+  const [noAnswer, setNoAnswer] = useState(false);
   // Mode démo : force la simulation — JAMAIS de réseau réel (G2), même si
   // le token est émis (dry_run=false). La file factice ne compose jamais.
-  const pool = useDialerPool({ token, size: 3, simulate: demo });
+  const pool = useDialerPool({ token, size: 3, simulate: demo, simulateNoAnswer: demo && noAnswer });
 
   // Mode démo : pré-remplit la file avec des numéros factices pour tester
   // l'UI power en dry-run (aucun appel réel — le pool est en simulation).
@@ -83,6 +84,15 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
           {!demo && (
             <Button variant="secondary" onClick={loadDemo}>
               Remplir démo
+            </Button>
+          )}
+          {demo && (
+            <Button
+              variant={noAnswer ? 'danger' : 'secondary'}
+              onClick={() => setNoAnswer((v) => !v)}
+              title="Scénario démo : réponse humaine (défaut) ou aucune réponse (skip par timeout)"
+            >
+              {noAnswer ? 'Démo : aucune réponse' : 'Démo : réponse humaine'}
             </Button>
           )}
           {pool.isRunning ? (

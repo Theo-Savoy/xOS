@@ -71,6 +71,29 @@ describe('PowerDialerView (mode démo)', () => {
     expect(screen.getByText('1')).toBeTruthy(); // compteur connectés
   });
 
+  it('démo aucune réponse : les lignes sont skippées, la file avance', async () => {
+    render(<PowerDialerView token="tok" onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Remplir démo'));
+    fireEvent.click(screen.getByText('Démo : réponse humaine')); // bascule en 'aucune réponse'
+    fireEvent.click(playButton());
+
+    // t+3s : la ligne 0 est skippée par le timeout simulé → le suivant entre
+    // à sa place (la ligne change de numéro, phase dialing).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3300);
+    });
+
+    expect(screen.getByText('+334****4444')).toBeTruthy(); // le suivant a pris la place
+    expect(screen.getByText('File d\'attente (3)')).toBeTruthy(); // 7 - 3 composés - 1 skip
+
+    // t+10s : fin de la démo sans réponse, STOP — le bouton Play revient.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7000);
+    });
+    expect(playButton()).toBeTruthy();
+  });
+
   it('Tout raccrocher pendant un cycle reset le pool', () => {
     render(<PowerDialerView token="tok" onBack={vi.fn()} />);
 

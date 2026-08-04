@@ -74,11 +74,14 @@ export function useDialerPool({
   token,
   size = 3,
   simulate = false,
+  simulateNoAnswer = false,
 }: {
   token: string;
   size?: number;
   /** Mode démo : JAMAIS de réseau réel, phases simulées (G2). */
   simulate?: boolean;
+  /** Démo : aucune ligne ne décroche — le timeout non-réponse skippe. */
+  simulateNoAnswer?: boolean;
 }): UseDialerPoolResult {
   const [state, dispatch] = useReducer(
     poolReducer,
@@ -183,28 +186,64 @@ export function useDialerPool({
 
   /**
    * Simulation démo (mode dry-run / aucun réseau) : fait tourner les phases
-   * pour tester l'UI power. Comportement démo :
+   * pour tester l'UI power. Aucun paquet réel ne part (G2).
+   *
+   * Scénario réponse humaine (défaut) :
    * - t+300ms : toutes les lignes passent ringing
    * - t+2s   : la ligne 0 « décroche » → answered (les autres coupées)
    * - t+10s  : la ligne 0 se termine → ended → running=false (STOP)
+   *
+   * Scénario AUCUNE réponse (simulateNoAnswer) :
+   * - t+300ms : toutes les lignes passent ringing
+   * - t+3s   : le timeout non-réponse skippe la ligne 0 (compose le suivant)
+   * - t+6s   : skip ligne 1
+   * - t+9s   : skip ligne 2
+   * - la file avance à chaque skip (comportement power dialing réel)
    */
   const startDemoSimulation = useCallback(() => {
     clearDemoTimers();
-    demoTimersRef.current.push(
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    timers.push(
       setTimeout(() => {
         stateRef.current.lines.forEach((line, slot) => {
           if (line.phase !== 'idle') dispatch({ type: 'line-ringing', slot });
         });
       }, 300),
-      setTimeout(() => {
-        dispatch({ type: 'answered', slot: 0 });
-      }, 2000),
-      setTimeout(() => {
-        dispatch({ type: 'line-ended', slot: 0 });
-        setIsRunning(false);
-      }, 10000),
     );
-  }, [clearDemoTimers]);
+    if (simulateNoAnswer) {
+      // Aucune réponse : le timeout non-réponse skippe chaque ligne, la
+      // file avance (comme le ferait le timeout réel du lot 11.5).
+      const skipAt = [3000, 6000, 9000];
+      skipAt.forEach((ms, i) => {
+        timers.push(
+          setTimeout(() => {
+            const line = stateRef.current.lines[i];
+            if (line && line.phase !== 'connected') {
+              dispatch({ type: 'skip', slot: i });
+            }
+          }, ms),
+        );
+      });
+      // Fin de la démo sans réponse : on stoppe (les slots sont skipped
+      // ou en dialing avec les suivants — l'utilisateur re-clique Play).
+      timers.push(
+        setTimeout(() => {
+          setIsRunning(false);
+        }, 10000),
+      );
+    } else {
+      timers.push(
+        setTimeout(() => {
+          dispatch({ type: 'answered', slot: 0 });
+        }, 2000),
+        setTimeout(() => {
+          dispatch({ type: 'line-ended', slot: 0 });
+          setIsRunning(false);
+        }, 10000),
+      );
+    }
+    demoTimersRef.current.push(...timers);
+  }, [clearDemoTimers, simulateNoAnswer]);
 
   const play = useCallback(async () => {
     // Déclenchement HUMAIN : l'état UI passe immédiatement en cours.
@@ -303,7 +342,7 @@ export function useDialerPool({
     }
     // Si le client existait déjà, composer les lignes dispatchées.
     void composeAfterPlay();
-  }, [token, composeAfterPlay, simulate, startDemoSimulation, stopTimer]);
+  }, [token, composeAfterPlay, simulate, simulateNoAnswer, startDemoSimulation, stopTimer]);
 
   const skip = useCallback(
     (slot: number) => {
