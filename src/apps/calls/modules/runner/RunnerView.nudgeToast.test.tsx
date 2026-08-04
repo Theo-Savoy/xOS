@@ -17,6 +17,21 @@ import {
 import { RunnerView } from './RunnerView';
 import type { SessionContact, SessionDetail } from '../../types';
 
+// Le RunnerView contient ContactCardPanel qui consomme useDialer (provider
+// global). Ces tests ne testent pas le dialer : on mock le hook.
+vi.mock('../dialer/DialerProvider', () => ({
+  useDialer: () => ({
+    phase: 'idle',
+    error: null,
+    durationSec: 0,
+    destination: '',
+    callStats: null,
+    startCall: vi.fn().mockResolvedValue(true),
+    hangup: vi.fn(),
+    isActive: false,
+  }),
+}));
+
 function installMemoryStorage(): void {
   const makeStore = (): StorageLike => {
     const store: Record<string, string> = {};

@@ -16,6 +16,21 @@ import { FilterBuilder } from './FilterBuilder';
 import { NewSessionView } from './modules/sessions/NewSessionView';
 import { RecapView } from './modules/runner/RecapView';
 import { RunnerView } from './modules/runner/RunnerView';
+
+// RunnerView contient ContactCardPanel qui consomme useDialer (provider
+// global). Ces tests ne testent pas le dialer : on mock le hook.
+vi.mock('./modules/dialer/DialerProvider', () => ({
+  useDialer: () => ({
+    phase: 'idle',
+    error: null,
+    durationSec: 0,
+    destination: '',
+    callStats: null,
+    startCall: vi.fn().mockResolvedValue(true),
+    hangup: vi.fn(),
+    isActive: false,
+  }),
+}));
 import { SessionsView } from './modules/sessions/SessionsView';
 import { PicklistMultiSelect } from './filterControls';
 import type { SessionContact, SessionDetail } from './types';

@@ -3,6 +3,7 @@ import { DatePicker } from '../../formControls';
 import { LinkedInRecordLink, SalesforceRecordLink } from '../../BrandLinks';
 import type { ContactContext, SessionContact } from '../../types';
 import { formatAttemptLabel, listStatusDisplay } from './runnerFormatters';
+import { useDialer } from '../dialer/DialerProvider';
 
 export type ContactCardPanelProps = {
   contact: SessionContact;
@@ -33,6 +34,18 @@ export function ContactCardPanel({
   onUpdateRecall,
   'aria-hidden': ariaHidden,
 }: ContactCardPanelProps) {
+  const dialer = useDialer();
+  const phone = contact.phone ?? null;
+  // Caller ID par défaut : pas de sélection ici — le provider garde l'état
+  // (le sélecteur vit dans DialerView/paramètres). On compose le contact.
+  const handleCall = () => {
+    if (!phone) return;
+    if (dialer.isActive) {
+      dialer.hangup();
+      return;
+    }
+    void dialer.startCall(phone);
+  };
   return (
     <GlassCard className={className} aria-hidden={ariaHidden}>
       {/* Contenu fadable : le GlassCard reste fixe, seul le texte change d'opacité. */}
@@ -162,11 +175,12 @@ export function ContactCardPanel({
               <p className="calls-contact-card__no-email">Aucun email</p>
             )}
           </div>
-          {contact.phone && (
+          {phone && (
             <Button
-              onClick={() => window.open(`tel:${contact.phone}`, '_self')}
+              variant={dialer.isActive ? 'danger' : 'primary'}
+              onClick={handleCall}
             >
-              Appeler
+              {dialer.isActive ? 'Raccrocher' : 'Appeler'}
             </Button>
           )}
         </div>

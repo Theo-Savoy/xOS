@@ -24,6 +24,17 @@ export type RtcCallStatus = {
   durationSec: number;
 };
 
+export type UseRtcCallResult = {
+  phase: CallPhase;
+  error: string | null;
+  durationSec: number;
+  destination: string;
+  callStats: { mos: number; codec?: string; jitterMs?: number; rttMs?: number } | null;
+  startCall: (destination: string, callerNumber?: string) => Promise<boolean>;
+  hangup: () => void;
+  isActive: boolean;
+};
+
 type TelnyxNotification = {
   call?: { state?: string; callId?: string; callState?: string };
   event?: string;
@@ -86,6 +97,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   const [phase, setPhase] = useState<CallPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [durationSec, setDurationSec] = useState(0);
+  const [destination, setDestination] = useState('');
   const [callStats, setCallStats] = useState<{ mos: number; codec?: string; jitterMs?: number; rttMs?: number } | null>(null);
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callRef = useRef<RtcCallHandle | null>(null);
@@ -145,6 +157,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }
       setError(null);
       setPhaseSafe('dialing');
+      setDestination(destination);
 
       // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
       let stream: MediaStream;
@@ -361,6 +374,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     phase,
     error,
     durationSec,
+    destination,
     callStats,
     startCall,
     hangup,

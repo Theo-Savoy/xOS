@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { useDialer } from './DialerProvider';
 import {
   DialerApiError,
   fetchDialerConfig,
   type DialerConfig,
 } from './dialerApi';
-import { useRtcCall, type RtcCallStatus } from './application/useRtcCall';
+import type { CallPhase } from './domain/CallState';
 
 export type DialerViewProps = {
   token: string;
@@ -40,7 +41,7 @@ function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-const PHASE_LABEL: Record<RtcCallStatus['phase'], string> = {
+const PHASE_LABEL: Record<CallPhase, string> = {
   idle: 'Prêt',
   dialing: 'Composition…',
   ringing: 'Sonnerie…',
@@ -87,10 +88,7 @@ export function DialerView({ token, onBack }: DialerViewProps) {
     config?.entitlement?.dry_run === true;
   const enabled = config?.flags.enabled === true;
 
-  const { phase, error, durationSec, callStats, startCall, hangup, isActive } = useRtcCall({
-    token,
-    dryRun: dryRunActive,
-  });
+  const { phase, error, durationSec, callStats, startCall, hangup, isActive } = useDialer();
 
   const onDial = useCallback(async () => {
     setResult(null);

@@ -3,6 +3,16 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialerView } from './DialerView';
+import { DialerProvider } from './DialerProvider';
+
+/** DialerView consomme useDialer (provider global) — on enveloppe le render. */
+function renderDialer() {
+  return render(
+    <DialerProvider token="tok" dryRun={true}>
+      <DialerView token="tok" onBack={vi.fn()} />
+    </DialerProvider>,
+  );
+}
 
 function jsonResponse(status: number, body: unknown) {
   return {
@@ -56,7 +66,7 @@ afterEach(() => {
 
 describe('DialerView', () => {
   it('charges and shows the dialer state from /api/dialer?resource=config', async () => {
-    render(<DialerView token="tok" onBack={vi.fn()} />);
+    renderDialer();
 
     await waitFor(() => {
       expect(screen.getByText('Dialer Telnyx')).toBeTruthy();
@@ -78,7 +88,7 @@ describe('DialerView', () => {
   });
 
   it('dry-run : Appeler demande le micro et passe en simulation (aucun réseau)', async () => {
-    render(<DialerView token="tok" onBack={vi.fn()} />);
+    renderDialer();
 
     await waitFor(() => {
       expect(screen.getByText('Dialer Telnyx')).toBeTruthy();
@@ -112,7 +122,7 @@ describe('DialerView', () => {
   });
 
   it('shows the Raccrocher button during an active call and hangs up', async () => {
-    render(<DialerView token="tok" onBack={vi.fn()} />);
+    renderDialer();
 
     await waitFor(() => {
       expect(screen.getByText('Dialer Telnyx')).toBeTruthy();
@@ -142,7 +152,7 @@ describe('DialerView', () => {
   });
 
   it('requires a phone number before dialing', async () => {
-    render(<DialerView token="tok" onBack={vi.fn()} />);
+    renderDialer();
 
     await waitFor(() => {
       expect(screen.getByText('Dialer Telnyx')).toBeTruthy();

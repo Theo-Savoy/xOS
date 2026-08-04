@@ -52,6 +52,8 @@ import {
 import { PilotageView } from './modules/pilotage/PilotageView';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerView } from './modules/dialer/DialerView';
+import { DialerProvider } from './modules/dialer/DialerProvider';
+import { CallBar } from './modules/dialer/CallBar';
 import { fetchDialerConfig } from './modules/dialer/dialerApi';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui';
@@ -234,6 +236,7 @@ export default function CallManagerApp({
   // Entitlement dialer : le bouton + la vue ne s'affichent que pour les
   // utilisateurs entitlementés (fix visibilité audit §2.3).
   const [canDialer, setCanDialer] = useState(false);
+  const [dialerDryRun, setDialerDryRun] = useState(true);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const sessionsRef = useRef<SessionSummary[]>([]);
   const [stats, setStats] = useState<CallStats | null>(null);
@@ -499,7 +502,14 @@ export default function CallManagerApp({
     if (token) {
       void fetchDialerConfig(token)
         .then((cfg) => {
-          if (!cancelled) setCanDialer(Boolean(cfg.entitlement?.enabled));
+          if (!cancelled) {
+            setCanDialer(Boolean(cfg.entitlement?.enabled));
+            setDialerDryRun(
+              cfg.is_dry_run === true ||
+                cfg.entitlement?.dry_run === true ||
+                cfg.flags?.dry_run === true,
+            );
+          }
         })
         .catch(() => {
           if (!cancelled) setCanDialer(false);
@@ -1887,9 +1897,11 @@ export default function CallManagerApp({
 
   return (
     <div className="calls-app">
-      {view === 'loading-params' && (
-        <WindowBootScreen label="Ouverture de la séance…" />
-      )}
+      <DialerProvider token={token} dryRun={dialerDryRun}>
+        <CallBar />
+        {view === 'loading-params' && (
+          <WindowBootScreen label="Ouverture de la séance…" />
+        )}
       {rollover && view === 'sessions' && (
         <RolloverDecisionView
           session={rollover.session}
@@ -2144,6 +2156,7 @@ export default function CallManagerApp({
           }}
         />
       )}
+      </DialerProvider>
     </div>
   );
 }
