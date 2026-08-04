@@ -31,20 +31,24 @@ const PHASE_LABEL: Record<PoolLine['phase'], string> = {
   ended: 'Terminé',
 };
 
-/** Numéros de démo (dry-run) : 5 contacts factices pour tester l'UI power. */
+/** Numéros de démo (dry-run) : 7 contacts factices pour tester l'UI power.
+ * Masqués (jamais composables) + le mode simulate garantit qu'aucun réseau
+ * n'est touché (G2). */
 const DEMO_NUMBERS = [
-  '+33111111111',
-  '+33222222222',
-  '+33333333333',
-  '+33444444444',
-  '+33555555555',
-  '+33666666666',
-  '+33777777777',
+  '+331****1111',
+  '+332****2222',
+  '+333****3333',
+  '+334****4444',
+  '+335****5555',
+  '+336****6666',
+  '+337****7777',
 ];
 
 export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
-  const pool = useDialerPool({ token, size: 3 });
   const [demo, setDemo] = useState(false);
+  // Mode démo : force la simulation — JAMAIS de réseau réel (G2), même si
+  // le token est émis (dry_run=false). La file factice ne compose jamais.
+  const pool = useDialerPool({ token, size: 3, simulate: demo });
 
   // Mode démo : pré-remplit la file avec des numéros factices pour tester
   // l'UI power en dry-run (aucun appel réel — le pool est en simulation).

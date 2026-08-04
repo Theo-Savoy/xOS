@@ -73,9 +73,12 @@ export type UseDialerPoolResult = {
 export function useDialerPool({
   token,
   size = 3,
+  simulate = false,
 }: {
   token: string;
   size?: number;
+  /** Mode démo : JAMAIS de réseau réel, phases simulées (G2). */
+  simulate?: boolean;
 }): UseDialerPoolResult {
   const [state, dispatch] = useReducer(
     poolReducer,
@@ -134,6 +137,15 @@ export function useDialerPool({
           ...(audioEl ? { remoteElement: audioEl } : {}),
         });
         callsRef.current[slot] = call;
+        // Timeout non-réponse (power dialing) : si la ligne sonne encore
+        // après 20s, elle est skippée et on compose le suivant.
+        const t = setTimeout(() => {
+          const line = stateRef.current.lines[slot];
+          if (line && (line.phase === 'dialing' || line.phase === 'ringing')) {
+            skipRef.current(slot);
+          }
+        }, 20000);
+        demoTimersRef.current.push(t); // nettoyé par hangupAll/skip
       } catch (e) {
         dispatch({ type: 'line-error', slot, error: e instanceof Error ? e.message : 'Échec dial.' });
       }
@@ -141,9 +153,12 @@ export function useDialerPool({
     [],
   );
 
-  // Référence vers l'état courant pour les listeners (éviter les closures).
+  /** Référence vers l'état courant pour les listeners (éviter les closures). */
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  /** Référence vers skip (permet à dialSlot de l'appeler sans closure circulaire). */
+  const skipRef = useRef<(slot: number) => void>(() => {});
 
   /** Compose réellement les lignes dispatchées en 'dialing'. */
   const composeAfterPlay = useCallback(async () => {
@@ -192,6 +207,13 @@ export function useDialerPool({
     // Déclenchement HUMAIN : l'état UI passe immédiatement en cours.
     dispatch({ type: 'play' });
     setIsRunning(true);
+
+    // Mode démo : JAMAIS de réseau réel, même si le token est émis (G2).
+    // La file factice ne doit jamais composer de vrais appels.
+    if (simulate) {
+      startDemoSimulation();
+      return;
+    }
 
     // Le client est créé au premier Play (comme startCall mono-ligne).
     if (!clientRef.current) {
@@ -278,7 +300,7 @@ export function useDialerPool({
     }
     // Si le client existait déjà, composer les lignes dispatchées.
     void composeAfterPlay();
-  }, [token, composeAfterPlay, startDemoSimulation, stopTimer]);
+  }, [token, composeAfterPlay, simulate, startDemoSimulation, stopTimer]);
 
   const skip = useCallback(
     (slot: number) => {
@@ -301,6 +323,9 @@ export function useDialerPool({
     },
     [clearDemoTimers, dialSlot, stopTimer],
   );
+
+  // Met à jour la réf vers skip (dialSlot l'utilise sans closure circulaire).
+  skipRef.current = skip;
 
   const hangupAll = useCallback(() => {
     clearDemoTimers();
