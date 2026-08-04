@@ -85,6 +85,10 @@ export function useDialerPool({
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callsRef = useRef<(RtcCallHandle | null)[]>([]);
   const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Timeouts non-réponse 20s, un par slot (R3 lot-11.14) : les purger dans
+  // `demoTimersRef` cassait l'auto-skip des AUTRES lignes (skip() purgeait
+  // tout). Séparés : skip ne tue que le sien.
+  const noAnswerTimersRef = useRef<(ReturnType<typeof setTimeout> | null)[]>([]);
   const stateRef = useRef(state);
   /** Réf vers skip : dialSlot arme un timeout non-réponse qui appelle skip ;
    *  skip rappelle dialSlot pour composer le suivant. Cycle assumé, cassé par
@@ -102,6 +106,21 @@ export function useDialerPool({
   const clearDemoTimers = useCallback(() => {
     demoTimersRef.current.forEach((t) => clearTimeout(t));
     demoTimersRef.current = [];
+  }, []);
+
+  /** Purge le timeout non-réponse d'UN slot (le sien). */
+  const clearNoAnswerTimer = useCallback((slot: number) => {
+    const t = noAnswerTimersRef.current[slot];
+    if (t) {
+      clearTimeout(t);
+      noAnswerTimersRef.current[slot] = null;
+    }
+  }, []);
+
+  /** Purge tous les timeouts non-réponse (arrêt global). */
+  const clearAllNoAnswerTimers = useCallback(() => {
+    noAnswerTimersRef.current.forEach((t) => t && clearTimeout(t));
+    noAnswerTimersRef.current = [];
   }, []);
 
   /** Composition réelle d'une ligne (après dispatch play/skip). */
@@ -127,7 +146,7 @@ export function useDialerPool({
             skipRef.current(slot);
           }
         }, 20000);
-        demoTimersRef.current.push(t); // nettoyé par hangupAll/skip
+        noAnswerTimersRef.current[slot] = t; // R3 : par slot, pas global
       } catch (e) {
         dispatch({ type: 'line-error', slot, error: telnyxErrorMessage(e) });
       }
@@ -289,6 +308,7 @@ export function useDialerPool({
       const line = stateRef.current.lines[slot];
       if (!line || line.phase === 'connected') return;
       clearDemoTimers();
+      clearNoAnswerTimer(slot); // R3 : ne tue QUE le timeout de cette ligne
       safeHangup(callsRef.current[slot]);
       callsRef.current[slot] = null;
       dispatch({ type: 'skip', slot });
@@ -298,17 +318,18 @@ export function useDialerPool({
         dialSlot(slot, next);
       }
     },
-    [clearDemoTimers, dialSlot],
+    [clearDemoTimers, clearNoAnswerTimer, dialSlot],
   );
 
   const hangupAll = useCallback(() => {
     clearDemoTimers();
+    clearAllNoAnswerTimers();
     callsRef.current.forEach((c, i) => {
       safeHangup(c);
       callsRef.current[i] = null;
     });
     dispatch({ type: 'reset', queue: [] });
-  }, [clearDemoTimers]);
+  }, [clearDemoTimers, clearAllNoAnswerTimers]);
 
   const setQueue = useCallback((destinations: string[]) => {
     dispatch({ type: 'reset', queue: destinations });
@@ -318,12 +339,13 @@ export function useDialerPool({
   useEffect(() => {
     return () => {
       clearDemoTimers();
+      clearAllNoAnswerTimers();
       callsRef.current.forEach((c) => safeHangup(c));
       callsRef.current = [];
       safeDisconnect(clientRef.current);
       clientRef.current = null;
     };
-  }, [clearDemoTimers]);
+  }, [clearDemoTimers, clearAllNoAnswerTimers]);
 
   return {
     state,
