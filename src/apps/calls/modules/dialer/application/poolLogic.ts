@@ -32,20 +32,33 @@ function idleLine(slot: number): PoolLine {
 export function poolReducer(state: PoolState, action: PoolAction): PoolState {
   switch (action.type) {
     case 'play': {
-      // Déclenchement humain : compose min(size, restants) depuis la file.
-      if (state.running) return state; // un cycle déjà actif
-      const toCompose = state.queue.slice(0, state.size);
-      const rest = state.queue.slice(state.size);
-      const lines = state.lines.map((line, i) => {
-        const dest = toCompose[i];
-        return dest !== undefined
-          ? { ...idleLine(line.slot), phase: 'dialing' as const, destination: dest }
-          : idleLine(line.slot);
+      // Déclenchement humain : un nouveau cycle.
+      // RÈGLE (Théo 2026-08-04) :
+      // - les lignes SKIPPED (tentées puis abandonnées car un autre a
+      //   décroché) sont RELANCÉES — elles n'ont pas eu de vrai contact
+      // - les lignes ended/failed/idle sont remplacées par les prochains
+      //   numéros de la file
+      // - la ligne connectée (ended) SORT du flux : jamais recomposée
+      if (state.running) return state;
+      const nextQueue = [...state.queue];
+      const lines = state.lines.map((line) => {
+        if (line.phase === 'skipped') {
+          // Tenté puis abandonné : on relance le même numéro.
+          return { ...line, phase: 'dialing' as const, error: null };
+        }
+        if (line.phase === 'idle' || line.phase === 'ended' || line.phase === 'failed') {
+          // Slot libre : on compose le prochain de la file (s'il y en a).
+          const dest = nextQueue.shift();
+          return dest !== undefined
+            ? { ...idleLine(line.slot), phase: 'dialing' as const, destination: dest }
+            : idleLine(line.slot);
+        }
+        return line; // dialing/ringing/connected : ne pas toucher
       });
       return {
         ...state,
         lines,
-        queue: rest,
+        queue: nextQueue,
         connectedSlot: null,
         running: true,
       };
