@@ -52,6 +52,7 @@ import {
 import { PilotageView } from './modules/pilotage/PilotageView';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerView } from './modules/dialer/DialerView';
+import { PowerDialerView } from './modules/dialer/PowerDialerView';
 import { DialerProvider } from './modules/dialer/DialerProvider';
 import { CallBar } from './modules/dialer/CallBar';
 import { fetchDialerConfig } from './modules/dialer/dialerApi';
@@ -111,6 +112,7 @@ type View =
   | 'pilotage'
   | 'rdv-suivi'
   | 'dialer'
+  | 'power-dialer'
   | 'loading-params';
 
 function viewFromParams(view?: string, sessionId?: string): View {
@@ -120,6 +122,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
       return 'pilotage';
     case 'dialer':
       return 'dialer';
+    case 'power-dialer':
+      return 'power-dialer';
     case 'new':
       return 'new';
     case 'abm':
@@ -1970,6 +1974,22 @@ export default function CallManagerApp({
             <h2>Accès restreint</h2>
             <p>
               Le dialer n'est pas activé pour ce compte. Contacte un
+              administrateur pour activer l'accès.
+            </p>
+            <Button variant="secondary" onClick={goToSessions}>
+              Retour
+            </Button>
+          </div>
+        ))}
+
+      {view === 'power-dialer' &&
+        (canDialer ? (
+          <PowerDialerView token={token} onBack={goToSessions} />
+        ) : (
+          <div className="calls-view" style={{ padding: '2rem' }}>
+            <h2>Accès restreint</h2>
+            <p>
+              Le power dialer n'est pas activé pour ce compte. Contacte un
               administrateur pour activer l'accès.
             </p>
             <Button variant="secondary" onClick={goToSessions}>

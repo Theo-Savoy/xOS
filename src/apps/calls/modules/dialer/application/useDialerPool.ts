@@ -105,6 +105,7 @@ export function useDialerPool({
       timersRef.current.forEach((t) => {
         if (t) clearInterval(t);
       });
+      demoTimersRef.current.forEach((t) => clearTimeout(t));
     };
   }, []);
 
@@ -154,6 +155,39 @@ export function useDialerPool({
     });
   }, [dialSlot]);
 
+  /** Timers de la simulation démo (dry-run) — nettoyés par hangupAll/skip. */
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearDemoTimers = useCallback(() => {
+    demoTimersRef.current.forEach((t) => clearTimeout(t));
+    demoTimersRef.current = [];
+  }, []);
+
+  /**
+   * Simulation démo (mode dry-run / aucun réseau) : fait tourner les phases
+   * pour tester l'UI power. Comportement démo :
+   * - t+300ms : toutes les lignes passent ringing
+   * - t+2s   : la ligne 0 « décroche » → answered (les autres coupées)
+   * - t+10s  : la ligne 0 se termine → ended → running=false (STOP)
+   */
+  const startDemoSimulation = useCallback(() => {
+    clearDemoTimers();
+    demoTimersRef.current.push(
+      setTimeout(() => {
+        stateRef.current.lines.forEach((line, slot) => {
+          if (line.phase !== 'idle') dispatch({ type: 'line-ringing', slot });
+        });
+      }, 300),
+      setTimeout(() => {
+        dispatch({ type: 'answered', slot: 0 });
+      }, 2000),
+      setTimeout(() => {
+        dispatch({ type: 'line-ended', slot: 0 });
+        setIsRunning(false);
+      }, 10000),
+    );
+  }, [clearDemoTimers]);
+
   const play = useCallback(async () => {
     // Déclenchement HUMAIN : l'état UI passe immédiatement en cours.
     dispatch({ type: 'play' });
@@ -170,8 +204,10 @@ export function useDialerPool({
       }
       const client = await createRtcClient(rtcToken);
       if (!client) {
-        // Simulation : le réducteur a déjà mis les lignes en dialing.
-        // (la simulation complète des phases arrive au lot 11.6 UI démo)
+        // Simulation démo (dry-run) : le réducteur a déjà mis les lignes en
+        // dialing. On fait tourner les phases avec des timers pour que l'UI
+        // power soit testable sans réseau réel. Aucun paquet ne part (G2).
+        startDemoSimulation();
         return;
       }
       clientRef.current = client;
@@ -235,19 +271,20 @@ export function useDialerPool({
 
       try {
         await client.connect();
-      } catch (e) {
+      } catch {
         setIsRunning(false);
         return;
       }
     }
     // Si le client existait déjà, composer les lignes dispatchées.
     void composeAfterPlay();
-  }, [token, composeAfterPlay]);
+  }, [token, composeAfterPlay, startDemoSimulation, stopTimer]);
 
   const skip = useCallback(
     (slot: number) => {
       const line = stateRef.current.lines[slot];
       if (!line || line.phase === 'connected') return;
+      clearDemoTimers();
       try {
         callsRef.current[slot]?.hangup();
       } catch {
@@ -262,10 +299,11 @@ export function useDialerPool({
         void dialSlot(slot, next);
       }
     },
-    [dialSlot, stopTimer],
+    [clearDemoTimers, dialSlot, stopTimer],
   );
 
   const hangupAll = useCallback(() => {
+    clearDemoTimers();
     callsRef.current.forEach((c, i) => {
       try {
         c?.hangup();
@@ -277,7 +315,7 @@ export function useDialerPool({
     });
     dispatch({ type: 'reset', queue: [] });
     setIsRunning(false);
-  }, [stopTimer]);
+  }, [clearDemoTimers, stopTimer]);
 
   const setQueue = useCallback((destinations: string[]) => {
     dispatch({ type: 'reset', queue: destinations });

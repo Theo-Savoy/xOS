@@ -1,0 +1,201 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { useDialerPool } from './application/useDialerPool';
+import type { PoolLine } from './domain/PoolState';
+
+/**
+ * PowerDialerView (lot 11.6) — l'UI du power dialing 3 lignes.
+ *
+ * Pattern « Live Parallel Call Status Panel » (recherche power-dialer) :
+ * - bouton Play/Pause global (le « play » de Minari/Flunter)
+ * - panneau 3 lignes, statut temps réel par ligne
+ * - file d'attente visible (les prochains numéros)
+ * - compteur live : tentés / connectés / conversations
+ *
+ * Le commercial reste MAÎTRE du rythme : Play déclenche un cycle, la
+ * machine s'arrête après l'appel, il re-clique Play. Jamais d'auto-next.
+ */
+
+export type PowerDialerViewProps = {
+  token: string;
+  onBack: () => void;
+};
+
+const PHASE_LABEL: Record<PoolLine['phase'], string> = {
+  idle: '—',
+  dialing: 'Composition…',
+  ringing: 'Sonnerie…',
+  connected: 'En communication',
+  skipped: 'Abandonné',
+  failed: 'Échec',
+  ended: 'Terminé',
+};
+
+/** Numéros de démo (dry-run) : 5 contacts factices pour tester l'UI power. */
+const DEMO_NUMBERS = [
+  '+33111111111',
+  '+33222222222',
+  '+33333333333',
+  '+33444444444',
+  '+33555555555',
+  '+33666666666',
+  '+33777777777',
+];
+
+export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
+  const pool = useDialerPool({ token, size: 3 });
+  const [demo, setDemo] = useState(false);
+
+  // Mode démo : pré-remplit la file avec des numéros factices pour tester
+  // l'UI power en dry-run (aucun appel réel — le pool est en simulation).
+  const loadDemo = useCallback(() => {
+    pool.setQueue(DEMO_NUMBERS);
+    setDemo(true);
+  }, [pool]);
+
+  const { connected, conversations } = useMemo(() => {
+    let connected = 0;
+    let conversations = 0;
+    for (const line of pool.state.lines) {
+      if (line.phase === 'connected') connected += 1;
+      if (line.phase === 'ended') conversations += 1;
+    }
+    return { connected, conversations };
+  }, [pool.state.lines]);
+
+  const attempted = useMemo(
+    () => pool.state.lines.filter((l) => l.phase !== 'idle').length,
+    [pool.state.lines],
+  );
+
+  return (
+    <div className="calls-view">
+      <header className="calls-view__header">
+        <div>
+          <Tag variant="accent">Combo · Power</Tag>
+          <h2>Session power dialing</h2>
+        </div>
+        <div className="calls-view__actions">
+          {!demo && (
+            <Button variant="secondary" onClick={loadDemo}>
+              Remplir démo
+            </Button>
+          )}
+          {pool.isRunning ? (
+            <Button variant="danger" onClick={pool.hangupAll}>
+              Tout raccrocher
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={() => void pool.play()}
+              disabled={pool.state.queue.length === 0 && pool.state.lines.every((l) => l.phase === 'idle')}
+            >
+              ▶ Play
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onBack}>
+            Retour
+          </Button>
+        </div>
+      </header>
+
+      <section className="calls-power">
+        {/* Compteurs live */}
+        <GlassCard>
+          <div className="calls-power__counters">
+            <div className="calls-power__counter">
+              <span className="calls-power__counter-value">{attempted}</span>
+              <span className="calls-power__counter-label">tentés</span>
+            </div>
+            <div className="calls-power__counter">
+              <span className="calls-power__counter-value">{connected}</span>
+              <span className="calls-power__counter-label">connectés</span>
+            </div>
+            <div className="calls-power__counter">
+              <span className="calls-power__counter-value">{conversations}</span>
+              <span className="calls-power__counter-label">conversations</span>
+            </div>
+            <div className="calls-power__counter">
+              <span className="calls-power__counter-value">{pool.state.queue.length}</span>
+              <span className="calls-power__counter-label">en file</span>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* 3 lignes en parallèle */}
+        <GlassCard>
+          <h3>Lignes</h3>
+          <div className="calls-power__lines">
+            {pool.state.lines.map((line) => (
+              <div
+                key={line.slot}
+                className={`calls-power__line calls-power__line--${line.phase}`}
+              >
+                <div className="calls-power__line-head">
+                  <Tag
+                    variant={
+                      line.phase === 'connected'
+                        ? 'accent'
+                        : line.phase === 'failed' || line.phase === 'skipped'
+                          ? 'muted'
+                          : 'default'
+                    }
+                  >
+                    {PHASE_LABEL[line.phase]}
+                  </Tag>
+                  {line.destination && (
+                    <span className="calls-power__line-dest">{line.destination}</span>
+                  )}
+                </div>
+                {line.error && <p className="calls-dialer__error">{line.error}</p>}
+                {(line.phase === 'dialing' ||
+                  line.phase === 'ringing' ||
+                  line.phase === 'connected') && (
+                  <div className="calls-power__line-actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => pool.skip(line.slot)}
+                      disabled={line.phase === 'connected'}
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+
+        {/* File d'attente */}
+        {pool.state.queue.length > 0 && (
+          <GlassCard>
+            <h3>File d'attente ({pool.state.queue.length})</h3>
+            <ul className="calls-power__queue">
+              {pool.state.queue.slice(0, 10).map((dest, i) => (
+                <li key={`${dest}-${i}`} className="calls-power__queue-item">
+                  {dest}
+                </li>
+              ))}
+              {pool.state.queue.length > 10 && (
+                <li className="calls-power__queue-item calls-power__queue-more">
+                  +{pool.state.queue.length - 10} autres
+                </li>
+              )}
+            </ul>
+          </GlassCard>
+        )}
+
+        {!demo && (
+          <p className="calls-power__hint">
+            Clique « Remplir démo » pour charger une file factice, puis « Play » :
+            le pool compose 3 lignes en parallèle, connecte la première réponse
+            humaine, coupe les autres, et s'arrête. En dry-run, aucune ligne ne
+            part réellement.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
