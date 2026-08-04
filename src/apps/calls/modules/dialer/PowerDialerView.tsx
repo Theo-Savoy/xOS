@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, EmptyState, GlassCard, Tag } from '../../../../components/ui';
 import { useDialerPool } from './application/useDialerPool';
 import { POOL_PHASE_LABEL } from './domain/phaseLabels';
 
@@ -187,7 +187,7 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
         </GlassCard>
 
         {/* File d'attente */}
-        {pool.state.queue.length > 0 && (
+        {pool.state.queue.length > 0 ? (
           <GlassCard>
             <h3>File d'attente ({pool.state.queue.length})</h3>
             <ul className="calls-power__queue">
@@ -203,6 +203,17 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
               )}
             </ul>
           </GlassCard>
+        ) : (
+          // D3/D10 (audit 11.13) : état vide explicite au lieu d'une absence.
+          // Le bouton « Remplir démo » vit dans le header — pas de doublon ici.
+          <EmptyState
+            title="Aucun numéro en file"
+            description={
+              demo
+                ? 'Toutes les lignes ont été composées. Relance un cycle avec Play.'
+                : 'Charge une liste de numéros pour lancer le power dialing.'
+            }
+          />
         )}
 
         {!demo && (

@@ -142,6 +142,29 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     };
   }, [clearDialTimeout, clearSimTimers, stopTimer]);
 
+  /** Branche simulation (dry-run, client null) : machine à états sur timers,
+   *  aucun média réel, aucun paquet réseau (G2). Raccrochage simulé à 30s max
+   *  (démo) — jamais automatique en dessous, JAMAIS d'appel suivant. */
+  const runSimulation = useCallback((stream: MediaStream): boolean => {
+    clearSimTimers();
+    setPhaseSafe('ringing');
+    simTimersRef.current.push(
+      setTimeout(() => setPhaseSafe('connected'), 1500),
+    );
+    timerRef.current = setInterval(() => {
+      setDurationSec((s) => s + 1);
+    }, 1000);
+    simTimersRef.current.push(
+      setTimeout(() => {
+        setPhaseSafe('wrapping');
+        stopTimer();
+        setTimeout(() => setPhaseSafe('idle'), 2000);
+      }, 30000),
+    );
+    stream.getTracks().forEach((t) => t.stop());
+    return true;
+  }, [clearSimTimers, setPhaseSafe, stopTimer]);
+
   /**
    * Lance un appel. C'est le SEUL point d'entrée d'un appel (humain, explicite).
    * Retourne true si l'appel est parti, false si bloqué avant (micro refusé…).
@@ -197,26 +220,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       clientRef.current = client;
 
       if (!client) {
-        // Mode simulation : machine à états sur timers, aucun média réel.
-        clearSimTimers();
-        setPhaseSafe('ringing');
-        simTimersRef.current.push(
-          setTimeout(() => setPhaseSafe('connected'), 1500),
-        );
-        timerRef.current = setInterval(() => {
-          setDurationSec((s) => s + 1);
-        }, 1000);
-        // Raccrochage simulé au bout de 30 s max (démo) — jamais automatique
-        // en dessous, et surtout JAMAIS d'appel suivant.
-        simTimersRef.current.push(
-          setTimeout(() => {
-            setPhaseSafe('wrapping');
-            stopTimer();
-            setTimeout(() => setPhaseSafe('idle'), 2000);
-          }, 30000),
-        );
-        stream.getTracks().forEach((t) => t.stop());
-        return true;
+        return runSimulation(stream);
       }
 
       // 4. Réel : brancher le micro, écouter les événements, composer.
@@ -341,7 +345,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers],
+    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, runSimulation],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */

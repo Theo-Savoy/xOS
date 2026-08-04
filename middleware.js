@@ -48,14 +48,21 @@ function isPublic(pathname) {
 }
 
 /** Auth bridge + SF OAuth + Telnyx webhook — JWT/callback handled inside the route, not via cookie.
- * /api/dialer is OPEN by design: the Telnyx webhook endpoint (?resource=webhooks) cannot carry
- * a JWT — its auth is the Ed25519 signature (see api/_dialer/webhooks.js). The router itself
- * enforces JWT on every OTHER resource (api/dialer.js checks verifyJWT when resource != webhooks). */
+ * S8 (audit 11.13) : /api/dialer n'est PLUS open en bloc. Seul le POST
+ * webhook (?resource=webhooks) est exempté — c'est le seul que Telnyx appelle
+ * sans JWT (auth = signature Ed25519). Tout le reste de /api/dialer passe par
+ * le check Bearer ci-dessous (défense en profondeur par-dessus verifyJWT du
+ * routeur). */
 function isAuthBridge(pathname) {
+  return pathname === '/api/auth' || pathname === '/api/sso-bridge';
+}
+
+/** Vrai si c'est le receiver webhook Telnyx (open, Ed25519 = auth). */
+function isDialerWebhook(url, method) {
   return (
-    pathname === '/api/auth' ||
-    pathname === '/api/sso-bridge' ||
-    pathname === '/api/dialer'
+    url.pathname === '/api/dialer' &&
+    url.searchParams.get('resource') === 'webhooks' &&
+    method === 'POST'
   );
 }
 
@@ -71,6 +78,12 @@ export default async function middleware(request) {
 
   // /api/auth (ex /api/sso-bridge) porte son propre JWT / gère le callback OAuth
   if (isAuthBridge(pathname)) {
+    return;
+  }
+
+  // Receiver webhook Telnyx : open (Ed25519 = auth). Exemption la PLUS étroite
+  // possible — S8 (audit 11.13) : plus jamais tout /api/dialer en bloc.
+  if (isDialerWebhook(url, request.method)) {
     return;
   }
 
@@ -93,4 +106,4 @@ export default async function middleware(request) {
   return loginPage(401);
 }
 
-export { isAuthBridge, isPublic, isProtected };
+export { isAuthBridge, isDialerWebhook, isPublic, isProtected };

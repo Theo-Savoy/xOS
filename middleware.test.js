@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import middleware, {
   isAuthBridge,
+  isDialerWebhook,
   isProtected,
   isPublic,
 } from './middleware.js';
@@ -15,10 +16,22 @@ describe('middleware route classifiers', () => {
   });
 
   it('lets the Telnyx webhook through the middleware (signature is the auth)', () => {
-    // P0-1: Telnyx cannot send a JWT — /api/dialer must not be walled by
-    // middleware. The router itself enforces JWT on non-webhook resources.
-    expect(isAuthBridge('/api/dialer')).toBe(true);
+    // P0-1: Telnyx cannot send a JWT — le POST webhook doit passer.
+    // S8 (audit 11.13) : exemption la PLUS étroite possible. /api/dialer
+    // n'est PLUS un auth bridge en bloc — seul ?resource=webhooks+POST est
+    // ouvert (auth = signature Ed25519). Le routeur garde le reste derrière
+    // verifyJWT (défense en profondeur par-dessus le middleware).
+    expect(isAuthBridge('/api/dialer')).toBe(false);
     expect(isProtected('/api/dialer')).toBe(true);
+    expect(
+      isDialerWebhook(new URL('http://x/api/dialer?resource=webhooks'), 'POST'),
+    ).toBe(true);
+    expect(
+      isDialerWebhook(new URL('http://x/api/dialer?resource=webhooks'), 'GET'),
+    ).toBe(false);
+    expect(
+      isDialerWebhook(new URL('http://x/api/dialer?resource=dial'), 'POST'),
+    ).toBe(false);
   });
 
   it('keeps SPA root public and native APIs protected by default', () => {

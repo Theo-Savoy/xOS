@@ -177,7 +177,7 @@
 }
 
 .calls-power__hint {
-  opacity: 0.6;
+  color: var(--xos-muted, #8a8f98);
   font-size: 0.85rem;
   line-height: 1.5;
 }
@@ -205,9 +205,11 @@
   font-size: 0.9rem;
 }
 
+/* D9 (audit 11.13) : un seul niveau de gris pour les hints — couleur token
+   sans double atténuation (opacity sur du déjà-gris cassait le contraste). */
 .calls-dialer__hint {
-  font-size: 0.72rem;
-  opacity: 0.65;
+  font-size: 0.75rem;
+  color: var(--xos-muted, #8a8f98);
 }
 
 .calls-dialer__error {
@@ -228,7 +230,7 @@
 
 .calls-dialer__note {
   font-size: 0.75rem;
-  opacity: 0.6;
+  color: var(--xos-muted, #8a8f98);
   margin: 0;
 }
 

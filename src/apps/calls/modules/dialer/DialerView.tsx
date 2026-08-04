@@ -186,9 +186,10 @@ export function DialerView({ token, onBack }: DialerViewProps) {
             )}
           </div>
           <div className="calls-dialer__form">
-            <label>
+            <label htmlFor="dialer-to">
               Numéro (E.164)
               <input
+                id="dialer-to"
                 type="tel"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
@@ -197,10 +198,11 @@ export function DialerView({ token, onBack }: DialerViewProps) {
                 disabled={isActive}
               />
             </label>
-            <label>
+            <label htmlFor="dialer-caller">
               Appeler en tant que (caller ID)
               {config?.caller_numbers?.length ? (
                 <select
+                  id="dialer-caller"
                   value={callerNumber}
                   onChange={(e) => setCallerNumber(e.target.value)}
                   disabled={isActive}
