@@ -22,7 +22,7 @@ export type RtcCallHandle = {
 
 export type RtcClientHandle = {
   connect: () => Promise<void> | void;
-  newCall: (opts: { destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string }) => RtcCallHandle;
+  newCall: (opts: { id?: string; destinationNumber: string; audio?: boolean | MediaTrackConstraints; remoteElement?: HTMLMediaElement | string; localElement?: HTMLMediaElement | string; preferred_codecs?: Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }> }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
   disconnect: () => Promise<void> | void;
 };
