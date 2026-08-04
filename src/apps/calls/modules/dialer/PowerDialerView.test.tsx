@@ -36,6 +36,23 @@ describe('PowerDialerView (mode démo)', () => {
     expect(playButton()).toBeTruthy();
   });
 
+  // §8.3 (audit 11.13) : sans un <audio> par slot, le SDK n'a nulle part où
+  // attacher le flux distant — l'appel part et on n'entend rien (bug B2 du
+  // mono-ligne, jamais corrigé pour le pool). Le sélecteur de useDialerPool
+  // est `audio[data-rtc-remote-${slot}]` : ce test le vérifie littéralement.
+  it('rend un élément audio par slot, sur le sélecteur attendu par le pool', () => {
+    const { container } = render(<PowerDialerView token="tok" onBack={vi.fn()} />);
+    for (let slot = 0; slot < 3; slot += 1) {
+      expect(
+        container.querySelector(`audio[data-rtc-remote-${slot}]`),
+        `audio du slot ${slot} manquant`,
+      ).toBeTruthy();
+    }
+    // Et surtout PAS l'attribut mono-ligne : la CallBar reste seule à le porter
+    // (D7 — un seul nœud pour `audio[data-rtc-remote]`).
+    expect(container.querySelector('audio[data-rtc-remote]')).toBeNull();
+  });
+
   it('Play désactivé sans file (rien à composer)', () => {
     render(<PowerDialerView token="tok" onBack={vi.fn()} />);
     expect(playButton().hasAttribute('disabled')).toBe(true);

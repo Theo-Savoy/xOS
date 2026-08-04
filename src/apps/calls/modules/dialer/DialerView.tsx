@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, GlassCard, Skeleton, Tag } from '../../../../components/ui';
 import { useDialer } from './DialerProvider';
 import {
   DialerApiError,
@@ -118,7 +118,14 @@ export function DialerView({ token, onBack }: DialerViewProps) {
             {configError ? (
               <p className="calls-dialer__error">{configError}</p>
             ) : !config ? (
-              <p>Chargement de la config…</p>
+              // D3 (audit 11.13) : Skeleton au lieu d'un texte brut. Skeleton
+              // est aria-hidden — le role="status" porte l'annonce lecteur
+              // d'écran à sa place.
+              <div role="status" aria-label="Chargement de la configuration dialer">
+                <Skeleton height="0.9rem" />
+                <Skeleton height="0.9rem" width="80%" />
+                <Skeleton height="0.9rem" width="60%" />
+              </div>
             ) : (
               <ul className="calls-dialer__config-list">
                 <li>

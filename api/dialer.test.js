@@ -218,4 +218,110 @@ describe('routeur /api/dialer', () => {
     expect(body.call_control_id).toBeTruthy();
     expect(body.command_id).toMatch(/^xos-dial-/);
   });
+
+  // --- Vérification lot 11.13 (audit sécurité Grok) : ces comportements ont
+  // été implémentés sans test — on les verrouille ici.
+
+  it('S3 : dial refuse 400 invalid_e164 sur un numéro non E.164', async () => {
+    for (const to of ['0123456789', '+0123456789', 'sip:evil@host', '+331']) {
+      const res = await handler(
+        req('resource=dial', {
+          method: 'POST',
+          headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+          body: JSON.stringify({ to }),
+        }),
+      );
+      expect(res.status, `attendu 400 pour ${to}`).toBe(400);
+      expect((await res.json()).error).toBe('invalid_e164');
+    }
+  });
+
+  it('S5 : x-idempotency-key du client devient le command_id (dédup Telnyx)', async () => {
+    const res = await handler(
+      req('resource=dial', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer test-jwt',
+          'content-type': 'application/json',
+          'x-idempotency-key': 'intent-42',
+        },
+        body: JSON.stringify({ to: '+33123456789' }),
+      }),
+    );
+    expect((await res.json()).command_id).toBe('xos-dial-intent-42');
+  });
+
+  it('S2 : connection_id / webhook_url / from du body sont IGNORÉS (résolus serveur)', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    vi.stubEnv('TELNYX_CONNECTION_ID_DEV', 'server-connection');
+    vi.stubEnv('TELNYX_CALLER_ID_DEV', '+33999999999');
+    mockFrom.mockImplementation(() =>
+      makeChain(
+        [
+          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+          { key: 'dialer_dry_run', value: 'false' },
+        ],
+        { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
+      ),
+    );
+    // Fenêtre réelle : on capture le POST envoyé à Telnyx.
+    fetchSpy.mockImplementation(async () =>
+      new Response(JSON.stringify({ data: { call_control_id: 'ccid', call_leg_id: 'leg', call_session_id: 'sess' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await handler(
+      req('resource=dial', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          to: '+33123456789',
+          connection_id: 'ATTACKER-CONNECTION',
+          webhook_url: 'https://attacker.example/collect',
+          from: '+33111111111',
+        }),
+      }),
+    );
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const sent = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    expect(sent.connection_id).toBe('server-connection');
+    expect(sent.from).toBe('+33999999999');
+    expect(sent.webhook_url).toContain('/api/dialer?resource=webhooks');
+    expect(sent.webhook_url).not.toContain('attacker.example');
+  });
+
+  it('S1/S6 : webrtc_token refuse 429 si le budget est épuisé, sans exposer la réservation', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation(() =>
+      makeChain(
+        [
+          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+          { key: 'dialer_dry_run', value: 'false' },
+        ],
+        { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
+      ),
+    );
+    mockRpc.mockImplementation((fn) =>
+      fn === 'dialer_reserve_budget'
+        ? Promise.resolve({ data: { allowed: false, reason: 'budget_exceeded_session' }, error: null })
+        : Promise.resolve({ data: null, error: null }),
+    );
+
+    const res = await handler(
+      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+    );
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe('budget_exceeded_session');
+    // S1 : aucun token émis quand le budget refuse.
+    expect(body.token).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    // S6 : code stable seul, pas l'objet réservation.
+    expect(body.reservation).toBeUndefined();
+  });
 });

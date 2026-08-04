@@ -129,18 +129,31 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     simTimersRef.current = [];
   }, []);
 
+  /**
+   * Abandonne le client courant. Les refs sont vidées AVANT le disconnect :
+   * le SDK émet `telnyx.socket.close` en fermant, et ce handler ferait passer
+   * l'appel en 'failed' alors qu'on ferme volontairement. Les listeners du
+   * client abandonné se désarment tout seuls (cf. `onLive` dans startCall) —
+   * le SDK n'expose pas de `off()` fiable côté mocks/versions.
+   */
+  const dropClient = useCallback(() => {
+    const client = clientRef.current;
+    const call = callRef.current;
+    clientRef.current = null;
+    callRef.current = null;
+    safeHangup(call);
+    safeDisconnect(client);
+  }, []);
+
   // Nettoyage à la sortie de la vue : raccrocher + fermer le socket.
   useEffect(() => {
     return () => {
       clearDialTimeout();
       clearSimTimers();
       stopTimer();
-      safeHangup(callRef.current);
-      safeDisconnect(clientRef.current);
-      clientRef.current = null;
-      callRef.current = null;
+      dropClient();
     };
-  }, [clearDialTimeout, clearSimTimers, stopTimer]);
+  }, [clearDialTimeout, clearSimTimers, stopTimer, dropClient]);
 
   /** Branche simulation (dry-run, client null) : machine à états sur timers,
    *  aucun média réel, aucun paquet réseau (G2). Raccrochage simulé à 30s max
@@ -183,10 +196,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // connecté (le prospect a raccroché sans passer par hangup()). On le
       // déconnecte AVANT d'en créer un nouveau — sinon le client n°1 reste
       // abonné et ses handlers peuvent écraser l'état de l'appel n°2.
-      safeDisconnect(clientRef.current);
-      clientRef.current = null;
-      safeHangup(callRef.current);
-      callRef.current = null;
+      // Même famille : le timeout de diagnostic 20 s de l'appel précédent
+      // ferait passer CET appel en failed s'il est encore armé.
+      clearDialTimeout();
+      dropClient();
 
       // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
       let stream: MediaStream;
@@ -227,7 +240,18 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // B1 (audit 11.3) : le constructeur NE connecte PAS — sans connect()
       // le socket n'ouvre jamais, telnyx.ready ne fire pas, l'appel ne part
       // pas. On enregistre les listeners PUIS on connecte.
-      client.on('telnyx.ready', () => {
+      //
+      // §8.1 (audit 11.13) : tout listener passe par onLive. Dès que ce client
+      // n'est plus LE client courant (appel suivant, hangup, unmount), ses
+      // événements sont ignorés — sinon un socket.close tardif du client
+      // abandonné fait échouer l'appel en cours.
+      const onLive = (event: string, cb: (data: unknown) => void) => {
+        client.on(event, (data) => {
+          if (clientRef.current === client) cb(data);
+        });
+      };
+
+      onLive('telnyx.ready', () => {
         try {
           // callerNumber = caller ID choisi dans le sélecteur (peut être le
           // mobile vérifié — Telnyx l'autorise pour un dial sortant humain).
@@ -242,7 +266,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           setError(telnyxErrorMessage(e));
         }
       });
-      client.on('telnyx.notification', (data) => {
+      onLive('telnyx.notification', (data) => {
         const n = data as TelnyxNotification;
         const s = notifState(n);
         // B3 (audit 11.3) : les notifications sans état d'appel (vertoClientReady,
@@ -276,7 +300,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         }
         setPhaseSafe(p);
       });
-      client.on('telnyx.socket.close', () => {
+      onLive('telnyx.socket.close', () => {
         stopTimer();
         if (phaseRef.current === 'connected' || phaseRef.current === 'dialing') {
           // Le socket s'est fermé pendant un appel/composition : c'est un échec
@@ -286,7 +310,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           setPhaseSafe('failed');
         }
       });
-      client.on('telnyx.error', (e) => {
+      onLive('telnyx.error', (e) => {
         setError(telnyxErrorMessage(e));
         setPhaseSafe('failed');
       });
@@ -295,7 +319,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // avec MOS/jitter/RTT. Le frame est ENVELOPPÉ dans { data: payload } et
       // NE CONTIENT PAS le codec — celui-ci est lu via pc.getStats()
       // (readCodecFromPeer).
-      client.on('telnyx.stats.frame', (raw) => {
+      onLive('telnyx.stats.frame', (raw) => {
         try {
           const frame = raw as {
             data?: {
@@ -345,7 +369,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, runSimulation],
+    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, runSimulation, dropClient],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */
@@ -353,14 +377,11 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     clearDialTimeout();
     clearSimTimers();
     stopTimer();
-    safeHangup(callRef.current);
-    safeDisconnect(clientRef.current);
-    clientRef.current = null;
-    callRef.current = null;
+    dropClient();
     setPhaseSafe('wrapping');
     // Pas d'auto-next : on reste en wrapping, l'humain décide la suite.
     setTimeout(() => setPhaseSafe('idle'), 1500);
-  }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers]);
+  }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, dropClient]);
 
   return {
     phase,

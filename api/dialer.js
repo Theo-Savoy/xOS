@@ -337,7 +337,9 @@ async function handleDial(request, user) {
         errorCode: 'budget_exceeded_org_month',
       })).catch((e) => console.error('[dialer] audit write failed:', e.message));
     }
-    return json(429, { error: reservation.reason, reservation });
+    // S6 (audit 11.13) : code stable seul — l'objet `reservation` exposait la
+    // forme interne des caps au client. Le détail reste côté serveur (audit).
+    return json(429, { error: reservation.reason });
   }
 
   try {
