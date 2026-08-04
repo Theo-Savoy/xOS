@@ -61,9 +61,7 @@ describe('dialCall', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const res = await dialCall('token', {
-      to: '+33123456789',
-      connectionId: 'app-123',
-      webhookUrl: 'https://x/api/dialer?resource=webhooks',
+      to: '+331****6789',
       sessionId: 7,
     });
     expect(res.ok).toBe(true);
@@ -74,11 +72,13 @@ describe('dialCall', () => {
     expect(init.method).toBe('POST');
     const sent = JSON.parse(String(init.body));
     expect(sent).toMatchObject({
-      to: '+33123456789',
-      connection_id: 'app-123',
-      webhook_url: 'https://x/api/dialer?resource=webhooks',
+      to: '+331****6789',
       session_id: 7,
     });
+    // S2 (audit 11.13) : connection_id / webhook_url ne sont PLUS envoyés —
+    // le serveur les résout côté config.
+    expect(sent.connection_id).toBeUndefined();
+    expect(sent.webhook_url).toBeUndefined();
     vi.unstubAllGlobals();
   });
 
@@ -93,8 +93,6 @@ describe('dialCall', () => {
     await expect(
       dialCall('token', {
         to: '+33',
-        connectionId: 'app',
-        webhookUrl: 'https://x',
       }),
     ).rejects.toMatchObject({
       status: 429,
@@ -114,8 +112,6 @@ describe('dialCall', () => {
     await expect(
       dialCall('token', {
         to: '+33',
-        connectionId: 'app',
-        webhookUrl: 'https://x',
       }),
     ).rejects.toBeInstanceOf(DialerApiError);
     vi.unstubAllGlobals();

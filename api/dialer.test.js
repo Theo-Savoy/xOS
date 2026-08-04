@@ -324,4 +324,84 @@ describe('routeur /api/dialer', () => {
     // S6 : code stable seul, pas l'objet réservation.
     expect(body.reservation).toBeUndefined();
   });
+
+  it('entitlement refusé → 403 dialer_entitlement_denied (webrtc_token)', async () => {
+    // Fenêtre réelle : dry_run=false partout, mais entitlement disabled.
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation(() =>
+      makeChain(
+        [
+          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+          { key: 'dialer_dry_run', value: 'false' },
+        ],
+        { enabled: false, dry_run: false, telnyx_credential_id: 'cred-1' },
+      ),
+    );
+
+    const res = await handler(
+      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('dialer_entitlement_denied');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('caller_number non possédé → 403 caller_number_not_owned', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation((table) =>
+      table === 'dialer_phone_numbers'
+        ? // Aucun numéro possédé : le caller demandé n'appartient à personne.
+          makeChain([], null)
+        : makeChain(
+            [
+              ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+              { key: 'dialer_dry_run', value: 'false' },
+            ],
+            { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
+          ),
+    );
+
+    const res = await handler(
+      req('resource=webrtc_token', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ caller_number: '+336****9999' }),
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('caller_number_not_owned');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rate limit par user → 429 rate_limited avec retry_after_ms', async () => {
+    // Fenêtre réelle : dry_run=false, entitlement valide, budget OK.
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation(() =>
+      makeChain(
+        [
+          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+          { key: 'dialer_dry_run', value: 'false' },
+        ],
+        { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
+      ),
+    );
+
+    // Le bucket (capacity 20, refill 5/s) est partagé entre les tests du
+    // fichier : on le vide par 25 requêtes rapides pour dépasser le burst.
+    // Placé EN DERNIER : les tests suivants tomberaient sur un bucket vide.
+    let last = null;
+    for (let i = 0; i < 25; i += 1) {
+      last = await handler(
+        req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+      );
+      if (last.status === 429) break;
+    }
+    expect(last.status).toBe(429);
+    const body = await last.json();
+    expect(body.error).toBe('rate_limited');
+    expect(typeof body.retry_after_ms).toBe('number');
+  });
 });

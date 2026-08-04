@@ -46,8 +46,6 @@ export type DialerConfig = {
 
 export type DialCallParams = {
   to: string;
-  connectionId: string;
-  webhookUrl: string;
   sessionId?: number | null;
   contactId?: number | null;
   campaignId?: number | null;
@@ -102,8 +100,8 @@ export async function dialCall(
 ): Promise<DialCallResult> {
   const body = {
     to: params.to,
-    connection_id: params.connectionId,
-    webhook_url: params.webhookUrl,
+    // S2 (audit 11.13) : connection_id / webhook_url ne sont PLUS envoyés —
+    // le serveur les résout côté config (fail-closed si non configuré).
     session_id: params.sessionId ?? null,
     contact_id: params.contactId ?? null,
     campaign_id: params.campaignId ?? null,
