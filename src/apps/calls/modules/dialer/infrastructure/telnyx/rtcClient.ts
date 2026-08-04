@@ -37,12 +37,14 @@ export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 };
 
 /**
- * Codec préféré (test 2026-08-04, verdict lot-11.4) : le "13 kbps" était un
- * artefact de calcul (delta ÷ 5s au lieu de 1s). Bitrate réel : G.722 = 64
- * kbps CBR plat, OPUS = 31 kbps médian / 53 kbps en parole. Aucun
- * plafonnement. La mauvaise qualité perçue = latence (RTT 470-500ms, buffer-
- * bloat Wi-Fi) + boucle acoustique de l'auto-appel (echo). Décision : OPUS en
- * tête (codec natif WebRTC), G.722 en fallback. Ne PAS toucher au fmtp.
+ * Codec préféré (verdict lot-11.4, 2026-08-04) : G.722 en tête pour les
+ * appels vers mobile (PSTN). Données réelles (call reports) :
+ *   - G.722 : 64 kbps CBR plat, jitter buffer 39ms max, aucun transcodage
+ *     si l'opérateur l'accepte → HD 7kHz jusqu'au mobile
+ *   - OPUS : 31 kbps médian, jitter buffer 238ms, transcodage OPUS→G.711
+ *     forcé par Telnyx pour le PSTN (perte de large bande)
+ * Le bitrate n'était pas le problème (artefact ÷5s) ; la latence + écho
+ * de l'auto-appel étaient les vrais coupables. OPUS en fallback.
  */
 export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: number; channels?: number; payloadType?: number; sdpFmtpLine?: string }> | undefined {
   try {
@@ -51,7 +53,7 @@ export function getPreferredCodecs(): Array<{ mimeType: string; clockRate: numbe
       ['audio/g722', 'audio/opus', 'audio/pcmu', 'audio/pcma'].includes(c.mimeType.toLowerCase()),
     );
     if (!codecs || codecs.length === 0) return undefined;
-    const order = ['audio/opus', 'audio/g722', 'audio/pcmu', 'audio/pcma'];
+    const order = ['audio/g722', 'audio/opus', 'audio/pcmu', 'audio/pcma'];
     const sorted = [...codecs].sort(
       (a, b) =>
         order.indexOf(a.mimeType.toLowerCase()) - order.indexOf(b.mimeType.toLowerCase()),
