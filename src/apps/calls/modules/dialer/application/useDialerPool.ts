@@ -137,8 +137,11 @@ export function useDialerPool({
           ...(audioEl ? { remoteElement: audioEl } : {}),
         });
         callsRef.current[slot] = call;
-        // Timeout non-réponse (power dialing) : si la ligne sonne encore
-        // après 20s, elle est skippée et on compose le suivant.
+        // PLACEHOLDER DÉMO (lot 11.5/11.6) : timeout non-réponse 20s pour
+        // éviter le figement en dry-run. Le comportement PRODUCTION (lot 11.8)
+        // est l'AMD premium : skip immédiat sur répondeur / filtre Apple,
+        // seul un décroché HUMAIN atteint le commercial (webhooks
+        // call.machine.detection.ended, bloqué compte paid Telnyx).
         const t = setTimeout(() => {
           const line = stateRef.current.lines[slot];
           if (line && (line.phase === 'dialing' || line.phase === 'ringing')) {
