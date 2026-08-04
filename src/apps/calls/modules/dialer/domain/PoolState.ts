@@ -6,21 +6,16 @@
  * réponse humaine avec hangup des autres lignes, puis STOP (re-clic Play).
  */
 
-export type PoolPhase =
-  | 'idle'
-  | 'dialing'
-  | 'ringing'
-  | 'connected'
-  | 'skipped'
-  | 'failed'
-  | 'ended';
+import type { LinePhase } from './CallState';
+
+/** Pool : + ligne abandonnée au profit d'une autre (skip / réponse ailleurs). */
+export type PoolPhase = LinePhase | 'skipped';
 
 export type PoolLine = {
   slot: number;
   phase: PoolPhase;
   destination: string;
   error: string | null;
-  durationSec: number;
 };
 
 export type PoolState = {
@@ -29,10 +24,10 @@ export type PoolState = {
   lines: PoolLine[];
   /** File d'attente (destinations à composer). */
   queue: string[];
-  /** Slot actuellement connecté (réponse humaine), sinon null. */
-  connectedSlot: number | null;
   /** Un cycle est en cours (Play actif). */
   running: boolean;
+  /** Erreur globale du pool (ex. socket perdu) — affichée en tête de vue. */
+  error: string | null;
 };
 
 export function createPoolState(size: number, queue: string[]): PoolState {
@@ -43,10 +38,9 @@ export function createPoolState(size: number, queue: string[]): PoolState {
       phase: 'idle',
       destination: '',
       error: null,
-      durationSec: 0,
     })),
     queue,
-    connectedSlot: null,
     running: false,
+    error: null,
   };
 }

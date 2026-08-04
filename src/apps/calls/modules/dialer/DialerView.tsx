@@ -6,7 +6,7 @@ import {
   fetchDialerConfig,
   type DialerConfig,
 } from './dialerApi';
-import type { CallPhase } from './domain/CallState';
+import { CALL_PHASE_LABEL } from './domain/phaseLabels';
 
 export type DialerViewProps = {
   token: string;
@@ -40,17 +40,6 @@ function formatError(err: unknown): string {
   }
   return err instanceof Error ? err.message : String(err);
 }
-
-const PHASE_LABEL: Record<CallPhase, string> = {
-  idle: 'Prêt',
-  dialing: 'Composition…',
-  ringing: 'Sonnerie…',
-  connected: 'En communication',
-  on_hold: 'En attente',
-  wrapping: 'Fermeture…',
-  ended: 'Terminé',
-  failed: 'Échec',
-};
 
 export function DialerView({ token, onBack }: DialerViewProps) {
   const [config, setConfig] = useState<DialerConfig | null>(null);
@@ -180,7 +169,7 @@ export function DialerView({ token, onBack }: DialerViewProps) {
               "on n'a pas branché ça"). Autoplay autorisé après geste user. */}
           <audio data-rtc-remote autoPlay className="calls-dialer__rtc-audio" />
           <div className="calls-dialer__call-status">
-            <Tag variant={isActive ? 'accent' : 'muted'}>{PHASE_LABEL[phase]}</Tag>
+            <Tag variant={isActive ? 'accent' : 'muted'}>{CALL_PHASE_LABEL[phase]}</Tag>
             {phase === 'connected' && durationSec > 0 && (
               <span className="calls-dialer__duration">{durationSec}s</span>
             )}

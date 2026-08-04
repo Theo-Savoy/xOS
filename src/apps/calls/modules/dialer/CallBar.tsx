@@ -1,6 +1,6 @@
 import { Button, Tag } from '../../../../components/ui';
 import { useDialer } from './DialerProvider';
-import type { CallPhase } from './domain/CallState';
+import { CALL_PHASE_LABEL } from './domain/phaseLabels';
 
 /**
  * CallBar (plan Combo lot-11.3 §2.1) — barre d'appel persistante rendue
@@ -14,17 +14,6 @@ import type { CallPhase } from './domain/CallState';
  * États : idle (masquée) / dialing / ringing / connected+chrono / wrapping
  * (ACW visible, jamais d'auto-next) / ended / failed + message.
  */
-
-const PHASE_LABEL: Record<CallPhase, string> = {
-  idle: 'Prêt',
-  dialing: 'Composition…',
-  ringing: 'Sonnerie…',
-  connected: 'En communication',
-  on_hold: 'En attente',
-  wrapping: 'Clôture…',
-  ended: 'Terminé',
-  failed: 'Échec',
-};
 
 export function CallBar() {
   const { phase, error, durationSec, destination, hangup, isActive } = useDialer();
@@ -40,7 +29,7 @@ export function CallBar() {
 
       <div className="calls-callbar__status">
         <Tag variant={isActive ? 'accent' : phase === 'failed' ? 'alert' : 'muted'}>
-          {PHASE_LABEL[phase]}
+          {CALL_PHASE_LABEL[phase]}
         </Tag>
         {phase === 'connected' && durationSec > 0 && (
           <span className="calls-dialer__duration">{durationSec}s</span>

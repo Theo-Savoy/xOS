@@ -1,5 +1,6 @@
 /**
- * application/useRtcCall.ts — hook WebRTC : le navigateur devient le téléphone.
+ * application/useRtcCall.ts — hook WebRTC mono-ligne : le navigateur devient
+ * le téléphone.
  *
  * Audit 11.2 B.3/B.4/B.5 :
  * - Ordre : micro D'ABORD (sur le geste utilisateur), puis token, puis dial.
@@ -11,17 +12,35 @@
  *   La machine va en 'wrapping' puis 'idle'. Elle ne compose JAMAIS le contact
  *   suivant. Un humain déclenche chaque appel explicitement (2022-1583 §7.1.3).
  * - Le SDK pilote l'UI ; les webhooks piloteront le registre (Phase B).
+ *
+ * Simulation mono-ligne (démo). Le pool a sa propre simulation, voir
+ * useDialerPool.startDemoSimulation — les timings diffèrent volontairement.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallPhase } from '../domain/CallState';
-import { AUDIO_CONSTRAINTS, getPreferredCodecs, createRtcClient, type RtcClientHandle, type RtcCallHandle } from '../infrastructure/telnyx/rtcClient';
+import {
+  newCallOptions,
+  notifState,
+  safeDisconnect,
+  safeHangup,
+  telnyxErrorMessage,
+  telnyxPhase,
+  createRtcClient,
+  type RtcClientHandle,
+  type RtcCallHandle,
+  type TelnyxNotification,
+} from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
 
-export type RtcCallStatus = {
-  phase: CallPhase;
-  error: string | null;
-  durationSec: number;
+/** Qualité de l'appel en cours. mos/jitter/rtt : telnyx.stats.frame.
+ *  codec : lu via pc.getStats() (absent du frame SDK). rttMs alimenté mais
+ *  jamais affiché — conservé pour diagnostic console. */
+export type CallStats = {
+  mos: number;
+  codec?: string;
+  jitterMs?: number;
+  rttMs?: number;
 };
 
 export type UseRtcCallResult = {
@@ -29,44 +48,22 @@ export type UseRtcCallResult = {
   error: string | null;
   durationSec: number;
   destination: string;
-  callStats: { mos: number; codec?: string; jitterMs?: number; rttMs?: number } | null;
-  startCall: (destination: string, callerNumber?: string) => Promise<boolean>;
+  callStats: CallStats | null;
+  startCall: (to: string, callerNumber?: string) => Promise<boolean>;
   hangup: () => void;
   isActive: boolean;
 };
 
-type TelnyxNotification = {
-  call?: { state?: string; callId?: string; callState?: string };
-  event?: string;
+/** Mapping telnyxPhase (SDK) → CallPhase (produit mono-ligne). Le contrat
+ *  « inconnu ⇒ null ⇒ ne pas bouger » est défini dans telnyxPhase (fix
+ *  audit 11.3 B3). */
+const PHASE_FROM_TELNYX: Record<string, CallPhase> = {
+  dialing: 'dialing',
+  ringing: 'ringing',
+  connected: 'connected',
+  held: 'on_hold',
+  ended: 'ended',
 };
-
-/**
- * Mapping état SDK → CallPhase. Retourne null pour les états NON reconnus :
- * l'UI ne doit JAMAIS basculer en « ended » sur un état qu'elle ne comprend
- * pas — c'était le bug {dry_run:false} affiché sans erreur (audit 11.3 B3,
- * corrigé 2026-08-03 : un état inconnu doit rester sur la phase courante,
- * pas prétendre que l'appel est terminé).
- */
-function phaseFromTelnyx(state?: string): CallPhase | null {
-  switch (state) {
-    case 'new':
-    case 'requesting':
-    case 'trying':
-      return 'dialing';
-    case 'early':
-    case 'ringing':
-      return 'ringing';
-    case 'active':
-      return 'connected';
-    case 'held':
-      return 'on_hold';
-    case 'hangup':
-    case 'destroy':
-      return 'ended';
-    default:
-      return null; // état inconnu : ne pas toucher à la phase
-  }
-}
 
 /**
  * Lit le codec audio ACTIF depuis RTCPeerConnection.getStats() — la source de
@@ -98,11 +95,12 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   const [error, setError] = useState<string | null>(null);
   const [durationSec, setDurationSec] = useState(0);
   const [destination, setDestination] = useState('');
-  const [callStats, setCallStats] = useState<{ mos: number; codec?: string; jitterMs?: number; rttMs?: number } | null>(null);
+  const [callStats, setCallStats] = useState<CallStats | null>(null);
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callRef = useRef<RtcCallHandle | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dialTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const simTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const phaseRef = useRef<CallPhase>('idle');
 
   const setPhaseSafe = useCallback((p: CallPhase) => {
@@ -125,25 +123,23 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     setDurationSec(0);
   }, []);
 
+  const clearSimTimers = useCallback(() => {
+    simTimersRef.current.forEach((t) => clearTimeout(t));
+    simTimersRef.current = [];
+  }, []);
+
   // Nettoyage à la sortie de la vue : raccrocher + fermer le socket.
   useEffect(() => {
     return () => {
       clearDialTimeout();
+      clearSimTimers();
       stopTimer();
-      try {
-        callRef.current?.hangup();
-      } catch {
-        /* déjà raccroché */
-      }
-      try {
-        clientRef.current?.disconnect();
-      } catch {
-        /* socket déjà fermé */
-      }
+      safeHangup(callRef.current);
+      safeDisconnect(clientRef.current);
       clientRef.current = null;
       callRef.current = null;
     };
-  }, [stopTimer]);
+  }, [clearDialTimeout, clearSimTimers, stopTimer]);
 
   /**
    * Lance un appel. C'est le SEUL point d'entrée d'un appel (humain, explicite).
@@ -151,13 +147,13 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
    * callerNumber : identifiant appelant affiché (sélecteur Phase A).
    */
   const startCall = useCallback(
-    async (destination: string, callerNumber?: string): Promise<boolean> => {
+    async (to: string, callerNumber?: string): Promise<boolean> => {
       if (phaseRef.current === 'dialing' || phaseRef.current === 'connected') {
         return false; // garde synchrone anti-double-dial
       }
       setError(null);
       setPhaseSafe('dialing');
-      setDestination(destination);
+      setDestination(to);
 
       // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
       let stream: MediaStream;
@@ -180,7 +176,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         // sinon c'est une erreur.
         if (!dryRun) {
           setPhaseSafe('failed');
-          setError(e instanceof Error ? e.message : 'Token WebRTC indisponible.');
+          setError(telnyxErrorMessage(e));
           stream.getTracks().forEach((t) => t.stop());
           return false;
         }
@@ -192,21 +188,23 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
 
       if (!client) {
         // Mode simulation : machine à états sur timers, aucun média réel.
+        clearSimTimers();
         setPhaseSafe('ringing');
-        const sim = setTimeout(() => setPhaseSafe('connected'), 1500);
+        simTimersRef.current.push(
+          setTimeout(() => setPhaseSafe('connected'), 1500),
+        );
         timerRef.current = setInterval(() => {
           setDurationSec((s) => s + 1);
         }, 1000);
         // Raccrochage simulé au bout de 30 s max (démo) — jamais automatique
         // en dessous, et surtout JAMAIS d'appel suivant.
-        const end = setTimeout(() => {
-          setPhaseSafe('wrapping');
-          clearInterval(timerRef.current as unknown as number);
-          timerRef.current = null;
-          setTimeout(() => setPhaseSafe('idle'), 2000);
-        }, 30000);
-        // On garde la référence pour le bouton Raccrocher.
-        (sim as unknown as { _end?: ReturnType<typeof setTimeout> })._end = end;
+        simTimersRef.current.push(
+          setTimeout(() => {
+            setPhaseSafe('wrapping');
+            stopTimer();
+            setTimeout(() => setPhaseSafe('idle'), 2000);
+          }, 30000),
+        );
         stream.getTracks().forEach((t) => t.stop());
         return true;
       }
@@ -219,43 +217,32 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         try {
           // callerNumber = caller ID choisi dans le sélecteur (peut être le
           // mobile vérifié — Telnyx l'autorise pour un dial sortant humain).
-          // remoteElement : élément <audio> où le SDK attache le flux distant —
-          // SANS lui, l'appel part mais on n'entend RIEN côté navigateur.
-          const audioEl = document.querySelector<HTMLAudioElement>('audio[data-rtc-remote]');
-          const call = client.newCall({
-            destinationNumber: destination,
-            // Constraints qualité : traitement du micro (écho, bruit, gain) —
-            // au lieu de `audio: true` (qualité 2026-08-04).
-            audio: AUDIO_CONSTRAINTS,
-            // Codec préféré (test 2026-08-04) : G.722 en tête si le navigateur
-            // et l'opérateur le supportent (pas de transcodage → HD jusqu'au
-            // mobile), OPUS en fallback. Objets réels du navigateur = valides
-            // pour setCodecPreferences.
-            ...(getPreferredCodecs()
-              ? { preferred_codecs: getPreferredCodecs() }
-              : {}),
-            ...(callerNumber ? { callerNumber } : {}),
-            ...(audioEl ? { remoteElement: audioEl } : {}),
-          });
+          const call = client.newCall(
+            newCallOptions(to, 'audio[data-rtc-remote]', {
+              ...(callerNumber ? { callerNumber } : {}),
+            }),
+          );
           callRef.current = call;
         } catch (e) {
           setPhaseSafe('failed');
-          setError(e instanceof Error ? e.message : 'Échec du dial WebRTC.');
+          setError(telnyxErrorMessage(e));
         }
       });
       client.on('telnyx.notification', (data) => {
         const n = data as TelnyxNotification;
-        const s = n?.call?.state ?? n?.call?.callState;
+        const s = notifState(n);
         // B3 (audit 11.3) : les notifications sans état d'appel (vertoClientReady,
         // userMediaError, peerConnectionFailureError…) ne doivent PAS toucher la
         // machine à états — sinon l'UI bascule en « Terminé » dès la connexion.
         if (!s) {
-          // Log de diagnostic : on voit ce que le SDK envoie réellement.
+          // Diagnostic VOLONTAIRE (fix 11.3 B3) : trace les notifications sans
+          // état pour comprendre ce que le SDK envoie réellement.
           console.debug('[rtc] notification sans état:', n);
           return;
         }
-        const p = phaseFromTelnyx(s);
-        if (p === null) {
+        const telnyxPhaseValue = telnyxPhase(s);
+        const p = telnyxPhaseValue ? PHASE_FROM_TELNYX[telnyxPhaseValue] : undefined;
+        if (!p) {
           // État SDK non reconnu : ne pas prétendre que l'appel est fini.
           console.debug('[rtc] état SDK non mappé:', s, n);
           return;
@@ -270,7 +257,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
             setCallStats((prev) => ({ ...(prev ?? { mos: 0 }), codec }));
           });
         }
-        if (p === 'ended' || p === 'failed') {
+        if (p === 'ended') {
           stopTimer();
         }
         setPhaseSafe(p);
@@ -286,17 +273,14 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         }
       });
       client.on('telnyx.error', (e) => {
-        const msg = e && typeof e === 'object' && 'message' in e
-          ? String((e as { message: unknown }).message)
-          : 'Erreur WebRTC Telnyx.';
-        setError(msg);
+        setError(telnyxErrorMessage(e));
         setPhaseSafe('failed');
       });
 
       // Stats qualité (diagnostic 2026-08-04) : le SDK émet telnyx.stats.frame
-      // avec MOS/jitter/RTT. Le frame est ENVELOPPÉ dans { data: payload }
-      // (vérifié dans le bundle : StatsFrame,function({data:e})…). Le codec
-      // n'y figure pas — on le lit via pc.getStats() directement (type 'codec').
+      // avec MOS/jitter/RTT. Le frame est ENVELOPPÉ dans { data: payload } et
+      // NE CONTIENT PAS le codec — celui-ci est lu via pc.getStats()
+      // (readCodecFromPeer).
       client.on('telnyx.stats.frame', (raw) => {
         try {
           const frame = raw as {
@@ -330,7 +314,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         await client.connect();
       } catch (e) {
         setPhaseSafe('failed');
-        setError(e instanceof Error ? e.message : 'Connexion WebRTC refusée.');
+        setError(telnyxErrorMessage(e));
         return false;
       }
 
@@ -347,28 +331,22 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout],
+    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */
   const hangup = useCallback(() => {
     clearDialTimeout();
+    clearSimTimers();
     stopTimer();
-    try {
-      callRef.current?.hangup();
-    } catch {
-      /* déjà raccroché */
-    }
-    try {
-      clientRef.current?.disconnect();
-    } catch {
-      /* socket déjà fermé */
-    }
+    safeHangup(callRef.current);
+    safeDisconnect(clientRef.current);
+    clientRef.current = null;
+    callRef.current = null;
     setPhaseSafe('wrapping');
     // Pas d'auto-next : on reste en wrapping, l'humain décide la suite.
-    const wrap = setTimeout(() => setPhaseSafe('idle'), 1500);
-    (wrap as unknown as { _unref?: () => void })._unref?.();
-  }, [setPhaseSafe, stopTimer]);
+    setTimeout(() => setPhaseSafe('idle'), 1500);
+  }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers]);
 
   return {
     phase,

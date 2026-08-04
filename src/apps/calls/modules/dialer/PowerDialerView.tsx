@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Button, GlassCard, Tag } from '../../../../components/ui';
 import { useDialerPool } from './application/useDialerPool';
-import type { PoolLine } from './domain/PoolState';
+import { POOL_PHASE_LABEL } from './domain/phaseLabels';
 
 /**
  * PowerDialerView (lot 11.6) — l'UI du power dialing 3 lignes.
@@ -19,16 +19,6 @@ import type { PoolLine } from './domain/PoolState';
 export type PowerDialerViewProps = {
   token: string;
   onBack: () => void;
-};
-
-const PHASE_LABEL: Record<PoolLine['phase'], string> = {
-  idle: '—',
-  dialing: 'Composition…',
-  ringing: 'Sonnerie…',
-  connected: 'En communication',
-  skipped: 'Abandonné',
-  failed: 'Échec',
-  ended: 'Terminé',
 };
 
 /** Numéros de démo (dry-run) : 7 contacts factices pour tester l'UI power.
@@ -56,22 +46,19 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
   const loadDemo = useCallback(() => {
     pool.setQueue(DEMO_NUMBERS);
     setDemo(true);
-  }, [pool]);
+  }, [pool.setQueue]);
 
-  const { connected, conversations } = useMemo(() => {
+  const counters = useMemo(() => {
     let connected = 0;
     let conversations = 0;
+    let attempted = 0;
     for (const line of pool.state.lines) {
       if (line.phase === 'connected') connected += 1;
       if (line.phase === 'ended') conversations += 1;
+      if (line.phase !== 'idle') attempted += 1;
     }
-    return { connected, conversations };
+    return { attempted, connected, conversations };
   }, [pool.state.lines]);
-
-  const attempted = useMemo(
-    () => pool.state.lines.filter((l) => l.phase !== 'idle').length,
-    [pool.state.lines],
-  );
 
   return (
     <div className="calls-view">
@@ -115,19 +102,22 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
       </header>
 
       <section className="calls-power">
+        {pool.state.error && (
+          <p className="calls-dialer__error" role="alert">{pool.state.error}</p>
+        )}
         {/* Compteurs live */}
         <GlassCard>
           <div className="calls-power__counters">
             <div className="calls-power__counter">
-              <span className="calls-power__counter-value">{attempted}</span>
+              <span className="calls-power__counter-value">{counters.attempted}</span>
               <span className="calls-power__counter-label">tentés</span>
             </div>
             <div className="calls-power__counter">
-              <span className="calls-power__counter-value">{connected}</span>
+              <span className="calls-power__counter-value">{counters.connected}</span>
               <span className="calls-power__counter-label">connectés</span>
             </div>
             <div className="calls-power__counter">
-              <span className="calls-power__counter-value">{conversations}</span>
+              <span className="calls-power__counter-value">{counters.conversations}</span>
               <span className="calls-power__counter-label">conversations</span>
             </div>
             <div className="calls-power__counter">
@@ -156,7 +146,7 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
                           : 'default'
                     }
                   >
-                    {PHASE_LABEL[line.phase]}
+                    {POOL_PHASE_LABEL[line.phase]}
                   </Tag>
                   {line.destination && (
                     <span className="calls-power__line-dest">{line.destination}</span>

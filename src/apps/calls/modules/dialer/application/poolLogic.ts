@@ -1,16 +1,22 @@
 /**
- * application/poolLogic.ts — logique pure du DialerPool (testable, sans SDK).
+ * application/poolLogic.ts — réducteur pur du DialerPool (testable, sans SDK).
  *
- * Lot 11.5 : l'orchestrateur du power dialing côté client. Règles :
- * - Play() : compose min(size, restants) depuis la file — déclenchement humain.
- * - skipLine() : abandonne une ligne (non-réponse / répondeur manuel), la
- *   libère pour composer le suivant.
- * - onAnswered() : réponse humaine sur une ligne → elle devient connected,
- *   TOUTES les autres lignes sont coupées (hangup). Le cycle s'arrête.
- * - onLineEnded() : la ligne connectée se termine → running=false (STOP).
- *   JAMAIS d'enchaînement auto : l'humain re-clique Play.
+ * Lot 11.5 : l'orchestrateur du power dialing côté client. Aucun SDK, aucun
+ * React — pur état immuable piloté par actions.
  *
- * Retourne un nouvel état immuable — le hook React l'utilise via useReducer.
+ * Actions :
+ *   play         déclenchement HUMAIN d'un cycle. Relance les lignes skipped
+ *                (tentées puis abandonnées — pas de vrai contact), remplace
+ *                les ended/failed/idle par les prochains de la file.
+ *                no-op si un cycle est déjà actif.
+ *   skip         abandonne une ligne (non-réponse / répondeur manuel), la
+ *                libère pour composer le suivant.
+ *   answered     réponse humaine sur une ligne → connected, TOUTES les autres
+ *                lignes en cours sont coupées (skipped).
+ *   line-ended   fin de la ligne connectée → running=false (STOP). JAMAIS
+ *                d'enchaînement auto : l'humain re-clique Play (ARCEP §7.1.3).
+ *   pool-error   erreur globale (socket perdu, …) → running=false, l'erreur
+ *                est exposée à l'UI. La file n'est PAS vidée.
  */
 
 import { createPoolState, type PoolLine, type PoolState } from '../domain/PoolState';
@@ -23,10 +29,11 @@ export type PoolAction =
   | { type: 'line-dialing'; slot: number }
   | { type: 'line-ringing'; slot: number }
   | { type: 'line-error'; slot: number; error: string }
+  | { type: 'pool-error'; error: string }
   | { type: 'reset'; queue: string[] };
 
 function idleLine(slot: number): PoolLine {
-  return { slot, phase: 'idle', destination: '', error: null, durationSec: 0 };
+  return { slot, phase: 'idle', destination: '', error: null };
 }
 
 export function poolReducer(state: PoolState, action: PoolAction): PoolState {
@@ -59,8 +66,8 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
         ...state,
         lines,
         queue: nextQueue,
-        connectedSlot: null,
         running: true,
+        error: null,
       };
     }
 
@@ -89,7 +96,7 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
             ? l
             : { ...l, phase: 'skipped' as const },
       );
-      return { ...state, lines, connectedSlot: action.slot };
+      return { ...state, lines };
     }
 
     case 'line-ended': {
@@ -111,6 +118,9 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
         phase: 'failed',
         error: action.error,
       });
+
+    case 'pool-error':
+      return { ...state, running: false, error: action.error };
 
     case 'reset':
       return createPoolState(state.size, action.queue);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useRtcCall, type UseRtcCallResult } from './application/useRtcCall';
 
 /**
@@ -26,9 +26,7 @@ export function DialerProvider({
 }) {
   const rtc = useRtcCall({ token, dryRun });
 
-  const value = useMemo(() => rtc, [rtc]);
-
-  return <DialerContext.Provider value={value}>{children}</DialerContext.Provider>;
+  return <DialerContext.Provider value={rtc}>{children}</DialerContext.Provider>;
 }
 
 export function useDialer(): UseRtcCallResult {

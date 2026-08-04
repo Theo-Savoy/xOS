@@ -39,11 +39,6 @@
   margin-bottom: 1rem;
 }
 
-.calls-dialer__duration {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
 .calls-dialer__rtc-audio {
   display: none; /* le flux distant joue via l'audio, sans élément visible */
 }
@@ -70,9 +65,20 @@
 }
 
 .calls-callbar__dest {
+  white-space: nowrap;
+}
+
+/* Tout ce qui affiche un numéro ou un chrono : chiffres à chasse fixe. */
+.calls-dialer__duration,
+.calls-callbar__dest,
+.calls-power__line-dest {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  white-space: nowrap;
+}
+
+.calls-power__counter-value,
+.calls-power__queue-item {
+  font-variant-numeric: tabular-nums;
 }
 
 .calls-power {
@@ -137,8 +143,6 @@
 }
 
 .calls-power__line-dest {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
   margin-left: auto;
 }
 
@@ -156,7 +160,6 @@
 }
 
 .calls-power__queue-item {
-  font-variant-numeric: tabular-nums;
   opacity: 0.85;
 }
 
@@ -183,7 +186,8 @@
   color: var(--xos-muted, #8a8f98);
 }
 
-.calls-dialer__form input {
+.calls-dialer__form input,
+.calls-dialer__form select {
   width: 100%;
   padding: 0.5rem 0.6rem;
   border-radius: 8px;

@@ -45,7 +45,6 @@ describe('poolLogic — power dialing (lot 11.5)', () => {
     const s = poolReducer(createPoolState(3, queue), { type: 'play' });
     const after = poolReducer(s, { type: 'answered', slot: 2 });
     expect(after.lines[2].phase).toBe('connected');
-    expect(after.connectedSlot).toBe(2);
     // Les autres lignes en cours sont coupées.
     expect(after.lines[0].phase).toBe('skipped');
     expect(after.lines[1].phase).toBe('skipped');

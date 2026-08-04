@@ -12,44 +12,37 @@
  * - Réponse humaine → connected, les autres lignes sont coupées
  * - Fin d'appel → STOP (running=false), JAMAIS d'auto-next : re-clic Play
  * - Dry-run : token null → client null → simulation (aucun paquet réel)
+ *
+ * Simulation pool (démo) : startDemoSimulation — timings volontairement
+ * différents de la simulation mono-ligne (useRtcCall).
  */
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { createPoolState, type PoolState } from '../domain/PoolState';
 import { poolReducer } from './poolLogic';
 import {
-  AUDIO_CONSTRAINTS,
-  getPreferredCodecs,
+  newCallOptions,
+  notifCallId,
+  notifState,
+  safeDisconnect,
+  safeHangup,
+  telnyxErrorMessage,
+  telnyxPhase,
   createRtcClient,
   type RtcClientHandle,
   type RtcCallHandle,
+  type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
 import { fetchRtcToken } from '../dialerApi';
+import type { PoolPhase } from '../domain/PoolState';
 
-type TelnyxNotification = {
-  call?: { state?: string; callId?: string; id?: string };
-  event?: string;
+/** Mapping telnyxPhase (SDK) → PoolPhase. held ignoré (pas de on_hold pool). */
+const PHASE_FROM_TELNYX: Record<string, PoolPhase> = {
+  dialing: 'dialing',
+  ringing: 'ringing',
+  connected: 'connected',
+  ended: 'ended',
 };
-
-/** Mapping état SDK → PoolPhase (par ligne). */
-function poolPhaseFromTelnyx(state?: string): PoolState['lines'][number]['phase'] | null {
-  switch (state) {
-    case 'new':
-    case 'requesting':
-    case 'trying':
-      return 'dialing';
-    case 'early':
-    case 'ringing':
-      return 'ringing';
-    case 'active':
-      return 'connected';
-    case 'hangup':
-    case 'destroy':
-      return 'ended';
-    default:
-      return null;
-  }
-}
 
 /** id custom passé à newCall : permet de router les notifications par slot. */
 function callIdForSlot(slot: number): string {
@@ -66,7 +59,8 @@ export type UseDialerPoolResult = {
   skip: (slot: number) => void;
   /** Raccroche tout (fin de session). */
   hangupAll: () => void;
-  /** Ligne active (appel en cours sur au moins un slot). */
+  /** Un cycle Play est ouvert (≠ « une ligne est active ») : pilote la
+   *  bascule Play ↔ Tout raccrocher. */
   isRunning: boolean;
 };
 
@@ -88,57 +82,41 @@ export function useDialerPool({
     undefined,
     () => createPoolState(size, []),
   );
-  const clientRef = useRef<RtcClientHandle | null>(null);
-  const callsRef = useRef<(RtcCallHandle | null)[]>([]);
-  const timersRef = useRef<(ReturnType<typeof setInterval> | null)[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Nettoyage : raccrocher tout + fermer le socket.
-  useEffect(() => {
-    return () => {
-      callsRef.current.forEach((c) => {
-        try {
-          c?.hangup();
-        } catch {
-          /* déjà raccroché */
-        }
-      });
-      try {
-        clientRef.current?.disconnect();
-      } catch {
-        /* socket déjà fermé */
-      }
-      timersRef.current.forEach((t) => {
-        if (t) clearInterval(t);
-      });
-      demoTimersRef.current.forEach((t) => clearTimeout(t));
-    };
-  }, []);
+  const clientRef = useRef<RtcClientHandle | null>(null);
+  const callsRef = useRef<(RtcCallHandle | null)[]>([]);
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const stateRef = useRef(state);
+  /** Réf vers skip : dialSlot arme un timeout non-réponse qui appelle skip ;
+   *  skip rappelle dialSlot pour composer le suivant. Cycle assumé, cassé par
+   *  une ref (pas de closure circulaire possible avec useCallback). */
+  const skipRef = useRef<(slot: number) => void>(() => {});
 
-  /** Arrête le chrono d'une ligne. */
-  const stopTimer = useCallback((slot: number) => {
-    if (timersRef.current[slot]) {
-      clearInterval(timersRef.current[slot]!);
-      timersRef.current[slot] = null;
-    }
+  // Refs de synchronisation : les listeners SDK et les timers sont créés une
+  // fois et ne doivent PAS capturer un state périmé. Assignation en effet (et
+  // pas pendant le render) — React interdit les effets de bord de render.
+  useEffect(() => {
+    stateRef.current = state;
+    skipRef.current = skip;
+  });
+
+  const clearDemoTimers = useCallback(() => {
+    demoTimersRef.current.forEach((t) => clearTimeout(t));
+    demoTimersRef.current = [];
   }, []);
 
   /** Composition réelle d'une ligne (après dispatch play/skip). */
   const dialSlot = useCallback(
-    async (slot: number, destination: string) => {
+    (slot: number, destination: string) => {
       const client = clientRef.current;
       if (!client) return; // simulation : le réducteur gère déjà l'état
       try {
-        const audioEl = document.querySelector<HTMLAudioElement>(
-          `audio[data-rtc-remote-${slot}]`,
+        const call = client.newCall(
+          newCallOptions(destination, `audio[data-rtc-remote-${slot}]`, {
+            id: callIdForSlot(slot),
+          }),
         );
-        const call = client.newCall({
-          id: callIdForSlot(slot),
-          destinationNumber: destination,
-          audio: AUDIO_CONSTRAINTS,
-          ...(getPreferredCodecs() ? { preferred_codecs: getPreferredCodecs() } : {}),
-          ...(audioEl ? { remoteElement: audioEl } : {}),
-        });
         callsRef.current[slot] = call;
         // PLACEHOLDER DÉMO (lot 11.5/11.6) : timeout non-réponse 20s pour
         // éviter le figement en dry-run. Le comportement PRODUCTION (lot 11.8)
@@ -153,36 +131,21 @@ export function useDialerPool({
         }, 20000);
         demoTimersRef.current.push(t); // nettoyé par hangupAll/skip
       } catch (e) {
-        dispatch({ type: 'line-error', slot, error: e instanceof Error ? e.message : 'Échec dial.' });
+        dispatch({ type: 'line-error', slot, error: telnyxErrorMessage(e) });
       }
     },
     [],
   );
 
-  /** Référence vers l'état courant pour les listeners (éviter les closures). */
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  /** Référence vers skip (permet à dialSlot de l'appeler sans closure circulaire). */
-  const skipRef = useRef<(slot: number) => void>(() => {});
-
   /** Compose réellement les lignes dispatchées en 'dialing'. */
-  const composeAfterPlay = useCallback(async () => {
-    const s = stateRef.current;
-    s.lines.forEach((line, slot) => {
+  const composeAfterPlay = useCallback(() => {
+    const current = stateRef.current;
+    current.lines.forEach((line, slot) => {
       if (line.phase === 'dialing' && line.destination) {
-        void dialSlot(slot, line.destination);
+        dialSlot(slot, line.destination);
       }
     });
   }, [dialSlot]);
-
-  /** Timers de la simulation démo (dry-run) — nettoyés par hangupAll/skip. */
-  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  const clearDemoTimers = useCallback(() => {
-    demoTimersRef.current.forEach((t) => clearTimeout(t));
-    demoTimersRef.current = [];
-  }, []);
 
   /**
    * Simulation démo (mode dry-run / aucun réseau) : fait tourner les phases
@@ -280,113 +243,102 @@ export function useDialerPool({
       client.on('telnyx.ready', () => {
         // Après connexion du socket : compose réellement les lignes déjà
         // dispatchées en 'dialing' par play().
-        void composeAfterPlay();
+        composeAfterPlay();
       });
       client.on('telnyx.notification', (data) => {
         const n = data as TelnyxNotification;
-        const callId = n?.call?.callId ?? n?.call?.id;
-        const s = n?.call?.state;
+        const callId = notifCallId(n);
+        const s = notifState(n);
         if (!callId || !s) return;
         const match = /^pool-slot-(\d+)$/.exec(callId);
         if (!match) return; // notification hors pool
         const slot = Number(match[1]);
-        const p = poolPhaseFromTelnyx(s);
+        const telnyxPhaseValue = telnyxPhase(s);
+        const p = telnyxPhaseValue ? PHASE_FROM_TELNYX[telnyxPhaseValue] : undefined;
         if (!p) return;
         if (p === 'dialing') dispatch({ type: 'line-dialing', slot });
         if (p === 'ringing') dispatch({ type: 'line-ringing', slot });
         if (p === 'connected') {
           dispatch({ type: 'answered', slot });
-          stopTimer(slot);
           // Coupe les autres lignes (le réducteur les passe à skipped,
           // ici on hangup réellement les calls des autres slots).
           callsRef.current.forEach((c, i) => {
             if (i !== slot) {
-              try {
-                c?.hangup();
-              } catch {
-                /* déjà raccroché */
-              }
+              safeHangup(c);
               callsRef.current[i] = null;
             }
           });
-          timersRef.current[slot] = setInterval(() => {
-            // durée de la ligne connectée (à afficher)
-          }, 1000);
         }
         if (p === 'ended') {
           dispatch({ type: 'line-ended', slot });
-          stopTimer(slot);
           setIsRunning(false);
         }
       });
       client.on('telnyx.socket.close', () => {
+        // Erreur globale : on expose le message à l'UI, on NE VIDE PAS la
+        // file (les numéros restants sont précieux — pire moment pour les
+        // perdre).
+        dispatch({ type: 'pool-error', error: 'Connexion WebRTC perdue (socket fermé).' });
         setIsRunning(false);
-        dispatch({ type: 'reset', queue: [] });
       });
       client.on('telnyx.error', (e) => {
-        const msg = e && typeof e === 'object' && 'message' in e
-          ? String((e as { message: unknown }).message)
-          : 'Erreur WebRTC Telnyx.';
-        // Erreur générale : on coupe tout.
+        dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
         setIsRunning(false);
-        dispatch({ type: 'reset', queue: [] });
-        console.error('[dialer.pool]', msg);
       });
 
       try {
         await client.connect();
-      } catch {
+      } catch (e) {
+        dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
         setIsRunning(false);
         return;
       }
     }
     // Si le client existait déjà, composer les lignes dispatchées.
-    void composeAfterPlay();
-  }, [token, composeAfterPlay, simulate, simulateNoAnswer, startDemoSimulation, stopTimer]);
+    composeAfterPlay();
+  }, [token, composeAfterPlay, simulate, simulateNoAnswer, startDemoSimulation]);
 
   const skip = useCallback(
     (slot: number) => {
       const line = stateRef.current.lines[slot];
       if (!line || line.phase === 'connected') return;
       clearDemoTimers();
-      try {
-        callsRef.current[slot]?.hangup();
-      } catch {
-        /* déjà raccroché */
-      }
+      safeHangup(callsRef.current[slot]);
       callsRef.current[slot] = null;
-      stopTimer(slot);
       dispatch({ type: 'skip', slot });
       // Compose le suivant si la file a avancé.
       const next = stateRef.current.queue[0];
       if (next !== undefined) {
-        void dialSlot(slot, next);
+        dialSlot(slot, next);
       }
     },
-    [clearDemoTimers, dialSlot, stopTimer],
+    [clearDemoTimers, dialSlot],
   );
-
-  // Met à jour la réf vers skip (dialSlot l'utilise sans closure circulaire).
-  skipRef.current = skip;
 
   const hangupAll = useCallback(() => {
     clearDemoTimers();
     callsRef.current.forEach((c, i) => {
-      try {
-        c?.hangup();
-      } catch {
-        /* déjà raccroché */
-      }
+      safeHangup(c);
       callsRef.current[i] = null;
-      stopTimer(i);
     });
     dispatch({ type: 'reset', queue: [] });
     setIsRunning(false);
-  }, [clearDemoTimers, stopTimer]);
+  }, [clearDemoTimers]);
 
   const setQueue = useCallback((destinations: string[]) => {
     dispatch({ type: 'reset', queue: destinations });
   }, []);
+
+  // Nettoyage à la sortie de la vue : raccrocher tout + fermer le socket.
+  useEffect(() => {
+    return () => {
+      clearDemoTimers();
+      callsRef.current.forEach((c) => safeHangup(c));
+      callsRef.current = [];
+      safeDisconnect(clientRef.current);
+      clientRef.current = null;
+    };
+  }, [clearDemoTimers]);
 
   return {
     state,
