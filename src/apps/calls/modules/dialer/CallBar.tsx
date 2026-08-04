@@ -27,7 +27,7 @@ export function CallBar() {
       {/* Sortie audio distante : monté en permanence ici (fix B2). */}
       <audio data-rtc-remote autoPlay className="calls-dialer__rtc-audio" />
 
-      <div className="calls-callbar__status">
+      <div className="calls-callbar__status" role="status" aria-live="polite">
         <Tag variant={isActive ? 'accent' : phase === 'failed' ? 'alert' : 'muted'}>
           {CALL_PHASE_LABEL[phase]}
         </Tag>
@@ -38,7 +38,7 @@ export function CallBar() {
 
       {destination && <span className="calls-callbar__dest">{destination}</span>}
 
-      {error && <p className="calls-dialer__error">{error}</p>}
+      {error && <p className="calls-dialer__error" role="alert">{error}</p>}
 
       {isActive && (
         <Button variant="danger" onClick={hangup}>

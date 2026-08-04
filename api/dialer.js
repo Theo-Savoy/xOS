@@ -6,17 +6,17 @@
  * P1-3 (circuit breaker), P2-5 (maxDuration).
  *
  * Resources:
- *   GET  /api/dialer?resource=config        — env, flags, budget remaining (open read)
+ *   GET  /api/dialer?resource=config        — env, flags, budget remaining (JWT)
  *   POST /api/dialer?resource=webhooks      — Telnyx webhook receiver (OPEN: Ed25519 is the auth)
  *   POST /api/dialer?resource=dial          — dial one contact (JWT + flags + budget gate)
+ *   POST /api/dialer?resource=webrtc_token  — token WebRTC éphémère (JWT + flags + entitlement + budget)
  *   GET  /api/dialer?resource=campaigns     — list user's campaigns (11.2)
  *   GET  /api/dialer?resource=calls         — list calls (11.2)
  *   GET  /api/dialer?resource=audit         — audit log read (manager/admin only, 11.1+)
  *
  * Auth model (critical, mirrors middleware.js isAuthBridge):
  *   - `webhooks` is OPEN. Telnyx cannot send a JWT; the Ed25519 signature is the auth.
- *   - EVERY other resource requires a valid JWT (verifyJWT).
- *   - `config` is an open read (state inspection without side effects).
+ *   - EVERY other resource requires a valid JWT (verifyJWT) — y compris config.
  *
  * Unified dry-run (audit §8-d): cfg.isDryRun OR flags.dryRun — the most
  * pessimistic wins. One boolean, exposed to the whole layer.
@@ -28,9 +28,15 @@ import { loadDialerConfig, loadDialerFlags } from './_dialer/config.js';
 import { handleWebhook } from './_dialer/webhooks.js';
 import { reserveBudget, releaseReservation, loadUserEntitlements } from './_dialer/budget.js';
 import { buildAuditRow, writeAudit } from './_dialer/audit.js';
-import { dialContact, hangupCall, issueRtcToken } from './_dialer/telnyx.js';
+import { dialContact, issueRtcToken } from './_dialer/telnyx.js';
+import { RateLimiter } from './_dialer/rateLimit.js';
 
 export const config = { maxDuration: 30 };
+
+// S4 (audit 11.13) : rate limiter par user. NOTE : bucket in-memory = par
+// instance Vercel (pas partagé multi-instance) — meilleur que rien, à passer
+// sur un store partagé (Redis/Supabase) si le dialer passe multi-instance.
+const rateLimiter = new RateLimiter({ capacity: 20, refillPerSecond: 5 });
 
 const headers = {
   'Content-Type': 'application/json',
@@ -44,6 +50,20 @@ const NOT_IMPLEMENTED = (resource) =>
     resource,
     message: `Resource ${resource} ships in a later lot (see docs/specs/lot-11.1-telnyx-infra.md).`,
   });
+
+/**
+ * S11 (audit 11.13) : pseudonymise un numéro E.164 pour l'audit — hash FNV-1a
+ * sans secret (déterministe, pas réversible, pas stocké en clair). Suffisant
+ * pour tracer sans exposer le numéro du prospect (RGPD / rétention).
+ */
+function hashE164(e164) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < e164.length; i += 1) {
+    h ^= e164.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `h${h.toString(16).padStart(8, '0')}`;
+}
 
 async function handleConfig(client, user) {
   const cfg = loadDialerConfig();
@@ -113,6 +133,12 @@ async function handleWebrtcToken(request, user) {
     return json(503, { error: 'dialer_disabled' });
   }
 
+  // S4 (audit 11.13) : rate limit par user (bucket in-memory, cf. note).
+  const rl = rateLimiter.tryConsume(`user:${user.id}`);
+  if (!rl.allowed) {
+    return json(429, { error: 'rate_limited', retry_after_ms: rl.retryAfterMs });
+  }
+
   const cfg = loadDialerConfig();
   const entitlements = await loadUserEntitlements(client, user.id);
 
@@ -158,24 +184,57 @@ async function handleWebrtcToken(request, user) {
     callerNumber = owned.e164;
   }
 
-  const token = await issueRtcToken({
-    apiKey: cfg.apiKey,
-    credentialId: entitlements.telnyxCredentialId,
-    ttlSec: 600,
-    dryRun: false,
+  // S1 (audit 11.13 sécurité) : le chemin WebRTC — le chemin RÉELLEMENT
+  // utilisé — doit être gardé comme le dial Call Control. Un token = un
+  // appel potentiel ≈ 1 cent : on réserve avant d'émettre. Sinon un user
+  // entitlé pourrait composer hors caps session/jour/org.
+  const reservation = await reserveBudget(client, {
+    userId: user.id,
+    campaignId: body?.campaign_id ?? null,
+    estimatedCostCents: 1,
+    caps: {
+      sessionCents: flags.budgetSessionCents,
+      userDayCents: entitlements.budgetDayCents,
+      orgMonthCents: flags.budgetOrgMonthCents,
+      userDayCalls: entitlements.callsDayLimit,
+      userMonthCalls: entitlements.callsMonthLimit,
+    },
   });
 
-  await writeAudit(client, buildAuditRow({
-    actorUserId: user.id,
-    actorKind: 'user',
-    action: 'webrtc_token',
-    payload: { credential_id: entitlements.telnyxCredentialId, caller_number: callerNumber },
-    costCents: 0,
-    result: 'success',
-    metadata: { env: cfg.env, dry_run: false },
-  })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+  if (!reservation.allowed) {
+    return json(429, { error: reservation.reason });
+  }
 
-  return json(200, { dry_run: false, token, caller_number: callerNumber, expires_in: 600 });
+  try {
+    const token = await issueRtcToken({
+      apiKey: cfg.apiKey,
+      credentialId: entitlements.telnyxCredentialId,
+      ttlSec: 600,
+      dryRun: false,
+    });
+
+    // Reservation consumed : le token est émis, l'appel est (potentiellement)
+    // passé. La consommation réelle exacte sera réconciliée sur hangup (Phase
+    // B — webhooks) ; ici on garde le cap défensif.
+    await releaseReservation(client, reservation.reservationId, { result: 'consumed' });
+
+    await writeAudit(client, buildAuditRow({
+      actorUserId: user.id,
+      actorKind: 'user',
+      action: 'webrtc_token',
+      payload: { caller_number: callerNumber },
+      costCents: 1,
+      result: 'success',
+      metadata: { env: cfg.env, dry_run: false },
+    })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+
+    return json(200, { dry_run: false, token, caller_number: callerNumber, expires_in: 600 });
+  } catch (err) {
+    // L'émission a échoué : on libère la réservation (cap non consommé).
+    await releaseReservation(client, reservation.reservationId, { result: 'released' });
+    console.error('[dialer] webrtc token issue failed:', err instanceof Error ? err.message : err);
+    return json(502, { error: 'webrtc_token_failed' });
+  }
 }
 
 /**
@@ -192,6 +251,12 @@ async function handleDial(request, user) {
     return json(503, { error: 'dialer_disabled' });
   }
 
+  // S4 (audit 11.13) : rate limit par user (bucket in-memory, cf. note).
+  const rl = rateLimiter.tryConsume(`user:${user.id}`);
+  if (!rl.allowed) {
+    return json(429, { error: 'rate_limited', retry_after_ms: rl.retryAfterMs });
+  }
+
   let body;
   try {
     body = await request.json();
@@ -200,16 +265,21 @@ async function handleDial(request, user) {
   }
 
   const to = body?.to;
-  const connectionId = body?.connection_id;
-  const webhookUrl = body?.webhook_url;
-  if (!to || !connectionId || !webhookUrl) {
-    return json(400, {
-      error: 'missing_fields',
-      required: ['to', 'connection_id', 'webhook_url'],
-    });
+  if (!to) {
+    return json(400, { error: 'missing_fields', required: ['to'] });
   }
-
+  // S3 (audit 11.13 sécurité) : validation E.164 serveur — le client ne doit
+  // pas pouvoir injecter un format non-E.164 (SIP, chaînes d'abus).
+  if (!/^\+[1-9]\d{6,14}$/.test(to)) {
+    return json(400, { error: 'invalid_e164' });
+  }
+  // S2 (audit 11.13 sécurité) : connection_id / webhook_url / from du body
+  // sont IGNORÉS — on résout connection et caller ID depuis la config
+  // serveur (fail-closed si non configuré, jamais de dial via une connection
+  // arbitraire contrôlée par le client). Le webhook est l'URL serveur fixe.
   const cfg = loadDialerConfig();
+  const connectionId = cfg.connectionId;
+  const webhookUrl = `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://xos-dechet-repo.vercel.app'}/api/dialer?resource=webhooks`;
 
   // Per-user entitlements (remote contract): enabled/dry_run/caps per user.
   const entitlements = await loadUserEntitlements(client, user.id);
@@ -223,6 +293,12 @@ async function handleDial(request, user) {
 
   if (!entitlements.enabled && !isDryRun) {
     return json(403, { error: 'dialer_entitlement_denied' });
+  }
+
+  // Fail-closed : sans connection Call Control configurée côté serveur, pas
+  // de dial (sauf dry-run qui ne touche pas le réseau).
+  if (!connectionId && !isDryRun) {
+    return json(503, { error: 'dial_not_configured' });
   }
 
   // Budget reservation — atomic (advisory lock in RPC). Estimated cost of one
@@ -265,14 +341,16 @@ async function handleDial(request, user) {
   }
 
   try {
-    // Idempotence : un command_id unique par intention (P0 codex). Deux clics
-    // ou un retry après timeout rejouent le MÊME id → Telnyx ignore le doublon
-    // au lieu de créer deux appels réels.
-    const commandId = `xos-dial-${crypto.randomUUID()}`;
+    // S5 (audit 11.13) : idempotence par header client stable. Un double-clic
+    // ou un retry après timeout rejoue la MÊME clé → Telnyx ignore le doublon
+    // au lieu de créer deux appels réels. En l'absence de clé (ancien client),
+    // on génère un id par requête (comportement historique, non dédupliqué).
+    const idemKey = request.headers.get('x-idempotency-key') ?? crypto.randomUUID();
+    const commandId = `xos-dial-${idemKey}`;
     const dialed = await dialContact({
       apiKey: cfg.apiKey,
       connectionId,
-      from: body?.from ?? cfg.callerId,
+      from: cfg.callerId, // S2 : caller ID résolu serveur, jamais du body
       to,
       webhookUrl,
       clientState: { sessionId: body?.session_id ?? null, contactId: body?.contact_id ?? null, userId: user.id },
@@ -289,7 +367,9 @@ async function handleDial(request, user) {
       actorUserId: user.id,
       actorKind: 'user',
       action: 'dial',
-      payload: { to, connection_id: connectionId, dry_run: isDryRun, command_id: commandId },
+      // S11 (audit 11.13) : `to` pseudonymisé (hash) — pas de numéro de
+      // prospect en clair dans l'audit (RGPD / rétention).
+      payload: { to: hashE164(to), connection_id: connectionId, dry_run: isDryRun, command_id: commandId },
       costCents: 1,
       result: 'success',
       metadata: { env: cfg.env, dry_run: isDryRun },
@@ -303,11 +383,11 @@ async function handleDial(request, user) {
       actorUserId: user.id,
       actorKind: 'user',
       action: 'dial',
-      payload: { to, connection_id: connectionId, dry_run: isDryRun },
+      payload: { to: hashE164(to), connection_id: connectionId, dry_run: isDryRun },
       result: 'failed',
       errorCode: err instanceof Error ? err.code ?? err.name : 'unknown',
     })).catch(() => {});
-    return json(502, { error: 'dial_failed', message: err instanceof Error ? err.message : String(err) });
+    return json(502, { error: 'dial_failed' });
   }
 }
 
@@ -369,7 +449,7 @@ export async function handler(request) {
       default:
         return json(400, {
           error: 'unknown_resource',
-          valid: ['config', 'webhooks', 'dial', 'campaigns', 'calls', 'audit'],
+          valid: ['config', 'webhooks', 'dial', 'webrtc_token', 'campaigns', 'calls', 'audit'],
         });
     }
   } catch (err) {

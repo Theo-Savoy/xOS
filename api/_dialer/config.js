@@ -53,6 +53,14 @@ export function loadDialerConfig() {
     env === 'prod' ? 'TELNYX_CALLER_ID_PROD' : 'TELNYX_CALLER_ID_DEV',
   );
 
+  // S2 (audit 11.13 sécurité) : la connection Call Control est résolue CÔTÉ
+  // SERVEUR — jamais depuis le body client (risque de dial via une connection
+  // arbitraire). Le chemin produit est WebRTC ; ce endpoint Call Control
+  // reste en place pour compat, fail-closed si non configuré en prod.
+  const connectionId = readEnv(
+    env === 'prod' ? 'TELNYX_CONNECTION_ID_PROD' : 'TELNYX_CONNECTION_ID_DEV',
+  );
+
   const webhookPublicKey = readEnv('WEBHOOK_TELNYX_PUBLIC_KEY');
 
   const toleranceSec = Number(readEnv('WEBHOOK_TELNYX_TOLERANCE_SEC') ?? '300');
@@ -62,6 +70,7 @@ export function loadDialerConfig() {
     isDryRun,
     apiKey,
     callerId,
+    connectionId,
     webhookPublicKey,
     webhookToleranceSec: Number.isFinite(toleranceSec) ? toleranceSec : 300,
     apiBase: 'https://api.telnyx.com/v2',

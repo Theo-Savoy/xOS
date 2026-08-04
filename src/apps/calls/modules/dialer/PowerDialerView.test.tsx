@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function playButton() {
-  return screen.getByRole('button', { name: /▶ Play/ });
+  return screen.getByRole('button', { name: /Play/ });
 }
 
 describe('PowerDialerView (mode démo)', () => {

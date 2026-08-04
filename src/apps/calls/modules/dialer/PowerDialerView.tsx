@@ -91,8 +91,13 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
               variant="primary"
               onClick={() => void pool.play()}
               disabled={pool.state.queue.length === 0 && pool.state.lines.every((l) => l.phase === 'idle')}
+              title={
+                pool.state.queue.length === 0
+                  ? 'Charge une file (Remplir démo) avant de lancer'
+                  : 'Compose les 3 prochains numéros en parallèle'
+              }
             >
-              ▶ Play
+              <span aria-hidden="true">▶ </span>Play
             </Button>
           )}
           <Button variant="secondary" onClick={onBack}>
@@ -101,13 +106,13 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
         </div>
       </header>
 
-      <section className="calls-power">
+      <section className="calls-power" aria-label="Session power dialing">
         {pool.state.error && (
           <p className="calls-dialer__error" role="alert">{pool.state.error}</p>
         )}
         {/* Compteurs live */}
         <GlassCard>
-          <div className="calls-power__counters">
+          <div className="calls-power__counters" role="status" aria-live="polite" aria-label="Indicateurs session">
             <div className="calls-power__counter">
               <span className="calls-power__counter-value">{counters.attempted}</span>
               <span className="calls-power__counter-label">tentés</span>

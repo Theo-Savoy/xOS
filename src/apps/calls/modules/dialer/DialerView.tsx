@@ -164,10 +164,9 @@ export function DialerView({ token, onBack }: DialerViewProps) {
 
         <GlassCard>
           <h3>Appeler (click-to-call, un appel à la fois)</h3>
-          {/* Sortie audio distante : le SDK WebRTC attache le flux ici.
-              Sans cet élément, l'appel part mais on n'entend rien (bug
-              "on n'a pas branché ça"). Autoplay autorisé après geste user. */}
-          <audio data-rtc-remote autoPlay className="calls-dialer__rtc-audio" />
+          {/* Le flux distant joue via l'audio GLOBAL de la CallBar
+              (data-rtc-remote, monté en permanence — fix B2 audit 11.3).
+              Un seul élément dans le DOM : querySelector est déterministe. */}
           <div className="calls-dialer__call-status">
             <Tag variant={isActive ? 'accent' : 'muted'}>{CALL_PHASE_LABEL[phase]}</Tag>
             {phase === 'connected' && durationSec > 0 && (
@@ -218,26 +217,35 @@ export function DialerView({ token, onBack }: DialerViewProps) {
                   type="tel"
                   value={callerNumber}
                   onChange={(e) => setCallerNumber(e.target.value)}
-                  placeholder="+331****6789 (fallback config)"
+                  placeholder="Aucun caller ID alloué"
                   autoComplete="off"
-                  disabled={isActive}
+                  disabled={isActive || !config?.caller_numbers?.length}
                 />
               )}
               <span className="calls-dialer__hint">
-                Numéro affiché au prospect (allocation par utilisateur).
+                {config?.caller_numbers?.length
+                  ? 'Numéro affiché au prospect (allocation par utilisateur).'
+                  : 'Aucun numéro alloué à ce compte — contacte un administrateur pour allouer un caller ID.'}
               </span>
             </label>
             <Button
               onClick={() => void onDial()}
-              disabled={isActive}
+              disabled={isActive || !enabled}
               variant={dryRunActive ? 'secondary' : 'primary'}
+              title={!enabled ? 'Dialer désactivé (flag base)' : undefined}
             >
               {dryRunActive ? 'Dial dry-run' : 'Appeler'}
             </Button>
           </div>
 
-          {formError && <p className="calls-dialer__error">{formError}</p>}
-          {error && <p className="calls-dialer__error">{error}</p>}
+          {!enabled && (
+            <p className="calls-dialer__error" role="status">
+              Dialer désactivé (flag base) — l'appel sera refusé par le serveur.
+            </p>
+          )}
+
+          {formError && <p className="calls-dialer__error" role="alert">{formError}</p>}
+          {error && <p className="calls-dialer__error" role="alert">{error}</p>}
 
           {phase === 'failed' && !error && (
             <p className="calls-dialer__error">

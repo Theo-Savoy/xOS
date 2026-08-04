@@ -48,8 +48,9 @@
   top: 0;
   z-index: 40;
   display: flex;
+  flex-wrap: wrap; /* D4 : pas de débordement sur vues étroites */
   align-items: center;
-  gap: 1rem;
+  gap: 0.6rem 1rem;
   padding: 0.6rem 1rem;
   background: rgba(18, 24, 33, 0.92);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -66,6 +67,13 @@
 
 .calls-callbar__dest {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40ch; /* D4 : tronque les numéros longs au lieu de déborder */
+}
+
+.calls-callbar .calls-dialer__error {
+  flex-basis: 100%; /* D4 : l'erreur passe sur sa propre ligne */
 }
 
 /* Tout ce qui affiche un numéro ou un chrono : chiffres à chasse fixe. */
@@ -222,4 +230,15 @@
   font-size: 0.75rem;
   opacity: 0.6;
   margin: 0;
+}
+
+/* D5 (audit 11.13) : responsive — les 4 compteurs passent en 2 colonnes
+   sous 640px, les actions du header passent en wrap. */
+@media (max-width: 640px) {
+  .calls-power__counters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .calls-view__header .calls-view__actions {
+    flex-wrap: wrap;
+  }
 }
