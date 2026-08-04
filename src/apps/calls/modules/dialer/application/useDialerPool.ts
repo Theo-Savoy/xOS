@@ -17,7 +17,7 @@
  * différents de la simulation mono-ligne (useRtcCall).
  */
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { createPoolState, type PoolState } from '../domain/PoolState';
 import { poolReducer } from './poolLogic';
 import {
@@ -82,8 +82,6 @@ export function useDialerPool({
     undefined,
     () => createPoolState(size, []),
   );
-  const [isRunning, setIsRunning] = useState(false);
-
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callsRef = useRef<(RtcCallHandle | null)[]>([]);
   const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -189,20 +187,13 @@ export function useDialerPool({
       });
       // Fin de la démo sans réponse : on stoppe (les slots sont skipped
       // ou en dialing avec les suivants — l'utilisateur re-clique Play).
-      timers.push(
-        setTimeout(() => {
-          setIsRunning(false);
-        }, 10000),
-      );
+      timers.push(setTimeout(() => dispatch({ type: 'stop' }), 10000));
     } else {
       timers.push(
         setTimeout(() => {
           dispatch({ type: 'answered', slot: 0 });
         }, 2000),
-        setTimeout(() => {
-          dispatch({ type: 'line-ended', slot: 0 });
-          setIsRunning(false);
-        }, 10000),
+        setTimeout(() => dispatch({ type: 'line-ended', slot: 0 }), 10000),
       );
     }
     demoTimersRef.current.push(...timers);
@@ -211,7 +202,6 @@ export function useDialerPool({
   const play = useCallback(async () => {
     // Déclenchement HUMAIN : l'état UI passe immédiatement en cours.
     dispatch({ type: 'play' });
-    setIsRunning(true);
 
     // Mode démo : JAMAIS de réseau réel, même si le token est émis (G2).
     // La file factice ne doit jamais composer de vrais appels.
@@ -271,7 +261,6 @@ export function useDialerPool({
         }
         if (p === 'ended') {
           dispatch({ type: 'line-ended', slot });
-          setIsRunning(false);
         }
       });
       client.on('telnyx.socket.close', () => {
@@ -279,24 +268,21 @@ export function useDialerPool({
         // file (les numéros restants sont précieux — pire moment pour les
         // perdre).
         dispatch({ type: 'pool-error', error: 'Connexion WebRTC perdue (socket fermé).' });
-        setIsRunning(false);
       });
       client.on('telnyx.error', (e) => {
         dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
-        setIsRunning(false);
       });
 
       try {
         await client.connect();
       } catch (e) {
         dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
-        setIsRunning(false);
         return;
       }
     }
     // Si le client existait déjà, composer les lignes dispatchées.
     composeAfterPlay();
-  }, [token, composeAfterPlay, simulate, simulateNoAnswer, startDemoSimulation]);
+  }, [token, composeAfterPlay, simulate, startDemoSimulation]);
 
   const skip = useCallback(
     (slot: number) => {
@@ -322,7 +308,6 @@ export function useDialerPool({
       callsRef.current[i] = null;
     });
     dispatch({ type: 'reset', queue: [] });
-    setIsRunning(false);
   }, [clearDemoTimers]);
 
   const setQueue = useCallback((destinations: string[]) => {
@@ -346,6 +331,8 @@ export function useDialerPool({
     play,
     skip,
     hangupAll,
-    isRunning,
+    // Source de vérité unique : le réducteur. (Un useState miroir vivait ici
+    // et divergeait de state.running sur la fin de démo sans réponse.)
+    isRunning: state.running,
   };
 }

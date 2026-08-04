@@ -171,7 +171,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       setTimeout(() => {
         setPhaseSafe('wrapping');
         stopTimer();
-        setTimeout(() => setPhaseSafe('idle'), 2000);
+        simTimersRef.current.push(setTimeout(() => setPhaseSafe('idle'), 2000));
       }, 30000),
     );
     stream.getTracks().forEach((t) => t.stop());
@@ -179,72 +179,13 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   }, [clearSimTimers, setPhaseSafe, stopTimer]);
 
   /**
-   * Lance un appel. C'est le SEUL point d'entrée d'un appel (humain, explicite).
-   * Retourne true si l'appel est parti, false si bloqué avant (micro refusé…).
-   * callerNumber : identifiant appelant affiché (sélecteur Phase A).
+   * Câble les événements du SDK sur la machine à états. Sorti de startCall
+   * (qui garde ainsi une lecture linéaire : garde → micro → token → client →
+   * écoute → connect). Aucun changement de comportement : même ordre, même
+   * garde onLive.
    */
-  const startCall = useCallback(
-    async (to: string, callerNumber?: string): Promise<boolean> => {
-      if (phaseRef.current === 'dialing' || phaseRef.current === 'connected') {
-        return false; // garde synchrone anti-double-dial
-      }
-      setError(null);
-      setPhaseSafe('dialing');
-      setDestination(to);
-
-      // §8.1 (audit 11.13) : un appel précédent peut avoir laissé un client
-      // connecté (le prospect a raccroché sans passer par hangup()). On le
-      // déconnecte AVANT d'en créer un nouveau — sinon le client n°1 reste
-      // abonné et ses handlers peuvent écraser l'état de l'appel n°2.
-      // Même famille : le timeout de diagnostic 20 s de l'appel précédent
-      // ferait passer CET appel en failed s'il est encore armé.
-      clearDialTimeout();
-      dropClient();
-
-      // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        setPhaseSafe('failed');
-        setError('Micro refusé — impossible d’appeler sans micro.');
-        return false;
-      }
-
-      // 2. Token WebRTC (le serveur n'en émet pas en dry-run — G2).
-      // B7 : on transmet le caller_number choisi pour validation serveur.
-      let rtcToken: string | null = null;
-      try {
-        const res = await fetchRtcToken(token, callerNumber);
-        rtcToken = res.token;
-      } catch (e) {
-        // Pas de token : si on est en dry-run c'est normal (simulation),
-        // sinon c'est une erreur.
-        if (!dryRun) {
-          setPhaseSafe('failed');
-          setError(telnyxErrorMessage(e));
-          stream.getTracks().forEach((t) => t.stop());
-          return false;
-        }
-      }
-
-      // 3. Client — null en dry-run ⇒ simulation sans réseau (G2).
-      const client = await createRtcClient(rtcToken);
-      clientRef.current = client;
-
-      if (!client) {
-        return runSimulation(stream);
-      }
-
-      // 4. Réel : brancher le micro, écouter les événements, composer.
-      // B1 (audit 11.3) : le constructeur NE connecte PAS — sans connect()
-      // le socket n'ouvre jamais, telnyx.ready ne fire pas, l'appel ne part
-      // pas. On enregistre les listeners PUIS on connecte.
-      //
-      // §8.1 (audit 11.13) : tout listener passe par onLive. Dès que ce client
-      // n'est plus LE client courant (appel suivant, hangup, unmount), ses
-      // événements sont ignorés — sinon un socket.close tardif du client
-      // abandonné fait échouer l'appel en cours.
+  const attachSdkListeners = useCallback(
+    (client: RtcClientHandle, to: string, callerNumber?: string) => {
       const onLive = (event: string, cb: (data: unknown) => void) => {
         client.on(event, (data) => {
           if (clientRef.current === client) cb(data);
@@ -341,6 +282,81 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           /* stats facultatives : ne pas casser l'appel */
         }
       });
+    },
+    [setPhaseSafe, stopTimer],
+  );
+
+  /**
+   * Lance un appel. C'est le SEUL point d'entrée d'un appel (humain, explicite).
+   * Retourne true si l'appel est parti, false si bloqué avant (micro refusé…).
+   * callerNumber : identifiant appelant affiché (sélecteur Phase A).
+   */
+  const startCall = useCallback(
+    async (to: string, callerNumber?: string): Promise<boolean> => {
+      if (phaseRef.current === 'dialing' || phaseRef.current === 'connected') {
+        return false; // garde synchrone anti-double-dial
+      }
+      setError(null);
+      setPhaseSafe('dialing');
+      setDestination(to);
+
+      // §8.1 (audit 11.13) : un appel précédent peut avoir laissé un client
+      // connecté (le prospect a raccroché sans passer par hangup()). On le
+      // déconnecte AVANT d'en créer un nouveau — sinon le client n°1 reste
+      // abonné et ses handlers peuvent écraser l'état de l'appel n°2.
+      // Même famille : le timeout de diagnostic 20 s de l'appel précédent
+      // ferait passer CET appel en failed s'il est encore armé — et les timers
+      // de simulation / de sortie de wrapping (retour à 'idle' à 1,5 s / 2 s)
+      // écraseraient sa phase. On purge les deux.
+      clearDialTimeout();
+      clearSimTimers();
+      dropClient();
+
+      // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        setPhaseSafe('failed');
+        setError('Micro refusé — impossible d’appeler sans micro.');
+        return false;
+      }
+
+      // 2. Token WebRTC (le serveur n'en émet pas en dry-run — G2).
+      // B7 : on transmet le caller_number choisi pour validation serveur.
+      let rtcToken: string | null = null;
+      try {
+        const res = await fetchRtcToken(token, callerNumber);
+        rtcToken = res.token;
+      } catch (e) {
+        // Pas de token : si on est en dry-run c'est normal (simulation),
+        // sinon c'est une erreur.
+        if (!dryRun) {
+          setPhaseSafe('failed');
+          setError(telnyxErrorMessage(e));
+          stream.getTracks().forEach((t) => t.stop());
+          return false;
+        }
+      }
+
+      // 3. Client — null en dry-run ⇒ simulation sans réseau (G2).
+      const client = await createRtcClient(rtcToken);
+      clientRef.current = client;
+
+      if (!client) {
+        return runSimulation(stream);
+      }
+
+      // 4. Réel : brancher le micro, écouter les événements, composer.
+      // B1 (audit 11.3) : le constructeur NE connecte PAS — sans connect()
+      // le socket n'ouvre jamais, telnyx.ready ne fire pas, l'appel ne part
+      // pas. On enregistre les listeners PUIS on connecte.
+      //
+      // §8.1 (audit 11.13) : tout listener passe par onLive. Dès que ce client
+      // n'est plus LE client courant (appel suivant, hangup, unmount), ses
+      // événements sont ignorés — sinon un socket.close tardif du client
+      // abandonné fait échouer l'appel en cours.
+      attachSdkListeners(client, to, callerNumber);
 
       // B4 (audit 11.3) : stopper le stream de pré-vol — le SDK gère son propre
       // getUserMedia via audio:true. Évite la double capture et le voyant micro
@@ -369,7 +385,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, runSimulation, dropClient],
+    [token, dryRun, setPhaseSafe, clearDialTimeout, clearSimTimers, runSimulation, dropClient, attachSdkListeners],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */
@@ -380,7 +396,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     dropClient();
     setPhaseSafe('wrapping');
     // Pas d'auto-next : on reste en wrapping, l'humain décide la suite.
-    setTimeout(() => setPhaseSafe('idle'), 1500);
+    simTimersRef.current.push(setTimeout(() => setPhaseSafe('idle'), 1500));
   }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, dropClient]);
 
   return {

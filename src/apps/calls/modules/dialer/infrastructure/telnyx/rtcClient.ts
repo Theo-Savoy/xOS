@@ -24,7 +24,7 @@ export type RtcCallHandle = {
   peer?: { instance?: RTCPeerConnection | null };
 };
 
-export type RtcCodec = {
+type RtcCodec = {
   mimeType: string;
   clockRate: number;
   channels?: number;
@@ -44,14 +44,16 @@ export type RtcClientHandle = {
     preferred_codecs?: RtcCodec[];
   }) => RtcCallHandle;
   on: (event: string, cb: (data: unknown) => void) => void;
-  off?: (event: string, cb: (data: unknown) => void) => void;
+  // Pas de `off` : le SDK n'en expose pas de fiable selon les versions/mocks.
+  // Les listeners d'un client abandonné sont neutralisés par la garde
+  // d'identité `onLive` (useRtcCall §8.1), pas par un désabonnement.
   disconnect: () => Promise<void> | void;
 };
 
 /** Constraints audio qualité (2026-08-04) : le SDK accepte un objet
  * MediaTrackConstraints au lieu de `audio: true` — on force le traitement
  * qualité du micro (annulation d'écho, suppression du bruit, AGC). */
-export const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
   autoGainControl: true,
@@ -120,7 +122,7 @@ export function safeDisconnect(client: RtcClientHandle | null | undefined): void
 /** Codecs préférés : G.722 d'abord (pas de transcodage vers le PSTN → HD
  *  jusqu'au mobile), OPUS en fallback. Verdict lot 11.4 :
  *  docs/audits/lot-11.4-bitrate-investigation.md */
-export function getPreferredCodecs(): RtcCodec[] | undefined {
+function getPreferredCodecs(): RtcCodec[] | undefined {
   try {
     const caps = RTCRtpSender.getCapabilities?.('audio');
     const codecs = caps?.codecs?.filter((c) =>

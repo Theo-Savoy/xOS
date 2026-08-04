@@ -15,6 +15,9 @@
  *                lignes en cours sont coupées (skipped).
  *   line-ended   fin de la ligne connectée → running=false (STOP). JAMAIS
  *                d'enchaînement auto : l'humain re-clique Play (ARCEP §7.1.3).
+ *   stop         fin de cycle sans ligne terminée (aucune réponse) →
+ *                running=false. `running` est la SEULE source de vérité du
+ *                « un cycle est ouvert » (pas de useState miroir dans le hook).
  *   pool-error   erreur globale (socket perdu, …) → running=false, l'erreur
  *                est exposée à l'UI. La file n'est PAS vidée.
  */
@@ -26,6 +29,7 @@ export type PoolAction =
   | { type: 'skip'; slot: number }
   | { type: 'answered'; slot: number }
   | { type: 'line-ended'; slot: number }
+  | { type: 'stop' }
   | { type: 'line-dialing'; slot: number }
   | { type: 'line-ringing'; slot: number }
   | { type: 'line-error'; slot: number; error: string }
@@ -106,6 +110,11 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
       );
       return { ...state, lines, running: false };
     }
+
+    case 'stop':
+      // Fin de cycle sans ligne terminée (aucune réponse, socket coupé…) :
+      // le bouton repasse en Play, la file et les lignes restent en place.
+      return state.running ? { ...state, running: false } : state;
 
     case 'line-dialing':
       return patchLine(state, action.slot, { phase: 'dialing' });

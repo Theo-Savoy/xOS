@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button, EmptyState, GlassCard, Tag } from '../../../../components/ui';
 import { useDialerPool } from './application/useDialerPool';
 import { POOL_PHASE_LABEL } from './domain/phaseLabels';
@@ -43,22 +43,18 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
 
   // Mode démo : pré-remplit la file avec des numéros factices pour tester
   // l'UI power en dry-run (aucun appel réel — le pool est en simulation).
-  const loadDemo = useCallback(() => {
+  const loadDemo = () => {
     pool.setQueue(DEMO_NUMBERS);
     setDemo(true);
-  }, [pool.setQueue]);
+  };
 
-  const counters = useMemo(() => {
-    let connected = 0;
-    let conversations = 0;
-    let attempted = 0;
-    for (const line of pool.state.lines) {
-      if (line.phase === 'connected') connected += 1;
-      if (line.phase === 'ended') conversations += 1;
-      if (line.phase !== 'idle') attempted += 1;
-    }
-    return { attempted, connected, conversations };
-  }, [pool.state.lines]);
+  // 3 lignes : compté à chaque render, pas de useMemo (le coût de la
+  // mémoïsation dépasse celui du calcul).
+  const counters = {
+    attempted: pool.state.lines.filter((l) => l.phase !== 'idle').length,
+    connected: pool.state.lines.filter((l) => l.phase === 'connected').length,
+    conversations: pool.state.lines.filter((l) => l.phase === 'ended').length,
+  };
 
   return (
     <div className="calls-view">

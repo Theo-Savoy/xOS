@@ -130,4 +130,32 @@ describe('useRtcCall — §8.1 client précédent', () => {
     expect(result.current.error).toBeNull();
     vi.useRealTimers();
   });
+
+  // Même famille que §8.1, côté timers de simulation : hangup() arme un retour
+  // à 'idle' à 1,5 s. Si l'agent rappelle tout de suite, ce timer résiduel
+  // remettait l'appel n°2 (en cours de composition) à 'idle'.
+  it('n’hérite pas du retour à idle armé par le hangup précédent', async () => {
+    vi.useFakeTimers();
+    mockCreateRtcClient.mockResolvedValueOnce(makeClient()).mockResolvedValueOnce(makeClient());
+
+    const { result } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+
+    await act(async () => {
+      await result.current.startCall('+33123456789');
+    });
+    act(() => {
+      result.current.hangup(); // wrapping → idle dans 1,5 s
+    });
+    expect(result.current.phase).toBe('wrapping');
+
+    await act(async () => {
+      await result.current.startCall('+33987654321');
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
+    });
+
+    expect(result.current.phase).toBe('dialing');
+    vi.useRealTimers();
+  });
 });

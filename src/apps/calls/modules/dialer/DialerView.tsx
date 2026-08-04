@@ -47,7 +47,6 @@ export function DialerView({ token, onBack }: DialerViewProps) {
   const [to, setTo] = useState('');
   const [callerNumber, setCallerNumber] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ dry_run: boolean } | null>(null);
 
   const loadConfig = useCallback(async () => {
     setConfigError(null);
@@ -80,17 +79,13 @@ export function DialerView({ token, onBack }: DialerViewProps) {
   const { phase, error, durationSec, callStats, startCall, hangup, isActive } = useDialer();
 
   const onDial = useCallback(async () => {
-    setResult(null);
     setFormError(null);
     if (!to.trim()) {
       setFormError('Numéro requis (format E.164, ex : +331****6789).');
       return;
     }
-    const started = await startCall(to.trim(), callerNumber.trim() || undefined);
-    if (started) {
-      setResult({ dry_run: dryRunActive });
-    }
-  }, [to, callerNumber, startCall, dryRunActive]);
+    await startCall(to.trim(), callerNumber.trim() || undefined);
+  }, [to, callerNumber, startCall]);
 
   return (
     <div className="calls-view">
@@ -263,13 +258,14 @@ export function DialerView({ token, onBack }: DialerViewProps) {
             </p>
           )}
 
-          {result && phase === 'ended' && (
+          {/* phase 'ended' ⇒ un appel a bien démarré : pas besoin d'un état
+              `result` miroir pour le savoir. */}
+          {phase === 'ended' && (
             <div className="calls-dialer__result">
               <h4>Appel terminé</h4>
               <p className="calls-dialer__hint">
-                Durée : {durationSec}s
+                Durée : {durationSec}s — {dryRunActive ? 'dry-run (aucun appel réel)' : 'appel réel'}
               </p>
-              <pre>{JSON.stringify(result, null, 2)}</pre>
             </div>
           )}
         </GlassCard>

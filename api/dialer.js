@@ -118,21 +118,27 @@ async function handleConfig(client, user) {
   });
 }
 
+/** Caps de budget : mêmes plafonds pour le dial Call Control et le token
+ *  WebRTC (org via flags, user via entitlements). */
+function budgetCaps(flags, entitlements) {
+  return {
+    sessionCents: flags.budgetSessionCents,
+    userDayCents: entitlements.budgetDayCents,
+    orgMonthCents: flags.budgetOrgMonthCents,
+    userDayCalls: entitlements.callsDayLimit,
+    userMonthCalls: entitlements.callsMonthLimit,
+  };
+}
+
 /**
  * POST ?resource=webrtc_token — token éphémère pour le SDK WebRTC.
  * (Audit 11.2 B.2) Mêmes gates que le dial : JWT → flags → entitlement →
  * dry-run. En dry-run, AUCUN token n'est émis : le navigateur ne peut pas se
  * connecter parce qu'il n'a rien avec quoi se connecter (G2).
+ * `client` et `flags` sont résolus par le routeur (JWT → client → flags.enabled),
+ * qui a déjà renvoyé 503 si le dialer est coupé.
  */
-async function handleWebrtcToken(request, user) {
-  const client = getServiceClient();
-  if (!client) return json(500, { error: 'service_client_unavailable' });
-
-  const flags = await loadDialerFlags(client);
-  if (!flags.enabled) {
-    return json(503, { error: 'dialer_disabled' });
-  }
-
+async function handleWebrtcToken(request, user, client, flags) {
   // S4 (audit 11.13) : rate limit par user (bucket in-memory, cf. note).
   const rl = rateLimiter.tryConsume(`user:${user.id}`);
   if (!rl.allowed) {
@@ -192,13 +198,7 @@ async function handleWebrtcToken(request, user) {
     userId: user.id,
     campaignId: body?.campaign_id ?? null,
     estimatedCostCents: 1,
-    caps: {
-      sessionCents: flags.budgetSessionCents,
-      userDayCents: entitlements.budgetDayCents,
-      orgMonthCents: flags.budgetOrgMonthCents,
-      userDayCalls: entitlements.callsDayLimit,
-      userMonthCalls: entitlements.callsMonthLimit,
-    },
+    caps: budgetCaps(flags, entitlements),
   });
 
   if (!reservation.allowed) {
@@ -239,18 +239,11 @@ async function handleWebrtcToken(request, user) {
 
 /**
  * POST ?resource=dial — dial ONE contact through Telnyx.
- * Gate order: JWT → flags.enabled → budget check → Telnyx dial.
+ * Gate order: JWT → flags.enabled → budget check → Telnyx dial. Les deux
+ * premières gates sont tenues par le routeur, qui passe `client` et `flags`.
  * On ORG_EXCEEDED the kill switch is flipped (P1-3) — dialer_enabled=false.
  */
-async function handleDial(request, user) {
-  const client = getServiceClient();
-  if (!client) return json(500, { error: 'service_client_unavailable' });
-
-  const flags = await loadDialerFlags(client);
-  if (!flags.enabled) {
-    return json(503, { error: 'dialer_disabled' });
-  }
-
+async function handleDial(request, user, client, flags) {
   // S4 (audit 11.13) : rate limit par user (bucket in-memory, cf. note).
   const rl = rateLimiter.tryConsume(`user:${user.id}`);
   if (!rl.allowed) {
@@ -307,13 +300,7 @@ async function handleDial(request, user) {
     userId: user.id,
     campaignId: body?.campaign_id ?? null,
     estimatedCostCents: 1,
-    caps: {
-      sessionCents: flags.budgetSessionCents,
-      userDayCents: entitlements.budgetDayCents,
-      orgMonthCents: flags.budgetOrgMonthCents,
-      userDayCalls: entitlements.callsDayLimit,
-      userMonthCalls: entitlements.callsMonthLimit,
-    },
+    caps: budgetCaps(flags, entitlements),
   });
 
   if (!reservation.allowed) {
@@ -432,14 +419,14 @@ export async function handler(request) {
     }
 
     if (resource === 'dial' && request.method === 'POST') {
-      return await handleDial(request, user);
+      return await handleDial(request, user, client, flags);
     }
 
     // Token WebRTC éphémère (audit 11.2 B.2) : mêmes gates que le dial, mais
     // en dry-run on n'émet AUCUN token — le navigateur ne peut pas se
     // connecter parce qu'il n'a rien avec quoi se connecter (G2).
     if (resource === 'webrtc_token' && request.method === 'POST') {
-      return await handleWebrtcToken(request, user);
+      return await handleWebrtcToken(request, user, client, flags);
     }
 
     // Defer to lot 11.2+
