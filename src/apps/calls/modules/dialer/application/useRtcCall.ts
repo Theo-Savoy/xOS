@@ -14,7 +14,8 @@
  * - Le SDK pilote l'UI ; les webhooks piloteront le registre (Phase B).
  *
  * Simulation mono-ligne (démo). Le pool a sa propre simulation, voir
- * useDialerPool.startDemoSimulation — les timings diffèrent volontairement.
+ * useDialerPool.startDemoSimulation — les timings diffèrent volontairement
+ * (1,5s/30s ici, 300ms/2s/10s là-bas).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -154,6 +155,15 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       setError(null);
       setPhaseSafe('dialing');
       setDestination(to);
+
+      // §8.1 (audit 11.13) : un appel précédent peut avoir laissé un client
+      // connecté (le prospect a raccroché sans passer par hangup()). On le
+      // déconnecte AVANT d'en créer un nouveau — sinon le client n°1 reste
+      // abonné et ses handlers peuvent écraser l'état de l'appel n°2.
+      safeDisconnect(clientRef.current);
+      clientRef.current = null;
+      safeHangup(callRef.current);
+      callRef.current = null;
 
       // 1. Micro D'ABORD, sur le geste utilisateur (B.4).
       let stream: MediaStream;

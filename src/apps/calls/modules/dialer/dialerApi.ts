@@ -1,10 +1,17 @@
 /**
  * modules/dialer/dialerApi.ts — typed client for /api/dialer.
  *
- * GET  /api/dialer?resource=config  — open read (state inspection)
+ * GET  /api/dialer?resource=config  — JWT requis (fix visibilité audit §2.3)
  * POST /api/dialer?resource=dial    — dial one contact (JWT + flags + budget gate)
+ * POST /api/dialer?resource=webrtc_token — token WebRTC éphémère (JWT + gates)
  *
  * The Supabase session token IS the auth: the route verifies it server-side.
+ *
+ * NOTE (audit 11.13 §2.11) : dialCall() n'a AUCUN appelant en production — le
+ * dial passe par WebRTC (fetchRtcToken + SDK). Le endpoint serveur
+ * ?resource=dial reste en place (api/dialer.js, gardé par budget + E.164 +
+ * idempotency depuis le lot 11.13). Conservé comme chemin Call Control de
+ * secours / futur — à supprimer ou réactiver selon arbitrage produit.
  */
 
 import { apiFetch, ApiError } from '../../../../lib/apiClient';

@@ -141,6 +141,15 @@ export function PowerDialerView({ token, onBack }: PowerDialerViewProps) {
                 key={line.slot}
                 className={`calls-power__line calls-power__line--${line.phase}`}
               >
+                {/* Sortie audio de CETTE ligne : le SDK attache le flux distant
+                    ici. Sans cet élément, l'appel part mais on n'entend rien
+                    (fix §8.3 audit 11.13 — même bug que B2 mono-ligne, non
+                    corrigé pour le pool car jamais exercé en réel avant). */}
+                <audio
+                  {...{ [`data-rtc-remote-${line.slot}`]: '' }}
+                  autoPlay
+                  className="calls-dialer__rtc-audio"
+                />
                 <div className="calls-power__line-head">
                   <Tag
                     variant={
