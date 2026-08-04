@@ -1950,6 +1950,7 @@ export default function CallManagerApp({
           onOpenPilotage={() => setView('pilotage')}
           onOpenRdvSuivi={() => setView('rdv-suivi')}
           onOpenDialer={() => setView('dialer')}
+          onOpenPowerDialer={() => setView('power-dialer')}
           onUpdateSession={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
           onShareSession={(id) => setShareSessionId(id)}

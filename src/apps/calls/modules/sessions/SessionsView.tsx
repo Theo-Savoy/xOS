@@ -32,6 +32,7 @@ type SessionsViewProps = {
   onOpenRdvSuivi?: () => void;
   canDialer?: boolean;
   onOpenDialer?: () => void;
+  onOpenPowerDialer?: () => void;
   onUpdateSession: (
     sessionId: number,
     patch: {
@@ -143,6 +144,7 @@ export function SessionsView({
   onOpenRdvSuivi,
   canDialer = false,
   onOpenDialer,
+  onOpenPowerDialer,
   onUpdateSession,
   onDeleteSession,
   onShareSession,
@@ -290,6 +292,11 @@ export function SessionsView({
           {canDialer && onOpenDialer && (
             <Button variant="secondary" onClick={onOpenDialer}>
               Dialer
+            </Button>
+          )}
+          {canDialer && onOpenPowerDialer && (
+            <Button variant="secondary" onClick={onOpenPowerDialer}>
+              Power dialer
             </Button>
           )}
           <Button variant="secondary" onClick={onRefresh} disabled={loading}>
