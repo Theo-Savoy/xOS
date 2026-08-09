@@ -168,3 +168,95 @@ describe('useRtcCall — §8.1 client précédent', () => {
     vi.useRealTimers();
   });
 });
+
+/**
+ * F1/F2 (audit lot-11.7) : chaque chemin de sortie revendiqué par la spec
+ * doit ÉMETTRE notifyCallEnded — asservi à une assertion, pas seulement
+ * mocké. Avant ces tests, F1 (démontage orphelin) passait inaperçu.
+ */
+describe('useRtcCall — lot 11.7 clôture du registre (F1/F2)', () => {
+  it('F1 : démontage en cours d’appel clôt le registre (pas d’orphelin)', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValueOnce(client);
+    const { result, unmount } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+
+    await act(async () => {
+      await result.current.startCall('+331****6789');
+    });
+    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    // Sans le fix F1, dropClient() vidait clientRef avant le disconnect et la
+    // garde onLive neutralisait le rattrapage socket.close : 0 émission.
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
+      callRecordId: 1,
+      status: 'ended',
+      answered: false, // jamais décroché → budget libéré
+    });
+  });
+
+  it('F2 : hangup explicite clôt le registre', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValueOnce(client);
+    const { result } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+
+    await act(async () => {
+      await result.current.startCall('+331****6789');
+    });
+    act(() => {
+      result.current.hangup();
+    });
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
+      callRecordId: 1,
+      status: 'ended',
+      answered: false,
+    });
+  });
+
+  it('F2 : notification SDK ended clôt le registre, consommé si décroché', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValueOnce(client);
+    const { result } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+
+    await act(async () => {
+      await result.current.startCall('+331****6789');
+    });
+    // Le prospect décroche (active) puis raccroche (hangup).
+    act(() => {
+      client.emit('telnyx.notification', { call: { state: 'active', callId: 'c1' } });
+    });
+    expect(result.current.phase).toBe('connected');
+    act(() => {
+      client.emit('telnyx.notification', { call: { state: 'hangup', callId: 'c1' } });
+    });
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
+      callRecordId: 1,
+      status: 'ended',
+      answered: true, // décroché → budget consommé
+    });
+  });
+
+  it('F2 : double clôture (ended SDK puis hangup) n’émet qu’une fois', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValueOnce(client);
+    const { result } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+
+    await act(async () => {
+      await result.current.startCall('+331****6789');
+    });
+    act(() => {
+      client.emit('telnyx.notification', { call: { state: 'hangup', callId: 'c1' } });
+    });
+    act(() => {
+      result.current.hangup(); // l'agent raccroche aussi (id remis à null → no-op)
+    });
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+  });
+});

@@ -18,10 +18,18 @@
  * lot 11.8) si l'onglet meurt avant.
  */
 
-/** S11 : le numéro du prospect ne sort jamais en clair du serveur. */
+/**
+ * S11 : le numéro du prospect ne sort jamais en clair du serveur.
+ * F4 (audit lot-11.7) : plancher relevé à 8 (minimum E.164 valide :
+ * « + » + 7 chiffres) — en dessous, masquage INTÉGRAL. L'ancienne version
+ * (slice(0,6)) révélait intégralement toute entrée ≤ 6 caractères.
+ * Les numéros courts (8-10) ne gardent que l'indicatif pays ; les normaux
+ * gardent préfixe pays + 2 derniers chiffres.
+ */
 export function maskE164(e164) {
-  if (typeof e164 !== 'string' || e164.length < 4) return '****';
-  return `${e164.slice(0, 6)}****${e164.slice(-2)}`;
+  if (typeof e164 !== 'string' || e164.length < 8) return '****';
+  if (e164.length < 11) return `${e164.slice(0, 2)}****`;
+  return `${e164.slice(0, 3)}****${e164.slice(-2)}`;
 }
 
 /**
@@ -82,7 +90,12 @@ export async function closeCallRow(client, {
   if (findErr) throw new Error(`dialer_calls lookup failed: ${findErr.message}`);
   if (!existing) return { closed: false };
 
-  const { error: updateErr } = await client
+  // F3 (audit lot-11.7) : le release est conditionné aux lignes RÉELLEMENT
+  // mises à jour par l'UPDATE (.select('id') renvoie les lignes affectées),
+  // pas au lookup. Deux clôtureurs concurrents (client + réconciliation
+  // webhooks 11.8) peuvent tous deux lire ended_at IS NULL ; seul celui qui
+  // gagne l'UPDATE déclenche le release — plus de double libération possible.
+  const { data: updated, error: updateErr } = await client
     .from('dialer_calls')
     .update({
       status,
@@ -91,8 +104,10 @@ export async function closeCallRow(client, {
       ...(hangupCause ? { hangup_cause: hangupCause } : {}),
     })
     .eq('id', existing.id)
-    .is('ended_at', null);
+    .is('ended_at', null)
+    .select('id');
   if (updateErr) throw new Error(`dialer_calls close failed: ${updateErr.message}`);
+  if (!updated || updated.length === 0) return { closed: false };
 
   if (existing.reservation_id && client.rpc) {
     const { error: rpcErr } = await client.rpc('dialer_release_reservation', {

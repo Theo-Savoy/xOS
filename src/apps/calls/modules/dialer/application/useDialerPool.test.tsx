@@ -49,6 +49,10 @@ beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockRejectedValue(new Error('no network (dry-run)'));
+  // F2 : les assertions portent sur les NOMBRES d'appels — vider les compteurs
+  // entre chaque cas (les tests antérieurs n'assertaient que l'état, pas les
+  // appels, d'où l'absence de clear jusque-là).
+  vi.clearAllMocks();
   mockFetchRtcToken.mockResolvedValue({ dry_run: false, token: 'rtc-tok', expires_in: 600 });
   // Lot 11.7 : le registre accepte chaque composition par défaut.
   mockNotifyCallStarted.mockResolvedValue({ call_record_id: 1 });
@@ -176,5 +180,92 @@ describe('useDialerPool (dry-run simulation)', () => {
     // Aucune ligne ne doit rester figée en dialing : toutes ont été
     // skippées par leur timeout (la file de 4 numéros est épuisée).
     expect(phases.every((p) => p !== 'dialing' && p !== 'ringing')).toBe(true);
+  });
+});
+
+/**
+ * F2 (audit lot-11.7) : les chemins de clôture du pool doivent être asservis
+ * à des assertions — mockNotifyCallEnded était câblé sans jamais être vérifié.
+ */
+describe('useDialerPool — lot 11.7 clôture du registre (F2)', () => {
+  it('F2 : skip réel clôt le registre de la ligne sautée (budget libéré)', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: false }));
+
+    act(() => {
+      result.current.setQueue(['+331****1111', '+332****2222']);
+    });
+    await act(async () => {
+      await result.current.play();
+    });
+    await act(async () => {
+      client.emit('telnyx.ready');
+    });
+    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      result.current.skip(0);
+    });
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
+      status: 'no_answer',
+      answered: false, // jamais décrochée → budget libéré
+    });
+  });
+
+  it('F2 : unmount avec lignes ouvertes clôt CHAQUE registre', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result, unmount } = renderHook(() =>
+      useDialerPool({ token: 'tok', size: 3, simulate: false }),
+    );
+
+    act(() => {
+      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333']);
+    });
+    await act(async () => {
+      await result.current.play();
+    });
+    await act(async () => {
+      client.emit('telnyx.ready');
+    });
+    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(3);
+
+    unmount();
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(3);
+  });
+
+  it('F2 : notification ended d’un slot clôt son registre (consommé si décroché)', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: false }));
+
+    act(() => {
+      result.current.setQueue(['+331****1111']);
+    });
+    await act(async () => {
+      await result.current.play();
+    });
+    await act(async () => {
+      client.emit('telnyx.ready');
+    });
+    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(1);
+
+    // Décroché sur le slot 0 puis fin d'appel (callId pool-slot-0).
+    act(() => {
+      client.emit('telnyx.notification', { call: { state: 'active', callId: 'pool-slot-0' } });
+    });
+    act(() => {
+      client.emit('telnyx.notification', { call: { state: 'hangup', callId: 'pool-slot-0' } });
+    });
+
+    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
+      status: 'ended',
+      answered: true,
+    });
   });
 });

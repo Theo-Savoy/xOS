@@ -175,15 +175,21 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     safeDisconnect(client);
   }, []);
 
-  // Nettoyage à la sortie de la vue : raccrocher + fermer le socket.
+  // Nettoyage à la sortie de la vue : clore le registre, raccrocher + fermer
+  // le socket. F1 (audit lot-11.7) : AVANT ce fix le démontage laissait une
+  // ligne 'dialing' orpheline + budget réservé — dropClient() vide clientRef
+  // AVANT safeDisconnect, donc la garde onLive neutralise le handler
+  // socket.close qui aurait clos le registre. On clôt ici explicitement,
+  // symétrique au pool (useDialerPool cleanup).
   useEffect(() => {
     return () => {
       clearDialTimeout();
       clearSimTimers();
       stopTimer();
+      endCallRecord('ended');
       dropClient();
     };
-  }, [clearDialTimeout, clearSimTimers, stopTimer, dropClient]);
+  }, [clearDialTimeout, clearSimTimers, stopTimer, dropClient, endCallRecord]);
 
   /** Branche simulation (dry-run, client null) : machine à états sur timers,
    *  aucun média réel, aucun paquet réseau (G2). Raccrochage simulé à 30s max

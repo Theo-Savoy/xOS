@@ -432,7 +432,9 @@ describe('routeur /api/dialer', () => {
   });
 
   it('11.7 : call_ended answered=true consomme la réservation', async () => {
-    const callsChain = makeChain([], { id: 42, reservation_id: 'res-1' });
+    // rows = lignes affectées par l'UPDATE (F3 : le release est conditionné
+    // aux lignes réellement mises à jour).
+    const callsChain = makeChain([{ id: 42 }], { id: 42, reservation_id: 'res-1' });
     mockFrom.mockImplementation(realWindowFrom(callsChain));
 
     const res = await handler(
@@ -453,7 +455,7 @@ describe('routeur /api/dialer', () => {
   });
 
   it('11.7 : call_ended sans réponse libère la réservation', async () => {
-    const callsChain = makeChain([], { id: 42, reservation_id: 'res-1' });
+    const callsChain = makeChain([{ id: 42 }], { id: 42, reservation_id: 'res-1' });
     mockFrom.mockImplementation(realWindowFrom(callsChain));
 
     const res = await handler(
@@ -489,6 +491,27 @@ describe('routeur /api/dialer', () => {
     expect(rpcNames).not.toContain('dialer_release_reservation');
   });
 
+  it('F3 : UPDATE affecte 0 ligne (clôture concurrente gagnée ailleurs) → pas de release', async () => {
+    // Course à la clôture (client + réconciliation webhooks 11.8) : les deux
+    // clôtureurs lisent ended_at IS NULL, un seul gagne l'UPDATE. Le perdant
+    // (rows = []) doit répondre closed:false SANS toucher la réservation —
+    // le release est conditionné aux lignes réellement mises à jour.
+    const callsChain = makeChain([], { id: 42, reservation_id: 'res-1' });
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
+
+    const res = await handler(
+      req('resource=call_ended', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ call_record_id: 42, status: 'ended', answered: true }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).closed).toBe(false);
+    const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(rpcNames).not.toContain('dialer_release_reservation');
+  });
+
   it('11.7 : call_ended refuse 400 sans call_record_id valide', async () => {
     mockFrom.mockImplementation(realWindowFrom());
     for (const call_record_id of [undefined, 0, -3, 'abc']) {
@@ -506,6 +529,8 @@ describe('routeur /api/dialer', () => {
   it('11.7 : GET calls renvoie l’historique masqué de l’utilisateur', async () => {
     const rows = [
       { id: 1, to_number: '+33612345678', status: 'ended', created_at: '2026-08-09T00:00:00Z' },
+      // F4 : les entrées trop courtes (< 8) sont masquées INTÉGRALEMENT.
+      { id: 2, to_number: '+3312', status: 'ended', created_at: '2026-08-09T00:00:00Z' },
     ];
     mockFrom.mockImplementation(realWindowFrom(makeChain(rows, null)));
 
@@ -514,10 +539,11 @@ describe('routeur /api/dialer', () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.calls).toHaveLength(1);
+    expect(body.calls).toHaveLength(2);
     // S11 : jamais d'E.164 prospect en clair côté client.
     expect(body.calls[0].to_number).not.toContain('12345678');
     expect(body.calls[0].to_number).toContain('****');
+    expect(body.calls[1].to_number).toBe('****');
   });
 
   it('entitlement refusé → 403 dialer_entitlement_denied (webrtc_token)', async () => {
