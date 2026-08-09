@@ -9,9 +9,11 @@ import { useDialerPool } from './useDialerPool';
  * réel (G2). Les numéros de démo sont masqués (jamais composables).
  */
 
-const { mockCreateRtcClient, mockFetchRtcToken } = vi.hoisted(() => ({
+const { mockCreateRtcClient, mockFetchRtcToken, mockNotifyCallStarted, mockNotifyCallEnded } = vi.hoisted(() => ({
   mockCreateRtcClient: vi.fn(),
   mockFetchRtcToken: vi.fn(),
+  mockNotifyCallStarted: vi.fn(),
+  mockNotifyCallEnded: vi.fn(),
 }));
 
 vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
@@ -21,6 +23,10 @@ vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
 
 vi.mock('../dialerApi', () => ({
   fetchRtcToken: mockFetchRtcToken,
+  // Lot 11.7 : registre serveur — ouvert avant composition, clos à la fin.
+  notifyCallStarted: mockNotifyCallStarted,
+  notifyCallEnded: mockNotifyCallEnded,
+  callBlockedMessage: (e: unknown) => String((e as Error)?.message ?? e),
 }));
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -44,6 +50,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockRejectedValue(new Error('no network (dry-run)'));
   mockFetchRtcToken.mockResolvedValue({ dry_run: false, token: 'rtc-tok', expires_in: 600 });
+  // Lot 11.7 : le registre accepte chaque composition par défaut.
+  mockNotifyCallStarted.mockResolvedValue({ call_record_id: 1 });
+  mockNotifyCallEnded.mockResolvedValue(true);
   mockCreateRtcClient.mockResolvedValue(null); // simulate par défaut
   // jsdom : document.querySelector sur audio[data-rtc-remote-N] → null OK.
 });
@@ -141,15 +150,18 @@ describe('useDialerPool (dry-run simulation)', () => {
     await act(async () => {
       await result.current.play();
     });
-    // Le socket du client mocké s'ouvre : composeAfterPlay arme les 3 timeouts.
-    act(() => {
+    // Le socket du client mocké s'ouvre : composeAfterPlay lance dialSlot.
+    // Lot 11.7 : dialSlot ouvre le registre (await notifyCallStarted) AVANT
+    // de composer — act async pour flusher les microtâches sous fake timers,
+    // sinon les timeouts 20 s seraient armés après l'avance d'horloge.
+    await act(async () => {
       client.emit('telnyx.ready');
     });
     // 3 lignes en dialing, chaque dialSlot a armé son timeout 20s.
     expect(result.current.state.lines.every((l) => l.phase === 'dialing')).toBe(true);
 
     // Skip manuel de la ligne 1 → compose le suivant (334).
-    act(() => {
+    await act(async () => {
       result.current.skip(1);
     });
     expect(result.current.state.lines[1].destination).toBe('+334****4444');

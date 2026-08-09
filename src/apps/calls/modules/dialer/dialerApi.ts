@@ -132,6 +132,8 @@ export type RtcTokenResult = {
 /**
  * Obtient un token WebRTC éphémère (audit 11.2 B.2). En dry-run, le serveur
  * renvoie { token: null } — le navigateur ne peut pas se connecter.
+ * Lot 11.7 : le budget n'est plus réservé ici (un token couvre une session,
+ * pas un appel) — la réservation se fait par composition (notifyCallStarted).
  */
 export async function fetchRtcToken(
   token: string,
@@ -153,4 +155,155 @@ export async function fetchRtcToken(
     }
     throw err;
   }
+}
+
+export type CallStartedResult = {
+  dry_run: boolean;
+  /** Id de la ligne dialer_calls (null en dry-run). À renvoyer sur call_ended. */
+  call_record_id: number | null;
+};
+
+/**
+ * Lot 11.7 : registre + budget AVANT chaque composition réelle. Le serveur
+ * écrit la ligne dialer_calls ('dialing') et réserve le budget atomiquement.
+ * Échec (429 budget, 403, 500) ⇒ l'appelant NE DOIT PAS composer — c'est le
+ * pendant fail-loud du dry-run G2 : jamais d'appel réel hors traçabilité.
+ */
+export async function notifyCallStarted(
+  token: string,
+  params: {
+    to: string;
+    callerNumber?: string | null;
+    contactId?: number | null;
+    campaignId?: number | null;
+  },
+): Promise<CallStartedResult> {
+  try {
+    return await apiFetch<CallStartedResult>(
+      token,
+      '/api/dialer?resource=call_started',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          to: params.to,
+          caller_number: params.callerNumber ?? null,
+          contact_id: params.contactId ?? null,
+          campaign_id: params.campaignId ?? null,
+        }),
+      },
+    );
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new DialerApiError(
+        err.status,
+        (err.body as { error?: string } | undefined)?.error ?? `http_${err.status}`,
+        err.message,
+      );
+    }
+    throw err;
+  }
+}
+
+/**
+ * Lot 11.7 : clôture de la ligne après l'appel. Best-effort pour l'UX (un
+ * échec de clôture ne doit pas casser la session — la réconciliation
+ * webhooks Phase B rattrape les lignes orphelines), mais l'erreur est loggée
+ * fort : pas de silent failure.
+ * @returns true si le serveur a confirmé la clôture.
+ */
+export async function notifyCallEnded(
+  token: string,
+  params: {
+    callRecordId: number;
+    /** Statut terminal (vocabulaire dialer_calls) : 'ended' par défaut. */
+    status?: 'no_answer' | 'voicemail' | 'busy' | 'failed' | 'ended';
+    /** true si l'appel a été décroché ⇒ le budget est consommé. */
+    answered?: boolean;
+    durationSec?: number | null;
+    hangupCause?: string | null;
+  },
+): Promise<boolean> {
+  try {
+    await apiFetch<{ closed: boolean }>(
+      token,
+      '/api/dialer?resource=call_ended',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          call_record_id: params.callRecordId,
+          status: params.status ?? 'ended',
+          answered: params.answered ?? false,
+          duration_sec: params.durationSec ?? null,
+          hangup_cause: params.hangupCause ?? null,
+        }),
+      },
+    );
+    return true;
+  } catch (err) {
+    // Loud : la ligne resterait 'dialing' sans trace de l'échec de clôture.
+    console.error('[dialerApi] call_ended failed:', err);
+    return false;
+  }
+}
+
+export type UserCallRecord = {
+  id: number;
+  campaign_id: number | null;
+  /** Masqué côté serveur (jamais d'E.164 prospect en clair). */
+  to_number: string;
+  status: string;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  duration_sec: number | null;
+  hangup_cause: string | null;
+  cost_cents: number;
+  created_at: string;
+};
+
+/** Lot 11.7 : historique des appels de l'utilisateur (numéros masqués). */
+export async function fetchUserCalls(
+  token: string,
+  limit = 50,
+): Promise<{ total: number; calls: UserCallRecord[] }> {
+  try {
+    return await apiFetch<{ total: number; calls: UserCallRecord[] }>(
+      token,
+      `/api/dialer?resource=calls&limit=${limit}`,
+    );
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new DialerApiError(
+        err.status,
+        (err.body as { error?: string } | undefined)?.error ?? `http_${err.status}`,
+        err.message,
+      );
+    }
+    throw err;
+  }
+}
+
+/** Message utilisateur court pour un refus call_started (budget/quota). */
+export function callBlockedMessage(err: unknown): string {
+  if (err instanceof DialerApiError) {
+    switch (err.code) {
+      case 'budget_exceeded_session':
+        return 'Budget de la session atteint — finis la session ou augmente le plafond.';
+      case 'budget_exceeded_user_day':
+        return 'Budget du jour atteint pour ton compte.';
+      case 'budget_exceeded_org_month':
+        return 'Budget mensuel de l’organisation atteint — le dialer est coupé.';
+      case 'calls_exceeded_user_day':
+        return 'Limite d’appels du jour atteinte.';
+      case 'calls_exceeded_user_month':
+        return 'Limite d’appels du mois atteinte.';
+      case 'caller_number_not_owned':
+        return 'Numéro appelant non valide pour ton compte.';
+      case 'rate_limited':
+        return 'Trop de requêtes — attends quelques secondes.';
+      default:
+        return `Appel refusé par le serveur (${err.code}).`;
+    }
+  }
+  return 'Appel refusé par le serveur.';
 }

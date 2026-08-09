@@ -15,9 +15,11 @@ import type { RtcClientHandle } from '../infrastructure/telnyx/rtcClient';
  * (safeHangup, safeDisconnect, telnyxPhase) restent dans le chemin testé.
  */
 
-const { mockCreateRtcClient, mockFetchRtcToken } = vi.hoisted(() => ({
+const { mockCreateRtcClient, mockFetchRtcToken, mockNotifyCallStarted, mockNotifyCallEnded } = vi.hoisted(() => ({
   mockCreateRtcClient: vi.fn(),
   mockFetchRtcToken: vi.fn(),
+  mockNotifyCallStarted: vi.fn(),
+  mockNotifyCallEnded: vi.fn(),
 }));
 
 vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
@@ -27,6 +29,10 @@ vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
 
 vi.mock('../dialerApi', () => ({
   fetchRtcToken: mockFetchRtcToken,
+  // Lot 11.7 : registre serveur — ouvert avant composition, clos à la fin.
+  notifyCallStarted: mockNotifyCallStarted,
+  notifyCallEnded: mockNotifyCallEnded,
+  callBlockedMessage: (e: unknown) => String((e as Error)?.message ?? e),
 }));
 
 type FakeClient = RtcClientHandle & {
@@ -51,6 +57,9 @@ function makeClient(): FakeClient {
 
 beforeEach(() => {
   mockFetchRtcToken.mockResolvedValue({ dry_run: false, token: 'rtc-tok', expires_in: 600 });
+  // Lot 11.7 : le registre accepte chaque composition par défaut.
+  mockNotifyCallStarted.mockResolvedValue({ call_record_id: 1 });
+  mockNotifyCallEnded.mockResolvedValue(true);
   Object.defineProperty(window.navigator, 'mediaDevices', {
     configurable: true,
     value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [] }) },

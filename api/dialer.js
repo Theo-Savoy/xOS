@@ -9,10 +9,17 @@
  *   GET  /api/dialer?resource=config        — env, flags, budget remaining (JWT)
  *   POST /api/dialer?resource=webhooks      — Telnyx webhook receiver (OPEN: Ed25519 is the auth)
  *   POST /api/dialer?resource=dial          — dial one contact (JWT + flags + budget gate)
- *   POST /api/dialer?resource=webrtc_token  — token WebRTC éphémère (JWT + flags + entitlement + budget)
- *   GET  /api/dialer?resource=campaigns     — list user's campaigns (11.2)
- *   GET  /api/dialer?resource=calls         — list calls (11.2)
+ *   POST /api/dialer?resource=webrtc_token  — token WebRTC éphémère (JWT + flags + entitlement)
+ *   POST /api/dialer?resource=call_started  — registre + budget PAR COMPOSITION (11.7)
+ *   POST /api/dialer?resource=call_ended    — clôture de la ligne dialer_calls (11.7)
+ *   GET  /api/dialer?resource=campaigns     — list user's campaigns (11.2+)
+ *   GET  /api/dialer?resource=calls         — historique des appels de l'user (11.7)
  *   GET  /api/dialer?resource=audit         — audit log read (manager/admin only, 11.1+)
+ *
+ * Lot 11.7 : le budget n'est plus réservé à l'émission du token WebRTC. Un
+ * token couvre une session (600 s, plusieurs compositions possibles — power
+ * dialing 3 lignes) ; la réservation + la ligne dialer_calls se font par
+ * composition sur call_started, la clôture (consommé/libéré) sur call_ended.
  *
  * Auth model (critical, mirrors middleware.js isAuthBridge):
  *   - `webhooks` is OPEN. Telnyx cannot send a JWT; the Ed25519 signature is the auth.
@@ -30,6 +37,7 @@ import { reserveBudget, releaseReservation, loadUserEntitlements } from './_dial
 import { buildAuditRow, writeAudit } from './_dialer/audit.js';
 import { dialContact, issueRtcToken } from './_dialer/telnyx.js';
 import { RateLimiter } from './_dialer/rateLimit.js';
+import { openCallRow, closeCallRow, listUserCalls } from './_dialer/persistence.js';
 
 export const config = { maxDuration: 30 };
 
@@ -37,6 +45,9 @@ export const config = { maxDuration: 30 };
 // instance Vercel (pas partagé multi-instance) — meilleur que rien, à passer
 // sur un store partagé (Redis/Supabase) si le dialer passe multi-instance.
 const rateLimiter = new RateLimiter({ capacity: 20, refillPerSecond: 5 });
+// Test helper : le bucket est un singleton module-level ; les tests le
+// réinitialisent entre chaque cas (sinon le quota partagé fausse les suites).
+export const __testRateLimiter = rateLimiter;
 
 const headers = {
   'Content-Type': 'application/json',
@@ -132,11 +143,16 @@ function budgetCaps(flags, entitlements) {
 
 /**
  * POST ?resource=webrtc_token — token éphémère pour le SDK WebRTC.
- * (Audit 11.2 B.2) Mêmes gates que le dial : JWT → flags → entitlement →
- * dry-run. En dry-run, AUCUN token n'est émis : le navigateur ne peut pas se
- * connecter parce qu'il n'a rien avec quoi se connecter (G2).
- * `client` et `flags` sont résolus par le routeur (JWT → client → flags.enabled),
- * qui a déjà renvoyé 503 si le dialer est coupé.
+ * (Audit 11.2 B.2) Gates : JWT → flags → entitlement → dry-run. En dry-run,
+ * AUCUN token n'est émis : le navigateur ne peut pas se connecter (G2).
+ *
+ * Lot 11.7 : le budget n'est PAS réservé ici. Un token couvre une session
+ * (600 s) pendant laquelle plusieurs compositions partent (power dialing
+ * 3 lignes, re-clics Play). Réserver ici comptait 1 cent par token, pas par
+ * appel, et saturait le cap session dès le 3ᵉ token. La réservation vit sur
+ * call_started (une par composition), la clôture sur call_ended.
+ * `client` et `flags` sont résolus par le routeur (JWT → client →
+ * flags.enabled), qui a déjà renvoyé 503 si le dialer est coupé.
  */
 async function handleWebrtcToken(request, user, client, flags) {
   // S4 (audit 11.13) : rate limit par user (bucket in-memory, cf. note).
@@ -190,21 +206,6 @@ async function handleWebrtcToken(request, user, client, flags) {
     callerNumber = owned.e164;
   }
 
-  // S1 (audit 11.13 sécurité) : le chemin WebRTC — le chemin RÉELLEMENT
-  // utilisé — doit être gardé comme le dial Call Control. Un token = un
-  // appel potentiel ≈ 1 cent : on réserve avant d'émettre. Sinon un user
-  // entitlé pourrait composer hors caps session/jour/org.
-  const reservation = await reserveBudget(client, {
-    userId: user.id,
-    campaignId: body?.campaign_id ?? null,
-    estimatedCostCents: 1,
-    caps: budgetCaps(flags, entitlements),
-  });
-
-  if (!reservation.allowed) {
-    return json(429, { error: reservation.reason });
-  }
-
   try {
     const token = await issueRtcToken({
       apiKey: cfg.apiKey,
@@ -213,27 +214,225 @@ async function handleWebrtcToken(request, user, client, flags) {
       dryRun: false,
     });
 
-    // Reservation consumed : le token est émis, l'appel est (potentiellement)
-    // passé. La consommation réelle exacte sera réconciliée sur hangup (Phase
-    // B — webhooks) ; ici on garde le cap défensif.
-    await releaseReservation(client, reservation.reservationId, { result: 'consumed' });
-
     await writeAudit(client, buildAuditRow({
       actorUserId: user.id,
       actorKind: 'user',
       action: 'webrtc_token',
       payload: { caller_number: callerNumber },
-      costCents: 1,
       result: 'success',
       metadata: { env: cfg.env, dry_run: false },
     })).catch((e) => console.error('[dialer] audit write failed:', e.message));
 
     return json(200, { dry_run: false, token, caller_number: callerNumber, expires_in: 600 });
   } catch (err) {
-    // L'émission a échoué : on libère la réservation (cap non consommé).
-    await releaseReservation(client, reservation.reservationId, { result: 'released' });
     console.error('[dialer] webrtc token issue failed:', err instanceof Error ? err.message : err);
     return json(502, { error: 'webrtc_token_failed' });
+  }
+}
+
+/**
+ * POST ?resource=call_started — registre + budget PAR COMPOSITION (lot 11.7).
+ *
+ * Le client appelle AVANT chaque composition réelle (dialSlot du pool,
+ * startCall du mono-ligne) : une ligne dialer_calls 'dialing' est écrite et
+ * le budget est réservé atomiquement. L'id `call_record_id` renvoyé revient
+ * sur call_ended pour la clôture.
+ *
+ * Gate order : JWT → flags.enabled (routeur) → rate → entitlement → dry-run
+ * (token null en dry-run ⇒ le client ne compose JAMAIS ⇒ ce endpoint n'est
+ * atteint qu'en mode réel) → validation E.164 + caller_number → budget →
+ * registre.
+ *
+ * Fail-loud : si la réservation OU l'insert échoue, le client reçoit 429/500
+ * et NE COMPOSE PAS — jamais d'appel réel sans trace ni budget.
+ */
+async function handleCallStarted(request, user, client, flags) {
+  const rl = rateLimiter.tryConsume(`user:${user.id}`);
+  if (!rl.allowed) {
+    return json(429, { error: 'rate_limited', retry_after_ms: rl.retryAfterMs });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'invalid_json_body' });
+  }
+
+  const to = body?.to;
+  if (!to || typeof to !== 'string') {
+    return json(400, { error: 'missing_fields', required: ['to'] });
+  }
+  // S3 : validation E.164 serveur — le client ne doit pas pouvoir composer un
+  // format non-E.164 (SIP, chaînes d'abus).
+  if (!/^\+[1-9]\d{6,14}$/.test(to)) {
+    return json(400, { error: 'invalid_e164' });
+  }
+
+  const cfg = loadDialerConfig();
+  const entitlements = await loadUserEntitlements(client, user.id);
+  const isDryRun =
+    cfg.isDryRun || flags.dryRun === true || entitlements.dryRun === true;
+  if (!entitlements.enabled && !isDryRun) {
+    return json(403, { error: 'dialer_entitlement_denied' });
+  }
+  // Dry-run : le token WebRTC était null (G2), le client n'a pas de socket —
+  // il ne devrait pas être ici. Réponse explicite plutôt qu'une ligne fantôme.
+  if (isDryRun) {
+    return json(200, { dry_run: true, call_record_id: null });
+  }
+
+  // B7 : caller_number validé contre les numéros possédés par l'utilisateur.
+  let callerNumber = null;
+  if (body?.caller_number) {
+    const { data: owned } = await client
+      .from('dialer_phone_numbers')
+      .select('e164')
+      .eq('owner_user_id', user.id)
+      .eq('e164', body.caller_number)
+      .in('status', ['active', 'cooldown'])
+      .maybeSingle();
+    if (!owned) {
+      return json(403, { error: 'caller_number_not_owned' });
+    }
+    callerNumber = owned.e164;
+  }
+
+  // Budget atomique — un dial FR ≈ 1 cent. La réservation porte le cap
+  // session/jour/org (RPC, advisory lock).
+  const reservation = await reserveBudget(client, {
+    userId: user.id,
+    campaignId: body?.campaign_id ?? null,
+    estimatedCostCents: 1,
+    caps: budgetCaps(flags, entitlements),
+  });
+  if (!reservation.allowed) {
+    if (reservation.reason === 'budget_exceeded_org_month') {
+      // P1-3 : kill switch + audit (best effort, non bloquant) — pareil que
+      // handleDial, le cap org dépassé coupe le dialer pour tout le monde.
+      const { error: updateErr } = await client
+        .from('settings')
+        .update({ value: JSON.stringify(false) })
+        .eq('key', 'dialer_enabled');
+      if (updateErr) {
+        console.error('[dialer] kill switch update failed:', updateErr.message);
+      }
+      await writeAudit(client, buildAuditRow({
+        actorUserId: user.id,
+        actorKind: 'system',
+        action: 'settings_update',
+        payload: { key: 'dialer_enabled', set: false, reason: 'budget_org_month_exceeded' },
+        result: 'budget_exceeded',
+        errorCode: 'budget_exceeded_org_month',
+      })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+    }
+    return json(429, { error: reservation.reason });
+  }
+
+  // Registre : la ligne AVANT le dial. Si l'insert échoue on libère la
+  // réservation et on refuse — fail-loud, pas de dial hors traçabilité.
+  let callRecord;
+  try {
+    callRecord = await openCallRow(client, {
+      ownerId: user.id,
+      toNumber: to,
+      campaignId: body?.campaign_id ?? null,
+      contactId: body?.contact_id ?? null,
+      reservationId: reservation.reservationId,
+    });
+  } catch (err) {
+    await releaseReservation(client, reservation.reservationId, { result: 'released' });
+    console.error('[dialer] call_started insert failed:', err.message);
+    return json(500, { error: 'call_record_failed' });
+  }
+
+  await writeAudit(client, buildAuditRow({
+    actorUserId: user.id,
+    actorKind: 'user',
+    action: 'call_started',
+    // S11 : hash FNV-1a dans l'audit (pas de numéro exploitable) ; le masque
+    // lisible (maskE164) est réservé à l'historique de l'utilisateur lui-même.
+    payload: { to: hashE164(to), caller_number: callerNumber, dry_run: false },
+    callId: callRecord.id,
+    campaignId: body?.campaign_id ?? null,
+    result: 'success',
+    metadata: { env: cfg.env },
+  })).catch((e) => console.error('[dialer] audit write failed:', e.message));
+
+  return json(200, { dry_run: false, call_record_id: callRecord.id });
+}
+
+/**
+ * POST ?resource=call_ended — clôture de la ligne dialer_calls (lot 11.7).
+ *
+ * Le client appelle quand une ligne se termine (notification SDK 'hangup',
+ * skip, hangupAll). `answered: true` ⇒ la réservation est consommée (l'appel
+ * a été décroché, le coût est réel) ; sinon elle est libérée (non-réponse,
+ * échec, abandon avant connexion). Idempotent côté serveur (une ligne déjà
+ * close n'est pas retouchée).
+ *
+ * La propriété est vérifiée par owner_user_id : impossible de closer la
+ * ligne d'un autre utilisateur.
+ */
+async function handleCallEnded(request, user, client) {
+  const rl = rateLimiter.tryConsume(`user:${user.id}`);
+  if (!rl.allowed) {
+    return json(429, { error: 'rate_limited', retry_after_ms: rl.retryAfterMs });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'invalid_json_body' });
+  }
+
+  const callRecordId = Number(body?.call_record_id);
+  if (!Number.isInteger(callRecordId) || callRecordId <= 0) {
+    return json(400, { error: 'missing_fields', required: ['call_record_id'] });
+  }
+  // Statut terminal borné au vocabulaire de la table (check 038). 'answered'
+  // n'est PAS un statut de clôture ici : un appel décroché qui se termine
+  // part en 'ended' avec answered=true (le budget est consommé).
+  const TERMINAL_STATUSES = new Set([
+    'no_answer', 'voicemail', 'busy', 'failed', 'ended',
+  ]);
+  const status = TERMINAL_STATUSES.has(body?.status) ? body.status : 'ended';
+  const answered = body?.answered === true;
+  const durationSec = Number.isFinite(Number(body?.duration_sec))
+    ? Math.max(0, Math.floor(Number(body.duration_sec)))
+    : null;
+
+  let closed;
+  try {
+    closed = await closeCallRow(client, {
+      callRecordId,
+      ownerId: user.id,
+      status,
+      durationSec,
+      hangupCause: typeof body?.hangup_cause === 'string'
+        ? body.hangup_cause.slice(0, 80)
+        : null,
+      answered,
+    });
+  } catch (err) {
+    console.error('[dialer] call_ended close failed:', err.message);
+    return json(500, { error: 'call_record_close_failed' });
+  }
+
+  return json(200, { closed: closed.closed });
+}
+
+/** GET ?resource=calls — historique des appels de l'utilisateur (11.7). */
+async function handleListCalls(request, user, client) {
+  const url = new URL(request.url, 'http://localhost');
+  const limit = Number(url.searchParams.get('limit') ?? '50');
+  try {
+    const result = await listUserCalls(client, user.id, { limit });
+    return json(200, result);
+  } catch (err) {
+    console.error('[dialer] list calls failed:', err.message);
+    return json(500, { error: 'calls_list_failed' });
   }
 }
 
@@ -429,16 +628,29 @@ export async function handler(request) {
       return await handleWebrtcToken(request, user, client, flags);
     }
 
-    // Defer to lot 11.2+
+    // Lot 11.7 : registre + budget PAR COMPOSITION. Le client appelle avant
+    // chaque newCall réel (pool et mono-ligne) ; call_ended clôt la ligne.
+    if (resource === 'call_started' && request.method === 'POST') {
+      return await handleCallStarted(request, user, client, flags);
+    }
+    if (resource === 'call_ended' && request.method === 'POST') {
+      return await handleCallEnded(request, user, client);
+    }
+    if (resource === 'calls' && request.method === 'GET') {
+      return await handleListCalls(request, user, client);
+    }
+
+    // Defer to lot 11.8+ (AMD, recording, ACW…)
     switch (resource) {
       case 'campaigns':
-        return NOT_IMPLEMENTED(resource);
-      case 'calls':
         return NOT_IMPLEMENTED(resource);
       default:
         return json(400, {
           error: 'unknown_resource',
-          valid: ['config', 'webhooks', 'dial', 'webrtc_token', 'campaigns', 'calls', 'audit'],
+          valid: [
+            'config', 'webhooks', 'dial', 'webrtc_token',
+            'call_started', 'call_ended', 'calls', 'campaigns', 'audit',
+          ],
         });
     }
   } catch (err) {

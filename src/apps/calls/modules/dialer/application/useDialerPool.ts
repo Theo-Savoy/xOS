@@ -33,7 +33,12 @@ import {
   type RtcCallHandle,
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
-import { fetchRtcToken } from '../dialerApi';
+import {
+  callBlockedMessage,
+  fetchRtcToken,
+  notifyCallEnded,
+  notifyCallStarted,
+} from '../dialerApi';
 import type { PoolPhase } from '../domain/PoolState';
 
 /** Mapping telnyxPhase (SDK) → PoolPhase. held ignoré (pas de on_hold pool). */
@@ -84,6 +89,11 @@ export function useDialerPool({
   );
   const clientRef = useRef<RtcClientHandle | null>(null);
   const callsRef = useRef<(RtcCallHandle | null)[]>([]);
+  // Lot 11.7 : registre serveur par slot — id de la ligne dialer_calls
+  // (call_started) et instant de connexion (durée envoyée à la clôture).
+  // null = pas de ligne ouverte (simulation, ou composition refusée).
+  const callRecordIdsRef = useRef<(number | null)[]>([]);
+  const answeredAtRef = useRef<(number | null)[]>([]);
   const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Timeouts non-réponse 20s, un par slot (R3 lot-11.14) : les purger dans
   // `demoTimersRef` cassait l'auto-skip des AUTRES lignes (skip() purgeait
@@ -123,11 +133,52 @@ export function useDialerPool({
     noAnswerTimersRef.current = [];
   }, []);
 
-  /** Composition réelle d'une ligne (après dispatch play/skip). */
+  /**
+   * Lot 11.7 : clôture la ligne serveur d'un slot. Budget consommé si l'appel
+   * a été décroché (answeredAt renseigné), libéré sinon. No-op si aucune ligne
+   * n'est ouverte pour ce slot (simulation, refus call_started, déjà close) —
+   * la double clôture est idempotente par construction (id mis à null ici +
+   * garde `ended_at is null` côté serveur).
+   */
+  const endCallRecord = useCallback(
+    (slot: number, status: 'no_answer' | 'voicemail' | 'busy' | 'failed' | 'ended') => {
+      const recordId = callRecordIdsRef.current[slot];
+      const answeredAt = answeredAtRef.current[slot];
+      callRecordIdsRef.current[slot] = null;
+      answeredAtRef.current[slot] = null;
+      if (recordId == null) return;
+      const durationSec = answeredAt != null
+        ? Math.round((Date.now() - answeredAt) / 1000)
+        : null;
+      void notifyCallEnded(token, {
+        callRecordId: recordId,
+        status,
+        answered: answeredAt != null,
+        durationSec,
+        hangupCause: status === 'no_answer' ? 'no_answer_timeout' : null,
+      });
+    },
+    [token],
+  );
+
+  /** Composition réelle d'une ligne (après dispatch play/skip).
+   *  Lot 11.7 : registre + budget AVANT de composer (call_started) — un refus
+   *  (budget, entitlement, E.164) bloque la composition de CETTE ligne. */
   const dialSlot = useCallback(
-    (slot: number, destination: string) => {
+    async (slot: number, destination: string) => {
       const client = clientRef.current;
       if (!client) return; // simulation : le réducteur gère déjà l'état
+      let recordId: number | null = null;
+      try {
+        const started = await notifyCallStarted(token, { to: destination });
+        recordId = started.call_record_id;
+        callRecordIdsRef.current[slot] = recordId;
+        answeredAtRef.current[slot] = null;
+      } catch (e) {
+        // Budget/quota refusé : la ligne ne part PAS (fail-loud).
+        dispatch({ type: 'line-error', slot, error: callBlockedMessage(e) });
+        return;
+      }
       try {
         const call = client.newCall(
           newCallOptions(destination, `audio[data-rtc-remote-${slot}]`, {
@@ -148,10 +199,15 @@ export function useDialerPool({
         }, 20000);
         noAnswerTimersRef.current[slot] = t; // R3 : par slot, pas global
       } catch (e) {
+        // La composition a échoué APRÈS l'ouverture du registre : on clôt la
+        // ligne (budget libéré), sinon un 'dialing' orphelin reste en base.
+        if (recordId != null) {
+          endCallRecord(slot, 'failed');
+        }
         dispatch({ type: 'line-error', slot, error: telnyxErrorMessage(e) });
       }
     },
-    [],
+    [token, endCallRecord],
   );
 
   /** Compose réellement les lignes dispatchées en 'dialing'. */
@@ -159,7 +215,7 @@ export function useDialerPool({
     const current = stateRef.current;
     current.lines.forEach((line, slot) => {
       if (line.phase === 'dialing' && line.destination) {
-        dialSlot(slot, line.destination);
+        void dialSlot(slot, line.destination);
       }
     });
   }, [dialSlot]);
@@ -268,9 +324,12 @@ export function useDialerPool({
         if (p === 'dialing') dispatch({ type: 'line-dialing', slot });
         if (p === 'ringing') dispatch({ type: 'line-ringing', slot });
         if (p === 'connected') {
+          answeredAtRef.current[slot] = Date.now(); // lot 11.7 : durée réelle
           dispatch({ type: 'answered', slot });
           // Coupe les autres lignes (le réducteur les passe à skipped,
-          // ici on hangup réellement les calls des autres slots).
+          // ici on hangup réellement les calls des autres slots). Leurs
+          // registres seront clos par leur propre notification 'ended'
+          // (budget libéré : jamais décrochées).
           callsRef.current.forEach((c, i) => {
             if (i !== slot) {
               safeHangup(c);
@@ -279,6 +338,10 @@ export function useDialerPool({
           });
         }
         if (p === 'ended') {
+          // Lot 11.7 : clôture le registre — budget consommé si la ligne a
+          // été décrochée (answeredAt), libéré sinon. Idempotent : skip()
+          // peut avoir déjà clos cette ligne (id remis à null).
+          endCallRecord(slot, 'ended');
           dispatch({ type: 'line-ended', slot });
         }
       });
@@ -301,7 +364,7 @@ export function useDialerPool({
     }
     // Si le client existait déjà, composer les lignes dispatchées.
     composeAfterPlay();
-  }, [token, composeAfterPlay, simulate, startDemoSimulation]);
+  }, [token, composeAfterPlay, simulate, startDemoSimulation, endCallRecord]);
 
   const skip = useCallback(
     (slot: number) => {
@@ -309,43 +372,62 @@ export function useDialerPool({
       if (!line || line.phase === 'connected') return;
       clearDemoTimers();
       clearNoAnswerTimer(slot); // R3 : ne tue QUE le timeout de cette ligne
+      // Lot 11.7 : la ligne sautée n'a pas été décrochée → budget libéré.
+      // La notification 'ended' du SDK (si elle arrive) sera un no-op.
+      endCallRecord(slot, 'no_answer');
       safeHangup(callsRef.current[slot]);
       callsRef.current[slot] = null;
       dispatch({ type: 'skip', slot });
       // Compose le suivant si la file a avancé.
       const next = stateRef.current.queue[0];
       if (next !== undefined) {
-        dialSlot(slot, next);
+        void dialSlot(slot, next);
       }
     },
-    [clearDemoTimers, clearNoAnswerTimer, dialSlot],
+    [clearDemoTimers, clearNoAnswerTimer, dialSlot, endCallRecord],
   );
 
   const hangupAll = useCallback(() => {
     clearDemoTimers();
     clearAllNoAnswerTimers();
+    // Lot 11.7 : clôture les registres ouverts — consommé si décroché,
+    // libéré sinon. AVANT de couper les calls (les 'ended' SDK seront no-op).
+    stateRef.current.lines.forEach((line) => {
+      if (line.phase !== 'idle' && line.phase !== 'skipped' && line.phase !== 'ended') {
+        endCallRecord(line.slot, 'ended');
+      }
+    });
     callsRef.current.forEach((c, i) => {
       safeHangup(c);
       callsRef.current[i] = null;
     });
     dispatch({ type: 'reset', queue: [] });
-  }, [clearDemoTimers, clearAllNoAnswerTimers]);
+  }, [clearDemoTimers, clearAllNoAnswerTimers, endCallRecord]);
 
   const setQueue = useCallback((destinations: string[]) => {
     dispatch({ type: 'reset', queue: destinations });
   }, []);
 
-  // Nettoyage à la sortie de la vue : raccrocher tout + fermer le socket.
+  // Nettoyage à la sortie de la vue : clore les registres ouverts, raccrocher
+  // tout + fermer le socket.
   useEffect(() => {
+    // Copie locale : le ref peut être remplacé d'ici au démontage (règle
+    // react-hooks/exhaustive-deps pour les cleanups).
+    const recordIds = callRecordIdsRef.current;
     return () => {
       clearDemoTimers();
       clearAllNoAnswerTimers();
+      // Lignes restées ouvertes (onglet quitté en cours de session) :
+      // clôture best-effort, la réconciliation webhooks rattrapera le reste.
+      recordIds.forEach((recordId, slot) => {
+        if (recordId != null) endCallRecord(slot, 'ended');
+      });
       callsRef.current.forEach((c) => safeHangup(c));
       callsRef.current = [];
       safeDisconnect(clientRef.current);
       clientRef.current = null;
     };
-  }, [clearDemoTimers, clearAllNoAnswerTimers]);
+  }, [clearDemoTimers, clearAllNoAnswerTimers, endCallRecord]);
 
   return {
     state,

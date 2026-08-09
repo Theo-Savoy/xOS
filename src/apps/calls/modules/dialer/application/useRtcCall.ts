@@ -32,7 +32,7 @@ import {
   type RtcCallHandle,
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
-import { fetchRtcToken } from '../dialerApi';
+import { fetchRtcToken, notifyCallEnded, notifyCallStarted, callBlockedMessage } from '../dialerApi';
 
 /** Qualité de l'appel en cours. mos/jitter/rtt : telnyx.stats.frame.
  *  codec : lu via pc.getStats() (absent du frame SDK). rttMs alimenté mais
@@ -103,6 +103,11 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
   const dialTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const simTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const phaseRef = useRef<CallPhase>('idle');
+  // Lot 11.7 : registre serveur de l'appel en cours — id de la ligne
+  // dialer_calls (call_started) et instant de connexion pour la durée réelle.
+  // null = pas de ligne ouverte (simulation dry-run, refus call_started).
+  const callRecordIdRef = useRef<number | null>(null);
+  const connectedAtRef = useRef<number | null>(null);
 
   const setPhaseSafe = useCallback((p: CallPhase) => {
     phaseRef.current = p;
@@ -128,6 +133,31 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     simTimersRef.current.forEach((t) => clearTimeout(t));
     simTimersRef.current = [];
   }, []);
+
+  /**
+   * Lot 11.7 : clôture la ligne serveur de l'appel en cours. Budget consommé
+   * si l'appel a été décroché (connectedAt), libéré sinon. No-op si aucune
+   * ligne ouverte (simulation dry-run, refus call_started, déjà close).
+   */
+  const endCallRecord = useCallback(
+    (status: 'no_answer' | 'voicemail' | 'busy' | 'failed' | 'ended') => {
+      const recordId = callRecordIdRef.current;
+      const connectedAt = connectedAtRef.current;
+      callRecordIdRef.current = null;
+      connectedAtRef.current = null;
+      if (recordId == null) return;
+      const durationSec = connectedAt != null
+        ? Math.round((Date.now() - connectedAt) / 1000)
+        : null;
+      void notifyCallEnded(token, {
+        callRecordId: recordId,
+        status,
+        answered: connectedAt != null,
+        durationSec,
+      });
+    },
+    [token],
+  );
 
   /**
    * Abandonne le client courant. Les refs sont vidées AVANT le disconnect :
@@ -227,6 +257,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
           return;
         }
         if (p === 'connected') {
+          connectedAtRef.current = Date.now(); // lot 11.7 : durée réelle
           timerRef.current = setInterval(() => {
             setDurationSec((sec) => sec + 1);
           }, 1000);
@@ -238,6 +269,9 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         }
         if (p === 'ended') {
           stopTimer();
+          // Lot 11.7 : clôture le registre — budget consommé si décroché
+          // (connectedAt), libéré sinon. Idempotent si déjà close.
+          endCallRecord('ended');
         }
         setPhaseSafe(p);
       });
@@ -246,13 +280,16 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         if (phaseRef.current === 'connected' || phaseRef.current === 'dialing') {
           // Le socket s'est fermé pendant un appel/composition : c'est un échec
           // réseau (token refusé, session expirée, coupure). On le dit — pas de
-          // silence.
+          // silence. Lot 11.7 : le registre est clos (consumé si l'appel avait
+          // décroché, libéré sinon) — la notification 'ended' n'arrivera pas.
+          endCallRecord('failed');
           setError('Connexion WebRTC perdue (socket fermé) — vérifie le token et réessaie.');
           setPhaseSafe('failed');
         }
       });
       onLive('telnyx.error', (e) => {
         setError(telnyxErrorMessage(e));
+        endCallRecord('failed'); // lot 11.7 : idempotent si déjà close
         setPhaseSafe('failed');
       });
 
@@ -283,7 +320,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         }
       });
     },
-    [setPhaseSafe, stopTimer],
+    [setPhaseSafe, stopTimer, endCallRecord],
   );
 
   /**
@@ -308,6 +345,9 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // ferait passer CET appel en failed s'il est encore armé — et les timers
       // de simulation / de sortie de wrapping (retour à 'idle' à 1,5 s / 2 s)
       // écraseraient sa phase. On purge les deux.
+      // Lot 11.7 : on clôt aussi le registre de l'appel précédent s'il est
+      // resté ouvert (jamais de notification 'ended') — idempotent sinon.
+      endCallRecord('ended');
       clearDialTimeout();
       clearSimTimers();
       dropClient();
@@ -341,6 +381,26 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
 
       // 3. Client — null en dry-run ⇒ simulation sans réseau (G2).
       const client = await createRtcClient(rtcToken);
+
+      // Lot 11.7 : registre + budget AVANT de composer. En dry-run on n'est
+      // jamais ici (token null ⇒ client null ⇒ simulation). Un refus
+      // (budget, entitlement) bloque l'appel — fail-loud.
+      if (client) {
+        try {
+          const started = await notifyCallStarted(token, {
+            to,
+            callerNumber: callerNumber ?? null,
+          });
+          callRecordIdRef.current = started.call_record_id;
+          connectedAtRef.current = null;
+        } catch (e) {
+          setPhaseSafe('failed');
+          setError(callBlockedMessage(e));
+          stream.getTracks().forEach((t) => t.stop());
+          return false;
+        }
+      }
+
       clientRef.current = client;
 
       if (!client) {
@@ -367,6 +427,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       try {
         await client.connect();
       } catch (e) {
+        endCallRecord('failed'); // lot 11.7 : le registre est ouvert
         setPhaseSafe('failed');
         setError(telnyxErrorMessage(e));
         return false;
@@ -375,8 +436,10 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // Timeout de diagnostic : si après 20 s on est toujours en dialing sans
       // ringing/connected (telnyx.ready n'a pas fire, newCall pas exécuté), on
       // le dit au lieu de rester bloqué silencieusement sur « Composition… ».
+      // Lot 11.7 : le registre est clos en no_answer (budget libéré).
       dialTimeoutRef.current = setTimeout(() => {
         if (phaseRef.current === 'dialing') {
+          endCallRecord('no_answer');
           setError(
             'Aucune réponse du serveur WebRTC après 20 s — token refusé ou réseau bloqué. Vérifie la console navigateur.',
           );
@@ -385,7 +448,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       }, 20000);
       return true;
     },
-    [token, dryRun, setPhaseSafe, clearDialTimeout, clearSimTimers, runSimulation, dropClient, attachSdkListeners],
+    [token, dryRun, setPhaseSafe, clearDialTimeout, clearSimTimers, runSimulation, dropClient, attachSdkListeners, endCallRecord],
   );
 
   /** Raccrochage explicite (bouton Raccrocher — demande Théo). */
@@ -393,11 +456,14 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
     clearDialTimeout();
     clearSimTimers();
     stopTimer();
+    // Lot 11.7 : clôre le registre AVANT de couper (dropClient peut empêcher
+    // la notification 'ended' d'arriver) — consommé si décroché, libéré sinon.
+    endCallRecord('ended');
     dropClient();
     setPhaseSafe('wrapping');
     // Pas d'auto-next : on reste en wrapping, l'humain décide la suite.
     simTimersRef.current.push(setTimeout(() => setPhaseSafe('idle'), 1500));
-  }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, dropClient]);
+  }, [setPhaseSafe, stopTimer, clearDialTimeout, clearSimTimers, dropClient, endCallRecord]);
 
   return {
     phase,

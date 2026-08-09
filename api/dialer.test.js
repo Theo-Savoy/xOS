@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET, POST, handler } from './dialer.js';
+import { GET, POST, handler, __testRateLimiter } from './dialer.js';
 
 const { mockVerifyJWT } = vi.hoisted(() => ({ mockVerifyJWT: vi.fn() }));
 
@@ -27,9 +27,11 @@ function makeChain(rows, maybeSingleData = null) {
     update: vi.fn(() => chain),
     eq: vi.fn(() => chain),
     in: vi.fn(() => chain),
+    is: vi.fn(() => chain),
     maybeSingle: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     single: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     order: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
     then(onFulfilled) {
       return Promise.resolve({ data: rows, error: null }).then(onFulfilled);
     },
@@ -74,6 +76,10 @@ describe('routeur /api/dialer', () => {
     mockFrom.mockReset();
     mockRpc.mockReset();
     mockVerifyJWT.mockReset();
+    // Le bucket rate-limit est un singleton module-level partagé par tous les
+    // tests du fichier (capacity 20) : le réinitialiser entre chaque cas,
+    // sinon le quota s'épuise et les tests suivants reçoivent 429.
+    __testRateLimiter.reset();
     mockVerifyJWT.mockResolvedValue({ id: 'user-123', email: 'test@xos-learning.fr' });
 
     // Settings reads return the enabled rows.
@@ -294,18 +300,75 @@ describe('routeur /api/dialer', () => {
     expect(sent.webhook_url).not.toContain('attacker.example');
   });
 
-  it('S1/S6 : webrtc_token refuse 429 si le budget est épuisé, sans exposer la réservation', async () => {
+  // --- Lot 11.7 : le budget + le registre ont quitté webrtc_token pour
+  // call_started / call_ended (budget PAR COMPOSITION). Ces tests
+  // verrouillent le nouveau contrat — et l'absence de l'ancien.
+
+  /** Fenêtre réelle (dry_run paramétrable) + entitlement réelle + registre. */
+  const realWindowFrom = (callsChain, { dryRun = false } = {}) => (table) => {
+    if (table === 'settings') {
+      return makeChain(
+        enabledSettings().map((r) =>
+          r.key === 'dialer_dry_run' ? { key: 'dialer_dry_run', value: String(dryRun) } : r,
+        ),
+      );
+    }
+    if (table === 'dialer_user_entitlements') {
+      return makeChain([], { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' });
+    }
+    if (table === 'dialer_calls') return callsChain ?? makeChain([], null);
+    return makeChain([], null); // dialer_phone_numbers, audit, etc.
+  };
+
+  it('11.7 : webrtc_token ne réserve PLUS de budget (contrat déplacé)', async () => {
     vi.stubEnv('TELNYX_ENV', 'dev');
     vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
-    mockFrom.mockImplementation(() =>
-      makeChain(
-        [
-          ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
-          { key: 'dialer_dry_run', value: 'false' },
-        ],
-        { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
-      ),
+    mockFrom.mockImplementation(realWindowFrom());
+    // POST telephony_credentials/.../token renvoie le JWT en texte brut.
+    fetchSpy.mockResolvedValue(new Response('rtc-jwt-brut', { status: 200 }));
+
+    const res = await handler(
+      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
     );
+    expect(res.status).toBe(200);
+    expect((await res.json()).token).toBe('rtc-jwt-brut');
+    // L'ancien contrat est mort : aucun budget réservé sur le token.
+    const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(rpcNames).not.toContain('dialer_reserve_budget');
+  });
+
+  it('11.7 : call_started réserve le budget + écrit la ligne dialer_calls', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    const callsChain = makeChain([], { id: 42 }); // insert → single()
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
+
+    const res = await handler(
+      req('resource=call_started', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ to: '+33123456789' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.call_record_id).toBe(42);
+    expect(body.dry_run).toBe(false);
+    const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(rpcNames).toContain('dialer_reserve_budget');
+    // La ligne porte le statut dialing, l'owner, la cible et la réservation.
+    const inserted = callsChain.insert.mock.calls[0][0];
+    expect(inserted.status).toBe('dialing');
+    expect(inserted.owner_user_id).toBe('user-123');
+    expect(inserted.to_number).toBe('+33123456789');
+    expect(inserted.reservation_id).toBe('res-1');
+  });
+
+  it('11.7 : call_started refuse 429 budget épuisé SANS écrire de ligne', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    const callsChain = makeChain([], { id: 42 });
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
     mockRpc.mockImplementation((fn) =>
       fn === 'dialer_reserve_budget'
         ? Promise.resolve({ data: { allowed: false, reason: 'budget_exceeded_session' }, error: null })
@@ -313,16 +376,148 @@ describe('routeur /api/dialer', () => {
     );
 
     const res = await handler(
-      req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
+      req('resource=call_started', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ to: '+33123456789' }),
+      }),
     );
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.error).toBe('budget_exceeded_session');
-    // S1 : aucun token émis quand le budget refuse.
-    expect(body.token).toBeUndefined();
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(body.call_record_id).toBeUndefined();
     // S6 : code stable seul, pas l'objet réservation.
     expect(body.reservation).toBeUndefined();
+    // Fail-loud : pas de ligne sans budget.
+    expect(callsChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('11.7 : call_started refuse 400 invalid_e164', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    mockFrom.mockImplementation(realWindowFrom());
+    for (const to of ['0123456789', '+0123456789', 'sip:evil@host', '+331']) {
+      const res = await handler(
+        req('resource=call_started', {
+          method: 'POST',
+          headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+          body: JSON.stringify({ to }),
+        }),
+      );
+      expect(res.status, `attendu 400 pour ${to}`).toBe(400);
+      expect((await res.json()).error).toBe('invalid_e164');
+    }
+  });
+
+  it('11.7 : call_started en dry-run → call_record_id null, ni registre ni budget', async () => {
+    // Le client dry-run n'a pas de socket (token null) — s'il appelle quand
+    // même, réponse explicite plutôt qu'une ligne fantôme.
+    const callsChain = makeChain([], { id: 42 });
+    mockFrom.mockImplementation(realWindowFrom(callsChain, { dryRun: true }));
+
+    const res = await handler(
+      req('resource=call_started', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ to: '+33123456789' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.dry_run).toBe(true);
+    expect(body.call_record_id).toBeNull();
+    expect(callsChain.insert).not.toHaveBeenCalled();
+    const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(rpcNames).not.toContain('dialer_reserve_budget');
+  });
+
+  it('11.7 : call_ended answered=true consomme la réservation', async () => {
+    const callsChain = makeChain([], { id: 42, reservation_id: 'res-1' });
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
+
+    const res = await handler(
+      req('resource=call_ended', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ call_record_id: 42, status: 'ended', answered: true, duration_sec: 73 }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).closed).toBe(true);
+    const updated = callsChain.update.mock.calls[0][0];
+    expect(updated.status).toBe('ended');
+    expect(updated.duration_sec).toBe(73);
+    expect(updated.ended_at).toBeTruthy();
+    const release = mockRpc.mock.calls.find(([fn]) => fn === 'dialer_release_reservation');
+    expect(release[1]).toEqual({ p_reservation_id: 'res-1', p_result: 'consumed' });
+  });
+
+  it('11.7 : call_ended sans réponse libère la réservation', async () => {
+    const callsChain = makeChain([], { id: 42, reservation_id: 'res-1' });
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
+
+    const res = await handler(
+      req('resource=call_ended', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ call_record_id: 42, status: 'no_answer' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).closed).toBe(true);
+    const release = mockRpc.mock.calls.find(([fn]) => fn === 'dialer_release_reservation');
+    expect(release[1]).toEqual({ p_reservation_id: 'res-1', p_result: 'released' });
+  });
+
+  it('11.7 : call_ended idempotent — ligne close ou non possédée → closed:false', async () => {
+    // maybeSingle null : déjà close OU owner_user_id ≠ user courant (le eq
+    // filtre). Dans les deux cas : ni update, ni budget retouché.
+    const callsChain = makeChain([], null);
+    mockFrom.mockImplementation(realWindowFrom(callsChain));
+
+    const res = await handler(
+      req('resource=call_ended', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+        body: JSON.stringify({ call_record_id: 999, status: 'ended', answered: true }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).closed).toBe(false);
+    expect(callsChain.update).not.toHaveBeenCalled();
+    const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(rpcNames).not.toContain('dialer_release_reservation');
+  });
+
+  it('11.7 : call_ended refuse 400 sans call_record_id valide', async () => {
+    mockFrom.mockImplementation(realWindowFrom());
+    for (const call_record_id of [undefined, 0, -3, 'abc']) {
+      const res = await handler(
+        req('resource=call_ended', {
+          method: 'POST',
+          headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+          body: JSON.stringify({ call_record_id }),
+        }),
+      );
+      expect(res.status, `attendu 400 pour ${JSON.stringify(call_record_id)}`).toBe(400);
+    }
+  });
+
+  it('11.7 : GET calls renvoie l’historique masqué de l’utilisateur', async () => {
+    const rows = [
+      { id: 1, to_number: '+33612345678', status: 'ended', created_at: '2026-08-09T00:00:00Z' },
+    ];
+    mockFrom.mockImplementation(realWindowFrom(makeChain(rows, null)));
+
+    const res = await handler(
+      req('resource=calls', { headers: { authorization: 'Bearer test-jwt' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.calls).toHaveLength(1);
+    // S11 : jamais d'E.164 prospect en clair côté client.
+    expect(body.calls[0].to_number).not.toContain('12345678');
+    expect(body.calls[0].to_number).toContain('****');
   });
 
   it('entitlement refusé → 403 dialer_entitlement_denied (webrtc_token)', async () => {
