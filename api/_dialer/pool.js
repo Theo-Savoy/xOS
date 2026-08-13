@@ -8,8 +8,29 @@ const E164 = /^\+[1-9]\d{6,14}$/;
 const HUMAN_RESULTS = new Set(['human', 'human_business', 'human_residence', 'not_sure']);
 const MACHINE_RESULTS = new Set(['machine', 'silence', 'fax', 'fax_detected', 'screening']);
 
+const STABLE_PROD_WEBHOOK = 'https://xos-dechet-repo.vercel.app/api/dialer?resource=webhooks';
+
+/**
+ * URL de webhook à déclarer à Telnyx pour chaque POST /v2/calls.
+ *
+ * En production on utilise TOUJOURS l'alias stable (xos-dechet-repo.vercel.app),
+ * jamais l'URL de déploiement Vercel (VERCEL_URL change à chaque build) : un
+ * leg d'appel vit plus longtemps qu'un déploiement, et Telnyx rejouerait des
+ * événements vers une URL morte. L'alias stable redirige vers le déploiement
+ * actif, donc la réception fonctionne même après redéploiement.
+ *
+ * En dev (TELNYX_ENV != prod), on garde VERCEL_URL / tunnel pour les tests
+ * locaux — le fallback reste l'alias stable.
+ */
 export function webhookUrl() {
-  return `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://xos-dechet-repo.vercel.app'}/api/dialer?resource=webhooks`;
+  // Décision sur l'ENVIRONNEMENT D'EXÉCUTION, pas sur TELNYX_ENV : la prod
+  // Vercel tourne avec les vars *_DEV (TELNYX_ENV=dev) mais doit quand même
+  // déclarer l'alias stable — l'URL de déploiement meurt au prochain build.
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    return STABLE_PROD_WEBHOOK;
+  }
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/api/dialer?resource=webhooks`;
+  return STABLE_PROD_WEBHOOK;
 }
 
 export async function startPool({ client, user, flags, body }) {
