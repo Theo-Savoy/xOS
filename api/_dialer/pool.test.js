@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { readFile } from 'node:fs/promises';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   loadDialerConfig: vi.fn(), loadUserEntitlements: vi.fn(), reserveBudget: vi.fn(),
@@ -90,6 +90,39 @@ function winnerClient({
     }),
   };
 }
+
+describe('webhookUrl', () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it('utilise l’alias stable en production, jamais l’URL de déploiement éphémère', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL_ENV = 'production';
+    process.env.VERCEL_URL = 'xos-dead-12345.vercel.app';
+    process.env.TELNYX_ENV = 'dev'; // la prod Vercel tourne avec les vars *_DEV
+    const { webhookUrl } = await import('./pool.js');
+    expect(webhookUrl()).toBe('https://xos-dechet-repo.vercel.app/api/dialer?resource=webhooks');
+  });
+
+  it('garde l’URL de déploiement en dev (tunnel / preview)', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.VERCEL_ENV = 'preview';
+    process.env.VERCEL_URL = 'xos-preview-abc.vercel.app';
+    process.env.TELNYX_ENV = 'dev';
+    const { webhookUrl } = await import('./pool.js');
+    expect(webhookUrl()).toBe('https://xos-preview-abc.vercel.app/api/dialer?resource=webhooks');
+  });
+
+  it('retombe sur l’alias stable si aucune URL Vercel', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.VERCEL_ENV = '';
+    delete process.env.VERCEL_URL;
+    const { webhookUrl } = await import('./pool.js');
+    expect(webhookUrl()).toBe('https://xos-dechet-repo.vercel.app/api/dialer?resource=webhooks');
+  });
+});
 
 describe('startPool', () => {
   it('refuse tout appel réel lorsque la vérification webhook est absente', async () => {
