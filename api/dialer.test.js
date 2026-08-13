@@ -72,6 +72,7 @@ describe('routeur /api/dialer', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
     // Dry-run env: no API keys needed, no network calls ever.
     vi.stubEnv('TELNYX_ENV', 'dryrun');
+    vi.stubEnv('WEBHOOK_TELNYX_PUBLIC_KEY', 'test-webhook-public-key');
 
     mockFrom.mockReset();
     mockRpc.mockReset();
@@ -132,11 +133,13 @@ describe('routeur /api/dialer', () => {
     expect((await res.json()).error).toBe('unauthenticated');
   });
 
-  it('config renvoie l’entitlement de l’utilisateur courant', async () => {
+  it('config renvoie l’entitlement et les capacités de l’utilisateur courant', async () => {
+    vi.stubEnv('CONNECTION_ID', 'server-connection');
     const res = await handler(req('resource=config'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.entitlement).toBeDefined();
+    expect(body.has_connection_id).toBe(true);
     expect(typeof body.entitlement.enabled).toBe('boolean');
   });
 
@@ -172,6 +175,35 @@ describe('routeur /api/dialer', () => {
     );
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('no_rtc_credential');
+  });
+
+  it('refuse tout token ou dial réel lorsque la clé webhook manque', async () => {
+    vi.stubEnv('TELNYX_ENV', 'dev');
+    vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    vi.stubEnv('TELNYX_CONNECTION_ID_DEV', 'server-connection');
+    vi.stubEnv('TELNYX_CALLER_ID_DEV', ['+33', '900000000'].join(''));
+    vi.stubEnv('WEBHOOK_TELNYX_PUBLIC_KEY', '');
+    mockFrom.mockImplementation(() => makeChain(
+      [
+        ...enabledSettings().filter((r) => r.key !== 'dialer_dry_run'),
+        { key: 'dialer_dry_run', value: 'false' },
+      ],
+      { enabled: true, dry_run: false, telnyx_credential_id: 'cred-1' },
+    ));
+
+    const tokenResponse = await handler(req('resource=webrtc_token', {
+      method: 'POST', headers: { authorization: 'Bearer test-jwt' },
+    }));
+    const dialResponse = await handler(req('resource=dial', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-jwt', 'content-type': 'application/json' },
+      body: JSON.stringify({ to: ['+33', '100000001'].join('') }),
+    }));
+
+    expect(tokenResponse.status).toBe(503);
+    expect(dialResponse.status).toBe(503);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockRpc.mock.calls.map(([fn]) => fn)).not.toContain('dialer_reserve_budget');
   });
 
   it('503 dialer_disabled quand le flag est false (resource gardée)', async () => {
@@ -323,6 +355,7 @@ describe('routeur /api/dialer', () => {
   it('11.7 : webrtc_token ne réserve PLUS de budget (contrat déplacé)', async () => {
     vi.stubEnv('TELNYX_ENV', 'dev');
     vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    vi.stubEnv('TELNYX_CALLER_ID_DEV', '+33900009999');
     mockFrom.mockImplementation(realWindowFrom());
     // POST telephony_credentials/.../token renvoie le JWT en texte brut.
     fetchSpy.mockResolvedValue(new Response('rtc-jwt-brut', { status: 200 }));
@@ -331,7 +364,12 @@ describe('routeur /api/dialer', () => {
       req('resource=webrtc_token', { method: 'POST', headers: { authorization: 'Bearer test-jwt' } }),
     );
     expect(res.status).toBe(200);
-    expect((await res.json()).token).toBe('rtc-jwt-brut');
+    const body = await res.json();
+    expect(body.token).toBe('rtc-jwt-brut');
+    // Caller ID serveur obligatoire quand le client n'en choisit pas : les
+    // chemins Runner/pool ne doivent jamais laisser Telnyx résoudre un ANI
+    // implicite (présentation « numéro masqué »).
+    expect(body.caller_number).toBe('+33900009999');
     // L'ancien contrat est mort : aucun budget réservé sur le token.
     const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
     expect(rpcNames).not.toContain('dialer_reserve_budget');

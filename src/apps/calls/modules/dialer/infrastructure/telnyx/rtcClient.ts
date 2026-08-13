@@ -19,6 +19,9 @@
  */
 
 export type RtcCallHandle = {
+  answer?: (params?: { remoteElement?: HTMLMediaElement | string }) => Promise<void> | void;
+  muteAudio?: () => void;
+  unmuteAudio?: () => void;
   hangup: (params?: unknown) => Promise<void> | void;
   /** Accès au RTCPeerConnection sous-jacent (lecture codec via getStats). */
   peer?: { instance?: RTCPeerConnection | null };
@@ -87,7 +90,7 @@ export function telnyxPhase(state?: string): TelnyxPhase | null {
 /** Payload des notifications SDK (union des champs observés sur les deux
  *  hooks). event? n'est jamais lu — retiré. */
 export type TelnyxNotification = {
-  call?: { state?: string; callState?: string; callId?: string; id?: string };
+  call?: RtcCallHandle & { state?: string; callState?: string; callId?: string; id?: string; direction?: string };
 };
 
 export const notifState = (n: TelnyxNotification) => n.call?.state ?? n.call?.callState;

@@ -36,21 +36,29 @@ describe('PowerDialerView (mode démo)', () => {
     expect(playButton()).toBeTruthy();
   });
 
-  // §8.3 (audit 11.13) : sans un <audio> par slot, le SDK n'a nulle part où
-  // attacher le flux distant — l'appel part et on n'entend rien (bug B2 du
-  // mono-ligne, jamais corrigé pour le pool). Le sélecteur de useDialerPool
-  // est `audio[data-rtc-remote-${slot}]` : ce test le vérifie littéralement.
-  it('rend un élément audio par slot, sur le sélecteur attendu par le pool', () => {
+  it('ne rend qu’un poste audio agent, muet tant qu’aucun humain n’est connecté', () => {
     const { container } = render(<PowerDialerView token="tok" onBack={vi.fn()} />);
-    for (let slot = 0; slot < 3; slot += 1) {
-      expect(
-        container.querySelector(`audio[data-rtc-remote-${slot}]`),
-        `audio du slot ${slot} manquant`,
-      ).toBeTruthy();
-    }
-    // Et surtout PAS l'attribut mono-ligne : la CallBar reste seule à le porter
-    // (D7 — un seul nœud pour `audio[data-rtc-remote]`).
-    expect(container.querySelector('audio[data-rtc-remote]')).toBeNull();
+    expect(container.querySelectorAll('audio')).toHaveLength(1);
+    const audio = container.querySelector<HTMLAudioElement>('audio[data-rtc-agent]');
+    expect(audio).toBeTruthy();
+    expect(audio?.muted).toBe(true);
+  });
+
+  it('permet de configurer le nombre d’appels parallèles entre 1 et 5', () => {
+    render(<PowerDialerView token="tok" onBack={vi.fn()} />);
+    const select = screen.getByLabelText('Appels en parallèle') as HTMLSelectElement;
+    expect([...select.options].map((option) => option.value)).toEqual(['1', '2', '3', '4', '5']);
+    fireEvent.change(select, { target: { value: '5' } });
+    expect(select.value).toBe('5');
+  });
+
+  it('rend réellement cinq lignes quand le parallélisme passe à 5', () => {
+    render(<PowerDialerView token="tok" onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Remplir démo'));
+    fireEvent.change(screen.getByLabelText('Appels en parallèle'), { target: { value: '5' } });
+    fireEvent.click(playButton());
+    expect(screen.getAllByText('Composition…')).toHaveLength(5);
+    expect(screen.getByText('File d\'attente (2)')).toBeTruthy();
   });
 
   it('Play désactivé sans file (rien à composer)', () => {
@@ -69,7 +77,7 @@ describe('PowerDialerView (mode démo)', () => {
     // 3 lignes composées (dialing), file réduite à 4 restants.
     expect(screen.getAllByText('Composition…').length).toBe(3);
     expect(screen.getByText('File d\'attente (4)')).toBeTruthy();
-    expect(screen.getByText('3')).toBeTruthy(); // compteur tentés
+    expect(screen.getByLabelText('Indicateurs session').textContent).toContain('3tentés');
   });
 
   it('après réponse simulée : ligne 0 connectée, les autres coupées (démo)', async () => {
@@ -85,30 +93,38 @@ describe('PowerDialerView (mode démo)', () => {
 
     expect(screen.getByText('En communication')).toBeTruthy();
     expect(screen.getAllByText('Abandonné').length).toBe(2);
-    expect(screen.getByText('1')).toBeTruthy(); // compteur connectés
+    expect(screen.getByLabelText('Indicateurs session').textContent).toContain('1connectés');
   });
 
-  it('démo aucune réponse : les lignes sont skippées, la file avance', async () => {
+  it('démo aucune réponse : les lignes sont skippées sans composer de remplaçant', async () => {
     render(<PowerDialerView token="tok" onBack={vi.fn()} />);
 
     fireEvent.click(screen.getByText('Remplir démo'));
     fireEvent.click(screen.getByText('Démo : réponse humaine')); // bascule en 'aucune réponse'
     fireEvent.click(playButton());
 
-    // t+3s : la ligne 0 est skippée par le timeout simulé → le suivant entre
-    // à sa place (la ligne change de numéro, phase dialing).
+    // t+3s : la ligne 0 est skippée par le timeout simulé. Le serveur ne
+    // compose pas automatiquement un remplaçant (lot 11.8) : la ligne garde
+    // sa destination en phase skipped et la file ne bouge pas.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3300);
     });
 
-    expect(screen.getByText('+334****4444')).toBeTruthy(); // le suivant a pris la place
-    expect(screen.getByText('File d\'attente (3)')).toBeTruthy(); // 7 - 3 composés - 1 skip
+    expect(screen.getByText('Abandonné')).toBeTruthy(); // ligne 0 skippée
+    // La ligne skippée garde sa destination d'origine, aucun remplaçant n'est
+    // composé dans une ligne (le numéro suivant reste dans la file).
+    const lineDests = Array.from(document.querySelectorAll('.calls-power__line-dest'))
+      .map((el) => el.textContent);
+    expect(lineDests).toContain('+331****1111');
+    expect(lineDests).not.toContain('+334****4444');
+    expect(screen.getByText('File d\'attente (4)')).toBeTruthy(); // 7 - 3 composés, skip ne consomme rien
 
-    // t+10s : fin de la démo sans réponse, STOP — le bouton Play revient.
+    // t+10s : fin de la démo sans réponse, STOP — le cycle se clôt, le bouton
+    // de relance revient (les lignes skippées restent relançables).
     await act(async () => {
       await vi.advanceTimersByTimeAsync(7000);
     });
-    expect(playButton()).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Relancer/ })).toBeTruthy();
   });
 
   it('Tout raccrocher pendant un cycle reset le pool', () => {
@@ -121,5 +137,15 @@ describe('PowerDialerView (mode démo)', () => {
 
     expect(screen.queryByText('Composition…')).toBeNull();
     expect(playButton()).toBeTruthy();
+  });
+
+  it('permet de relancer les appels abandonnés après un cycle', async () => {
+    render(<PowerDialerView token="tok" onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Remplir démo'));
+    fireEvent.click(playButton());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10100);
+    });
+    expect(screen.getByRole('button', { name: /Relancer/ })).toBeTruthy();
   });
 });

@@ -93,6 +93,26 @@ describe('loadDialerConfig', () => {
     expect(cfg.callerId).toBe('+33-P');
   });
 
+  it('uses the legacy CONNECTION_ID only when the environment-specific value is absent', () => {
+    resetEnv({
+      TELNYX_ENV: 'prod',
+      TELNYX_API_KEY_PROD: 'KEY',
+      TELNYX_CONNECTION_ID_PROD: '',
+      CONNECTION_ID: 'legacy-connection',
+      WEBHOOK_TELNYX_PUBLIC_KEY: 'PK',
+    });
+    expect(loadDialerConfig().connectionId).toBe('legacy-connection');
+
+    resetEnv({
+      TELNYX_ENV: 'prod',
+      TELNYX_API_KEY_PROD: 'KEY',
+      TELNYX_CONNECTION_ID_PROD: 'prod-connection',
+      CONNECTION_ID: 'legacy-connection',
+      WEBHOOK_TELNYX_PUBLIC_KEY: 'PK',
+    });
+    expect(loadDialerConfig().connectionId).toBe('prod-connection');
+  });
+
   it('freezes the config object', () => {
     resetEnv({
       TELNYX_ENV: 'dryrun',

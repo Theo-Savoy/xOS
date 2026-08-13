@@ -47,8 +47,23 @@ drop index if exists public.dialer_calls_one_active_per_user;
 alter table public.dialer_campaigns
   drop constraint if exists dialer_campaigns_parallelism_single;
 
-alter table public.dialer_campaigns
-  alter column rep_phone set default '';
+-- Certains remotes historiques ont été créés sans rep_phone. Le pivot ne doit
+-- pas échouer sur cette colonne déjà absente ; on ne modifie son défaut que si
+-- elle existe encore.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'dialer_campaigns'
+      and column_name = 'rep_phone'
+  ) then
+    alter table public.dialer_campaigns
+      alter column rep_phone set default '';
+  end if;
+end
+$$;
 
 -- Historique par utilisateur (GET ?resource=calls, lot 11.7).
 create index if not exists idx_dialer_calls_owner_created

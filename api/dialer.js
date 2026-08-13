@@ -38,6 +38,7 @@ import { buildAuditRow, writeAudit } from './_dialer/audit.js';
 import { dialContact, issueRtcToken } from './_dialer/telnyx.js';
 import { RateLimiter } from './_dialer/rateLimit.js';
 import { openCallRow, closeCallRow, listUserCalls } from './_dialer/persistence.js';
+import { startPool, getPoolStatus, hangupPool } from './_dialer/pool.js';
 
 export const config = { maxDuration: 30 };
 
@@ -111,6 +112,7 @@ async function handleConfig(client, user) {
     env: cfg.env,
     is_dry_run: cfg.isDryRun,
     has_caller_id: Boolean(cfg.callerId),
+    has_connection_id: Boolean(cfg.connectionId),
     has_webhook_public_key: Boolean(cfg.webhookPublicKey),
     caller_numbers: callerNumbers,
     entitlement: {
@@ -177,6 +179,9 @@ async function handleWebrtcToken(request, user, client, flags) {
     return json(200, { dry_run: true, token: null, expires_in: 0 });
   }
 
+  if (!cfg.webhookPublicKey) {
+    return json(503, { error: 'dial_not_configured' });
+  }
   if (!entitlements.telnyxCredentialId) {
     return json(409, { error: 'no_rtc_credential' });
   }
@@ -204,6 +209,11 @@ async function handleWebrtcToken(request, user, client, flags) {
       return json(403, { error: 'caller_number_not_owned' });
     }
     callerNumber = owned.e164;
+  } else {
+    // Les chemins Runner et power n'affichent pas de sélecteur : utiliser le
+    // caller ID autorisé configuré côté serveur plutôt que laisser Telnyx
+    // résoudre un ANI implicite, qui peut être présenté comme numéro masqué.
+    callerNumber = cfg.callerId;
   }
 
   try {
@@ -223,7 +233,9 @@ async function handleWebrtcToken(request, user, client, flags) {
       metadata: { env: cfg.env, dry_run: false },
     })).catch((e) => console.error('[dialer] audit write failed:', e.message));
 
-    return json(200, { dry_run: false, token, caller_number: callerNumber, expires_in: 600 });
+    return json(200, {
+      dry_run: false, token, caller_number: callerNumber, expires_in: 600,
+    });
   } catch (err) {
     console.error('[dialer] webrtc token issue failed:', err instanceof Error ? err.message : err);
     return json(502, { error: 'webrtc_token_failed' });
@@ -283,8 +295,8 @@ async function handleCallStarted(request, user, client, flags) {
   }
 
   // B7 : caller_number validé contre les numéros possédés par l'utilisateur.
-  let callerNumber = null;
-  if (body?.caller_number) {
+  let callerNumber = cfg.callerId;
+  if (body?.caller_number && body.caller_number !== cfg.callerId) {
     const { data: owned } = await client
       .from('dialer_phone_numbers')
       .select('e164')
@@ -489,7 +501,7 @@ async function handleDial(request, user, client, flags) {
 
   // Fail-closed : sans connection Call Control configurée côté serveur, pas
   // de dial (sauf dry-run qui ne touche pas le réseau).
-  if (!connectionId && !isDryRun) {
+  if ((!connectionId || !cfg.webhookPublicKey) && !isDryRun) {
     return json(503, { error: 'dial_not_configured' });
   }
 
@@ -639,6 +651,31 @@ export async function handler(request) {
     if (resource === 'calls' && request.method === 'GET') {
       return await handleListCalls(request, user, client);
     }
+    if (resource === 'pool_start' && request.method === 'POST') {
+      const rl = rateLimiter.tryConsume(`user:${user.id}`);
+      if (!rl.allowed) {
+        return json(429, { error: 'rate_limited', retry_after_ms: rl.retryAfterMs });
+      }
+      let body;
+      try { body = await request.json(); } catch { return json(400, { error: 'invalid_json_body' }); }
+      const result = await startPool({ client, user, flags, body });
+      return json(result.status, result.body);
+    }
+    if (resource === 'pool_status' && request.method === 'GET') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId) return json(400, { error: 'missing_session_id' });
+      const result = await getPoolStatus({ client, userId: user.id, sessionId });
+      return json(result.status, result.body);
+    }
+    if (resource === 'pool_hangup' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return json(400, { error: 'invalid_json_body' }); }
+      if (!body?.session_id) return json(400, { error: 'missing_session_id' });
+      const result = await hangupPool({
+        client, userId: user.id, sessionId: body.session_id, callRecordId: body.call_record_id ?? null,
+      });
+      return json(result.status, result.body);
+    }
 
     // Defer to lot 11.8+ (AMD, recording, ACW…)
     switch (resource) {
@@ -649,7 +686,8 @@ export async function handler(request) {
           error: 'unknown_resource',
           valid: [
             'config', 'webhooks', 'dial', 'webrtc_token',
-            'call_started', 'call_ended', 'calls', 'campaigns', 'audit',
+            'call_started', 'call_ended', 'calls', 'pool_start', 'pool_status',
+            'pool_hangup', 'campaigns', 'audit',
           ],
         });
     }

@@ -56,7 +56,12 @@ function makeClient(): FakeClient {
 }
 
 beforeEach(() => {
-  mockFetchRtcToken.mockResolvedValue({ dry_run: false, token: 'rtc-tok', expires_in: 600 });
+  mockFetchRtcToken.mockResolvedValue({
+    dry_run: false,
+    token: 'rtc-tok',
+    caller_number: '+33900009999',
+    expires_in: 600,
+  });
   // Lot 11.7 : le registre accepte chaque composition par défaut.
   mockNotifyCallStarted.mockResolvedValue({ call_record_id: 1 });
   mockNotifyCallEnded.mockResolvedValue(true);
@@ -72,6 +77,25 @@ afterEach(() => {
 });
 
 describe('useRtcCall — §8.1 client précédent', () => {
+  it('compose avec le caller ID autorisé renvoyé par le serveur', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValueOnce(client);
+
+    const { result } = renderHook(() => useRtcCall({ token: 'tok', dryRun: false }));
+    await act(async () => {
+      await result.current.startCall('+33100006789');
+    });
+    act(() => client.emit('telnyx.ready'));
+
+    expect(client.newCall).toHaveBeenCalledWith(
+      expect.objectContaining({ callerNumber: '+33900009999' }),
+    );
+    expect(mockNotifyCallStarted).toHaveBeenCalledWith(
+      'tok',
+      expect.objectContaining({ callerNumber: '+33900009999' }),
+    );
+  });
+
   it('déconnecte le client de l’appel n°1 avant de créer celui de l’appel n°2', async () => {
     const client1 = makeClient();
     const client2 = makeClient();

@@ -1,20 +1,4 @@
-/**
- * api/_dialer/telnyx.js — Telnyx Call Control REST client (transport).
- *
- * Spec: docs/audits/lot-11.0-telnyx.md §2, docs/specs/lot-11.1-telnyx-infra.md §2.7.
- * Audit: docs/audits/lot-11.1-go-nogo-transport.md P0-5 (client was absent).
- *
- * Responsibilities:
- *  - POST /v2/calls (dial) with AMD premium, Europe region, timeout 30s
- *  - POST /v2/calls/{call_control_id}/actions/hangup
- *  - DRY-RUN: never hits the network. A dry-run dial returns the fixture
- *    response. This is enforced INSIDE telnyxPost() — the single choke point
- *    that touches globalThis.fetch — so no caller can accidentally bypass it.
- *
- * The config's isDryRun flag is the ONLY thing that gates the network. See
- * api/dialer.js for the OR-merge of cfg.isDryRun and flags.dryRun.
- */
-
+/** Telnyx Call Control transport. */
 import { loadDialerConfig } from './config.js';
 import dialFixture from './_fixtures/dialResponse.json' with { type: 'json' };
 import hangupFixture from './_fixtures/hangupResponse.json' with { type: 'json' };
@@ -31,7 +15,6 @@ export class TelnyxError extends Error {
   }
 }
 
-/** Single network choke point. Dry-run short-circuits BEFORE fetch. */
 async function telnyxPost(path, body, apiKey, dryRun, { raw = false } = {}) {
   if (dryRun) {
     if (raw) return 'DRYRUN_RTC_JWT';
@@ -39,7 +22,7 @@ async function telnyxPost(path, body, apiKey, dryRun, { raw = false } = {}) {
       ? hangupFixture
       : dialFixture;
   }
-  const res = await fetch(`${TELNYX_API}${path}`, {
+  const response = await fetch(`${TELNYX_API}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -48,20 +31,24 @@ async function telnyxPost(path, body, apiKey, dryRun, { raw = false } = {}) {
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    throw new TelnyxError(res.status, errBody);
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new TelnyxError(response.status, errorBody);
   }
-  // POST /v2/telephony_credentials/{id}/token renvoie le JWT en texte brut,
-  // pas l'enveloppe { data }. (Audit 11.2 — le piège d'implémentation.)
-  return raw ? res.text() : res.json();
+  return raw ? response.text() : response.json();
 }
 
-/**
- * Dial one contact. Returns the Telnyx identifiers.
- * client_state = base64(JSON({ sessionId, contactId, userId })) — echoed back
- * in every webhook for this call.
- */
+async function telnyxGet(path, apiKey) {
+  const response = await fetch(`${TELNYX_API}${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new TelnyxError(response.status, errorBody);
+  }
+  return response.json();
+}
+
 export async function dialContact({
   apiKey,
   connectionId,
@@ -73,32 +60,28 @@ export async function dialContact({
   dryRun = false,
   record = false,
   commandId,
+  linkTo,
+  bridgeOnAnswer = false,
+  preventDoubleBridge = false,
 }) {
-  const { data } = await telnyxPost(
-    '/calls',
-    {
-      connection_id: connectionId,
-      from,
-      to,
-      webhook_url: webhookUrl,
-      webhook_url_method: 'POST',
-      client_state: Buffer.from(JSON.stringify(clientState)).toString('base64'),
-      answering_machine_detection: amd,
-      sip_region: 'Europe',
-      timeout_secs: 30,
-      // Idempotence Telnyx : un même command_id = une seule création d'appel.
-      // Le routeur en génère un par intention (audit P0 codex) pour que deux
-      // clics / un retry ne produisent pas deux appels réels.
-      ...(commandId ? { command_id: commandId } : {}),
-      ...(record ? { record: 'record-from-answer', record_channels: 'single' } : {}),
-    },
-    apiKey,
-    dryRun,
-  );
+  const { data } = await telnyxPost('/calls', {
+    connection_id: connectionId,
+    from,
+    to,
+    privacy: 'none',
+    webhook_url: webhookUrl,
+    webhook_url_method: 'POST',
+    client_state: Buffer.from(JSON.stringify(clientState)).toString('base64'),
+    ...(amd ? { answering_machine_detection: amd } : {}),
+    sip_region: 'Europe',
+    timeout_secs: 30,
+    ...(commandId ? { command_id: commandId } : {}),
+    ...(linkTo ? { link_to: linkTo } : {}),
+    ...(bridgeOnAnswer ? { bridge_on_answer: true } : {}),
+    ...(preventDoubleBridge ? { prevent_double_bridge: true } : {}),
+    ...(record ? { record: 'record-from-answer', record_channels: 'single' } : {}),
+  }, apiKey, dryRun);
   return {
-    // Noms Telnyx bruts (snake_case) — alignés sur le contrat API réel.
-    // (Round 2 audit claude : renvoyer camelCase cassait le frontend qui lit
-    // call_control_id ; une seule casse partout = snake_case Telnyx.)
     call_control_id: data.call_control_id,
     call_leg_id: data.call_leg_id,
     call_session_id: data.call_session_id,
@@ -106,66 +89,53 @@ export async function dialContact({
   };
 }
 
-/** Dial N contacts in parallel. Returns Map<contactId, result>. */
 export async function dialParallel({
-  apiKey,
-  connectionId,
-  from,
-  contacts,
-  webhookUrl,
-  sessionId,
-  userId,
-  dryRun = false,
+  apiKey, connectionId, from, contacts, webhookUrl, sessionId, userId, dryRun = false,
 }) {
   const results = new Map();
-  await Promise.allSettled(
-    contacts.map(async (contact) => {
-      try {
-        const dialed = await dialContact({
-          apiKey,
-          connectionId,
-          from,
-          to: contact.phone,
-          webhookUrl,
-          clientState: { sessionId, contactId: contact.id, userId },
-          dryRun,
-        });
-        results.set(contact.id, { ...dialed, contact, status: 'dialing' });
-      } catch (err) {
-        results.set(contact.id, {
-          contact,
-          status: 'dial_failed',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }),
-  );
+  await Promise.allSettled(contacts.map(async (contact) => {
+    try {
+      const dialed = await dialContact({
+        apiKey, connectionId, from, to: contact.phone, webhookUrl,
+        clientState: { sessionId, contactId: contact.id, userId }, dryRun,
+      });
+      results.set(contact.id, { ...dialed, contact, status: 'dialing' });
+    } catch (error) {
+      results.set(contact.id, {
+        contact, status: 'dial_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }));
   return results;
 }
 
 export async function issueRtcToken({ apiKey, credentialId, ttlSec = 600, dryRun = false }) {
-  // Le corps EST le JWT (texte brut) — pas l'enveloppe { data }.
   return telnyxPost(
     `/telephony_credentials/${encodeURIComponent(credentialId)}/token`,
-    { expires_in: ttlSec },
-    apiKey,
-    dryRun,
-    { raw: true },
+    { expires_in: ttlSec }, apiKey, dryRun, { raw: true },
   );
 }
 
-/** Hang up an active call by call_control_id. */
-export async function hangupCall({ apiKey, callControlId, dryRun = false }) {
+export async function getTelephonyCredential({ apiKey, credentialId }) {
+  const { data } = await telnyxGet(
+    `/telephony_credentials/${encodeURIComponent(credentialId)}`,
+    apiKey,
+  );
+  if (!data?.sip_username) throw new TelnyxError(502, { error: 'missing_sip_username' });
+  return { sipUsername: data.sip_username };
+}
+
+export async function hangupCall({ apiKey, callControlId, commandId, dryRun = false }) {
   await telnyxPost(
     `/calls/${encodeURIComponent(callControlId)}/actions/hangup`,
-    { cause: 'user_hangup' },
+    { cause: 'user_hangup', ...(commandId ? { command_id: commandId } : {}) },
     apiKey,
     dryRun,
   );
   return { ok: true };
 }
 
-/** Config-driven wrapper: loads config and enforces the unified dry-run flag. */
 export async function telnyxClient({ dryRun, apiKey, connectionId, callerId, webhookUrl } = {}) {
   const cfg = loadDialerConfig();
   return {

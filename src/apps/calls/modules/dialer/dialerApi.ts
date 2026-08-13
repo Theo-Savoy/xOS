@@ -30,6 +30,7 @@ export type DialerConfig = {
   env: string;
   is_dry_run: boolean;
   has_caller_id: boolean;
+  has_connection_id: boolean;
   has_webhook_public_key: boolean;
   caller_numbers: Array<{
     e164: string;
@@ -126,7 +127,11 @@ export async function dialCall(
 export type RtcTokenResult = {
   dry_run: boolean;
   token: string | null;
+  /** Caller ID autorisé résolu côté serveur ; null uniquement en dry-run ou
+   * quand aucun numéro source n'est configuré. */
+  caller_number: string | null;
   expires_in: number;
+  sip_uri?: string | null;
 };
 
 /**
@@ -281,6 +286,55 @@ export async function fetchUserCalls(
     }
     throw err;
   }
+}
+
+export type PowerPoolCall = {
+  id: number;
+  pool_slot: number;
+  to_number: string;
+  status: string;
+  amd_result: string | null;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  hangup_cause: string | null;
+};
+
+export type PowerPoolStatus = {
+  id: string;
+  parallelism: number;
+  status: string;
+  winner_call_id: number | null;
+  calls: PowerPoolCall[];
+};
+
+export async function startPowerPool(
+  token: string,
+  params: { destinations: string[]; parallelism: number; callerNumber?: string | null },
+): Promise<{ dry_run: boolean; session_id: string | null; calls: Array<{ slot: number; call_record_id?: number; status: string; error?: string }> }> {
+  return apiFetch(token, '/api/dialer?resource=pool_start', {
+    method: 'POST',
+    body: JSON.stringify({
+      destinations: params.destinations,
+      parallelism: params.parallelism,
+      caller_number: params.callerNumber ?? null,
+    }),
+  });
+}
+
+export async function fetchPowerPoolStatus(token: string, sessionId: string): Promise<PowerPoolStatus> {
+  return apiFetch(token, `/api/dialer?resource=pool_status&session_id=${encodeURIComponent(sessionId)}`);
+}
+
+export async function hangupPowerPool(
+  token: string,
+  sessionId: string,
+  callRecordId?: number | null,
+): Promise<void> {
+  await apiFetch(token, '/api/dialer?resource=pool_hangup', {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, call_record_id: callRecordId ?? null }),
+  });
 }
 
 /** Message utilisateur court pour un refus call_started (budget/quota). */

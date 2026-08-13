@@ -47,6 +47,26 @@ export async function checkAndRecordWebhook(
   client,
   { eventId, eventType, payload, signatureOk = true, campaignId = null, callId = null },
 ) {
+  if (signatureOk && typeof client.rpc === 'function') {
+    const { data: claimed, error } = await client.rpc('dialer_claim_webhook_event', {
+      p_event_id: eventId,
+      p_event_type: eventType || 'unknown',
+      p_payload: payload,
+    });
+    if (error) throw new Error(`idempotency claim failed: ${error.message}`);
+    if (claimed === true) return { isDuplicate: false, isProcessing: false, rowId: eventId };
+    const { data: existing, error: lookupErr } = await client
+      .from('dialer_webhook_events')
+      .select('status')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (lookupErr) throw new Error(`idempotency lookup failed: ${lookupErr.message}`);
+    return {
+      isDuplicate: existing?.status === 'processed' || existing?.status === 'ignored',
+      isProcessing: existing?.status === 'pending',
+      rowId: null,
+    };
+  }
   const { data, error } = await client
     .from('dialer_webhook_events')
     .insert({

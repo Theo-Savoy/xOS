@@ -44,6 +44,8 @@ export async function openCallRow(client, {
   campaignId = null,
   contactId = null,
   reservationId = null,
+  poolSessionId = null,
+  poolSlot = null,
 }) {
   const { data, error } = await client
     .from('dialer_calls')
@@ -52,6 +54,8 @@ export async function openCallRow(client, {
       contact_id: contactId,
       owner_user_id: ownerId,
       reservation_id: reservationId,
+      pool_session_id: poolSessionId,
+      pool_slot: poolSlot,
       to_number: toNumber,
       status: 'dialing',
       started_at: new Date().toISOString(),

@@ -240,6 +240,10 @@ export default function CallManagerApp({
   // Entitlement dialer : le bouton + la vue ne s'affichent que pour les
   // utilisateurs entitlementés (fix visibilité audit §2.3).
   const [canDialer, setCanDialer] = useState(false);
+  // Tri-état F-07 (audit 11.8 r2) : null = inconnu (fetch config en cours).
+  // Évite d'expulser un utilisateur entitlementé sur URL directe power-dialer
+  // avant que les flags soient chargés. Le pool n'est monté que si true.
+  const [canPowerDialer, setCanPowerDialer] = useState<boolean | null>(null);
   const [dialerDryRun, setDialerDryRun] = useState(true);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const sessionsRef = useRef<SessionSummary[]>([]);
@@ -507,7 +511,13 @@ export default function CallManagerApp({
       void fetchDialerConfig(token)
         .then((cfg) => {
           if (!cancelled) {
-            setCanDialer(Boolean(cfg.entitlement?.enabled));
+            const legacyEnabled = Boolean(
+              cfg.entitlement?.enabled && cfg.flags?.enabled && cfg.has_caller_id
+            );
+            setCanDialer(legacyEnabled);
+            setCanPowerDialer(Boolean(
+              legacyEnabled && cfg.has_connection_id && cfg.has_webhook_public_key
+            ));
             setDialerDryRun(
               cfg.is_dry_run === true ||
                 cfg.entitlement?.dry_run === true ||
@@ -516,7 +526,10 @@ export default function CallManagerApp({
           }
         })
         .catch(() => {
-          if (!cancelled) setCanDialer(false);
+          if (!cancelled) {
+            setCanDialer(false);
+            setCanPowerDialer(false);
+          }
         });
     }
     void supabase
@@ -536,7 +549,7 @@ export default function CallManagerApp({
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.email]);
+  }, [session?.user?.email, token]);
 
   // Miroir du couple vue/séance affichée, pour que l'effet ci-dessous puisse
   // ignorer le retour de ses propres params sans élargir ses dépendances.
@@ -571,6 +584,14 @@ export default function CallManagerApp({
       setView(next);
     }
   }, [params?.view, params?.session_id]);
+
+  // F-07 (audit 11.8) : spec « l'URL directe power-dialer retourne à
+  // l'accueil si la feature n'est pas utilisable ». Redirection seulement une
+  // fois le flag chargé et définitivement false (tri-état : null = en attente
+  // du fetch config, ne pas expulser un utilisateur entitlementé).
+  useEffect(() => {
+    if (view === 'power-dialer' && canPowerDialer === false) setView('sessions');
+  }, [view, canPowerDialer]);
 
   const onParamsChangeRef = useRef(onParamsChange);
   onParamsChangeRef.current = onParamsChange;
@@ -1931,6 +1952,7 @@ export default function CallManagerApp({
           error={sessionsError}
           canPilotage={canPilotage}
           canDialer={canDialer}
+          canPowerDialer={canPowerDialer === true}
           onRefresh={refreshSessions}
           onNewSession={() => {
             setView('new');
@@ -1984,14 +2006,15 @@ export default function CallManagerApp({
         ))}
 
       {view === 'power-dialer' &&
-        (canDialer ? (
+        (canPowerDialer === true ? (
           <PowerDialerView token={token} onBack={goToSessions} />
         ) : (
           <div className="calls-view" style={{ padding: '2rem' }}>
-            <h2>Accès restreint</h2>
+            <h2>{canPowerDialer === null ? 'Chargement…' : 'Accès restreint'}</h2>
             <p>
-              Le power dialer n'est pas activé pour ce compte. Contacte un
-              administrateur pour activer l'accès.
+              {canPowerDialer === null
+                ? 'Vérification de l’accès au power dialer…'
+                : 'Le power dialer n\'est pas activé pour ce compte. Contacte un administrateur pour activer l\'accès.'}
             </p>
             <Button variant="secondary" onClick={goToSessions}>
               Retour

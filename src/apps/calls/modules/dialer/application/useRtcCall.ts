@@ -371,9 +371,11 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // 2. Token WebRTC (le serveur n'en émet pas en dry-run — G2).
       // B7 : on transmet le caller_number choisi pour validation serveur.
       let rtcToken: string | null = null;
+      let effectiveCallerNumber = callerNumber;
       try {
         const res = await fetchRtcToken(token, callerNumber);
         rtcToken = res.token;
+        effectiveCallerNumber = res.caller_number ?? callerNumber;
       } catch (e) {
         // Pas de token : si on est en dry-run c'est normal (simulation),
         // sinon c'est une erreur.
@@ -395,7 +397,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
         try {
           const started = await notifyCallStarted(token, {
             to,
-            callerNumber: callerNumber ?? null,
+            callerNumber: effectiveCallerNumber ?? null,
           });
           callRecordIdRef.current = started.call_record_id;
           connectedAtRef.current = null;
@@ -422,7 +424,7 @@ export function useRtcCall({ token, dryRun }: { token: string; dryRun: boolean }
       // n'est plus LE client courant (appel suivant, hangup, unmount), ses
       // événements sont ignorés — sinon un socket.close tardif du client
       // abandonné fait échouer l'appel en cours.
-      attachSdkListeners(client, to, callerNumber);
+      attachSdkListeners(client, to, effectiveCallerNumber);
 
       // B4 (audit 11.3) : stopper le stream de pré-vol — le SDK gère son propre
       // getUserMedia via audio:true. Évite la double capture et le voyant micro

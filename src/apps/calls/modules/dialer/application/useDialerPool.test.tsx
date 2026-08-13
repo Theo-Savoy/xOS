@@ -3,269 +3,438 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDialerPool } from './useDialerPool';
 
-/**
- * Test d'intégration du pool (lot 11.5).
- * simulate:true = mode démo : fetchRtcToken n'est JAMAIS appelé, aucun réseau
- * réel (G2). Les numéros de démo sont masqués (jamais composables).
- */
-
-const { mockCreateRtcClient, mockFetchRtcToken, mockNotifyCallStarted, mockNotifyCallEnded } = vi.hoisted(() => ({
+const {
+  mockCreateRtcClient,
+  mockFetchRtcToken,
+  mockStartPowerPool,
+  mockFetchPowerPoolStatus,
+  mockHangupPowerPool,
+} = vi.hoisted(() => ({
   mockCreateRtcClient: vi.fn(),
   mockFetchRtcToken: vi.fn(),
-  mockNotifyCallStarted: vi.fn(),
-  mockNotifyCallEnded: vi.fn(),
+  mockStartPowerPool: vi.fn(),
+  mockFetchPowerPoolStatus: vi.fn(),
+  mockHangupPowerPool: vi.fn(),
 }));
 
 vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/telnyx/rtcClient')>()),
   createRtcClient: mockCreateRtcClient,
 }));
-
 vi.mock('../dialerApi', () => ({
   fetchRtcToken: mockFetchRtcToken,
-  // Lot 11.7 : registre serveur — ouvert avant composition, clos à la fin.
-  notifyCallStarted: mockNotifyCallStarted,
-  notifyCallEnded: mockNotifyCallEnded,
-  callBlockedMessage: (e: unknown) => String((e as Error)?.message ?? e),
+  startPowerPool: mockStartPowerPool,
+  fetchPowerPoolStatus: mockFetchPowerPoolStatus,
+  hangupPowerPool: mockHangupPowerPool,
 }));
 
-let fetchMock: ReturnType<typeof vi.fn>;
-
-function makeClient() {
-  const listeners: Record<string, (data: unknown) => void> = {};
+function makeClient({ deferConnect = false } = {}) {
+  const listeners: Record<string, (data?: unknown) => void> = {};
+  let releaseConnect = () => {};
+  const connectBarrier = deferConnect
+    ? new Promise<void>((resolve) => { releaseConnect = resolve; })
+    : Promise.resolve();
   return {
-    listeners,
-    on: (event: string, cb: (data: unknown) => void) => {
-      listeners[event] = cb;
-    },
-    connect: vi.fn(async () => {}),
-    newCall: vi.fn(() => ({ hangup: vi.fn(), on: vi.fn() })),
+    on: vi.fn((event: string, callback: (data: unknown) => void) => {
+      listeners[event] = callback;
+    }),
+    connect: vi.fn(async () => { await connectBarrier; }),
+    newCall: vi.fn(),
     disconnect: vi.fn(),
     emit: (event: string, data?: unknown) => listeners[event]?.(data),
+    emitReady: () => listeners['telnyx.ready']?.(),
+    emitError: (error: unknown) => listeners['telnyx.error']?.(error),
+    releaseConnect: () => releaseConnect(),
   };
 }
 
+type FakeClient = ReturnType<typeof makeClient>;
+
+async function waitForReadyListener(client: FakeClient) {
+  for (let i = 0; i < 30; i += 1) {
+    if (client.on.mock.calls.some((call) => call[0] === 'telnyx.ready')) return;
+    await Promise.resolve();
+  }
+  throw new Error('telnyx.ready listener was not registered');
+}
+
+/** Play jusqu’à ready : prouve que pool_start n’est pas parti avant l’événement. */
+async function playUntilReady(
+  result: { current: { play: () => Promise<void> } },
+  client: FakeClient,
+) {
+  const startCalls = mockStartPowerPool.mock.calls.length;
+  const playPromise = result.current.play();
+  await waitForReadyListener(client);
+  expect(mockStartPowerPool).toHaveBeenCalledTimes(startCalls);
+  client.emitReady();
+  await playPromise;
+}
+
 beforeEach(() => {
-  fetchMock = vi.fn();
-  vi.stubGlobal('fetch', fetchMock);
-  fetchMock.mockRejectedValue(new Error('no network (dry-run)'));
-  // F2 : les assertions portent sur les NOMBRES d'appels — vider les compteurs
-  // entre chaque cas (les tests antérieurs n'assertaient que l'état, pas les
-  // appels, d'où l'absence de clear jusque-là).
   vi.clearAllMocks();
-  mockFetchRtcToken.mockResolvedValue({ dry_run: false, token: 'rtc-tok', expires_in: 600 });
-  // Lot 11.7 : le registre accepte chaque composition par défaut.
-  mockNotifyCallStarted.mockResolvedValue({ call_record_id: 1 });
-  mockNotifyCallEnded.mockResolvedValue(true);
-  mockCreateRtcClient.mockResolvedValue(null); // simulate par défaut
-  // jsdom : document.querySelector sur audio[data-rtc-remote-N] → null OK.
+  mockFetchRtcToken.mockResolvedValue({
+    dry_run: false, token: 'rtc-token', caller_number: '+339****9999',
+    sip_uri: 'sip:agent@sip.telnyx.com', expires_in: 600,
+  });
+  mockStartPowerPool.mockResolvedValue({
+    dry_run: false, session_id: 'pool-1',
+    calls: [{ slot: 0, call_record_id: 1, status: 'dialing' }],
+  });
+  mockFetchPowerPoolStatus.mockResolvedValue({
+    id: 'pool-1', parallelism: 3, status: 'dialing', winner_call_id: null,
+    calls: [{ id: 1, pool_slot: 0, to_number: '+331****11', status: 'dialing', amd_result: null }],
+  });
+  mockHangupPowerPool.mockResolvedValue(undefined);
 });
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
+afterEach(async () => {
+  await act(async () => {
+    cleanup();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
   vi.useRealTimers();
 });
 
-describe('useDialerPool (dry-run simulation)', () => {
-  it('setQueue puis play compose 3 lignes en dialing', async () => {
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: true }));
+describe('useDialerPool — Voice API + poste WebRTC (lot 11.8)', () => {
+  it('n’envoie pool_start qu’après telnyx.ready, jamais avant', async () => {
+    const client = makeClient({ deferConnect: true });
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3 }));
+    act(() => result.current.setQueue(['+33100000001', '+33100000002', '+33100000003']));
 
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333', '+334****4444']);
+    let playPromise!: Promise<void>;
+    await act(async () => {
+      playPromise = result.current.play();
+      await waitForReadyListener(client);
     });
-    expect(result.current.state.queue.length).toBe(4);
+    expect(client.connect).toHaveBeenCalledTimes(1);
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
 
     await act(async () => {
-      await result.current.play();
+      client.releaseConnect();
+      await Promise.resolve();
+      await Promise.resolve();
     });
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
 
-    expect(result.current.isRunning).toBe(true);
-    expect(result.current.state.lines.map((l) => l.destination)).toEqual([
-      '+331****1111',
-      '+332****2222',
-      '+333****3333',
-    ]);
-    expect(result.current.state.lines.every((l) => l.phase === 'dialing')).toBe(true);
-    expect(result.current.state.queue).toEqual(['+334****4444']);
-  });
-
-  it('skip sur une ligne compose le suivant', async () => {
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: true }));
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333', '+334****4444', '+335****5555']);
-    });
     await act(async () => {
-      await result.current.play();
+      client.emitReady();
+      await playPromise;
     });
 
-    act(() => {
-      result.current.skip(1);
+    expect(mockStartPowerPool).toHaveBeenCalledTimes(1);
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000001', '+33100000002', '+33100000003'],
+      parallelism: 3,
     });
-
-    expect(result.current.state.lines[1].destination).toBe('+334****4444');
-    expect(result.current.state.queue).toEqual(['+335****5555']);
-  });
-
-  it('simulate=true : Play ne compose JAMAIS réellement (fetch token non appelé)', async () => {
-    const { result } = renderHook(() =>
-      useDialerPool({ token: 'tok', size: 3, simulate: true }),
+    expect(client.newCall).not.toHaveBeenCalled();
+    expect(client.connect.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStartPowerPool.mock.invocationCallOrder[0],
     );
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333']);
-    });
-    await act(async () => {
-      await result.current.play();
-    });
-    // Le token n'est JAMAIS demandé : aucune possibilité d'appel réel.
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.current.state.lines[0].phase).toBe('dialing');
   });
 
-  it('hangupAll reset le pool', async () => {
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: true }));
-    act(() => {
-      result.current.setQueue(['+331****1111']);
-    });
-    await act(async () => {
-      await result.current.play();
-    });
-    expect(result.current.isRunning).toBe(true);
+  it('accepte uniquement l’invitation agent et garde le son muet avant active', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const audio = document.createElement('audio');
+    audio.dataset.rtcAgent = '';
+    audio.muted = true;
+    document.body.append(audio);
+    const call = {
+      direction: 'inbound', state: 'ringing', callId: 'agent-1',
+      options: { clientState: btoa(JSON.stringify({ poolSessionId: 'pool-1', kind: 'agent' })) },
+      answer: vi.fn(), muteAudio: vi.fn(), unmuteAudio: vi.fn(), hangup: vi.fn(),
+    };
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+    await act(async () => { await playUntilReady(result, client); });
 
-    act(() => {
-      result.current.hangupAll();
-    });
+    act(() => client.emit('telnyx.notification', { call }));
+    expect(call.answer).toHaveBeenCalledWith({ remoteElement: audio });
+    expect(audio.muted).toBe(true);
+    expect(result.current.agentConnected).toBe(false);
 
+    call.state = 'active';
+    act(() => client.emit('telnyx.notification', { call }));
+    expect(audio.muted).toBe(false);
+    expect(call.unmuteAudio).toHaveBeenCalled();
+    expect(result.current.agentConnected).toBe(true);
+    audio.remove();
+  });
+
+  it('raccroche le pool serveur et le leg agent', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const call = {
+      direction: 'inbound', state: 'ringing', callId: 'agent',
+      options: { clientState: btoa(JSON.stringify({ poolSessionId: 'pool-1', kind: 'agent' })) },
+      answer: vi.fn(), hangup: vi.fn(),
+    };
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+    await act(async () => { await playUntilReady(result, client); });
+    act(() => client.emit('telnyx.notification', { call }));
+    act(() => result.current.hangupAll());
+    expect(call.hangup).toHaveBeenCalled();
+    expect(mockHangupPowerPool).toHaveBeenCalledWith('tok', 'pool-1');
     expect(result.current.isRunning).toBe(false);
-    expect(result.current.state.lines.every((l) => l.phase === 'idle')).toBe(true);
-    expect(result.current.state.queue).toEqual([]);
   });
 
-  it('R3 : un skip manuel ne tue PAS le timeout non-réponse des autres lignes', async () => {
-    // Mode RÉEL : client mocké, timeouts 20s armés par slot.
+  it('mode démo ne demande ni token ni appel serveur', async () => {
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: true }));
+    act(() => result.current.setQueue(['+331****1111', '+332****2222', '+333****3333']));
+    await act(async () => result.current.play());
+    expect(mockFetchRtcToken).not.toHaveBeenCalled();
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
+    expect(result.current.state.lines.every((line) => line.phase === 'dialing')).toBe(true);
+  });
+
+  it('relance immédiatement la dernière file sans dépendre d’un render React intermédiaire', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+    await act(async () => { await playUntilReady(result, client); });
+    act(() => result.current.hangupAll());
+    mockStartPowerPool.mockClear();
+
+    await act(async () => result.current.redial());
+
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000001'], parallelism: 1,
+    });
+  });
+
+  it('un statut terminal répété ne consomme jamais la file locale', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockFetchPowerPoolStatus.mockResolvedValue({
+      id: 'pool-1', parallelism: 1, status: 'dialing', winner_call_id: null,
+      calls: [{ id: 1, pool_slot: 0, to_number: '+331****01', status: 'no_answer', amd_result: null }],
+    });
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+331****0001', '+331****0002', '+331****0003']));
+    await act(async () => { await playUntilReady(result, client); });
+    expect(result.current.state.queue).toEqual(['+331****0002', '+331****0003']);
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.state.queue).toEqual(['+331****0002', '+331****0003']);
+    expect(result.current.state.lines[0].phase).toBe('skipped');
+  });
+
+  it('refuse une invitation de la bonne session si elle ne cible pas le poste agent', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const prospect = {
+      direction: 'inbound', state: 'ringing',
+      options: { clientState: btoa(JSON.stringify({ poolSessionId: 'pool-1', kind: 'prospect' })) },
+      answer: vi.fn(),
+    };
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+331****0001']));
+    await act(async () => { await playUntilReady(result, client); });
+    act(() => client.emit('telnyx.notification', { call: prospect }));
+    expect(prospect.answer).not.toHaveBeenCalled();
+  });
+
+  it('refuse une invitation inbound sans corrélation de session', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const foreign = { direction: 'inbound', state: 'ringing', answer: vi.fn() };
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+331****0001']));
+    await act(async () => { await playUntilReady(result, client); });
+    act(() => client.emit('telnyx.notification', { call: foreign }));
+    expect(foreign.answer).not.toHaveBeenCalled();
+  });
+
+  it('le premier humain reflété par le serveur coupe visuellement les autres lignes', async () => {
     vi.useFakeTimers();
     const client = makeClient();
     mockCreateRtcClient.mockResolvedValue(client);
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: false }));
-
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333', '+334****4444']);
+    mockFetchPowerPoolStatus.mockResolvedValue({
+      id: 'pool-1', parallelism: 3, status: 'connecting', winner_call_id: 2,
+      calls: [
+        { id: 1, pool_slot: 0, to_number: '+331****01', status: 'ended', amd_result: null },
+        { id: 2, pool_slot: 1, to_number: '+331****02', status: 'bridged', amd_result: 'human' },
+        { id: 3, pool_slot: 2, to_number: '+331****03', status: 'ended', amd_result: null },
+      ],
     });
-    await act(async () => {
-      await result.current.play();
-    });
-    // Le socket du client mocké s'ouvre : composeAfterPlay lance dialSlot.
-    // Lot 11.7 : dialSlot ouvre le registre (await notifyCallStarted) AVANT
-    // de composer — act async pour flusher les microtâches sous fake timers,
-    // sinon les timeouts 20 s seraient armés après l'avance d'horloge.
-    await act(async () => {
-      client.emit('telnyx.ready');
-    });
-    // 3 lignes en dialing, chaque dialSlot a armé son timeout 20s.
-    expect(result.current.state.lines.every((l) => l.phase === 'dialing')).toBe(true);
-
-    // Skip manuel de la ligne 1 → compose le suivant (334).
-    await act(async () => {
-      result.current.skip(1);
-    });
-    expect(result.current.state.lines[1].destination).toBe('+334****4444');
-
-    // +20s : les timeouts des lignes 0 et 2 (et le nouveau de la ligne 1)
-    // se déclenchent → les lignes encore en dialing/ringing sont skippées.
-    act(() => {
-      vi.advanceTimersByTime(20000);
-    });
-
-    const phases = result.current.state.lines.map((l) => l.phase);
-    // Aucune ligne ne doit rester figée en dialing : toutes ont été
-    // skippées par leur timeout (la file de 4 numéros est épuisée).
-    expect(phases.every((p) => p !== 'dialing' && p !== 'ringing')).toBe(true);
-  });
-});
-
-/**
- * F2 (audit lot-11.7) : les chemins de clôture du pool doivent être asservis
- * à des assertions — mockNotifyCallEnded était câblé sans jamais être vérifié.
- */
-describe('useDialerPool — lot 11.7 clôture du registre (F2)', () => {
-  it('F2 : skip réel clôt le registre de la ligne sautée (budget libéré)', async () => {
-    const client = makeClient();
-    mockCreateRtcClient.mockResolvedValue(client);
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: false }));
-
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222']);
-    });
-    await act(async () => {
-      await result.current.play();
-    });
-    await act(async () => {
-      client.emit('telnyx.ready');
-    });
-    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(2);
-
-    await act(async () => {
-      result.current.skip(0);
-    });
-
-    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
-    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
-      status: 'no_answer',
-      answered: false, // jamais décrochée → budget libéré
-    });
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3 }));
+    act(() => result.current.setQueue(['+33100000001', '+33100000002', '+33100000003']));
+    await act(async () => { await playUntilReady(result, client); });
+    expect(result.current.state.lines[1].phase).toBe('connected');
+    expect(result.current.state.lines[0].phase).toBe('skipped');
+    expect(result.current.state.lines[2].phase).toBe('skipped');
   });
 
-  it('F2 : unmount avec lignes ouvertes clôt CHAQUE registre', async () => {
+  it('timeout/error readiness : zéro pool_start et aucune bascule silencieuse en démo', async () => {
+    vi.useFakeTimers();
+    const timeoutClient = makeClient();
+    mockCreateRtcClient.mockResolvedValue(timeoutClient);
+    const timeoutHook = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => timeoutHook.result.current.setQueue(['+331****0001']));
+    // Capture la destination réelle depuis le state (le rendu d'affichage
+    // masque les numéros ; on compare à la valeur réelle, jamais à une chaîne
+    // recopiée depuis un log).
+    const timeoutQueueDestination = timeoutHook.result.current.state.queue[0];
+
+    let timeoutPlay!: Promise<void>;
+    await act(async () => {
+      timeoutPlay = timeoutHook.result.current.play();
+      await waitForReadyListener(timeoutClient);
+    });
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+      await timeoutPlay;
+    });
+
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
+    expect(timeoutHook.result.current.state.error).toMatch(/Aucune réponse du serveur WebRTC après 20 s/);
+    expect(timeoutHook.result.current.state.lines.some((line) => line.phase === 'connected')).toBe(false);
+    expect(timeoutHook.result.current.state.lines.some((line) => line.phase === 'ringing')).toBe(false);
+    // F-04 (audit 11.8) : rollback complet — aucune ligne restée 'dialing',
+    // la file d'origine est restaurée, Play redevient fonctionnel.
+    expect(timeoutHook.result.current.state.lines.some((line) => line.phase === 'dialing')).toBe(false);
+    expect(timeoutHook.result.current.state.lines.some((line) => line.phase === 'skipped')).toBe(false);
+    expect(timeoutHook.result.current.state.queue).toEqual([timeoutQueueDestination]);
+    expect(timeoutHook.result.current.isRunning).toBe(false);
+    timeoutHook.unmount();
+
+    vi.clearAllMocks();
+    mockFetchRtcToken.mockResolvedValue({
+      dry_run: false, token: 'rtc-token', caller_number: '+339****9999',
+      sip_uri: 'sip:agent@sip.telnyx.com', expires_in: 600,
+    });
+    mockStartPowerPool.mockResolvedValue({
+      dry_run: false, session_id: 'pool-1',
+      calls: [{ slot: 0, call_record_id: 1, status: 'dialing' }],
+    });
+
+    const errorClient = makeClient();
+    mockCreateRtcClient.mockResolvedValue(errorClient);
+    const errorHook = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => errorHook.result.current.setQueue(['+33100000001']));
+
+    let errorPlay!: Promise<void>;
+    await act(async () => {
+      errorPlay = errorHook.result.current.play();
+      await waitForReadyListener(errorClient);
+    });
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
+
+    await act(async () => {
+      errorClient.emitError(new Error('socket refused'));
+      await errorPlay;
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
+    expect(errorHook.result.current.state.error).toMatch(/socket refused/);
+    expect(errorHook.result.current.state.lines.some((line) => line.phase === 'connected')).toBe(false);
+    expect(errorHook.result.current.state.lines.some((line) => line.phase === 'ringing')).toBe(false);
+    expect(errorHook.result.current.isRunning).toBe(false);
+  });
+
+  it('completed + winner_call_id sans bridged : redial ne recompose jamais le gagnant', async () => {
     const client = makeClient();
     mockCreateRtcClient.mockResolvedValue(client);
-    const { result, unmount } = renderHook(() =>
-      useDialerPool({ token: 'tok', size: 3, simulate: false }),
-    );
+    mockFetchPowerPoolStatus.mockResolvedValue({
+      id: 'pool-1', parallelism: 2, status: 'completed', winner_call_id: 1,
+      calls: [
+        { id: 1, pool_slot: 0, to_number: '+331****01', status: 'ended', amd_result: 'human' },
+        { id: 2, pool_slot: 1, to_number: '+331****02', status: 'ended', amd_result: null },
+      ],
+    });
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 2 }));
+    act(() => result.current.setQueue(['+33100000001', '+33100000002']));
+    await act(async () => { await playUntilReady(result, client); });
 
-    act(() => {
-      result.current.setQueue(['+331****1111', '+332****2222', '+333****3333']);
+    expect(result.current.state.lines[0].phase).toBe('ended');
+    expect(result.current.state.lines[1].phase).toBe('skipped');
+    expect(result.current.isRunning).toBe(false);
+
+    mockStartPowerPool.mockClear();
+    await act(async () => result.current.redial());
+
+    expect(mockStartPowerPool).toHaveBeenCalledTimes(1);
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000002'],
+      parallelism: 2,
     });
+    expect(mockStartPowerPool.mock.calls[0][1].destinations).not.toContain('+33100000001');
+  });
+
+  it('hangupPowerPool rejeté : session retryable et un second hangup rappelle le serveur', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockHangupPowerPool.mockRejectedValue(new Error('network down'));
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+    await act(async () => { await playUntilReady(result, client); });
+
     await act(async () => {
-      await result.current.play();
+      result.current.hangupAll();
     });
+
+    expect(mockHangupPowerPool).toHaveBeenCalledTimes(1);
+    expect(mockHangupPowerPool).toHaveBeenCalledWith('tok', 'pool-1');
+    expect(result.current.state.error).toMatch(/Raccrochage serveur impossible/);
+    expect(result.current.isRunning).toBe(false);
+    // F-05 (audit 11.8) : l'échec expose un CTA de réessai — la session
+    // serveur est conservée, pas de reset visuel prématuré.
+    expect(result.current.hangupRetryable).toBe(true);
+
     await act(async () => {
-      client.emit('telnyx.ready');
+      result.current.hangupAll();
     });
-    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(3);
+
+    expect(mockHangupPowerPool).toHaveBeenCalledTimes(2);
+    expect(mockHangupPowerPool).toHaveBeenNthCalledWith(2, 'tok', 'pool-1');
+    expect(result.current.state.error).toMatch(/Raccrochage serveur impossible/);
+    expect(result.current.hangupRetryable).toBe(true);
+    mockHangupPowerPool.mockResolvedValue(undefined);
+  });
+
+  it('F-03 : pool_start dry_run hors simulate → pool-error, pas de bascule silencieuse en démo', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockStartPowerPool.mockResolvedValue({ dry_run: true, session_id: null, calls: [] });
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+331****0001']));
+    await act(async () => { await playUntilReady(result, client); });
+
+    expect(mockStartPowerPool).toHaveBeenCalledTimes(1);
+    expect(result.current.state.error).toMatch(/Session power refusée par le serveur/);
+    // Aucune bascule en démo : pas de ligne ringing/connected (les timers de
+    // démo n'ont pas été armés), le pool n'est pas "running".
+    expect(result.current.isRunning).toBe(false);
+    expect(result.current.state.lines.some((line) => ['ringing', 'connected'].includes(line.phase))).toBe(false);
+  });
+
+  it('annule l’attente ready au démontage sans pool_start tardif', async () => {
+    vi.useFakeTimers();
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result, unmount } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+
+    let playPromise!: Promise<void>;
+    await act(async () => {
+      playPromise = result.current.play();
+      await waitForReadyListener(client);
+    });
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
 
     unmount();
-
-    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(3);
-  });
-
-  it('F2 : notification ended d’un slot clôt son registre (consommé si décroché)', async () => {
-    const client = makeClient();
-    mockCreateRtcClient.mockResolvedValue(client);
-    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 3, simulate: false }));
-
-    act(() => {
-      result.current.setQueue(['+331****1111']);
-    });
     await act(async () => {
-      await result.current.play();
-    });
-    await act(async () => {
-      client.emit('telnyx.ready');
-    });
-    expect(mockNotifyCallStarted).toHaveBeenCalledTimes(1);
-
-    // Décroché sur le slot 0 puis fin d'appel (callId pool-slot-0).
-    act(() => {
-      client.emit('telnyx.notification', { call: { state: 'active', callId: 'pool-slot-0' } });
-    });
-    act(() => {
-      client.emit('telnyx.notification', { call: { state: 'hangup', callId: 'pool-slot-0' } });
+      await playPromise;
+      await vi.advanceTimersByTimeAsync(20_000);
     });
 
-    expect(mockNotifyCallEnded).toHaveBeenCalledTimes(1);
-    expect(mockNotifyCallEnded.mock.calls[0][1]).toMatchObject({
-      status: 'ended',
-      answered: true,
-    });
+    expect(mockStartPowerPool).not.toHaveBeenCalled();
   });
 });

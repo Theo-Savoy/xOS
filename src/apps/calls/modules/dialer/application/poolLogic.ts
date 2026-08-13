@@ -27,6 +27,7 @@ import { createPoolState, type PoolLine, type PoolState } from '../domain/PoolSt
 export type PoolAction =
   | { type: 'play' }
   | { type: 'skip'; slot: number }
+  | { type: 'remote-terminal'; slot: number; phase: 'skipped' | 'failed'; error?: string }
   | { type: 'answered'; slot: number }
   | { type: 'line-ended'; slot: number }
   | { type: 'stop' }
@@ -34,7 +35,8 @@ export type PoolAction =
   | { type: 'line-ringing'; slot: number }
   | { type: 'line-error'; slot: number; error: string }
   | { type: 'pool-error'; error: string }
-  | { type: 'reset'; queue: string[] };
+  | { type: 'reset'; queue: string[] }
+  | { type: 'resize'; size: number };
 
 function idleLine(slot: number): PoolLine {
   return { slot, phase: 'idle', destination: '', error: null };
@@ -76,20 +78,22 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
     }
 
     case 'skip': {
-      // Non-réponse : abandonne la ligne, compose le suivant si disponible.
+      // Le serveur ne compose pas automatiquement un remplaçant. Conserver la
+      // destination et la file évite d'afficher un appel qui n'existe pas ; une
+      // relance explicite reprendra cette ligne plus tard.
       const line = state.lines[action.slot];
       if (!line || line.phase === 'connected') return state;
-      const nextDest = state.queue[0];
-      const rest = state.queue.slice(1);
       const lines = state.lines.map((l) =>
-        l.slot === action.slot
-          ? nextDest !== undefined
-            ? { ...idleLine(l.slot), phase: 'dialing' as const, destination: nextDest }
-            : { ...idleLine(l.slot), phase: 'skipped' as const }
-          : l,
+        l.slot === action.slot ? { ...l, phase: 'skipped' as const, error: null } : l,
       );
-      return { ...state, lines, queue: rest };
+      return { ...state, lines };
     }
+
+    case 'remote-terminal':
+      return patchLine(state, action.slot, {
+        phase: action.phase,
+        ...(action.error ? { error: action.error } : {}),
+      });
 
     case 'answered': {
       // Réponse humaine : cette ligne devient connected, les autres coupées.
@@ -133,6 +137,18 @@ export function poolReducer(state: PoolState, action: PoolAction): PoolState {
 
     case 'reset':
       return createPoolState(state.size, action.queue);
+
+    case 'resize': {
+      const size = Math.min(5, Math.max(1, action.size));
+      if (size === state.size || state.running) return state;
+      const retained = state.lines.slice(0, size);
+      const overflow = state.lines.slice(size)
+        .filter((line) => line.destination && line.phase !== 'ended')
+        .map((line) => line.destination);
+      const lines = [...retained];
+      while (lines.length < size) lines.push(idleLine(lines.length));
+      return { ...state, size, lines, queue: [...overflow, ...state.queue] };
+    }
 
     default:
       return state;

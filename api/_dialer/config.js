@@ -57,9 +57,9 @@ export function loadDialerConfig() {
   // SERVEUR — jamais depuis le body client (risque de dial via une connection
   // arbitraire). Le chemin produit est WebRTC ; ce endpoint Call Control
   // reste en place pour compat, fail-closed si non configuré en prod.
-  const connectionId = readEnv(
-    env === 'prod' ? 'TELNYX_CONNECTION_ID_PROD' : 'TELNYX_CONNECTION_ID_DEV',
-  );
+  const connectionId =
+    readEnv(env === 'prod' ? 'TELNYX_CONNECTION_ID_PROD' : 'TELNYX_CONNECTION_ID_DEV') ??
+    readEnv('CONNECTION_ID');
 
   const webhookPublicKey = readEnv('WEBHOOK_TELNYX_PUBLIC_KEY');
 
