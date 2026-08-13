@@ -55,4 +55,34 @@ describe('checkAndRecordWebhook', () => {
     );
     expect(r).toEqual({ isDuplicate: false, rowId: 'evt_abc' });
   });
+
+
+  it('utilise la claim RPC atomique et permet de reprendre un événement failed', async () => {
+    const rpc = async () => ({ data: true, error: null });
+    const r = await checkAndRecordWebhook(
+      { rpc },
+      { eventId: 'evt_retry', eventType: 'call.hangup', payload: { retry: true } },
+    );
+    expect(r).toEqual({ isDuplicate: false, isProcessing: false, rowId: 'evt_retry' });
+  });
+
+  it('distingue un duplicate terminal d’un événement encore sous lease', async () => {
+    const query = (status) => {
+      const chain = {
+        select: () => chain, eq: () => chain,
+        maybeSingle: async () => ({ data: { status }, error: null }),
+      };
+      return chain;
+    };
+    const terminal = await checkAndRecordWebhook(
+      { rpc: async () => ({ data: false, error: null }), from: () => query('processed') },
+      { eventId: 'evt_done', eventType: 'call.hangup', payload: {} },
+    );
+    expect(terminal).toEqual({ isDuplicate: true, isProcessing: false, rowId: null });
+    const pending = await checkAndRecordWebhook(
+      { rpc: async () => ({ data: false, error: null }), from: () => query('pending') },
+      { eventId: 'evt_busy', eventType: 'call.hangup', payload: {} },
+    );
+    expect(pending).toEqual({ isDuplicate: false, isProcessing: true, rowId: null });
+  });
 });

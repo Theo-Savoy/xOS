@@ -23,6 +23,7 @@ import { createPublicKey, generateKeyPairSync, verify as cryptoVerify } from 'no
 import { loadDialerConfig } from './config.js';
 import { checkAndRecordWebhook, extractEventId } from './idempotency.js';
 import { getServiceClient } from '../_calls/http.js';
+import { processPoolWebhook } from './pool.js';
 
 export const SIG_HEADER = 'telnyx-signature-ed25519';
 export const TS_HEADER = 'telnyx-timestamp';
@@ -155,16 +156,41 @@ export async function handleWebhook(request) {
     return json(503, { error: 'service_client_unavailable' });
   }
 
-  const { isDuplicate } = await checkAndRecordWebhook(client, {
+  const { isDuplicate, isProcessing } = await checkAndRecordWebhook(client, {
     eventId,
     eventType,
     payload: safeParse(rawBody),
     signatureOk: true,
   });
 
-  // 4) Event router — stub. 11.2 will add:
-  //   switch (eventType) { case 'call.answered': ... }
-  return json(isDuplicate ? 200 : 200, {
+  if (isProcessing) return json(503, { error: 'event_processing' });
+  if (!isDuplicate) {
+    try {
+      const parsed = safeParse(rawBody);
+      const processed = await processPoolWebhook({
+        client, eventType, payload: parsed?.data?.payload ?? {},
+      });
+      const eventTable = client.from('dialer_webhook_events');
+      if (typeof eventTable.update === 'function') {
+        const { error: processedErr } = await eventTable.update({
+          status: processed.status === 'ignored' ? 'ignored' : 'processed',
+          processed_at: new Date().toISOString(),
+        }).eq('event_id', eventId);
+        if (processedErr) throw new Error(`event completion failed: ${processedErr.message}`);
+      }
+    } catch (err) {
+      console.error('[dialer.webhooks] event processing failed:', err instanceof Error ? err.message : err);
+      const eventTable = client.from('dialer_webhook_events');
+      if (typeof eventTable.update === 'function') {
+        const { error: failedErr } = await eventTable.update({
+          status: 'failed', error_message: 'event_processing_failed',
+        }).eq('event_id', eventId);
+        if (failedErr) console.error('[dialer.webhooks] failed to mark event failed:', failedErr.message);
+      }
+      return json(503, { error: 'event_processing_failed' });
+    }
+  }
+  return json(200, {
     status: isDuplicate ? 'duplicate' : 'received',
     event_id: eventId,
     event_type: eventType,
@@ -178,7 +204,9 @@ async function recordAttempt({ eventId, eventType, rawBody, ok, reason }) {
   if (!client) return;
   try {
     const { error } = await client.from('dialer_webhook_events').insert({
-      event_id: eventId,
+      // Une requête non authentifiée ne doit jamais pouvoir réserver la clé
+      // d'idempotence canonique d'un futur événement Telnyx valide.
+      event_id: `rejected:${Date.now()}:${eventId}`,
       event_type: eventType || 'unknown',
       payload: safeParse(rawBody),
       signature_ok: ok,

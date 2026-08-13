@@ -6,8 +6,10 @@
  * B10 (dialer_query_spend was a phantom — the remote actually has
  * dialer_reserve_budget).
  *
- * The REMOTE schema (xos-portal, migrations 041/042 applied directly, no
- * committed file) is the source of truth:
+ * The REMOTE schema (xos-portal) is the source of truth. Migrations 041-043
+ * were applied to the remote first, then RECONSTITUTED AS COMMITTED FILES
+ * (commit a12defa — 041/042/043 do exist in supabase/migrations/, so a
+ * from-scratch replay reaches 045 without breaking on the FK).
  *   - RPC dialer_reserve_budget(p_user_id, p_campaign_id, p_estimated_cost_cents,
  *       p_session_cap_cents, p_user_day_cap_cents, p_org_month_cap_cents,
  *       p_user_day_call_cap, p_user_month_call_cap, p_day_start, p_month_start)

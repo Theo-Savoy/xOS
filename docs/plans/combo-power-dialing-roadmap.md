@@ -119,11 +119,16 @@ Refactor `useRtcCall` → multi-slots :
 - CallBar pool (3 lignes) + intégration Runner
 - **Vérifié par** : session power en dry-run de bout en bout (3 lignes simulées, connect → cut others)
 
-### Lot 11.7 — Backend orchestration & persistance
-- `dialer_campaigns` + `dialer_calls` actives (migration 044 + schéma spec v2)
-- `POST ?resource=webrtc_token` → réserve budget + crée ligne `dialer_calls` (lot-11.3 §2.3)
-- Rate limit + validation caller_number (B7 déjà en place)
-- **Vérifié par** : session → lignes en base → budget réservé
+### Lot 11.7 — Backend orchestration & persistance ✅ (2026-08-09)
+- `dialer_calls` actives (migration **045** pivot power, supersede 044 :
+  `campaign_id` nullable, `owner_user_id` + `reservation_id`)
+- Contrat livré : budget **par composition**, pas par token —
+  `POST call_started` (budget + ligne 'dialing' AVANT newCall) /
+  `POST call_ended` (clôture idempotente, consommé si décroché) /
+  `GET calls` (historique masqué). `webrtc_token` n'émet plus que le token.
+- Rate limit + validation E.164 + caller_number (B7)
+- **Vérifié par** : 1168 tests verts dont 10 tests routeur 11.7 ;
+  spec `docs/specs/lot-11.7-registre-appels-budget-par-composition.md`
 
 ### Lot 11.8 — AMD & webhooks (Phase B, prérequis : compte paid)
 - Clé Ed25519 + webhook URL stable (Vercel) + Event Webhook Telnyx

@@ -26,12 +26,12 @@ describe('poolLogic — power dialing (lot 11.5)', () => {
     expect(again).toBe(s);
   });
 
-  it('Skip abandonne la ligne et compose le suivant de la file', () => {
+  it('Skip raccroche la ligne sans simuler la composition du suivant', () => {
     const s = poolReducer(createPoolState(3, queue), { type: 'play' });
     const after = poolReducer(s, { type: 'skip', slot: 1 });
-    expect(after.lines[1].destination).toBe('+334****4444');
-    expect(after.lines[1].phase).toBe('dialing');
-    expect(after.queue).toEqual(['+335****5555']);
+    expect(after.lines[1].destination).toBe('+332****2222');
+    expect(after.lines[1].phase).toBe('skipped');
+    expect(after.queue).toEqual(['+334****4444', '+335****5555']);
   });
 
   it('Skip sur la dernière file → ligne skipped', () => {

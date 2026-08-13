@@ -1,69 +1,47 @@
-/**
- * application/useDialerPool.ts — hook pool power dialing (lot 11.5).
- *
- * Le navigateur EST le téléphone (WebRTC), sur 3 lignes max en parallèle.
- * Orchestration dans `poolLogic.ts` (réducteur pur, testé) — ici on enrobe le
- * SDK Telnyx : un client partagé, un call par ligne (id custom 'pool-slot-N'
- * pour router les notifications), un élément audio par ligne.
- *
- * Règles produit (roadmap combo-power-dialing) :
- * - Play() : déclenchement HUMAIN, compose min(size, restants)
- * - Skip() : abandonne une ligne, compose le suivant
- * - Réponse humaine → connected, les autres lignes sont coupées
- * - Fin d'appel → STOP (running=false), JAMAIS d'auto-next : re-clic Play
- * - Dry-run : token null → client null → simulation (aucun paquet réel)
- *
- * Simulation pool (démo) : startDemoSimulation — timings volontairement
- * différents de la simulation mono-ligne (useRtcCall).
- */
-
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { createPoolState, type PoolState } from '../domain/PoolState';
 import { poolReducer } from './poolLogic';
 import {
-  newCallOptions,
-  notifCallId,
+  createRtcClient,
   notifState,
   safeDisconnect,
   safeHangup,
   telnyxErrorMessage,
   telnyxPhase,
-  createRtcClient,
-  type RtcClientHandle,
   type RtcCallHandle,
+  type RtcClientHandle,
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
-import { fetchRtcToken } from '../dialerApi';
-import type { PoolPhase } from '../domain/PoolState';
-
-/** Mapping telnyxPhase (SDK) → PoolPhase. held ignoré (pas de on_hold pool). */
-const PHASE_FROM_TELNYX: Record<string, PoolPhase> = {
-  dialing: 'dialing',
-  ringing: 'ringing',
-  connected: 'connected',
-  ended: 'ended',
-};
-
-/** id custom passé à newCall : permet de router les notifications par slot. */
-function callIdForSlot(slot: number): string {
-  return `pool-slot-${slot}`;
-}
+import {
+  fetchPowerPoolStatus,
+  fetchRtcToken,
+  hangupPowerPool,
+  startPowerPool,
+} from '../dialerApi';
 
 export type UseDialerPoolResult = {
   state: PoolState;
-  /** Initialise la file d'attente (depuis la session). */
   setQueue: (destinations: string[]) => void;
-  /** Déclenchement humain : compose min(size, restants). */
   play: () => Promise<void>;
-  /** Abandonne une ligne (non-réponse / répondeur), compose le suivant. */
   skip: (slot: number) => void;
-  /** Raccroche tout (fin de session). */
   hangupAll: () => void;
-  /** Un cycle Play est ouvert (≠ « une ligne est active ») : pilote la
-   *  bascule Play ↔ Tout raccrocher. */
+  redial: () => Promise<void>;
   isRunning: boolean;
+  agentConnected: boolean;
+  /** F-05 (audit 11.8) : true quand un raccrochage serveur a échoué et que
+   * la session est encore à nettoyer — l'UI doit exposer un CTA de réessai. */
+  hangupRetryable: boolean;
 };
 
+/** Même contrat que useRtcCall : pas de composition tant que telnyx.ready n'a pas fire. */
+const AGENT_READY_TIMEOUT_MS = 20_000;
+const AGENT_READY_TIMEOUT_MESSAGE =
+  'Aucune réponse du serveur WebRTC après 20 s — token refusé ou réseau bloqué. Vérifie la console navigateur.';
+
+/**
+ * Lot 11.8: prospects are dialed by Voice API on the server. The browser only
+ * registers one WebRTC agent endpoint and answers the unique winning human leg.
+ */
 export function useDialerPool({
   token,
   size = 3,
@@ -72,289 +50,404 @@ export function useDialerPool({
 }: {
   token: string;
   size?: number;
-  /** Mode démo : JAMAIS de réseau réel, phases simulées (G2). */
   simulate?: boolean;
-  /** Démo : aucune ligne ne décroche — le timeout non-réponse skippe. */
   simulateNoAnswer?: boolean;
 }): UseDialerPoolResult {
-  const [state, dispatch] = useReducer(
-    poolReducer,
-    undefined,
-    () => createPoolState(size, []),
-  );
-  const clientRef = useRef<RtcClientHandle | null>(null);
-  const callsRef = useRef<(RtcCallHandle | null)[]>([]);
-  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // Timeouts non-réponse 20s, un par slot (R3 lot-11.14) : les purger dans
-  // `demoTimersRef` cassait l'auto-skip des AUTRES lignes (skip() purgeait
-  // tout). Séparés : skip ne tue que le sien.
-  const noAnswerTimersRef = useRef<(ReturnType<typeof setTimeout> | null)[]>([]);
+  const [state, dispatch] = useReducer(poolReducer, undefined, () => createPoolState(size, []));
+  const [agentConnected, setAgentConnected] = useState(false);
+  const [hangupRetryable, setHangupRetryable] = useState(false);
   const stateRef = useRef(state);
-  /** Réf vers skip : dialSlot arme un timeout non-réponse qui appelle skip ;
-   *  skip rappelle dialSlot pour composer le suivant. Cycle assumé, cassé par
-   *  une ref (pas de closure circulaire possible avec useCallback). */
-  const skipRef = useRef<(slot: number) => void>(() => {});
+  const clientRef = useRef<RtcClientHandle | null>(null);
+  const agentCallRef = useRef<RtcCallHandle | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const lastQueueRef = useRef<string[]>([]);
+  const winnerDestinationRef = useRef<string | null>(null);
+  const appliedTerminalCallsRef = useRef(new Set<number>());
+  const pollInFlightRef = useRef(false);
+  const sessionEpochRef = useRef(0);
+  const hangupGenerationRef = useRef(0);
+  const agentReadyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const readyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readySettlerRef = useRef<{
+    resolve: () => void;
+    reject: (error: unknown) => void;
+  } | null>(null);
 
-  // Refs de synchronisation : les listeners SDK et les timers sont créés une
-  // fois et ne doivent PAS capturer un state périmé. Assignation en effet (et
-  // pas pendant le render) — React interdit les effets de bord de render.
+  useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => {
-    stateRef.current = state;
-    skipRef.current = skip;
-  });
-
-  const clearDemoTimers = useCallback(() => {
-    demoTimersRef.current.forEach((t) => clearTimeout(t));
-    demoTimersRef.current = [];
-  }, []);
-
-  /** Purge le timeout non-réponse d'UN slot (le sien). */
-  const clearNoAnswerTimer = useCallback((slot: number) => {
-    const t = noAnswerTimersRef.current[slot];
-    if (t) {
-      clearTimeout(t);
-      noAnswerTimersRef.current[slot] = null;
+    if (!stateRef.current.running && stateRef.current.size !== size) {
+      const resized = poolReducer(stateRef.current, { type: 'resize', size });
+      stateRef.current = resized;
+      dispatch({ type: 'resize', size });
     }
+  }, [size]);
+
+  const clearTimers = useCallback(() => {
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
   }, []);
 
-  /** Purge tous les timeouts non-réponse (arrêt global). */
-  const clearAllNoAnswerTimers = useCallback(() => {
-    noAnswerTimersRef.current.forEach((t) => t && clearTimeout(t));
-    noAnswerTimersRef.current = [];
+  const setAgentAudio = useCallback((enabled: boolean) => {
+    const audio = document.querySelector<HTMLAudioElement>('audio[data-rtc-agent]');
+    if (audio) audio.muted = !enabled;
+    if (enabled) agentCallRef.current?.unmuteAudio?.();
+    else agentCallRef.current?.muteAudio?.();
+    setAgentConnected(enabled);
   }, []);
 
-  /** Composition réelle d'une ligne (après dispatch play/skip). */
-  const dialSlot = useCallback(
-    (slot: number, destination: string) => {
-      const client = clientRef.current;
-      if (!client) return; // simulation : le réducteur gère déjà l'état
-      try {
-        const call = client.newCall(
-          newCallOptions(destination, `audio[data-rtc-remote-${slot}]`, {
-            id: callIdForSlot(slot),
-          }),
-        );
-        callsRef.current[slot] = call;
-        // PLACEHOLDER DÉMO (lot 11.5/11.6) : timeout non-réponse 20s pour
-        // éviter le figement en dry-run. Le comportement PRODUCTION (lot 11.8)
-        // est l'AMD premium : skip immédiat sur répondeur / filtre Apple,
-        // seul un décroché HUMAIN atteint le commercial (webhooks
-        // call.machine.detection.ended, bloqué compte paid Telnyx).
-        const t = setTimeout(() => {
-          const line = stateRef.current.lines[slot];
-          if (line && (line.phase === 'dialing' || line.phase === 'ringing')) {
-            skipRef.current(slot);
-          }
-        }, 20000);
-        noAnswerTimersRef.current[slot] = t; // R3 : par slot, pas global
-      } catch (e) {
-        dispatch({ type: 'line-error', slot, error: telnyxErrorMessage(e) });
-      }
-    },
-    [],
-  );
-
-  /** Compose réellement les lignes dispatchées en 'dialing'. */
-  const composeAfterPlay = useCallback(() => {
-    const current = stateRef.current;
-    current.lines.forEach((line, slot) => {
-      if (line.phase === 'dialing' && line.destination) {
-        dialSlot(slot, line.destination);
-      }
-    });
-  }, [dialSlot]);
-
-  /**
-   * Simulation démo (mode dry-run / aucun réseau) : fait tourner les phases
-   * pour tester l'UI power. Aucun paquet réel ne part (G2).
-   *
-   * Scénario réponse humaine (défaut) :
-   * - t+300ms : toutes les lignes passent ringing
-   * - t+2s   : la ligne 0 « décroche » → answered (les autres coupées)
-   * - t+10s  : la ligne 0 se termine → ended → running=false (STOP)
-   *
-   * Scénario AUCUNE réponse (simulateNoAnswer) :
-   * - t+300ms : toutes les lignes passent ringing
-   * - t+3s   : le timeout non-réponse skippe la ligne 0 (compose le suivant)
-   * - t+6s   : skip ligne 1
-   * - t+9s   : skip ligne 2
-   * - la file avance à chaque skip (comportement power dialing réel)
-   */
-  const startDemoSimulation = useCallback(() => {
-    clearDemoTimers();
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    timers.push(
-      setTimeout(() => {
-        stateRef.current.lines.forEach((line, slot) => {
-          if (line.phase !== 'idle') dispatch({ type: 'line-ringing', slot });
-        });
-      }, 300),
-    );
-    if (simulateNoAnswer) {
-      // Aucune réponse : le timeout non-réponse skippe chaque ligne, la
-      // file avance (comme le ferait le timeout réel du lot 11.5).
-      const skipAt = [3000, 6000, 9000];
-      skipAt.forEach((ms, i) => {
-        timers.push(
-          setTimeout(() => {
-            const line = stateRef.current.lines[i];
-            if (line && line.phase !== 'connected') {
-              dispatch({ type: 'skip', slot: i });
-            }
-          }, ms),
-        );
+  const startDemo = useCallback(() => {
+    clearTimers();
+    demoTimersRef.current.push(setTimeout(() => {
+      stateRef.current.lines.forEach((line, slot) => {
+        if (line.phase !== 'idle') dispatch({ type: 'line-ringing', slot });
       });
-      // Fin de la démo sans réponse : on stoppe (les slots sont skipped
-      // ou en dialing avec les suivants — l'utilisateur re-clique Play).
-      timers.push(setTimeout(() => dispatch({ type: 'stop' }), 10000));
+    }, 300));
+    if (simulateNoAnswer) {
+      stateRef.current.lines.forEach((_, slot) => {
+        demoTimersRef.current.push(setTimeout(() => dispatch({ type: 'skip', slot }), 3000 * (slot + 1)));
+      });
+      demoTimersRef.current.push(setTimeout(() => dispatch({ type: 'stop' }), 3000 * size + 1000));
     } else {
-      timers.push(
-        setTimeout(() => {
-          dispatch({ type: 'answered', slot: 0 });
-        }, 2000),
-        setTimeout(() => dispatch({ type: 'line-ended', slot: 0 }), 10000),
+      demoTimersRef.current.push(
+        setTimeout(() => { dispatch({ type: 'answered', slot: 0 }); setAgentAudio(true); }, 2000),
+        setTimeout(() => { dispatch({ type: 'line-ended', slot: 0 }); setAgentAudio(false); }, 10000),
       );
     }
-    demoTimersRef.current.push(...timers);
-  }, [clearDemoTimers, simulateNoAnswer]);
+  }, [clearTimers, setAgentAudio, simulateNoAnswer, size]);
 
-  const play = useCallback(async () => {
-    // Déclenchement HUMAIN : l'état UI passe immédiatement en cours.
-    dispatch({ type: 'play' });
-
-    // Mode démo : JAMAIS de réseau réel, même si le token est émis (G2).
-    // La file factice ne doit jamais composer de vrais appels.
-    if (simulate) {
-      startDemoSimulation();
-      return;
-    }
-
-    // Le client est créé au premier Play (comme startCall mono-ligne).
-    if (!clientRef.current) {
-      let rtcToken: string | null = null;
-      try {
-        const res = await fetchRtcToken(token);
-        rtcToken = res.token;
-      } catch {
-        rtcToken = null; // dry-run : simulation
-      }
-      const client = await createRtcClient(rtcToken);
-      if (!client) {
-        // Simulation démo (dry-run) : le réducteur a déjà mis les lignes en
-        // dialing. On fait tourner les phases avec des timers pour que l'UI
-        // power soit testable sans réseau réel. Aucun paquet ne part (G2).
-        startDemoSimulation();
-        return;
-      }
-      clientRef.current = client;
-
-      // Listeners partagés, routés par callId → slot.
-      client.on('telnyx.ready', () => {
-        // Après connexion du socket : compose réellement les lignes déjà
-        // dispatchées en 'dialing' par play().
-        composeAfterPlay();
-      });
-      client.on('telnyx.notification', (data) => {
-        const n = data as TelnyxNotification;
-        const callId = notifCallId(n);
-        const s = notifState(n);
-        if (!callId || !s) return;
-        const match = /^pool-slot-(\d+)$/.exec(callId);
-        if (!match) return; // notification hors pool
-        const slot = Number(match[1]);
-        const telnyxPhaseValue = telnyxPhase(s);
-        const p = telnyxPhaseValue ? PHASE_FROM_TELNYX[telnyxPhaseValue] : undefined;
-        if (!p) return;
-        if (p === 'dialing') dispatch({ type: 'line-dialing', slot });
-        if (p === 'ringing') dispatch({ type: 'line-ringing', slot });
-        if (p === 'connected') {
+  const applyServerStatus = useCallback(async () => {
+    const sessionId = sessionIdRef.current;
+    const epoch = sessionEpochRef.current;
+    if (!sessionId || pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
+    try {
+      const remote = await fetchPowerPoolStatus(token, sessionId);
+      if (sessionIdRef.current !== sessionId || sessionEpochRef.current !== epoch) return;
+      remote.calls.forEach((call) => {
+        const slot = call.pool_slot;
+        const localPhase = stateRef.current.lines[slot]?.phase;
+        const isWinner = remote.winner_call_id != null && call.id === remote.winner_call_id;
+        if (isWinner) {
+          const destination = stateRef.current.lines[slot]?.destination;
+          if (destination) winnerDestinationRef.current = destination;
+        }
+        const terminalAlreadyApplied = ['skipped', 'failed', 'ended'].includes(localPhase ?? '');
+        const terminalCall = appliedTerminalCallsRef.current.has(call.id);
+        if (!terminalCall && call.status === 'dialing') dispatch({ type: 'line-dialing', slot });
+        if (!terminalCall && (call.status === 'ringing' || call.status === 'answered')) dispatch({ type: 'line-ringing', slot });
+        if (call.status === 'bridged') {
+          winnerDestinationRef.current = stateRef.current.lines[slot]?.destination ?? winnerDestinationRef.current;
           dispatch({ type: 'answered', slot });
-          // Coupe les autres lignes (le réducteur les passe à skipped,
-          // ici on hangup réellement les calls des autres slots).
-          callsRef.current.forEach((c, i) => {
-            if (i !== slot) {
-              safeHangup(c);
-              callsRef.current[i] = null;
-            }
+        }
+        const terminal = call.status === 'ended' || ['voicemail', 'no_answer', 'busy', 'failed'].includes(call.status);
+        if (isWinner && call.status === 'ended' && !appliedTerminalCallsRef.current.has(call.id)) {
+          appliedTerminalCallsRef.current.add(call.id);
+          dispatch({ type: 'line-ended', slot });
+          setAgentAudio(false);
+        } else if (terminal && !terminalAlreadyApplied && !appliedTerminalCallsRef.current.has(call.id)) {
+          appliedTerminalCallsRef.current.add(call.id);
+          dispatch({
+            type: 'remote-terminal', slot,
+            phase: call.status === 'failed' ? 'failed' : 'skipped',
+            ...(call.status === 'failed' ? { error: 'Appel échoué.' } : {}),
           });
         }
-        if (p === 'ended') {
+        if (
+          call.status === 'ended'
+          && stateRef.current.lines[slot]?.phase === 'connected'
+          && !appliedTerminalCallsRef.current.has(call.id)
+        ) {
+          appliedTerminalCallsRef.current.add(call.id);
           dispatch({ type: 'line-ended', slot });
+          setAgentAudio(false);
         }
       });
-      client.on('telnyx.socket.close', () => {
-        // Erreur globale : on expose le message à l'UI, on NE VIDE PAS la
-        // file (les numéros restants sont précieux — pire moment pour les
-        // perdre).
-        dispatch({ type: 'pool-error', error: 'Connexion WebRTC perdue (socket fermé).' });
-      });
-      client.on('telnyx.error', (e) => {
-        dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
-      });
+      if (['completed', 'cancelled', 'failed'].includes(remote.status)) {
+        dispatch({ type: 'stop' });
+        clearTimers();
+      }
+    } catch (error) {
+      if (sessionIdRef.current !== sessionId || sessionEpochRef.current !== epoch) return;
+      dispatch({ type: 'pool-error', error: `Synchronisation du pool impossible (${String((error as Error)?.message ?? error)}).` });
+      clearTimers();
+    } finally {
+      pollInFlightRef.current = false;
+    }
+  }, [clearTimers, setAgentAudio, token]);
 
-      try {
-        await client.connect();
-      } catch (e) {
-        dispatch({ type: 'pool-error', error: telnyxErrorMessage(e) });
+  const abortAgentReadyWait = useCallback((reason: unknown) => {
+    const settler = readySettlerRef.current;
+    readySettlerRef.current = null;
+    if (readyTimeoutRef.current != null) {
+      clearTimeout(readyTimeoutRef.current);
+      readyTimeoutRef.current = null;
+    }
+    settler?.reject(reason instanceof Error ? reason : new Error(telnyxErrorMessage(reason)));
+  }, []);
+
+  const ensureAgentRegistered = useCallback(async () => {
+    if (clientRef.current && agentReadyRef.current) return true;
+
+    const waitForReadyProof = () => new Promise<void>((resolve, reject) => {
+      if (!mountedRef.current) {
+        reject(new Error('unmounted'));
         return;
       }
-    }
-    // Si le client existait déjà, composer les lignes dispatchées.
-    composeAfterPlay();
-  }, [token, composeAfterPlay, simulate, startDemoSimulation]);
+      if (agentReadyRef.current) { resolve(); return; }
+      abortAgentReadyWait(new Error('agent-ready-superseded'));
+      readyTimeoutRef.current = setTimeout(() => {
+        readyTimeoutRef.current = null;
+        const settler = readySettlerRef.current;
+        readySettlerRef.current = null;
+        settler?.reject(new Error(AGENT_READY_TIMEOUT_MESSAGE));
+      }, AGENT_READY_TIMEOUT_MS);
+      readySettlerRef.current = {
+        resolve: () => {
+          if (readyTimeoutRef.current != null) {
+            clearTimeout(readyTimeoutRef.current);
+            readyTimeoutRef.current = null;
+          }
+          resolve();
+        },
+        reject: (error) => {
+          if (readyTimeoutRef.current != null) {
+            clearTimeout(readyTimeoutRef.current);
+            readyTimeoutRef.current = null;
+          }
+          reject(error instanceof Error ? error : new Error(telnyxErrorMessage(error)));
+        },
+      };
+    });
 
-  const skip = useCallback(
-    (slot: number) => {
-      const line = stateRef.current.lines[slot];
-      if (!line || line.phase === 'connected') return;
-      clearDemoTimers();
-      clearNoAnswerTimer(slot); // R3 : ne tue QUE le timeout de cette ligne
-      safeHangup(callsRef.current[slot]);
-      callsRef.current[slot] = null;
-      dispatch({ type: 'skip', slot });
-      // Compose le suivant si la file a avancé.
-      const next = stateRef.current.queue[0];
-      if (next !== undefined) {
-        dialSlot(slot, next);
+    if (!clientRef.current) {
+      const tokenResult = await fetchRtcToken(token);
+      if (!mountedRef.current) return false;
+      const client = await createRtcClient(tokenResult.token);
+      if (!mountedRef.current) return false;
+      if (!client) return false;
+      clientRef.current = client;
+      client.on('telnyx.notification', (data) => {
+        const notification = data as TelnyxNotification;
+        const call = notification.call;
+        const phase = telnyxPhase(notifState(notification));
+        if (!call || !phase) return;
+        // F-01 (audit 11.8) : le SDK @telnyx/webrtc range l'état d'invite dans
+        // call.options.clientState (m.client_state → options du constructeur),
+        // JAMAIS sur l'instance. Fallback call.clientState pour compat tests
+        // legacy. Sans ce fix le poste n'accepte jamais le leg agent.
+        const inviteState = (call as { options?: { clientState?: string }; clientState?: string }).options?.clientState
+          ?? (call as { clientState?: string }).clientState;
+        let inviteSessionId: string | null = null;
+        let inviteKind: string | null = null;
+        try {
+          const parsed = inviteState ? JSON.parse(atob(inviteState)) : null;
+          inviteSessionId = parsed?.poolSessionId ?? null;
+          inviteKind = parsed?.kind ?? null;
+        } catch { inviteSessionId = null; inviteKind = null; }
+        if (
+          (call as { direction?: string }).direction === 'inbound' &&
+          inviteSessionId === sessionIdRef.current &&
+          inviteKind === 'agent' &&
+          !agentCallRef.current
+        ) {
+          agentCallRef.current = call;
+          call.muteAudio?.();
+          const audio = document.querySelector<HTMLAudioElement>('audio[data-rtc-agent]');
+          void call.answer?.(audio ? { remoteElement: audio } : undefined);
+        }
+        if (call === agentCallRef.current && phase === 'connected') setAgentAudio(true);
+        if (call === agentCallRef.current && phase === 'ended') {
+          setAgentAudio(false);
+          agentCallRef.current = null;
+          const winner = stateRef.current.lines.find((line) => line.phase === 'connected');
+          if (winner) dispatch({ type: 'line-ended', slot: winner.slot });
+        }
+      });
+      client.on('telnyx.ready', () => {
+        agentReadyRef.current = true;
+        const settler = readySettlerRef.current;
+        readySettlerRef.current = null;
+        if (readyTimeoutRef.current != null) {
+          clearTimeout(readyTimeoutRef.current);
+          readyTimeoutRef.current = null;
+        }
+        settler?.resolve();
+      });
+      client.on('telnyx.error', (error) => {
+        const settler = readySettlerRef.current;
+        if (settler && !agentReadyRef.current) {
+          abortAgentReadyWait(error instanceof Error ? error : new Error(telnyxErrorMessage(error)));
+          return;
+        }
+        if (!mountedRef.current) return;
+        dispatch({ type: 'pool-error', error: telnyxErrorMessage(error) });
+      });
+      await client.connect();
+      if (!mountedRef.current) return false;
+    }
+
+    if (!mountedRef.current) return false;
+    if (agentReadyRef.current) return true;
+    await waitForReadyProof();
+    return mountedRef.current;
+  }, [abortAgentReadyWait, setAgentAudio, token]);
+
+  const play = useCallback(async () => {
+    if (stateRef.current.running) return;
+    // Compose les destinations AVANT le dispatch : le reducer play consomme la
+    // file (nextQueue.shift), et stateRef n'est resynchronisé qu'au prochain
+    // render. Après l'attente ready (token + connect + telnyx.ready), lire
+    // stateRef.current donnerait une file vidée → le pool ne composerait
+    // jamais (test readiness lot-11.8).
+    const before = stateRef.current;
+    const retry = before.lines
+      .filter((line) => line.phase === 'skipped' && line.destination)
+      .map((line) => line.destination);
+    const destinations = [...retry, ...before.queue].slice(0, size);
+    dispatch({ type: 'play' });
+    if (simulate) { startDemo(); return; }
+    if (destinations.length === 0) {
+      dispatch({ type: 'stop' });
+      return;
+    }
+    hangupGenerationRef.current += 1;
+    try {
+      const registered = await ensureAgentRegistered();
+      if (!mountedRef.current) return;
+      if (!registered) {
+        // F-04 (audit 11.8) : rollback de l'état play (lignes + file) — le
+        // pool n'a jamais démarré. Sans cela les lignes restent 'dialing',
+        // la file reste consommée et Play redevient un no-op cliquable.
+        const rollbackQueue = [
+          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
+          ...before.queue,
+        ];
+        stateRef.current = createPoolState(size, rollbackQueue);
+        dispatch({ type: 'reset', queue: rollbackQueue });
+        dispatch({ type: 'pool-error', error: 'Poste WebRTC indisponible — impossible de lancer le pool.' });
+        return;
       }
-    },
-    [clearDemoTimers, clearNoAnswerTimer, dialSlot],
-  );
+      lastQueueRef.current = destinations;
+      const started = await startPowerPool(token, { destinations, parallelism: size });
+      if (!mountedRef.current) return;
+      if (started.dry_run || !started.session_id) {
+        // F-03 (audit 11.8) : hors simulate, un pool_start dry_run / sans
+        // session_id ne doit JAMAIS basculer silencieusement en démo — le
+        // poste RTC réel est déjà enregistré et l'utilisateur croirait avoir
+        // lancé un cycle réel. Erreur explicite, zéro timer démo.
+        dispatch({ type: 'pool-error', error: 'Session power refusée par le serveur (dry-run actif ou session non créée).' });
+        return;
+      }
+      sessionIdRef.current = started.session_id;
+      sessionEpochRef.current += 1;
+      appliedTerminalCallsRef.current.clear();
+      clearTimers();
+      await applyServerStatus();
+      pollRef.current = setInterval(() => { void applyServerStatus(); }, 1000);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      // F-04 (audit 11.8) : timeout/erreur avant démarrage → rollback de
+      // l'état play (le pool n'a jamais eu de session_id). Si une session
+      // existe déjà, l'erreur vient d'après le démarrage : on garde l'état.
+      if (!sessionIdRef.current) {
+        const rollbackQueue = [
+          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
+          ...before.queue,
+        ];
+        stateRef.current = createPoolState(size, rollbackQueue);
+        dispatch({ type: 'reset', queue: rollbackQueue });
+      }
+      dispatch({ type: 'pool-error', error: telnyxErrorMessage(error) });
+    }
+  }, [applyServerStatus, ensureAgentRegistered, simulate, size, startDemo, token]);
+
+  const skip = useCallback((slot: number) => {
+    const sessionId = sessionIdRef.current;
+    const line = stateRef.current.lines[slot];
+    if (!line || line.phase === 'connected') return;
+    dispatch({ type: 'skip', slot });
+    if (sessionId) {
+      void fetchPowerPoolStatus(token, sessionId).then((status) => {
+        const call = status.calls.find((item) => item.pool_slot === slot);
+        if (call) return hangupPowerPool(token, sessionId, call.id);
+      }).catch((error) => console.error('[powerPool] line hangup failed:', error));
+    }
+  }, [token]);
 
   const hangupAll = useCallback(() => {
-    clearDemoTimers();
-    clearAllNoAnswerTimers();
-    callsRef.current.forEach((c, i) => {
-      safeHangup(c);
-      callsRef.current[i] = null;
-    });
-    dispatch({ type: 'reset', queue: [] });
-  }, [clearDemoTimers, clearAllNoAnswerTimers]);
+    clearTimers();
+    setAgentAudio(false);
+    safeHangup(agentCallRef.current);
+    agentCallRef.current = null;
+    const sessionId = sessionIdRef.current;
+    const generation = ++hangupGenerationRef.current;
+    sessionEpochRef.current += 1;
+    setHangupRetryable(false);
+    if (!sessionId) {
+      dispatch({ type: 'reset', queue: [] });
+      return;
+    }
+    // F-05 (audit 11.8) : ne PAS reset visuel avant confirmation serveur —
+    // en cas d'échec, l'UI doit garder un CTA de réessai. 'stop' suffit pour
+    // sortir du mode running sans effacer les lignes/file.
+    dispatch({ type: 'stop' });
+    void hangupPowerPool(token, sessionId)
+      .then(() => {
+        if (hangupGenerationRef.current !== generation) return;
+        if (sessionIdRef.current !== sessionId) return;
+        sessionIdRef.current = null;
+        dispatch({ type: 'reset', queue: [] });
+      })
+      .catch((error) => {
+        if (hangupGenerationRef.current !== generation) return;
+        if (sessionIdRef.current !== sessionId) return;
+        setHangupRetryable(true);
+        dispatch({
+          type: 'pool-error',
+          error: `Raccrochage serveur impossible (${telnyxErrorMessage(error)}). Réessaie.`,
+        });
+      });
+  }, [clearTimers, setAgentAudio, token]);
+
+  const redial = useCallback(async () => {
+    if (stateRef.current.running) return;
+    const explicitRetryable = [
+      ...stateRef.current.lines
+        .filter((line) => ['skipped', 'failed'].includes(line.phase) && line.destination)
+        .map((line) => line.destination),
+      ...stateRef.current.queue,
+    ];
+    const retryable = (explicitRetryable.length > 0 ? explicitRetryable : lastQueueRef.current)
+      .filter((destination) => destination !== winnerDestinationRef.current);
+    if (retryable.length === 0) return;
+    const reset = createPoolState(size, retryable);
+    stateRef.current = reset;
+    dispatch({ type: 'reset', queue: retryable });
+    await play();
+  }, [play, size]);
 
   const setQueue = useCallback((destinations: string[]) => {
+    lastQueueRef.current = destinations;
     dispatch({ type: 'reset', queue: destinations });
   }, []);
 
-  // Nettoyage à la sortie de la vue : raccrocher tout + fermer le socket.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      clearDemoTimers();
-      clearAllNoAnswerTimers();
-      callsRef.current.forEach((c) => safeHangup(c));
-      callsRef.current = [];
+      mountedRef.current = false;
+      abortAgentReadyWait(new Error('unmounted'));
+      clearTimers();
+      safeHangup(agentCallRef.current);
       safeDisconnect(clientRef.current);
-      clientRef.current = null;
+      const sessionId = sessionIdRef.current;
+      if (sessionId) void hangupPowerPool(token, sessionId).catch((error) => console.error('[powerPool] cleanup failed:', error));
     };
-  }, [clearDemoTimers, clearAllNoAnswerTimers]);
+  }, [abortAgentReadyWait, clearTimers, token]);
 
-  return {
-    state,
-    setQueue,
-    play,
-    skip,
-    hangupAll,
-    // Source de vérité unique : le réducteur. (Un useState miroir vivait ici
-    // et divergeait de state.running sur la fin de démo sans réponse.)
-    isRunning: state.running,
-  };
+  return { state, setQueue, play, skip, hangupAll, redial, isRunning: state.running, agentConnected, hangupRetryable };
 }
