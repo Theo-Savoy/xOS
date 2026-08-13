@@ -84,7 +84,8 @@ export async function startPool({ client, user, flags, body }) {
         return { slot, status: 'failed', error: reservation.reason };
       }
       row = await openCallRow(client, {
-        ownerId: user.id, toNumber: to, reservationId: reservation.reservationId,
+        ownerId: user.id, toNumber: to, outboundNumber: callerNumber,
+        reservationId: reservation.reservationId,
         poolSessionId: pool.id, poolSlot: slot,
       });
       const commandId = `xos-pool-${pool.id}-${slot}`;

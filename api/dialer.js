@@ -348,6 +348,7 @@ async function handleCallStarted(request, user, client, flags) {
     callRecord = await openCallRow(client, {
       ownerId: user.id,
       toNumber: to,
+      outboundNumber: callerNumber,
       campaignId: body?.campaign_id ?? null,
       contactId: body?.contact_id ?? null,
       reservationId: reservation.reservationId,
