@@ -41,12 +41,16 @@ export function maskE164(e164) {
 export async function openCallRow(client, {
   ownerId,
   toNumber,
+  outboundNumber,
   campaignId = null,
   contactId = null,
   reservationId = null,
   poolSessionId = null,
   poolSlot = null,
 }) {
+  if (!outboundNumber) {
+    throw new Error('dialer_calls insert failed: outbound_number is required');
+  }
   const { data, error } = await client
     .from('dialer_calls')
     .insert({
@@ -57,6 +61,7 @@ export async function openCallRow(client, {
       pool_session_id: poolSessionId,
       pool_slot: poolSlot,
       to_number: toNumber,
+      outbound_number: outboundNumber,
       status: 'dialing',
       started_at: new Date().toISOString(),
     })

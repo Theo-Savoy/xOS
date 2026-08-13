@@ -378,6 +378,7 @@ describe('routeur /api/dialer', () => {
   it('11.7 : call_started réserve le budget + écrit la ligne dialer_calls', async () => {
     vi.stubEnv('TELNYX_ENV', 'dev');
     vi.stubEnv('TELNYX_API_KEY_DEV', 'test-api-key');
+    vi.stubEnv('TELNYX_CALLER_ID_DEV', '+339900000000');
     const callsChain = makeChain([], { id: 42 }); // insert → single()
     mockFrom.mockImplementation(realWindowFrom(callsChain));
 
@@ -394,11 +395,14 @@ describe('routeur /api/dialer', () => {
     expect(body.dry_run).toBe(false);
     const rpcNames = mockRpc.mock.calls.map(([fn]) => fn);
     expect(rpcNames).toContain('dialer_reserve_budget');
-    // La ligne porte le statut dialing, l'owner, la cible et la réservation.
+    // La ligne porte le statut dialing, l'owner, la cible, le numéro sortant
+    // (outbound_number NOT NULL en prod — sinon call_record_failed) et la
+    // réservation.
     const inserted = callsChain.insert.mock.calls[0][0];
     expect(inserted.status).toBe('dialing');
     expect(inserted.owner_user_id).toBe('user-123');
     expect(inserted.to_number).toBe('+33123456789');
+    expect(inserted.outbound_number).toBe('+339900000000');
     expect(inserted.reservation_id).toBe('res-1');
   });
 

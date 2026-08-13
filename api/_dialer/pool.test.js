@@ -174,6 +174,17 @@ describe('startPool', () => {
       body: { destinations: ['+3310000001', '+3310000002', '+3310000003'], parallelism: 3 },
     });
     await vi.waitFor(() => expect(mocks.dialContact).toHaveBeenCalledTimes(3));
+    // F-09 : chaque ligne du registre porte le numéro sortant (outbound_number
+    // est NOT NULL dans le schéma distant — sans lui l'INSERT échoue et le
+    // serveur répond call_record_failed).
+    expect(mocks.openCallRow).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        toNumber: '+3310000001',
+        outboundNumber: expect.stringMatching(/^\+33/),
+        poolSessionId: 'pool-1',
+      }),
+    );
     releases.forEach((release) => release());
     const result = await pending;
     expect(peak).toBe(3);
