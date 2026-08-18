@@ -222,31 +222,30 @@ export default function ReviewApp() {
       const ownerParam = owner ? `&owner=${owner}` : '';
       const base = `/api/review?period=${period}${ownerParam}`;
 
-      const [
-        kpisRes,
-        breakdownRes,
-        funnelRes,
-        callsRes,
-        attentionRes,
-        sharedRes,
-      ] = await Promise.all([
-        apiFetch<Kpis & { period: Period }>(token, `${base}&resource=kpis`),
-        apiFetch<Breakdown>(token, `${base}&resource=breakdown`),
-        apiFetch<Funnel>(token, `${base}&resource=funnel`),
-        apiFetch<CallStats>(token, `${base}&resource=calls`),
-        apiFetch<Attention>(token, `${base}&resource=attention`),
-        apiFetch<{ analyses: SharedAnalysis[] }>(
-          token,
-          '/api/review?resource=shared',
-        ),
-      ]);
+      const [kpisRes, breakdownRes, funnelRes, callsRes, attentionRes] =
+        await Promise.all([
+          apiFetch<Kpis & { period: Period }>(token, `${base}&resource=kpis`),
+          apiFetch<Breakdown>(token, `${base}&resource=breakdown`),
+          apiFetch<Funnel>(token, `${base}&resource=funnel`),
+          apiFetch<CallStats>(token, `${base}&resource=calls`),
+          apiFetch<Attention>(token, `${base}&resource=attention`),
+        ]);
 
       setKpis(kpisRes);
       setBreakdown(breakdownRes);
       setFunnel(funnelRes);
       setCallStats(callsRes);
       setAttention(attentionRes);
-      setShared(sharedRes.analyses || []);
+
+      // Shared analyses are a secondary surface. A schema drift there (for
+      // example, migration 036 not yet applied and `revoked_at` missing) must
+      // not blank the whole Bilan cockpit through Promise.all.
+      void apiFetch<{ analyses: SharedAnalysis[] }>(
+        token,
+        '/api/review?resource=shared',
+      )
+        .then((sharedRes) => setShared(sharedRes.analyses || []))
+        .catch(() => setShared([]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de chargement');
     } finally {
