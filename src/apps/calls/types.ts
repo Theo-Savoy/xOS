@@ -77,7 +77,10 @@ export type RecallInboxItem = {
 export type SessionContact = {
   id: number;
   position: number;
-  sf_contact_id: string;
+  /** null pour un contact local issu du CSV (#74). */
+  sf_contact_id: string | null;
+  campaign_contact_id?: number | null;
+  external_source_id?: string | null;
   sf_account_id: string | null;
   contact_name: string;
   account_name: string | null;

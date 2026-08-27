@@ -346,7 +346,9 @@ export async function insertSessionWithContacts(
   const contactRows = contacts.map((contact, index) => ({
     session_id: session.id,
     position: index,
-    sf_contact_id: contact.sf_contact_id,
+    sf_contact_id: contact.sf_contact_id || null,
+    campaign_contact_id: contact.campaign_contact_id ?? null,
+    external_source_id: contact.external_source_id || null,
     sf_account_id: contact.sf_account_id || null,
     contact_name: contact.contact_name.trim(),
     account_name: contact.account_name || null,
@@ -366,7 +368,7 @@ export async function insertSessionWithContacts(
     .from('call_session_contacts')
     .insert(contactRows)
     .select(
-      'id, position, sf_contact_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at, attempt_count, marked_npa',
+      'id, position, sf_contact_id, campaign_contact_id, external_source_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, status, outcome, comments, sf_task_id, sf_event_id, called_at, recall_at, attempt_count, marked_npa',
     )
     .order('position', { ascending: true });
 
@@ -378,10 +380,24 @@ export async function insertSessionWithContacts(
   return { session, contacts: enrichSessionContacts(insertedContacts) };
 }
 
+export function isValidContactIdentity(contact) {
+  return Boolean(
+    (contact.sf_contact_id &&
+      typeof contact.sf_contact_id === 'string' &&
+      SF_ID.test(contact.sf_contact_id)) ||
+      (typeof contact.campaign_contact_id === 'number' &&
+        Number.isInteger(contact.campaign_contact_id) &&
+        contact.campaign_contact_id > 0) ||
+      contact.external_source_id,
+  );
+}
+
 export function enrichSessionContacts(contacts) {
   return (contacts || []).map((contact) => ({
     ...contact,
-    sf_contact_url: buildLightningUrl('Contact', contact.sf_contact_id),
+    sf_contact_url: contact.sf_contact_id
+      ? buildLightningUrl('Contact', contact.sf_contact_id)
+      : null,
     sf_account_url: contact.sf_account_id
       ? buildLightningUrl('Account', contact.sf_account_id)
       : null,
