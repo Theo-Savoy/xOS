@@ -17,6 +17,92 @@ import {
 } from './http.js';
 import { handleProspectionCockpit } from './prospectionCockpit.js';
 
+// Identité canonique d'un contact de séance : priorité à la clé locale
+// (#74), fallback CRM pour les séances historiques XOS.
+export function sessionContactKey(row) {
+  if (row.campaign_contact_id != null)
+    return `cc:${row.campaign_contact_id}`;
+  return `sf:${row.external_source_id || row.sf_contact_id || row.id}`;
+}
+
+async function loadPreviousCallers(client, sessionIds, dueRows, sessionById) {
+  const currentRowIds = new Set(dueRows.map((row) => row.id));
+  const localIds = [
+    ...new Set(
+      dueRows
+        .map((row) => row.campaign_contact_id)
+        .filter((id) => id != null),
+    ),
+  ];
+  const extKeys = [
+    ...new Set(
+      dueRows
+        .filter((row) => row.campaign_contact_id == null)
+        .map((row) => row.external_source_id || row.sf_contact_id)
+        .filter(Boolean),
+    ),
+  ];
+
+  let prevRows = [];
+  if (localIds.length || extKeys.length) {
+    const base = client
+      .from('call_session_contacts')
+      .select(
+        'id, sf_contact_id, campaign_contact_id, external_source_id, logged_by, called_at, outcome, session_id',
+      )
+      .in('session_id', sessionIds)
+      .eq('status', 'called')
+      .not('called_at', 'is', null)
+      .order('called_at', { ascending: false })
+      .limit(200);
+    // ponytail: deux requêtes au lieu d'un or() — supabasejs or() sur
+    // colonnes hétérogènes (int vs text) ne vaut pas la complexité ici.
+    if (localIds.length) {
+      const { data } = await base.in('campaign_contact_id', localIds);
+      if (data) prevRows.push(...data);
+    }
+    if (extKeys.length) {
+      const { data } = await base.in('external_source_id', extKeys);
+      if (data) prevRows.push(...data);
+    }
+  }
+
+  const loggerIds = [
+    ...new Set(prevRows.map((row) => row.logged_by).filter(Boolean)),
+  ];
+  const loggerLabels = new Map();
+  if (loggerIds.length) {
+    const { data: loggers } = await client
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', loggerIds);
+    for (const profile of loggers || []) {
+      loggerLabels.set(
+        profile.id,
+        profile.full_name || profile.email || 'Collègue',
+      );
+    }
+  }
+
+  const previousByContact = new Map();
+  for (const row of prevRows) {
+    if (currentRowIds.has(row.id)) continue;
+    const key = sessionContactKey(row);
+    if (!previousByContact.has(key))
+      previousByContact.set(key, []);
+    const list = previousByContact.get(key);
+    if (list.length >= 5) continue;
+    list.push({
+      user_label:
+        (row.logged_by && loggerLabels.get(row.logged_by)) || 'Collègue',
+      called_at: row.called_at,
+      outcome: row.outcome ?? null,
+      session_name: sessionById.get(row.session_id)?.name ?? 'Séance',
+    });
+  }
+  return previousByContact;
+}
+
 async function loadMembersBySessionIds(
   client,
   sessionIds,
@@ -404,7 +490,7 @@ export async function handleSessionsRead({ url, user, client, headers }) {
     const { data: rows, error: recallsError } = await client
       .from('call_session_contacts')
       .select(
-        'id, session_id, sf_contact_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, recall_at, outcome, attempt_count, status',
+        'id, session_id, sf_contact_id, campaign_contact_id, external_source_id, sf_account_id, contact_name, account_name, phone, email, title, linkedin_url, recall_at, outcome, attempt_count, status',
       )
       .in(
         'session_id',
@@ -421,63 +507,12 @@ export async function handleSessionsRead({ url, user, client, headers }) {
     const dueRows = (rows || []).filter(
       (row) => row.status === 'called' && row.recall_at,
     );
-    const contactIds = [
-      ...new Set(dueRows.map((row) => row.sf_contact_id).filter(Boolean)),
-    ];
-    const previousByContact = new Map();
-    if (contactIds.length) {
-      const { data: prevRows, error: prevError } = await client
-        .from('call_session_contacts')
-        .select('id, sf_contact_id, logged_by, called_at, outcome, session_id')
-        .in('sf_contact_id', contactIds)
-        .in(
-          'session_id',
-          sessions.map((session) => session.id),
-        )
-        .eq('status', 'called')
-        .not('called_at', 'is', null)
-        .order('called_at', { ascending: false })
-        .limit(200);
-      if (prevError) {
-        return new Response(
-          JSON.stringify({ error: 'previous_callers_lookup_failed' }),
-          { status: 500, headers },
-        );
-      }
-      const loggerIds = [
-        ...new Set(
-          (prevRows || []).map((row) => row.logged_by).filter(Boolean),
-        ),
-      ];
-      const loggerLabels = new Map();
-      if (loggerIds.length) {
-        const { data: loggers } = await client
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', loggerIds);
-        for (const profile of loggers || []) {
-          loggerLabels.set(
-            profile.id,
-            profile.full_name || profile.email || 'Collègue',
-          );
-        }
-      }
-      const currentRowIds = new Set(dueRows.map((row) => row.id));
-      for (const row of prevRows || []) {
-        if (currentRowIds.has(row.id)) continue;
-        if (!previousByContact.has(row.sf_contact_id))
-          previousByContact.set(row.sf_contact_id, []);
-        const list = previousByContact.get(row.sf_contact_id);
-        if (list.length >= 5) continue;
-        list.push({
-          user_label:
-            (row.logged_by && loggerLabels.get(row.logged_by)) || 'Collègue',
-          called_at: row.called_at,
-          outcome: row.outcome ?? null,
-          session_name: sessionById.get(row.session_id)?.name ?? 'Séance',
-        });
-      }
-    }
+    const previousByContact = await loadPreviousCallers(
+      client,
+      sessions.map((session) => session.id),
+      dueRows,
+      sessionById,
+    );
     const recalls = dueRows.map((row) => {
       const session = sessionById.get(row.session_id);
       return {
@@ -496,7 +531,8 @@ export async function handleSessionsRead({ url, user, client, headers }) {
         recall_at: row.recall_at,
         outcome: row.outcome,
         attempt_count: row.attempt_count,
-        previous_callers: previousByContact.get(row.sf_contact_id) ?? [],
+        previous_callers:
+          previousByContact.get(sessionContactKey(row)) ?? [],
       };
     });
     return new Response(JSON.stringify({ recalls }), { status: 200, headers });

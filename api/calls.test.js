@@ -809,7 +809,7 @@ describe('POST /api/calls', () => {
       expect((await res.json()).error).toBe('invalid_contacts');
     });
 
-    it('returns 400 for invalid sf_contact_id', async () => {
+    it('returns 400 for a contact without any identity key', async () => {
       const res = await POST(
         makeReq('POST', {
           action: 'create_session',
@@ -818,7 +818,48 @@ describe('POST /api/calls', () => {
         }),
       );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe('invalid_sf_contact_id');
+      expect((await res.json()).error).toBe('invalid_contact_identity');
+    });
+
+    it('creates session and contacts successfully from a local campaign contact (#74)', async () => {
+      mockDb
+        .mockResolvedValueOnce({
+          data: {
+            id: 12,
+            name: 'Prospection Lyon',
+            status: 'active',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: 201,
+              position: 0,
+              sf_contact_id: null,
+              campaign_contact_id: 42,
+              external_source_id: null,
+              contact_name: 'Marie Dupont',
+              phone_e164: '+33612345678',
+              status: 'pending',
+            },
+          ],
+          error: null,
+        });
+
+      const res = await POST(
+        makeReq('POST', {
+          action: 'create_session',
+          name: 'Prospection Lyon',
+          contacts: [
+            { campaign_contact_id: 42, contact_name: 'Marie Dupont' },
+          ],
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.session.id).toBe(12);
     });
 
     it('creates session and contacts successfully', async () => {
@@ -1155,7 +1196,7 @@ describe('POST /api/calls', () => {
       expect((await res.json()).error).toBe('invalid_groups');
     });
 
-    it('returns 400 for a malformed sf_contact_id inside a group', async () => {
+    it('returns 400 for a malformed contact inside a group', async () => {
       const res = await POST(
         makeReq('POST', {
           action: 'create_audience_sessions',
@@ -1168,7 +1209,7 @@ describe('POST /api/calls', () => {
         }),
       );
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe('invalid_sf_contact_id');
+      expect((await res.json()).error).toBe('invalid_contact_identity');
     });
 
     it('creates one session per group, named from name_prefix', async () => {

@@ -10,6 +10,7 @@ import {
   enrichSessionContacts,
   filterContactsForFollowUp,
   insertSessionWithContacts,
+  isValidContactIdentity,
   isValidScheduledFor,
   isValidSessionType,
   todayParisDate,
@@ -69,13 +70,9 @@ export async function handleSessionWrite({
           headers,
         });
       }
-      if (
-        !contact.sf_contact_id ||
-        typeof contact.sf_contact_id !== 'string' ||
-        !SF_ID.test(contact.sf_contact_id)
-      ) {
+      if (!isValidContactIdentity(contact)) {
         return new Response(
-          JSON.stringify({ error: 'invalid_sf_contact_id' }),
+          JSON.stringify({ error: 'invalid_contact_identity' }),
           { status: 400, headers },
         );
       }
@@ -239,13 +236,9 @@ export async function handleSessionWrite({
             headers,
           });
         }
-        if (
-          !contact.sf_contact_id ||
-          typeof contact.sf_contact_id !== 'string' ||
-          !SF_ID.test(contact.sf_contact_id)
-        ) {
+        if (!isValidContactIdentity(contact)) {
           return new Response(
-            JSON.stringify({ error: 'invalid_sf_contact_id' }),
+            JSON.stringify({ error: 'invalid_contact_identity' }),
             { status: 400, headers },
           );
         }
