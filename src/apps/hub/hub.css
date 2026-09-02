@@ -132,3 +132,24 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Bancs d'essai dialer — outils de diagnostic Telnyx déplacés depuis
+   l'accueil de Combo (le power dialing de production vit dans le runner). */
+.hub-dialer-tools__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--xos-text-muted);
+}
+
+.hub-dialer-tools__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+/* La vue ouverte apporte sa propre mise en page (.calls-view) : le panneau
+   ne fait que la contenir. */
+.hub-dialer-tools--open {
+  padding: 0.5rem;
+}

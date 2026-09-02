@@ -3,6 +3,7 @@ import { Button, GlassCard, Tag } from '../../components/ui';
 import { apiFetch, ApiError } from '../../lib/apiClient';
 import { supabase } from '../../lib/supabase';
 import TargetsEditor from './TargetsEditor';
+import { DialerTools } from './DialerTools';
 import './hub.css';
 
 type CleanerScoreSettings = Record<string, number>;
@@ -386,6 +387,7 @@ export default function HubApp() {
           </div>
         </GlassCard>
       </section>
+      {token && <DialerTools token={token} />}
       {status.capabilities.manageSettings ? (
         <GlassCard className="hub-panel">
           <p className="hub-eyebrow">Objectifs</p>
