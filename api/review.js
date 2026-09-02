@@ -135,8 +135,12 @@ export default async function handler(request) {
   const profile = await getProfile(client, user.id);
   if (profile.error) return json(500, { error: profile.error });
 
-  const url = new URL(request.url);
-  const resource = url.searchParams.get('resource') || 'kpis';
+  // Vercel peut passer request.url en relatif ou absolu selon la route/proxy.
+  // new URL() throw sur un path relatif → parser tolérant.
+  const rawUrl = String(request.url || '');
+  const queryPart = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '';
+  const searchParams = new URLSearchParams(queryPart);
+  const resource = searchParams.get('resource') || 'kpis';
   const method = request.method.toUpperCase();
 
   // --- Shared analyses (Supabase only, no SF) ---
@@ -170,7 +174,7 @@ export default async function handler(request) {
       if (!roleAtLeast(profile.role, 'manager')) {
         return json(403, { error: 'manager_required' });
       }
-      const id = url.searchParams.get('id');
+      const id = searchParams.get('id');
       if (!id) return json(400, { error: 'missing_id' });
       const result = await revokeShared(client, user.id, id);
       if (result.error) return json(result.status, { error: result.error });
@@ -180,7 +184,7 @@ export default async function handler(request) {
   }
 
   // --- SF-backed resources ---
-  const period = url.searchParams.get('period');
+  const period = searchParams.get('period');
   const parsed = parsePeriod(period);
   if (!parsed)
     return json(400, {
@@ -188,7 +192,7 @@ export default async function handler(request) {
       hint: 'FY26, FY26-Q2, 2026-03, 2026-W14',
     });
 
-  const requestedOwner = url.searchParams.get('owner');
+  const requestedOwner = searchParams.get('owner');
   const ownerIds = await resolveOwnerIds({ client, profile, requestedOwner });
   // Filtre JS additif (compute*) : un seul owner → le garder ; plusieurs → le
   // SOQL a déjà scoped, inutile de refiltrer en JS.
