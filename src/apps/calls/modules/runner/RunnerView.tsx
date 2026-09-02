@@ -89,6 +89,7 @@ import {
   RECALL_DAYS_KEY,
 } from './runnerFormatters';
 import { ContactCardPanel } from './ContactCardPanel';
+import { PowerStrip } from './PowerStrip';
 import { ResultButtons } from '../../ResultButtons';
 import { RecallFields } from '../rdv/RecallFields';
 import { ContextSideSkeleton } from '../../ContextSideSkeleton';
@@ -170,6 +171,9 @@ type RunnerViewProps = {
   team?: TeamMember[];
   currentSfUserId?: string | null;
   currentUserId?: string | null;
+  /** Power dialing : jeton API + droit. Absents → l'encart n'est pas proposé. */
+  token?: string | null;
+  canPowerDialer?: boolean;
 };
 
 
@@ -205,13 +209,19 @@ export function RunnerView({
   team = [],
   currentSfUserId = null,
   currentUserId = null,
+  token = null,
+  canPowerDialer = false,
 }: RunnerViewProps) {
   const isRecallQueue = variant === 'recalls';
+  // Pas de power dans la file de rappels : ses contacts viennent de séances
+  // différentes, le pool n'aurait pas de session_id unique à rattacher.
+  const powerAvailable = !isRecallQueue && canPowerDialer && Boolean(token);
   const rdvGoal = isRecallQueue ? null : (session.rdv_goal ?? null);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareSaving, setShareSaving] = useState(false);
   const today = todayParisIso();
   const [mode, setMode] = useState<RunnerMode>('list');
+  const [powerOn, setPowerOn] = useState(false);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [listStatusFilter, setListStatusFilter] =
@@ -1443,6 +1453,17 @@ export function RunnerView({
               </kbd>
             </Button>
           </div>
+          {powerAvailable && (
+            <Button
+              variant={powerOn ? 'primary' : 'secondary'}
+              type="button"
+              aria-pressed={powerOn}
+              onClick={() => setPowerOn((value) => !value)}
+              title="Composer plusieurs contacts en parallèle"
+            >
+              Power
+            </Button>
+          )}
           <Button
             variant="secondary"
             onClick={() => {
@@ -1649,6 +1670,16 @@ export function RunnerView({
             </div>
           )}
         </div>
+      )}
+
+      {powerAvailable && powerOn && (
+        <PowerStrip
+          token={token!}
+          sessionId={session.id}
+          contacts={contacts}
+          currentUserId={currentUserId}
+          onFocusContact={onFocusContact}
+        />
       )}
 
       {error && (

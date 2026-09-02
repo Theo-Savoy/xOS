@@ -223,6 +223,104 @@ describe('startPool', () => {
     expect(result.body.session_id).toBe('pool-partial');
     expect(result.body.calls.map((call) => call.status)).toEqual(['failed', 'dialing']);
   });
+
+  // Séance Combo : contact_ids alignés sur destinations → dialer_calls.contact_id
+  // renseigné, donc pool_status peut rendre le contact gagnant au runner.
+  function sessionClient({ ownedContactIds = [11, 12], owner = 'user-1' } = {}) {
+    return {
+      from: vi.fn((table) => {
+        if (table === 'call_sessions') return thenable({ data: { id: 7, owner }, error: null });
+        if (table === 'call_session_contacts') {
+          return thenable({ data: ownedContactIds.map((id) => ({ id })), error: null });
+        }
+        if (table === 'dialer_pool_sessions') return thenable({ data: { id: 'pool-1' }, error: null });
+        return thenable();
+      }),
+    };
+  }
+
+  const sessionBody = (extra = {}) => ({
+    destinations: ['+3310000001', '+3310000002'], parallelism: 2,
+    session_id: 7, contact_ids: [11, 12], ...extra,
+  });
+  const flags = { dryRun: false, budgetSessionCents: 300, budgetOrgMonthCents: 15000 };
+
+  it('rattache chaque ligne au contact de séance correspondant', async () => {
+    const client = sessionClient();
+    mocks.openCallRow.mockImplementation(async (_client, { poolSlot }) => ({ id: poolSlot + 1 }));
+    mocks.dialContact.mockResolvedValue({ call_control_id: 'cc-1' });
+    const result = await startPool({ client, user: { id: 'user-1' }, flags, body: sessionBody() });
+    expect(result.status).toBe(200);
+    expect(mocks.openCallRow).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ toNumber: '+3310000001', contactId: 11 }),
+    );
+    expect(mocks.openCallRow).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ toNumber: '+3310000002', contactId: 12 }),
+    );
+  });
+
+  it('refuse un contact qui n’appartient pas à la séance, sans composer', async () => {
+    const client = sessionClient({ ownedContactIds: [11] });
+    const result = await startPool({ client, user: { id: 'user-1' }, flags, body: sessionBody() });
+    expect(result).toEqual({ status: 403, body: { error: 'contact_not_in_session' } });
+    expect(mocks.dialContact).not.toHaveBeenCalled();
+    expect(mocks.reserveBudget).not.toHaveBeenCalled();
+  });
+
+  it('refuse une séance dont l’utilisateur n’est ni propriétaire ni membre', async () => {
+    const client = {
+      from: vi.fn((table) => (table === 'call_sessions'
+        ? thenable({ data: { id: 7, owner: 'someone-else' }, error: null })
+        : thenable({ data: null, error: null }))),
+    };
+    const result = await startPool({ client, user: { id: 'user-1' }, flags, body: sessionBody() });
+    expect(result).toEqual({ status: 403, body: { error: 'session_access_denied' } });
+    expect(mocks.dialContact).not.toHaveBeenCalled();
+  });
+
+  it('rejette des contact_ids non alignés sur les destinations', async () => {
+    const client = { from: vi.fn() };
+    const result = await startPool({
+      client, user: { id: 'user-1' }, flags, body: sessionBody({ contact_ids: [11] }),
+    });
+    expect(result).toEqual({ status: 400, body: { error: 'invalid_contact_ids' } });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('rejette des contact_ids en double (association numéro↔fiche ambiguë)', async () => {
+    const client = { from: vi.fn() };
+    const result = await startPool({
+      client, user: { id: 'user-1' }, flags, body: sessionBody({ contact_ids: [11, 11] }),
+    });
+    expect(result).toEqual({ status: 400, body: { error: 'invalid_contact_ids' } });
+  });
+
+  it('reste compatible sans contact_ids (PowerDialerView autonome)', async () => {
+    const pool = thenable({ data: { id: 'pool-1' }, error: null });
+    const client = { from: vi.fn((table) => (table === 'dialer_pool_sessions' ? pool : thenable())) };
+    mocks.openCallRow.mockResolvedValue({ id: 1 });
+    mocks.dialContact.mockResolvedValue({ call_control_id: 'cc-1' });
+    await startPool({
+      client, user: { id: 'user-1' }, flags,
+      body: { destinations: ['+3310000001'], parallelism: 1 },
+    });
+    expect(mocks.openCallRow).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ contactId: null }),
+    );
+    expect(client.from).not.toHaveBeenCalledWith('call_sessions');
+  });
+
+  it('ne compose jamais en dry-run, même avec une séance valide', async () => {
+    mocks.loadUserEntitlements.mockResolvedValue({
+      enabled: true, dryRun: true, budgetDayCents: 1000, callsDayLimit: 50,
+      callsMonthLimit: 500, telnyxCredentialId: 'cred-1',
+    });
+    const client = { from: vi.fn() };
+    const result = await startPool({ client, user: { id: 'user-1' }, flags, body: sessionBody() });
+    expect(result).toEqual({ status: 200, body: { dry_run: true, session_id: null, calls: [] } });
+    expect(mocks.dialContact).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
 });
 
 describe('winner takes all', () => {

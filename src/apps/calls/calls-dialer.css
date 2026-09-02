@@ -244,3 +244,21 @@
     flex-wrap: wrap;
   }
 }
+
+/* Encart power du runner : mêmes lignes que la vue autonome, en bandeau. */
+.calls-power-strip {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.calls-power-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.calls-power-strip .calls-power__lines {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}

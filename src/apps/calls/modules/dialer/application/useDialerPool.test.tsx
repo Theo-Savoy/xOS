@@ -437,4 +437,59 @@ describe('useDialerPool — Voice API + poste WebRTC (lot 11.8)', () => {
 
     expect(mockStartPowerPool).not.toHaveBeenCalled();
   });
+
+  it('transmet la séance et les contacts alignés, puis expose le contact gagnant', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockFetchPowerPoolStatus.mockResolvedValue({
+      id: 'pool-1', parallelism: 2, status: 'active', winner_call_id: 7,
+      calls: [
+        { id: 7, pool_slot: 0, contact_id: 42, to_number: '+331****11', status: 'bridged', amd_result: 'human' },
+        { id: 8, pool_slot: 1, contact_id: 43, to_number: '+331****22', status: 'ended', amd_result: null },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useDialerPool({ token: 'tok', size: 2, callSessionId: 7 }));
+    act(() => result.current.setQueue(['+33100000001', '+33100000002'], [42, 43]));
+
+    await act(async () => { await playUntilReady(result, client); });
+
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000001', '+33100000002'],
+      parallelism: 2,
+      sessionId: 7,
+      contactIds: [42, 43],
+    });
+    expect(result.current.winnerContactId).toBe(42);
+  });
+
+  it('omet contact_ids si une destination du cycle n’est rattachée à aucune fiche', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() =>
+      useDialerPool({ token: 'tok', size: 2, callSessionId: 7 }));
+    // File remplacée sans contactIds : l'alignement 1:1 n'est plus prouvable.
+    act(() => result.current.setQueue(['+33100000001', '+33100000002']));
+
+    await act(async () => { await playUntilReady(result, client); });
+
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000001', '+33100000002'],
+      parallelism: 2,
+    });
+  });
+
+  it('ignore un rechargement de file pendant un cycle en cours', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001', '+33100000009']));
+
+    await act(async () => { await playUntilReady(result, client); });
+    expect(result.current.isRunning).toBe(true);
+
+    act(() => result.current.setQueue(['+33100000002'], [1]));
+    expect(result.current.state.lines[0].destination).toBe('+33100000001');
+    expect(result.current.state.queue).toEqual(['+33100000009']);
+  });
 });

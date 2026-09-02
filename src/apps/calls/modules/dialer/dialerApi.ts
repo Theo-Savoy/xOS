@@ -291,6 +291,8 @@ export async function fetchUserCalls(
 export type PowerPoolCall = {
   id: number;
   pool_slot: number;
+  /** Contact de séance rattaché (null hors séance : PowerDialerView autonome). */
+  contact_id: number | null;
   to_number: string;
   status: string;
   amd_result: string | null;
@@ -310,7 +312,14 @@ export type PowerPoolStatus = {
 
 export async function startPowerPool(
   token: string,
-  params: { destinations: string[]; parallelism: number; callerNumber?: string | null },
+  params: {
+    destinations: string[];
+    parallelism: number;
+    callerNumber?: string | null;
+    /** Séance Combo : alignés 1:1 sur destinations (omis hors séance). */
+    sessionId?: number | null;
+    contactIds?: number[] | null;
+  },
 ): Promise<{ dry_run: boolean; session_id: string | null; calls: Array<{ slot: number; call_record_id?: number; status: string; error?: string }> }> {
   return apiFetch(token, '/api/dialer?resource=pool_start', {
     method: 'POST',
@@ -318,6 +327,9 @@ export async function startPowerPool(
       destinations: params.destinations,
       parallelism: params.parallelism,
       caller_number: params.callerNumber ?? null,
+      ...(params.contactIds?.length
+        ? { session_id: params.sessionId, contact_ids: params.contactIds }
+        : {}),
     }),
   });
 }

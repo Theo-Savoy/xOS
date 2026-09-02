@@ -3,6 +3,7 @@ import { loadDialerConfig } from './config.js';
 import { loadUserEntitlements, reserveBudget, releaseReservation } from './budget.js';
 import { openCallRow, closeCallRow, maskE164 } from './persistence.js';
 import { dialContact, getTelephonyCredential, hangupCall } from './telnyx.js';
+import { assertSessionAccess } from '../_calls/http.js';
 
 const E164 = /^\+[1-9]\d{6,14}$/;
 const HUMAN_RESULTS = new Set(['human', 'human_business', 'human_residence', 'not_sure']);
@@ -43,6 +44,24 @@ export async function startPool({ client, user, flags, body }) {
     return { status: 400, body: { error: 'invalid_destinations' } };
   }
 
+  // Séance Combo : les contact_ids sont alignés 1:1 sur destinations et servent
+  // à retrouver le contact gagnant côté client (pool_status) sans reposer sur
+  // le numéro, qui peut être partagé par plusieurs fiches (standard société).
+  // Optionnels : la PowerDialerView autonome compose sans séance.
+  const contactIds = body?.contact_ids ?? null;
+  if (contactIds !== null && (
+    !Array.isArray(contactIds)
+    || contactIds.length !== destinations.length
+    || contactIds.some((id) => !Number.isInteger(id))
+    || new Set(contactIds).size !== contactIds.length
+  )) {
+    return { status: 400, body: { error: 'invalid_contact_ids' } };
+  }
+  const sessionId = body?.session_id ?? null;
+  if (contactIds && !Number.isInteger(sessionId)) {
+    return { status: 400, body: { error: 'invalid_session_id' } };
+  }
+
   const cfg = loadDialerConfig();
   const entitlement = await loadUserEntitlements(client, user.id);
   const dryRun = cfg.isDryRun || flags.dryRun === true || entitlement.dryRun === true;
@@ -54,6 +73,19 @@ export async function startPool({ client, user, flags, body }) {
 
   const callerNumber = await resolveCaller(client, user.id, body?.caller_number, cfg.callerId);
   if (!callerNumber) return { status: 403, body: { error: 'caller_number_not_owned' } };
+
+  if (contactIds) {
+    // Même règle d'accès que le runner (propriétaire OU membre partagé).
+    const access = await assertSessionAccess(client, sessionId, user.id);
+    if (access.error) return { status: 403, body: { error: 'session_access_denied' } };
+    const { data: owned, error: ownedErr } = await client
+      .from('call_session_contacts').select('id')
+      .eq('session_id', sessionId).in('id', contactIds);
+    if (ownedErr) return { status: 500, body: { error: 'contact_lookup_failed' } };
+    if ((owned ?? []).length !== contactIds.length) {
+      return { status: 403, body: { error: 'contact_not_in_session' } };
+    }
+  }
 
   const { data: pool, error: poolErr } = await client.from('dialer_pool_sessions').insert({
     owner_user_id: user.id, parallelism, status: 'dialing',
@@ -87,6 +119,7 @@ export async function startPool({ client, user, flags, body }) {
         ownerId: user.id, toNumber: to, outboundNumber: callerNumber,
         reservationId: reservation.reservationId,
         poolSessionId: pool.id, poolSlot: slot,
+        contactId: contactIds ? contactIds[slot] : null,
       });
       const commandId = `xos-pool-${pool.id}-${slot}`;
       dialed = await dialContact({
@@ -156,7 +189,7 @@ export async function getPoolStatus({ client, userId, sessionId }) {
     .eq('id', sessionId).eq('owner_user_id', userId).maybeSingle();
   if (error || !session) return { status: 404, body: { error: 'pool_not_found' } };
   const { data: rows, error: rowsErr } = await client.from('dialer_calls')
-    .select('id, pool_slot, to_number, status, amd_result, started_at, answered_at, ended_at, hangup_cause')
+    .select('id, pool_slot, contact_id, to_number, status, amd_result, started_at, answered_at, ended_at, hangup_cause')
     .eq('pool_session_id', sessionId).eq('owner_user_id', userId).order('pool_slot');
   if (rowsErr) return { status: 500, body: { error: 'pool_status_failed' } };
   return { status: 200, body: {
