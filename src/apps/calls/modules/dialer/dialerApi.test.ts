@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DialerApiError, dialCall, fetchDialerConfig } from './dialerApi';
+import { DialerApiError, dialCall, fetchDialerConfig, startPowerPool } from './dialerApi';
 
 // Mock global fetch — apiFetch uses fetch under the hood.
 function mockFetchOnce(status: number, body: unknown) {
@@ -114,6 +114,48 @@ describe('dialCall', () => {
         to: '+33',
       }),
     ).rejects.toBeInstanceOf(DialerApiError);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('startPowerPool', () => {
+  const started = { dry_run: false, session_id: 'pool-1', calls: [] };
+
+  it('transmet le numéro sortant et le rattachement de séance au serveur', async () => {
+    const fetchMock = mockFetchOnce(200, started);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await startPowerPool('token', {
+      destinations: ['+33100000001', '+33100000002'],
+      parallelism: 2,
+      callerNumber: '+33184800001',
+      sessionId: 7,
+      contactIds: [42, 43],
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/dialer?resource=pool_start');
+    expect(JSON.parse(init.body)).toEqual({
+      destinations: ['+33100000001', '+33100000002'],
+      parallelism: 2,
+      caller_number: '+33184800001',
+      session_id: 7,
+      contact_ids: [42, 43],
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('n’envoie ni séance ni contacts hors runner, et laisse le caller par défaut', async () => {
+    const fetchMock = mockFetchOnce(200, started);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await startPowerPool('token', { destinations: ['+33100000001'], parallelism: 1 });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      destinations: ['+33100000001'],
+      parallelism: 1,
+      caller_number: null,
+    });
     vi.unstubAllGlobals();
   });
 });

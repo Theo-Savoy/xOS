@@ -30,7 +30,7 @@
  */
 
 import { verifyJWT } from './_auth.js';
-import { getServiceClient, jsonResponse } from './_calls/http.js';
+import { getParisDateRange, getServiceClient, jsonResponse } from './_calls/http.js';
 import { loadDialerConfig, loadDialerFlags } from './_dialer/config.js';
 import { handleWebhook } from './_dialer/webhooks.js';
 import { reserveBudget, releaseReservation, loadUserEntitlements } from './_dialer/budget.js';
@@ -77,6 +77,30 @@ function hashE164(e164) {
   return `h${h.toString(16).padStart(8, '0')}`;
 }
 
+/**
+ * Compositions déjà décomptées du quota du jour (fuseau Paris).
+ *
+ * Miroir en LECTURE de ce que compte dialer_reserve_budget : une réservation
+ * 'released' (non-réponse, échec avant décroché) cesse de compter (cf. 043).
+ * Indicatif : seul le refus serveur fait foi, l'affichage sert à ne pas
+ * lancer un cycle qui sera coupé au milieu.
+ */
+async function countCallsToday(client, user) {
+  if (!user) return 0;
+  const { todayStart } = getParisDateRange();
+  const { count, error } = await client
+    .from('dialer_budget_reservations')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('status', ['reserved', 'consumed'])
+    .gte('created_at', todayStart.toISOString());
+  if (error) {
+    console.error('[dialer.config] load day usage failed:', error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 async function handleConfig(client, user) {
   const cfg = loadDialerConfig();
   const flags = await loadDialerFlags(client);
@@ -118,6 +142,8 @@ async function handleConfig(client, user) {
     entitlement: {
       enabled: entitlements.enabled,
       dry_run: entitlements.dryRun,
+      calls_day_limit: entitlements.callsDayLimit,
+      calls_today: await countCallsToday(client, user),
     },
     flags: {
       enabled: flags.enabled,

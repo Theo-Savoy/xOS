@@ -2139,6 +2139,8 @@ export default function CallManagerApp({
               team={team}
               currentSfUserId={currentSfUserId}
               currentUserId={session.user.id}
+              token={token}
+              canPowerDialer={canPowerDialer === true}
               onBack={goToSessions}
               onPin={handlePin}
               onShareSession={

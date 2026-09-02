@@ -13,6 +13,9 @@ import {
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
 import {
+  DialerApiError,
+  blockedReasonMessage,
+  callBlockedMessage,
   fetchPowerPoolStatus,
   fetchRtcToken,
   hangupPowerPool,
@@ -21,13 +24,16 @@ import {
 
 export type UseDialerPoolResult = {
   state: PoolState;
-  setQueue: (destinations: string[]) => void;
+  /** contactIds : aligné 1:1 sur destinations (séance Combo). Ignoré pendant un cycle. */
+  setQueue: (destinations: string[], contactIds?: number[]) => void;
   play: () => Promise<void>;
   skip: (slot: number) => void;
   hangupAll: () => void;
   redial: () => Promise<void>;
   isRunning: boolean;
   agentConnected: boolean;
+  /** Contact de séance décroché par le pool — le runner focalise sa fiche. */
+  winnerContactId: number | null;
   /** F-05 (audit 11.8) : true quand un raccrochage serveur a échoué et que
    * la session est encore à nettoyer — l'UI doit exposer un CTA de réessai. */
   hangupRetryable: boolean;
@@ -47,14 +53,21 @@ export function useDialerPool({
   size = 3,
   simulate = false,
   simulateNoAnswer = false,
+  callSessionId = null,
+  callerNumber = null,
 }: {
   token: string;
   size?: number;
   simulate?: boolean;
   simulateNoAnswer?: boolean;
+  /** Séance Combo dont la file alimente le pool (null : dialer autonome). */
+  callSessionId?: number | null;
+  /** Numéro sortant choisi (null : caller ID par défaut du serveur). */
+  callerNumber?: string | null;
 }): UseDialerPoolResult {
   const [state, dispatch] = useReducer(poolReducer, undefined, () => createPoolState(size, []));
   const [agentConnected, setAgentConnected] = useState(false);
+  const [winnerContactId, setWinnerContactId] = useState<number | null>(null);
   const [hangupRetryable, setHangupRetryable] = useState(false);
   const stateRef = useRef(state);
   const clientRef = useRef<RtcClientHandle | null>(null);
@@ -63,6 +76,7 @@ export function useDialerPool({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const lastQueueRef = useRef<string[]>([]);
+  const contactIdByDestinationRef = useRef(new Map<string, number>());
   const winnerDestinationRef = useRef<string | null>(null);
   const appliedTerminalCallsRef = useRef(new Set<number>());
   const pollInFlightRef = useRef(false);
@@ -135,6 +149,7 @@ export function useDialerPool({
         if (isWinner) {
           const destination = stateRef.current.lines[slot]?.destination;
           if (destination) winnerDestinationRef.current = destination;
+          if (call.contact_id != null) setWinnerContactId(call.contact_id);
         }
         const terminalAlreadyApplied = ['skipped', 'failed', 'ended'].includes(localPhase ?? '');
         const terminalCall = appliedTerminalCallsRef.current.has(call.id);
@@ -309,6 +324,7 @@ export function useDialerPool({
       .filter((line) => line.phase === 'skipped' && line.destination)
       .map((line) => line.destination);
     const destinations = [...retry, ...before.queue].slice(0, size);
+    setWinnerContactId(null);
     dispatch({ type: 'play' });
     if (simulate) { startDemo(); return; }
     if (destinations.length === 0) {
@@ -316,6 +332,16 @@ export function useDialerPool({
       return;
     }
     hangupGenerationRef.current += 1;
+    // Remet la file et les lignes dans l'état d'avant Play : le pool n'a pas
+    // démarré, l'agent doit pouvoir recliquer sans perdre ses contacts.
+    const rollback = () => {
+      const queue = [
+        ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
+        ...before.queue,
+      ];
+      stateRef.current = createPoolState(size, queue);
+      dispatch({ type: 'reset', queue });
+    };
     try {
       const registered = await ensureAgentRegistered();
       if (!mountedRef.current) return;
@@ -323,17 +349,23 @@ export function useDialerPool({
         // F-04 (audit 11.8) : rollback de l'état play (lignes + file) — le
         // pool n'a jamais démarré. Sans cela les lignes restent 'dialing',
         // la file reste consommée et Play redevient un no-op cliquable.
-        const rollbackQueue = [
-          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
-          ...before.queue,
-        ];
-        stateRef.current = createPoolState(size, rollbackQueue);
-        dispatch({ type: 'reset', queue: rollbackQueue });
+        rollback();
         dispatch({ type: 'pool-error', error: 'Poste WebRTC indisponible — impossible de lancer le pool.' });
         return;
       }
       lastQueueRef.current = destinations;
-      const started = await startPowerPool(token, { destinations, parallelism: size });
+      // Les contact_ids ne partent que si CHAQUE destination du cycle est
+      // rattachée à une fiche : un lot partiel ferait échouer la validation
+      // serveur (alignement 1:1) alors que la composition, elle, est valide.
+      const contactIds = destinations.map((destination) => contactIdByDestinationRef.current.get(destination));
+      const linked = callSessionId != null
+        && contactIds.every((contactId): contactId is number => typeof contactId === 'number');
+      const started = await startPowerPool(token, {
+        destinations,
+        parallelism: size,
+        ...(callerNumber ? { callerNumber } : {}),
+        ...(linked ? { sessionId: callSessionId, contactIds } : {}),
+      });
       if (!mountedRef.current) return;
       if (started.dry_run || !started.session_id) {
         // F-03 (audit 11.8) : hors simulate, un pool_start dry_run / sans
@@ -341,6 +373,19 @@ export function useDialerPool({
         // poste RTC réel est déjà enregistré et l'utilisateur croirait avoir
         // lancé un cycle réel. Erreur explicite, zéro timer démo.
         dispatch({ type: 'pool-error', error: 'Session power refusée par le serveur (dry-run actif ou session non créée).' });
+        return;
+      }
+      // Quota/budget épuisé : aucun slot ne compose et la session serveur est
+      // déjà close. Sans ce message, les lignes resteraient figées sans motif.
+      if (!started.calls.some((call) => call.status === 'dialing')) {
+        const refused = started.calls.find((call) => call.error);
+        rollback();
+        dispatch({
+          type: 'pool-error',
+          error: refused?.error
+            ? blockedReasonMessage(refused.error)
+            : 'Aucune ligne n’a pu être composée.',
+        });
         return;
       }
       sessionIdRef.current = started.session_id;
@@ -354,17 +399,17 @@ export function useDialerPool({
       // F-04 (audit 11.8) : timeout/erreur avant démarrage → rollback de
       // l'état play (le pool n'a jamais eu de session_id). Si une session
       // existe déjà, l'erreur vient d'après le démarrage : on garde l'état.
-      if (!sessionIdRef.current) {
-        const rollbackQueue = [
-          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
-          ...before.queue,
-        ];
-        stateRef.current = createPoolState(size, rollbackQueue);
-        dispatch({ type: 'reset', queue: rollbackQueue });
-      }
-      dispatch({ type: 'pool-error', error: telnyxErrorMessage(error) });
+      if (!sessionIdRef.current) rollback();
+      // Un refus serveur (quota, session power déjà ouverte, entitlement) a un
+      // message métier ; seul le reste relève du transport WebRTC.
+      dispatch({
+        type: 'pool-error',
+        error: error instanceof DialerApiError
+          ? callBlockedMessage(error)
+          : telnyxErrorMessage(error),
+      });
     }
-  }, [applyServerStatus, ensureAgentRegistered, simulate, size, startDemo, token]);
+  }, [applyServerStatus, callSessionId, callerNumber, ensureAgentRegistered, simulate, size, startDemo, token]);
 
   const skip = useCallback((slot: number) => {
     const sessionId = sessionIdRef.current;
@@ -431,8 +476,17 @@ export function useDialerPool({
     await play();
   }, [play, size]);
 
-  const setQueue = useCallback((destinations: string[]) => {
+  const setQueue = useCallback((destinations: string[], contactIds?: number[]) => {
+    // Un cycle en cours possède ses lignes : recharger la file les effacerait.
+    // Le garde vit ici, pas chez chaque appelant (le runner republie sa file à
+    // chaque changement de contacts, y compris pendant la composition).
+    if (stateRef.current.running) return;
     lastQueueRef.current = destinations;
+    contactIdByDestinationRef.current = new Map(
+      contactIds?.length === destinations.length
+        ? destinations.map((destination, index) => [destination, contactIds[index]] as const)
+        : [],
+    );
     dispatch({ type: 'reset', queue: destinations });
   }, []);
 
@@ -449,5 +503,8 @@ export function useDialerPool({
     };
   }, [abortAgentReadyWait, clearTimers, token]);
 
-  return { state, setQueue, play, skip, hangupAll, redial, isRunning: state.running, agentConnected, hangupRetryable };
+  return {
+    state, setQueue, play, skip, hangupAll, redial,
+    isRunning: state.running, agentConnected, winnerContactId, hangupRetryable,
+  };
 }

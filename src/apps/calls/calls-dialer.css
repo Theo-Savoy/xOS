@@ -244,3 +244,221 @@
     flex-wrap: wrap;
   }
 }
+
+/* ── Encart power du runner ──────────────────────────────────────────────
+   Une barre de contrôle, pas un tableau de bord : la séance a déjà ses KPI
+   au-dessus. Rythme vertical calé sur .calls-cockpit-kpis (0.75rem). */
+.calls-power-strip {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+.calls-power-strip__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.calls-power-strip__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Réglages compacts : le trigger par défaut (11.5rem) est calibré pour des
+   formulaires, trop large pour un chiffre ou un libellé de ligne. */
+.calls-power-strip__select .xos-select__label {
+  font-size: 0.78rem;
+}
+
+.calls-power-strip__select .xos-select__trigger {
+  min-width: 0;
+  padding: 0.4rem 0.65rem;
+}
+
+.calls-power-strip__select--lines .xos-select__trigger {
+  min-width: 3.5rem;
+}
+
+.calls-power-strip__select--caller .xos-select__trigger {
+  min-width: 9rem;
+}
+
+/* Le menu liste les numéros en clair : il doit tenir sans troncature. */
+.calls-power-strip__select--caller .xos-select__menu {
+  min-width: 15rem;
+}
+
+.calls-power-strip__quota {
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+  white-space: nowrap;
+}
+
+.calls-power-strip__quota strong {
+  color: var(--xos-text);
+  margin-right: 0.15rem;
+}
+
+.calls-power-strip__quota--blocked,
+.calls-power-strip__quota--blocked strong {
+  color: var(--xos-danger, #ff6b6b);
+}
+
+.calls-power-strip__lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.9rem;
+}
+
+.calls-power-strip__hint {
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-power-strip__line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xos-border);
+  border-left: 3px solid transparent;
+}
+
+.calls-power-strip__line-name {
+  font-weight: 600;
+}
+
+.calls-power-strip__line-phase {
+  font-size: 0.75rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-power-strip__line--dialing,
+.calls-power-strip__line--ringing {
+  border-left-color: var(--xos-accent);
+}
+
+.calls-power-strip__line--ringing .calls-power-strip__line-phase {
+  animation: calls-power-pulse 1.1s ease-in-out infinite;
+}
+
+.calls-power-strip__line--connected {
+  border-left-color: var(--xos-success, #4ade80);
+  background: color-mix(in srgb, var(--xos-success, #4ade80) 14%, transparent);
+}
+
+.calls-power-strip__line--skipped,
+.calls-power-strip__line--failed,
+.calls-power-strip__line--ended {
+  opacity: 0.5;
+}
+
+/* ── Le côté playful : le lancement doit se sentir ─────────────────────── */
+
+/* Bouton Power du header : liseré brillant qui balaie en continu, discret
+   tant qu'il est éteint, franchement lumineux une fois allumé. */
+.calls-power-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.calls-power-toggle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  animation: calls-power-shine 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.calls-power-toggle--on {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--xos-accent) 55%, transparent),
+    0 0 18px color-mix(in srgb, var(--xos-accent) 45%, transparent);
+  animation: calls-power-glow 2.2s ease-in-out infinite;
+}
+
+.calls-power-toggle--on::after {
+  animation-duration: 2.2s;
+}
+
+/* Lancement : un sweep traverse l'encart, une fois. */
+.calls-power-strip--launching {
+  /* Clip réservé à l'animation : sinon le menu du sélecteur serait tronqué. */
+  overflow: hidden;
+}
+
+.calls-power-strip--launching::before {
+  content: '';
+  position: absolute;
+  inset: -40% -10%;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    color-mix(in srgb, var(--xos-accent) 40%, transparent) 50%,
+    transparent 60%
+  );
+  animation: calls-power-sweep 900ms ease-out 1;
+  pointer-events: none;
+}
+
+.calls-power-strip--launching .calls-power-strip__launch {
+  animation: calls-power-kick 420ms ease-out 1;
+}
+
+@keyframes calls-power-shine {
+  0%, 65% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes calls-power-glow {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 55%, transparent), 0 0 14px color-mix(in srgb, var(--xos-accent) 35%, transparent); }
+  50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 75%, transparent), 0 0 26px color-mix(in srgb, var(--xos-accent) 60%, transparent); }
+}
+
+@keyframes calls-power-sweep {
+  from { transform: translateX(-60%); opacity: 0.9; }
+  to { transform: translateX(60%); opacity: 0; }
+}
+
+@keyframes calls-power-kick {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes calls-power-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* Accessibilité : rien ne bouge si l'utilisateur l'a demandé. Le son reste
+   piloté par le mute global Combo. */
+@media (prefers-reduced-motion: reduce) {
+  .calls-power-toggle::after,
+  .calls-power-toggle--on,
+  .calls-power-strip--launching::before,
+  .calls-power-strip--launching .calls-power-strip__launch,
+  .calls-power-strip__line--ringing .calls-power-strip__line-phase {
+    animation: none;
+  }
+}

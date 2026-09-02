@@ -41,6 +41,9 @@ export type DialerConfig = {
   entitlement: {
     enabled: boolean;
     dry_run: boolean;
+    /** Quota de compositions du jour (défaut 50) et sa consommation. */
+    calls_day_limit: number;
+    calls_today: number;
   };
   flags: DialerFlags;
 };
@@ -291,6 +294,8 @@ export async function fetchUserCalls(
 export type PowerPoolCall = {
   id: number;
   pool_slot: number;
+  /** Contact de séance rattaché (null hors séance : PowerDialerView autonome). */
+  contact_id: number | null;
   to_number: string;
   status: string;
   amd_result: string | null;
@@ -310,7 +315,14 @@ export type PowerPoolStatus = {
 
 export async function startPowerPool(
   token: string,
-  params: { destinations: string[]; parallelism: number; callerNumber?: string | null },
+  params: {
+    destinations: string[];
+    parallelism: number;
+    callerNumber?: string | null;
+    /** Séance Combo : alignés 1:1 sur destinations (omis hors séance). */
+    sessionId?: number | null;
+    contactIds?: number[] | null;
+  },
 ): Promise<{ dry_run: boolean; session_id: string | null; calls: Array<{ slot: number; call_record_id?: number; status: string; error?: string }> }> {
   return apiFetch(token, '/api/dialer?resource=pool_start', {
     method: 'POST',
@@ -318,6 +330,9 @@ export async function startPowerPool(
       destinations: params.destinations,
       parallelism: params.parallelism,
       caller_number: params.callerNumber ?? null,
+      ...(params.contactIds?.length
+        ? { session_id: params.sessionId, contact_ids: params.contactIds }
+        : {}),
     }),
   });
 }
@@ -337,27 +352,38 @@ export async function hangupPowerPool(
   });
 }
 
+/** Message utilisateur court pour un motif de refus budget/quota. */
+export function blockedReasonMessage(code: string): string {
+  switch (code) {
+    case 'budget_exceeded_session':
+      return 'Budget de la session atteint — finis la session ou augmente le plafond.';
+    case 'budget_exceeded_user_day':
+      return 'Budget du jour atteint pour ton compte.';
+    case 'budget_exceeded_org_month':
+      return 'Budget mensuel de l’organisation atteint — le dialer est coupé.';
+    case 'calls_exceeded_user_day':
+      return 'Limite d’appels du jour atteinte.';
+    case 'calls_exceeded_user_month':
+      return 'Limite d’appels du mois atteinte.';
+    case 'caller_number_not_owned':
+      return 'Numéro appelant non valide pour ton compte.';
+    case 'rate_limited':
+      return 'Trop de requêtes — attends quelques secondes.';
+    case 'power_pool_already_active':
+      return 'Une session power est déjà ouverte (onglet fermé en cours d’appel ?) — '
+        + 'elle se libère dès que les lignes raccrochent, réessaie dans quelques secondes.';
+    case 'call_record_failed':
+      return 'Impossible d’ouvrir une nouvelle ligne — une composition est '
+        + 'peut-être déjà en cours sur ton compte.';
+    case 'power_dialer_not_configured':
+      return 'Power dialing non configuré sur ce compte — préviens un administrateur.';
+    default:
+      return `Appel refusé par le serveur (${code}).`;
+  }
+}
+
 /** Message utilisateur court pour un refus call_started (budget/quota). */
 export function callBlockedMessage(err: unknown): string {
-  if (err instanceof DialerApiError) {
-    switch (err.code) {
-      case 'budget_exceeded_session':
-        return 'Budget de la session atteint — finis la session ou augmente le plafond.';
-      case 'budget_exceeded_user_day':
-        return 'Budget du jour atteint pour ton compte.';
-      case 'budget_exceeded_org_month':
-        return 'Budget mensuel de l’organisation atteint — le dialer est coupé.';
-      case 'calls_exceeded_user_day':
-        return 'Limite d’appels du jour atteinte.';
-      case 'calls_exceeded_user_month':
-        return 'Limite d’appels du mois atteinte.';
-      case 'caller_number_not_owned':
-        return 'Numéro appelant non valide pour ton compte.';
-      case 'rate_limited':
-        return 'Trop de requêtes — attends quelques secondes.';
-      default:
-        return `Appel refusé par le serveur (${err.code}).`;
-    }
-  }
+  if (err instanceof DialerApiError) return blockedReasonMessage(err.code);
   return 'Appel refusé par le serveur.';
 }
