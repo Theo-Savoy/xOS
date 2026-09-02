@@ -58,6 +58,7 @@ import { supabase } from '../../lib/supabase';
 import type { AppRole } from '../../os/registry';
 import { createDialerLogQueue } from './modules/runner/dialerLogQueue';
 import { NewSessionView } from './modules/sessions/NewSessionView';
+import { SessionTypeSelect } from './modules/sessions/SessionTypeSelect';
 import { RecapView } from './modules/runner/RecapView';
 import {
   RECALL_QUEUE_SESSION,
@@ -100,6 +101,7 @@ const FILTER_DEBOUNCE_MS = 500;
 
 type View =
   | 'sessions'
+  | 'session-type-select'
   | 'new'
   | 'account-search'
   | 'pre-session'
@@ -115,6 +117,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
   switch (view) {
     case 'pilotage':
       return 'pilotage';
+    case 'session-type-select':
+      return 'session-type-select';
     case 'new':
       return 'new';
     case 'abm':
@@ -138,6 +142,8 @@ function navigationParamsForView(
   switch (view) {
     case 'pilotage':
       return { view: 'pilotage' };
+    case 'session-type-select':
+      return { view: 'session-type-select' };
     case 'new':
       return { view: 'new' };
     case 'account-search':
@@ -1928,19 +1934,7 @@ export default function CallManagerApp({
           error={sessionsError}
           canPilotage={canPilotage}
           onRefresh={refreshSessions}
-          onNewSession={() => {
-            setView('new');
-            setFilters(emptyFilterTree());
-            setContactLimit(200);
-            setMaxPerCompany(null);
-            setPreview([]);
-            setDedup([]);
-            setMatchCount(null);
-            setMatchCountCapped(false);
-            setMatchCountError(null);
-            setNewError(null);
-            void loadPresets();
-          }}
+          onNewSession={() => setView('session-type-select')}
           onOpenSession={(id, contactId) => void openSession(id, contactId)}
           onOpenRecalls={() => void openRecalls()}
           onOpenPilotage={() => setView('pilotage')}
@@ -1960,6 +1954,27 @@ export default function CallManagerApp({
       )}
 
       {view === 'rdv-suivi' && <RdvSuiviView onBack={goToSessions} />}
+
+      {view === 'session-type-select' && (
+        <SessionTypeSelect
+          onBack={goToSessions}
+          onSelectClassic={() => {
+            setView('new');
+            setFilters(emptyFilterTree());
+            setContactLimit(200);
+            setMaxPerCompany(null);
+            setPreview([]);
+            setDedup([]);
+            setMatchCount(null);
+            setMatchCountCapped(false);
+            setMatchCountError(null);
+            setNewError(null);
+            void loadPresets();
+          }}
+          onSelectAbm={() => setView('account-search')}
+          onSelectCsv={() => {}}
+        />
+      )}
 
       {view === 'new' && (
         <NewSessionView
