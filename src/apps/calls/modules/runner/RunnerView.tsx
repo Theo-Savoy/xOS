@@ -1455,10 +1455,12 @@ export function RunnerView({
           </div>
           {powerAvailable && (
             <Button
-              variant={powerOn ? 'primary' : 'secondary'}
               type="button"
+              role="switch"
+              variant="ghost"
+              size="sm"
               className={`calls-power-toggle${powerOn ? ' calls-power-toggle--on' : ''}`}
-              aria-pressed={powerOn}
+              aria-checked={powerOn}
               onClick={() => {
                 setPowerOn((value) => {
                   if (!value) {
@@ -1469,6 +1471,15 @@ export function RunnerView({
               }}
               title="Composer plusieurs contacts en parallèle"
             >
+              <span className="calls-power-toggle__sky" aria-hidden="true">
+                <span className="calls-power-toggle__star calls-power-toggle__star--nw" />
+                <span className="calls-power-toggle__star calls-power-toggle__star--ne" />
+                <span className="calls-power-toggle__star calls-power-toggle__star--sw" />
+                <span className="calls-power-toggle__star calls-power-toggle__star--se" />
+              </span>
+              <span className="calls-power-toggle__track" aria-hidden="true">
+                <span className="calls-power-toggle__thumb" />
+              </span>
               Power
             </Button>
           )}

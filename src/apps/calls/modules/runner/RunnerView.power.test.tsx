@@ -44,12 +44,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-const powerButton = () => screen.queryByRole('button', { name: 'Power' });
+const powerSwitch = () => screen.queryByRole('switch', { name: 'Power' });
 
 describe('RunnerView — encart power', () => {
   it('n’expose pas le power sans droit dialer', () => {
     render(<RunnerView {...baseProps} token="tok" canPowerDialer={false} />);
-    expect(powerButton()).toBeNull();
+    expect(powerSwitch()).toBeNull();
     expect(screen.queryByTestId('power-strip')).toBeNull();
   });
 
@@ -57,23 +57,25 @@ describe('RunnerView — encart power', () => {
     render(<RunnerView {...baseProps} token="tok" canPowerDialer />);
     expect(screen.queryByTestId('power-strip')).toBeNull();
 
-    fireEvent.click(powerButton()!);
+    fireEvent.click(powerSwitch()!);
     expect(screen.getByTestId('power-strip').textContent).toBe('séance 12');
 
-    fireEvent.click(powerButton()!);
+    fireEvent.click(powerSwitch()!);
     expect(screen.queryByTestId('power-strip')).toBeNull();
   });
 
-  it('signale visuellement le mode actif sur le bouton Power', () => {
+  it('signale visuellement le mode actif sur le toggle Power', () => {
     render(<RunnerView {...baseProps} token="tok" canPowerDialer />);
-    expect(powerButton()!.className).not.toContain('calls-power-toggle--on');
+    expect(powerSwitch()!.getAttribute('aria-checked')).toBe('false');
+    expect(powerSwitch()!.className).not.toContain('calls-power-toggle--on');
 
-    fireEvent.click(powerButton()!);
-    expect(powerButton()!.className).toContain('calls-power-toggle--on');
+    fireEvent.click(powerSwitch()!);
+    expect(powerSwitch()!.getAttribute('aria-checked')).toBe('true');
+    expect(powerSwitch()!.className).toContain('calls-power-toggle--on');
   });
 
   it('n’expose pas le power dans la file de rappels (séances mélangées)', () => {
     render(<RunnerView {...baseProps} token="tok" canPowerDialer variant="recalls" />);
-    expect(powerButton()).toBeNull();
+    expect(powerSwitch()).toBeNull();
   });
 });
