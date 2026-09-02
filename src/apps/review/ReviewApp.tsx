@@ -203,7 +203,7 @@ export default function ReviewApp() {
   // Load profile + owners
   useEffect(() => {
     if (!token) return;
-    apiFetch<{ role: string; sf_user_id: string | null }>(token, '/api/profile')
+    apiFetch<{ role: string }>(token, '/api/status')
       .then((p) => {
         setIsManager(p.role === 'manager' || p.role === 'admin');
       })

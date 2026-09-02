@@ -219,7 +219,9 @@ export default async function handler(request) {
     if (empty) return json(200, { resource, period: parsed, ...empty() });
   }
 
-  const queryStart = earliestQueryDate();
+  const queryStart = parsed.from; // pas toute l'histoire (3 FY) — inutile et lent
+  // attention : opps ouvertes, sans borne de période → garder l'historique.
+  const attentionStart = earliestQueryDate();
 
   try {
     if (resource === 'kpis') {
@@ -331,7 +333,7 @@ export default async function handler(request) {
     if (resource === 'attention') {
       const oppsByClose = await crmRecords(
         token,
-        oppsByCloseDate(ownerIds, queryStart),
+        oppsByCloseDate(ownerIds, attentionStart),
       );
       const attention = computeAttention(oppsByClose, singleOwnerId);
       return json(200, { resource: 'attention', ...attention });
