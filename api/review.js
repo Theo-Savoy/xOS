@@ -350,5 +350,9 @@ export default async function handler(request) {
       error: 'internal_error',
       message: String(err.message || err),
     });
+  } finally {
+    console.log(
+      `review ${resource} done in ${Date.now() - startedAt}ms (status ${resource === 'shared' ? 'shared' : 'sf'})`,
+    );
   }
 }
