@@ -15,7 +15,7 @@
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
 import { getProfile } from './_calls/profileCache.js';
-import { roleAtLeast } from './_config/access.js';
+import { roleAtLeast, sfIdKey } from './_config/access.js';
 import { fetchSFToken, searchContacts } from './_crm/salesforce.js';
 import {
   parsePeriod,
@@ -40,6 +40,72 @@ import { listShared, createShared, revokeShared } from './_review/shared.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
 
+// Cache court des données brutes SF par requête (identique à perf.js) :
+// le frontend appelle les 6 resources en parallèle, et kpis/calls/funnel
+// rejouent les mêmes SOQL — sans cache, chaque invocation re-tire l'org.
+const SF_DATA_CACHE_TTL_MS = 60_000;
+const sfDataCache = new Map();
+
+/** Test-only hook to isolate the module-scope SF data cache. */
+export function __resetSfDataCache() {
+  sfDataCache.clear();
+}
+
+async function crmRecords(token, soql) {
+  const key = `${token.slice(-8)}:${soql}`;
+  const cached = sfDataCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.records;
+  const result = await searchContacts(token, soql);
+  if (result.error) throw new Error(result.error);
+  const records = result.records || [];
+  sfDataCache.set(key, { records, expiresAt: Date.now() + SF_DATA_CACHE_TTL_MS });
+  return records;
+}
+
+/**
+ * Roster des SF User Id mappés (profiles + sf_user_map), dédupliqués.
+ * Retourne [] si aucun roster n'existe (→ le caller garde un scope vide,
+ * jamais null : null = toute l'org = timeout sur un gros org).
+ */
+async function mappedSfUserIds(client) {
+  const { data: profiles, error } = await client
+    .from('profiles')
+    .select('sf_user_id');
+  if (error) return [];
+  const ids = [];
+  const seen = new Set();
+  const push = (id) => {
+    if (!id) return;
+    const key = sfIdKey(id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    ids.push(id);
+  };
+  for (const row of profiles || []) push(row.sf_user_id);
+  try {
+    const { data: mapRows } = await client.from('sf_user_map').select('sf_user_id');
+    for (const row of mapRows || []) push(row.sf_user_id);
+  } catch {
+    // sf_user_map absent → roster = profiles uniquement
+  }
+  return ids;
+}
+
+/**
+ * Résout le scope owner effectif.
+ * - commercial → toujours son propre sfUserId (ou [] si non mappé → 0 résultat)
+ * - manager/admin sans filtre → roster complet (jamais null = toute l'org)
+ * - manager/admin avec filtre → le filtre explicite
+ */
+async function resolveOwnerIds({ client, profile, requestedOwner }) {
+  if (!roleAtLeast(profile.role, 'manager')) {
+    return profile.sfUserId ? [profile.sfUserId] : [];
+  }
+  if (requestedOwner) return [requestedOwner];
+  const roster = await mappedSfUserIds(client);
+  return roster;
+}
+
 function json(status, body, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -51,20 +117,6 @@ function json(status, body, extraHeaders = {}) {
   });
 }
 
-async function crmRecords(token, soql) {
-  const result = await searchContacts(token, soql);
-  if (result.error) throw new Error(result.error);
-  return result.records || [];
-}
-
-/** Resolve effective owner filter. Commercial → forced to own sfUserId. */
-function resolveOwner(profile, requestedOwner) {
-  if (!roleAtLeast(profile.role, 'manager')) {
-    return profile.sfUserId || null; // commercial: always own
-  }
-  return requestedOwner || null; // manager/admin: optional filter
-}
-
 /** Fetch SF token, preferring the user's own token if linked. */
 async function sfToken(client, user) {
   const result = await fetchSFToken({ client, userId: user.id });
@@ -73,6 +125,7 @@ async function sfToken(client, user) {
 }
 
 export default async function handler(request) {
+  const startedAt = Date.now();
   const user = await verifyJWT(request);
   if (!user) return json(401, { error: 'unauthorized' });
 
@@ -136,11 +189,31 @@ export default async function handler(request) {
     });
 
   const requestedOwner = url.searchParams.get('owner');
-  const ownerId = resolveOwner(profile, requestedOwner);
-  const ownerIds = ownerId ? [ownerId] : null; // null = all owners
+  const ownerIds = await resolveOwnerIds({ client, profile, requestedOwner });
+  // Filtre JS additif (compute*) : un seul owner → le garder ; plusieurs → le
+  // SOQL a déjà scoped, inutile de refiltrer en JS.
+  const singleOwnerId = ownerIds.length === 1 ? ownerIds[0] : null;
 
   const token = await sfToken(client, user);
   if (!token) return json(502, { error: 'sf_auth_error' });
+
+  // Aucun owner mappé (roster vide) → aucun résultat possible, éviter
+  // de requêter toute l'org (timeout). Payload vide par resource.
+  if (ownerIds.length === 0) {
+    const empty = {
+      kpis: () => ({
+        ca_signe: 0, pipeline_genere: 0, pipeline_count: 0,
+        closing_rate_count: null, closing_rate_amount: null,
+        won_count: 0, closed_count: 0, lost_count: 0,
+        by_owner: {}, prior: null, prior2: null,
+      }),
+      breakdown: () => ({ by_type: {}, total_count: 0, total_amount: 0 }),
+      funnel: () => ({ stages: [], total: 0, conversion: {} }),
+      calls: () => ({ total: 0, per_week: [], funnel: { stages: [], total: 0, conversion: {} } }),
+      attention: () => ({ stale: [], key: [], hot: [] }),
+    }[resource];
+    if (empty) return json(200, { resource, period: parsed, ...empty() });
+  }
 
   const queryStart = earliestQueryDate();
 
@@ -206,7 +279,7 @@ export default async function handler(request) {
         oppsByCreated,
         from: parsed.from,
         toExclusive: parsed.toExclusive,
-        ownerId,
+        ownerId: singleOwnerId,
         prior: priorParsed ? { won: priorWon, created: priorCreated } : null,
         prior2: prior2Parsed
           ? { won: prior2Won, created: prior2Created }
@@ -224,7 +297,7 @@ export default async function handler(request) {
         oppsByClose,
         parsed.from,
         parsed.toExclusive,
-        ownerId,
+        singleOwnerId,
       );
       return json(200, { resource: 'breakdown', period: parsed, ...breakdown });
     }
@@ -235,7 +308,7 @@ export default async function handler(request) {
         calls,
         parsed.from,
         parsed.toExclusive,
-        ownerId,
+        singleOwnerId,
       );
       return json(200, { resource: 'funnel', period: parsed, ...funnel });
     }
@@ -246,7 +319,7 @@ export default async function handler(request) {
         calls,
         parsed.from,
         parsed.toExclusive,
-        ownerId,
+        singleOwnerId,
       );
       return json(200, { resource: 'calls', period: parsed, ...stats });
     }
@@ -256,7 +329,7 @@ export default async function handler(request) {
         token,
         oppsByCloseDate(ownerIds, queryStart),
       );
-      const attention = computeAttention(oppsByClose, ownerId);
+      const attention = computeAttention(oppsByClose, singleOwnerId);
       return json(200, { resource: 'attention', ...attention });
     }
 
@@ -265,7 +338,10 @@ export default async function handler(request) {
       valid: ['kpis', 'breakdown', 'funnel', 'calls', 'attention', 'shared'],
     });
   } catch (err) {
-    console.error('review error:', err);
+    console.error(
+      `review ${resource} error after ${Date.now() - startedAt}ms:`,
+      err,
+    );
     return json(500, {
       error: 'internal_error',
       message: String(err.message || err),
