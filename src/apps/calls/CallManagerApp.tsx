@@ -51,13 +51,10 @@ import {
 } from './modules/gamification/comboEvents';
 import { PilotageView } from './modules/pilotage/PilotageView';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
-import { DialerView } from './modules/dialer/DialerView';
-import { PowerDialerView } from './modules/dialer/PowerDialerView';
 import { DialerProvider } from './modules/dialer/DialerProvider';
 import { CallBar } from './modules/dialer/CallBar';
 import { fetchDialerConfig } from './modules/dialer/dialerApi';
 import { supabase } from '../../lib/supabase';
-import { Button } from '../../components/ui';
 import type { AppRole } from '../../os/registry';
 import { createDialerLogQueue } from './modules/runner/dialerLogQueue';
 import { NewSessionView } from './modules/sessions/NewSessionView';
@@ -111,8 +108,6 @@ type View =
   | 'recalls'
   | 'pilotage'
   | 'rdv-suivi'
-  | 'dialer'
-  | 'power-dialer'
   | 'loading-params';
 
 function viewFromParams(view?: string, sessionId?: string): View {
@@ -120,10 +115,6 @@ function viewFromParams(view?: string, sessionId?: string): View {
   switch (view) {
     case 'pilotage':
       return 'pilotage';
-    case 'dialer':
-      return 'dialer';
-    case 'power-dialer':
-      return 'power-dialer';
     case 'new':
       return 'new';
     case 'abm':
@@ -147,8 +138,6 @@ function navigationParamsForView(
   switch (view) {
     case 'pilotage':
       return { view: 'pilotage' };
-    case 'dialer':
-      return { view: 'dialer' };
     case 'new':
       return { view: 'new' };
     case 'account-search':
@@ -237,12 +226,9 @@ export default function CallManagerApp({
   );
   const [appRole, setAppRole] = useState<AppRole>('commercial');
   const canPilotage = appRole === 'manager' || appRole === 'admin';
-  // Entitlement dialer : le bouton + la vue ne s'affichent que pour les
-  // utilisateurs entitlementés (fix visibilité audit §2.3).
-  const [canDialer, setCanDialer] = useState(false);
-  // Tri-état F-07 (audit 11.8 r2) : null = inconnu (fetch config en cours).
-  // Évite d'expulser un utilisateur entitlementé sur URL directe power-dialer
-  // avant que les flags soient chargés. Le pool n'est monté que si true.
+  // Entitlement dialer : l'encart power du runner n'apparaît que pour les
+  // utilisateurs entitlementés (fix visibilité audit §2.3). Tri-état : null =
+  // inconnu (fetch config en cours), pour ne pas masquer à tort avant réponse.
   const [canPowerDialer, setCanPowerDialer] = useState<boolean | null>(null);
   const [dialerDryRun, setDialerDryRun] = useState(true);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -514,7 +500,6 @@ export default function CallManagerApp({
             const legacyEnabled = Boolean(
               cfg.entitlement?.enabled && cfg.flags?.enabled && cfg.has_caller_id
             );
-            setCanDialer(legacyEnabled);
             setCanPowerDialer(Boolean(
               legacyEnabled && cfg.has_connection_id && cfg.has_webhook_public_key
             ));
@@ -527,7 +512,6 @@ export default function CallManagerApp({
         })
         .catch(() => {
           if (!cancelled) {
-            setCanDialer(false);
             setCanPowerDialer(false);
           }
         });
@@ -584,14 +568,6 @@ export default function CallManagerApp({
       setView(next);
     }
   }, [params?.view, params?.session_id]);
-
-  // F-07 (audit 11.8) : spec « l'URL directe power-dialer retourne à
-  // l'accueil si la feature n'est pas utilisable ». Redirection seulement une
-  // fois le flag chargé et définitivement false (tri-état : null = en attente
-  // du fetch config, ne pas expulser un utilisateur entitlementé).
-  useEffect(() => {
-    if (view === 'power-dialer' && canPowerDialer === false) setView('sessions');
-  }, [view, canPowerDialer]);
 
   const onParamsChangeRef = useRef(onParamsChange);
   onParamsChangeRef.current = onParamsChange;
@@ -1951,8 +1927,6 @@ export default function CallManagerApp({
           loading={sessionsLoading}
           error={sessionsError}
           canPilotage={canPilotage}
-          canDialer={canDialer}
-          canPowerDialer={canPowerDialer === true}
           onRefresh={refreshSessions}
           onNewSession={() => {
             setView('new');
@@ -1971,8 +1945,6 @@ export default function CallManagerApp({
           onOpenRecalls={() => void openRecalls()}
           onOpenPilotage={() => setView('pilotage')}
           onOpenRdvSuivi={() => setView('rdv-suivi')}
-          onOpenDialer={() => setView('dialer')}
-          onOpenPowerDialer={() => setView('power-dialer')}
           onUpdateSession={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
           onShareSession={(id) => setShareSessionId(id)}
@@ -1988,39 +1960,6 @@ export default function CallManagerApp({
       )}
 
       {view === 'rdv-suivi' && <RdvSuiviView onBack={goToSessions} />}
-
-      {view === 'dialer' &&
-        (canDialer ? (
-          <DialerView token={token} onBack={goToSessions} />
-        ) : (
-          <div className="calls-view" style={{ padding: '2rem' }}>
-            <h2>Accès restreint</h2>
-            <p>
-              Le dialer n'est pas activé pour ce compte. Contacte un
-              administrateur pour activer l'accès.
-            </p>
-            <Button variant="secondary" onClick={goToSessions}>
-              Retour
-            </Button>
-          </div>
-        ))}
-
-      {view === 'power-dialer' &&
-        (canPowerDialer === true ? (
-          <PowerDialerView token={token} onBack={goToSessions} />
-        ) : (
-          <div className="calls-view" style={{ padding: '2rem' }}>
-            <h2>{canPowerDialer === null ? 'Chargement…' : 'Accès restreint'}</h2>
-            <p>
-              {canPowerDialer === null
-                ? 'Vérification de l’accès au power dialer…'
-                : 'Le power dialer n\'est pas activé pour ce compte. Contacte un administrateur pour activer l\'accès.'}
-            </p>
-            <Button variant="secondary" onClick={goToSessions}>
-              Retour
-            </Button>
-          </div>
-        ))}
 
       {view === 'new' && (
         <NewSessionView
