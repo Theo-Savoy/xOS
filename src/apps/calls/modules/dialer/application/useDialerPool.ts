@@ -13,6 +13,7 @@ import {
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
 import {
+  blockedReasonMessage,
   fetchPowerPoolStatus,
   fetchRtcToken,
   hangupPowerPool,
@@ -51,6 +52,7 @@ export function useDialerPool({
   simulate = false,
   simulateNoAnswer = false,
   callSessionId = null,
+  callerNumber = null,
 }: {
   token: string;
   size?: number;
@@ -58,6 +60,8 @@ export function useDialerPool({
   simulateNoAnswer?: boolean;
   /** Séance Combo dont la file alimente le pool (null : dialer autonome). */
   callSessionId?: number | null;
+  /** Numéro sortant choisi (null : caller ID par défaut du serveur). */
+  callerNumber?: string | null;
 }): UseDialerPoolResult {
   const [state, dispatch] = useReducer(poolReducer, undefined, () => createPoolState(size, []));
   const [agentConnected, setAgentConnected] = useState(false);
@@ -326,6 +330,16 @@ export function useDialerPool({
       return;
     }
     hangupGenerationRef.current += 1;
+    // Remet la file et les lignes dans l'état d'avant Play : le pool n'a pas
+    // démarré, l'agent doit pouvoir recliquer sans perdre ses contacts.
+    const rollback = () => {
+      const queue = [
+        ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
+        ...before.queue,
+      ];
+      stateRef.current = createPoolState(size, queue);
+      dispatch({ type: 'reset', queue });
+    };
     try {
       const registered = await ensureAgentRegistered();
       if (!mountedRef.current) return;
@@ -333,12 +347,7 @@ export function useDialerPool({
         // F-04 (audit 11.8) : rollback de l'état play (lignes + file) — le
         // pool n'a jamais démarré. Sans cela les lignes restent 'dialing',
         // la file reste consommée et Play redevient un no-op cliquable.
-        const rollbackQueue = [
-          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
-          ...before.queue,
-        ];
-        stateRef.current = createPoolState(size, rollbackQueue);
-        dispatch({ type: 'reset', queue: rollbackQueue });
+        rollback();
         dispatch({ type: 'pool-error', error: 'Poste WebRTC indisponible — impossible de lancer le pool.' });
         return;
       }
@@ -352,6 +361,7 @@ export function useDialerPool({
       const started = await startPowerPool(token, {
         destinations,
         parallelism: size,
+        ...(callerNumber ? { callerNumber } : {}),
         ...(linked ? { sessionId: callSessionId, contactIds } : {}),
       });
       if (!mountedRef.current) return;
@@ -361,6 +371,19 @@ export function useDialerPool({
         // poste RTC réel est déjà enregistré et l'utilisateur croirait avoir
         // lancé un cycle réel. Erreur explicite, zéro timer démo.
         dispatch({ type: 'pool-error', error: 'Session power refusée par le serveur (dry-run actif ou session non créée).' });
+        return;
+      }
+      // Quota/budget épuisé : aucun slot ne compose et la session serveur est
+      // déjà close. Sans ce message, les lignes resteraient figées sans motif.
+      if (!started.calls.some((call) => call.status === 'dialing')) {
+        const refused = started.calls.find((call) => call.error);
+        rollback();
+        dispatch({
+          type: 'pool-error',
+          error: refused?.error
+            ? blockedReasonMessage(refused.error)
+            : 'Aucune ligne n’a pu être composée.',
+        });
         return;
       }
       sessionIdRef.current = started.session_id;
@@ -374,17 +397,10 @@ export function useDialerPool({
       // F-04 (audit 11.8) : timeout/erreur avant démarrage → rollback de
       // l'état play (le pool n'a jamais eu de session_id). Si une session
       // existe déjà, l'erreur vient d'après le démarrage : on garde l'état.
-      if (!sessionIdRef.current) {
-        const rollbackQueue = [
-          ...before.lines.filter((line) => line.phase === 'skipped' && line.destination).map((line) => line.destination),
-          ...before.queue,
-        ];
-        stateRef.current = createPoolState(size, rollbackQueue);
-        dispatch({ type: 'reset', queue: rollbackQueue });
-      }
+      if (!sessionIdRef.current) rollback();
       dispatch({ type: 'pool-error', error: telnyxErrorMessage(error) });
     }
-  }, [applyServerStatus, callSessionId, ensureAgentRegistered, simulate, size, startDemo, token]);
+  }, [applyServerStatus, callSessionId, callerNumber, ensureAgentRegistered, simulate, size, startDemo, token]);
 
   const skip = useCallback((slot: number) => {
     const sessionId = sessionIdRef.current;

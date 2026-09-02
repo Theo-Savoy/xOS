@@ -21,7 +21,8 @@ vi.mock('../infrastructure/telnyx/rtcClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/telnyx/rtcClient')>()),
   createRtcClient: mockCreateRtcClient,
 }));
-vi.mock('../dialerApi', () => ({
+vi.mock('../dialerApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../dialerApi')>()),
   fetchRtcToken: mockFetchRtcToken,
   startPowerPool: mockStartPowerPool,
   fetchPowerPoolStatus: mockFetchPowerPoolStatus,
@@ -477,6 +478,29 @@ describe('useDialerPool — Voice API + poste WebRTC (lot 11.8)', () => {
       destinations: ['+33100000001', '+33100000002'],
       parallelism: 2,
     });
+  });
+
+  it('transmet le numéro sortant choisi et explique un refus de quota', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockStartPowerPool.mockResolvedValue({
+      dry_run: false, session_id: 'pool-1',
+      calls: [{ slot: 0, status: 'failed', error: 'calls_exceeded_user_day' }],
+    });
+    const { result } = renderHook(() =>
+      useDialerPool({ token: 'tok', size: 1, callerNumber: '+33184800001' }));
+    act(() => result.current.setQueue(['+33100000001']));
+
+    await act(async () => { await playUntilReady(result, client); });
+
+    expect(mockStartPowerPool).toHaveBeenCalledWith('tok', {
+      destinations: ['+33100000001'], parallelism: 1, callerNumber: '+33184800001',
+    });
+    expect(result.current.state.error).toBe('Limite d’appels du jour atteinte.');
+    // La file est rendue pour permettre un nouveau Play une fois le quota levé.
+    expect(result.current.state.queue).toEqual(['+33100000001']);
+    expect(result.current.isRunning).toBe(false);
+    expect(mockFetchPowerPoolStatus).not.toHaveBeenCalled();
   });
 
   it('ignore un rechargement de file pendant un cycle en cours', async () => {

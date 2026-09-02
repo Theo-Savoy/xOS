@@ -41,6 +41,9 @@ export type DialerConfig = {
   entitlement: {
     enabled: boolean;
     dry_run: boolean;
+    /** Quota de compositions du jour (défaut 50) et sa consommation. */
+    calls_day_limit: number;
+    calls_today: number;
   };
   flags: DialerFlags;
 };
@@ -349,27 +352,30 @@ export async function hangupPowerPool(
   });
 }
 
+/** Message utilisateur court pour un motif de refus budget/quota. */
+export function blockedReasonMessage(code: string): string {
+  switch (code) {
+    case 'budget_exceeded_session':
+      return 'Budget de la session atteint — finis la session ou augmente le plafond.';
+    case 'budget_exceeded_user_day':
+      return 'Budget du jour atteint pour ton compte.';
+    case 'budget_exceeded_org_month':
+      return 'Budget mensuel de l’organisation atteint — le dialer est coupé.';
+    case 'calls_exceeded_user_day':
+      return 'Limite d’appels du jour atteinte.';
+    case 'calls_exceeded_user_month':
+      return 'Limite d’appels du mois atteinte.';
+    case 'caller_number_not_owned':
+      return 'Numéro appelant non valide pour ton compte.';
+    case 'rate_limited':
+      return 'Trop de requêtes — attends quelques secondes.';
+    default:
+      return `Appel refusé par le serveur (${code}).`;
+  }
+}
+
 /** Message utilisateur court pour un refus call_started (budget/quota). */
 export function callBlockedMessage(err: unknown): string {
-  if (err instanceof DialerApiError) {
-    switch (err.code) {
-      case 'budget_exceeded_session':
-        return 'Budget de la session atteint — finis la session ou augmente le plafond.';
-      case 'budget_exceeded_user_day':
-        return 'Budget du jour atteint pour ton compte.';
-      case 'budget_exceeded_org_month':
-        return 'Budget mensuel de l’organisation atteint — le dialer est coupé.';
-      case 'calls_exceeded_user_day':
-        return 'Limite d’appels du jour atteinte.';
-      case 'calls_exceeded_user_month':
-        return 'Limite d’appels du mois atteinte.';
-      case 'caller_number_not_owned':
-        return 'Numéro appelant non valide pour ton compte.';
-      case 'rate_limited':
-        return 'Trop de requêtes — attends quelques secondes.';
-      default:
-        return `Appel refusé par le serveur (${err.code}).`;
-    }
-  }
+  if (err instanceof DialerApiError) return blockedReasonMessage(err.code);
   return 'Appel refusé par le serveur.';
 }

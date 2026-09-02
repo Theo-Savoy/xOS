@@ -28,6 +28,7 @@ function makeChain(rows, maybeSingleData = null) {
     eq: vi.fn(() => chain),
     in: vi.fn(() => chain),
     is: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
     maybeSingle: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     single: vi.fn(async () => ({ data: maybeSingleData, error: null })),
     order: vi.fn(() => chain),
@@ -141,6 +142,22 @@ describe('routeur /api/dialer', () => {
     expect(body.entitlement).toBeDefined();
     expect(body.has_connection_id).toBe(true);
     expect(typeof body.entitlement.enabled).toBe('boolean');
+  });
+
+  it('config expose la limite d’appels du jour et sa consommation', async () => {
+    // Réservations 'reserved'/'consumed' du jour = ce que compte la RPC.
+    const countChain = makeChain([]);
+    countChain.then = (onFulfilled) =>
+      Promise.resolve({ data: null, error: null, count: 12 }).then(onFulfilled);
+    mockFrom.mockImplementation((table) => (table === 'dialer_budget_reservations'
+      ? countChain
+      : makeChain(enabledSettings())));
+
+    const res = await handler(req('resource=config'));
+    const body = await res.json();
+    expect(body.entitlement.calls_today).toBe(12);
+    // Défaut de loadUserEntitlements quand aucune ligne n'existe.
+    expect(body.entitlement.calls_day_limit).toBe(50);
   });
 
   it('webrtc_token en dry-run émet aucun token (G2)', async () => {
