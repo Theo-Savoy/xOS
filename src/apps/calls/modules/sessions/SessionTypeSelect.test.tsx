@@ -7,13 +7,14 @@ import { SessionTypeSelect } from './SessionTypeSelect';
 afterEach(cleanup);
 
 describe('SessionTypeSelect', () => {
-  it('renders all 3 session type cards and the header', () => {
+  it('renders all 4 session type cards and the header', () => {
     render(
       <SessionTypeSelect
         onBack={vi.fn()}
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
         onSelectCsv={vi.fn()}
+        onSelectSurgical={vi.fn()}
       />,
     );
 
@@ -48,7 +49,16 @@ describe('SessionTypeSelect', () => {
       screen.getByText('Importer une liste de contacts depuis un fichier CSV'),
     ).toBeTruthy();
     expect(screen.getByText('📄')).toBeTruthy();
-    expect(screen.getByText('Bientôt')).toBeTruthy();
+    expect(screen.getAllByText('Bientôt')).toHaveLength(2);
+
+    // Card 4 — Séance chirurgicale (désactivée avec badge Bientôt)
+    expect(screen.getByText('Séance chirurgicale')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Ajouter individuellement des contacts, recherche par nom ou email',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('🔬')).toBeTruthy();
   });
 
   it('calls onSelectClassic when clicking the classic card or pressing Enter/Space', async () => {
@@ -61,6 +71,7 @@ describe('SessionTypeSelect', () => {
         onSelectClassic={onSelectClassic}
         onSelectAbm={vi.fn()}
         onSelectCsv={vi.fn()}
+        onSelectSurgical={vi.fn()}
       />,
     );
 
@@ -92,6 +103,7 @@ describe('SessionTypeSelect', () => {
         onSelectClassic={vi.fn()}
         onSelectAbm={onSelectAbm}
         onSelectCsv={vi.fn()}
+        onSelectSurgical={vi.fn()}
       />,
     );
 
@@ -123,6 +135,7 @@ describe('SessionTypeSelect', () => {
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
         onSelectCsv={onSelectCsv}
+        onSelectSurgical={vi.fn()}
       />,
     );
 
@@ -146,6 +159,7 @@ describe('SessionTypeSelect', () => {
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
         onSelectCsv={vi.fn()}
+        onSelectSurgical={vi.fn()}
       />,
     );
 

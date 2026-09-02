@@ -6,6 +6,7 @@ export type SessionTypeSelectProps = {
   onSelectClassic: () => void;
   onSelectAbm: () => void;
   onSelectCsv: () => void;
+  onSelectSurgical: () => void;
 };
 
 export function SessionTypeSelect({
@@ -42,9 +43,9 @@ export function SessionTypeSelect({
       </header>
 
       <div className="calls-session-type-grid">
-        {/* Card 1 — "Séance liste" (classique) */}
+        {/* Card 1 — "Liste classique" (hero bento, span 2) */}
         <GlassCard
-          className="calls-session-type-card"
+          className="calls-session-type-card calls-session-type-card--hero"
           role="button"
           tabIndex={0}
           onClick={onSelectClassic}
@@ -84,7 +85,7 @@ export function SessionTypeSelect({
           </div>
         </GlassCard>
 
-        {/* Card 3 — "Séance CSV" */}
+        {/* Card 3 — "Import CSV" (bento, span 1) */}
         <GlassCard
           className="calls-session-type-card calls-session-type-card--disabled"
           role="button"
@@ -102,6 +103,30 @@ export function SessionTypeSelect({
             <h3 className="calls-session-type-card__title">Import CSV</h3>
             <p className="calls-session-type-card__desc">
               Importer une liste de contacts depuis un fichier CSV
+            </p>
+          </div>
+        </GlassCard>
+
+        {/* Card 4 — "Séance chirurgicale" (bento, span 2) */}
+        <GlassCard
+          className="calls-session-type-card calls-session-type-card--disabled calls-session-type-card--wide"
+          role="button"
+          aria-disabled="true"
+          tabIndex={-1}
+          aria-label="Séance chirurgicale — Bientôt disponible — Ajouter individuellement des contacts par recherche nom ou email"
+        >
+          <div className="calls-session-type-card__header">
+            <div className="calls-session-type-card__icon" aria-hidden="true">
+              🔬
+            </div>
+            <Tag variant="muted">Bientôt</Tag>
+          </div>
+          <div className="calls-session-type-card__content">
+            <h3 className="calls-session-type-card__title">
+              Séance chirurgicale
+            </h3>
+            <p className="calls-session-type-card__desc">
+              Ajouter individuellement des contacts, recherche par nom ou email
             </p>
           </div>
         </GlassCard>

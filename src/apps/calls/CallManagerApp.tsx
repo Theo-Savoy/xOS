@@ -1973,6 +1973,7 @@ export default function CallManagerApp({
           }}
           onSelectAbm={() => setView('account-search')}
           onSelectCsv={() => {}}
+          onSelectSurgical={() => {}}
         />
       )}
 
