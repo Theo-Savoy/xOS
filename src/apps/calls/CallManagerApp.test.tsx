@@ -236,10 +236,37 @@ describe('CallManagerApp component', () => {
     });
 
     await user.click(screen.getByText('Nouvelle séance'));
+    await user.click(screen.getByText('Liste classique'));
 
     expect(screen.getByText('Composer une liste')).toBeTruthy();
     expect(screen.queryByText('Aperçu de la liste')).toBeNull();
     expect(screen.queryByText('Prévisualiser')).toBeNull();
+  });
+
+  it('navigates through session type select screen to ABM search and handles back', async () => {
+    const user = userEvent.setup();
+    render(<CallManagerApp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nouvelle séance')).toBeTruthy();
+    });
+
+    // Ouvre l'écran de sélection de type de séance
+    await user.click(screen.getByText('Nouvelle séance'));
+    expect(screen.getByText('Choisir le type de séance')).toBeTruthy();
+    expect(screen.getByText('Liste classique')).toBeTruthy();
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+    expect(screen.getByText('Import CSV')).toBeTruthy();
+
+    // Bouton retour revient aux séances
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    expect(screen.queryByText('Choisir le type de séance')).toBeNull();
+    expect(screen.getByText('Nouvelle séance')).toBeTruthy();
+
+    // Re-ouvre et choisit ABM
+    await user.click(screen.getByText('Nouvelle séance'));
+    await user.click(screen.getByText('Comptes précis (ABM)'));
+    expect(screen.getByText('Rechercher des comptes')).toBeTruthy();
   });
 
   it('opens the first ABM session directly in the pre-session flow', async () => {
@@ -1016,6 +1043,11 @@ describe('CallManagerApp component', () => {
     await screen.findByText('Nouvelle séance');
     onParamsChange.mockClear();
     await user.click(screen.getByText('Nouvelle séance'));
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    onParamsChange.mockClear();
+    await user.click(screen.getByText('Liste classique'));
     expect(onParamsChange).toHaveBeenCalledWith({ view: 'new' });
   });
 
@@ -1072,6 +1104,7 @@ describe('CallManagerApp component', () => {
 
     render(<CallManagerApp />);
     await user.click(await screen.findByText('Nouvelle séance'));
+    await user.click(await screen.findByText('Liste classique'));
 
     // Aucun bouton « Aperçu » : le premier aperçu détaillé part tout seul
     // après le debounce, dès l'arrivée sur la vue.
@@ -1161,6 +1194,7 @@ describe('CallManagerApp component', () => {
 
     render(<CallManagerApp />);
     await user.click(await screen.findByText('Nouvelle séance'));
+    await user.click(await screen.findByText('Liste classique'));
 
     const alert = await screen.findByRole('alert', {}, { timeout: 2000 });
     expect(alert.textContent).toContain('Salesforce a refusé la requête');
