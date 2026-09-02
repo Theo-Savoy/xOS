@@ -369,6 +369,14 @@ export function blockedReasonMessage(code: string): string {
       return 'Numéro appelant non valide pour ton compte.';
     case 'rate_limited':
       return 'Trop de requêtes — attends quelques secondes.';
+    case 'power_pool_already_active':
+      return 'Une session power est déjà ouverte (onglet fermé en cours d’appel ?) — '
+        + 'elle se libère dès que les lignes raccrochent, réessaie dans quelques secondes.';
+    case 'call_record_failed':
+      return 'Impossible d’ouvrir une nouvelle ligne — une composition est '
+        + 'peut-être déjà en cours sur ton compte.';
+    case 'power_dialer_not_configured':
+      return 'Power dialing non configuré sur ce compte — préviens un administrateur.';
     default:
       return `Appel refusé par le serveur (${code}).`;
   }

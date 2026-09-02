@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, GlassCard } from '../../../../components/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, GlassCard, Select } from '../../../../components/ui';
+import { playComboSound } from '../gamification/comboSounds';
+import { readSoundsEnabled } from '../gamification/comboKeyboard';
 import type { SessionContact } from '../../types';
 import { useDialerPool } from '../dialer/application/useDialerPool';
 import { fetchDialerConfig, type DialerConfig } from '../dialer/dialerApi';
 
 /** Le serveur refuse tout le lot si un seul numéro n'est pas E.164 (pool.js). */
 const E164 = /^\+[1-9]\d{6,14}$/;
+
+/** Durée du sweep lumineux au lancement (miroir de --xos-power-launch en CSS). */
+const LAUNCH_MS = 900;
 
 const LINE_LABEL: Record<string, string> = {
   dialing: 'compose',
@@ -15,6 +20,13 @@ const LINE_LABEL: Record<string, string> = {
   skipped: 'sans réponse',
   failed: 'échec',
 };
+
+/** +33184800001 → +33 1 84 80 00 01 (lisible dans le sélecteur). */
+function formatFr(e164: string): string {
+  const national = e164.startsWith('+33') ? e164.slice(3) : null;
+  if (!national || national.length !== 9) return e164;
+  return `+33 ${national[0]} ${national.slice(1).replace(/(\d{2})(?=\d)/g, '$1 ')}`;
+}
 
 export type PowerStripProps = {
   token: string;
@@ -28,7 +40,8 @@ export type PowerStripProps = {
 /**
  * Encart power dialing du runner — une barre de contrôle, pas un tableau de
  * bord : la séance a déjà ses KPI. On n'affiche que ce qui n'existe nulle part
- * ailleurs (état des lignes, réglages de composition, quota restant).
+ * ailleurs (état des lignes, réglages de composition, quota restant), et les
+ * réglages s'effacent pendant un cycle pour ne laisser que l'essentiel.
  *
  * Le pool compose N contacts pending de la séance ; la fiche bascule seule sur
  * celui qui décroche et la consignation reste celle du mode séquentiel.
@@ -43,6 +56,8 @@ export function PowerStrip({
   const [parallelism, setParallelism] = useState(3);
   const [callerNumber, setCallerNumber] = useState('');
   const [config, setConfig] = useState<DialerConfig | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const launchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConfig = useCallback(async () => {
     try {
@@ -99,6 +114,9 @@ export function PowerStrip({
   }, [winnerContactId, onFocusContact]);
   // Le quota bouge à chaque composition : on le relit à la fin du cycle.
   useEffect(() => { if (!isRunning) void loadConfig(); }, [isRunning, loadConfig]);
+  useEffect(() => () => {
+    if (launchTimer.current) clearTimeout(launchTimer.current);
+  }, []);
 
   const limit = config?.entitlement.calls_day_limit ?? null;
   const used = config?.entitlement.calls_today ?? 0;
@@ -108,8 +126,18 @@ export function PowerStrip({
   const hasAttempted = pool.state.lines.some((line) =>
     ['ended', 'skipped', 'failed'].includes(line.phase));
 
+  const launch = () => {
+    playComboSound('power-launch', { master: readSoundsEnabled() });
+    setLaunching(true);
+    if (launchTimer.current) clearTimeout(launchTimer.current);
+    launchTimer.current = setTimeout(() => setLaunching(false), LAUNCH_MS);
+    void (hasAttempted ? pool.redial() : pool.play());
+  };
+
   return (
-    <GlassCard className="calls-power-strip">
+    <GlassCard
+      className={`calls-power-strip${launching ? ' calls-power-strip--launching' : ''}`}
+    >
       <audio
         data-rtc-agent=""
         autoPlay
@@ -118,63 +146,69 @@ export function PowerStrip({
       />
 
       <div className="calls-power-strip__bar">
-        {pool.isRunning ? (
-          <Button variant="danger" onClick={pool.hangupAll}>Raccrocher tout</Button>
-        ) : pool.hangupRetryable ? (
-          <Button
-            variant="danger"
-            onClick={pool.hangupAll}
-            title="Le raccrochage serveur a échoué — la session est encore active côté Telnyx."
-          >Réessayer le raccrochage</Button>
-        ) : (
-          <Button
-            variant="primary"
-            onClick={() => void (hasAttempted ? pool.redial() : pool.play())}
-            disabled={pool.state.queue.length === 0 || quotaBlocked}
-            title={quotaBlocked
-              ? 'Limite d’appels du jour atteinte'
-              : pool.state.queue.length === 0
-                ? 'Aucun contact composable dans cette séance'
-                : undefined}
-          >
-            <span aria-hidden="true">▶ </span>
-            {hasAttempted ? 'Relancer' : `Lancer ${parallelism} appels`}
-          </Button>
-        )}
-
-        <label className="calls-power-strip__field">
-          Lignes
-          <select
-            className="calls-select"
-            aria-label="Appels en parallèle"
-            value={parallelism}
-            disabled={pool.isRunning}
-            onChange={(event) => setParallelism(Number(event.target.value))}
-          >
-            {[1, 2, 3, 4, 5].map((count) => <option key={count} value={count}>{count}</option>)}
-          </select>
-        </label>
-
-        {callerNumbers.length > 0 && (
-          <label className="calls-power-strip__field">
-            Appeler depuis
-            <select
-              className="calls-select"
-              aria-label="Numéro sortant"
-              value={callerNumber}
-              disabled={pool.isRunning}
-              onChange={(event) => setCallerNumber(event.target.value)}
+        <div className="calls-power-strip__controls">
+          {pool.isRunning ? (
+            <Button variant="danger" onClick={pool.hangupAll}>Raccrocher tout</Button>
+          ) : pool.hangupRetryable ? (
+            <Button
+              variant="danger"
+              onClick={pool.hangupAll}
+              title="Le raccrochage serveur a échoué — la session est encore active côté Telnyx."
+            >Réessayer le raccrochage</Button>
+          ) : (
+            <Button
+              variant="primary"
+              className="calls-power-strip__launch"
+              onClick={launch}
+              disabled={pool.state.queue.length === 0 || quotaBlocked}
+              title={quotaBlocked
+                ? 'Limite d’appels du jour atteinte'
+                : pool.state.queue.length === 0
+                  ? 'Aucun contact composable dans cette séance'
+                  : undefined}
             >
-              {callerNumbers.map((number) => (
-                <option key={number.e164} value={number.e164}>
-                  {number.label ? `${number.label} · ${number.e164}` : number.e164}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+              <span aria-hidden="true">▶ </span>
+              {hasAttempted ? 'Relancer' : `Lancer ${parallelism} appels`}
+            </Button>
+          )}
 
-        <span className="calls-power-strip__spacer" />
+          {/* Pendant un cycle, les réglages s'effacent : on ne change ni le
+              nombre de lignes ni le numéro en cours de composition. */}
+          {!pool.isRunning && (
+            <>
+              <Select
+                className="calls-power-strip__select calls-power-strip__select--lines"
+                label="Lignes"
+                aria-label="Appels en parallèle"
+                value={String(parallelism)}
+                onChange={(value) => setParallelism(Number(value))}
+                options={[1, 2, 3, 4, 5].map((count) => ({
+                  value: String(count), label: String(count),
+                }))}
+              />
+              {callerNumbers.length > 0 && (
+                <Select
+                  className="calls-power-strip__select calls-power-strip__select--caller"
+                  label="Appeler depuis"
+                  aria-label="Numéro sortant"
+                  value={callerNumber}
+                  onChange={setCallerNumber}
+                  options={callerNumbers.map((number) => ({
+                    value: number.e164,
+                    label: number.label
+                      ? `${number.label} · ${formatFr(number.e164)}`
+                      : formatFr(number.e164),
+                  }))}
+                  renderValue={(selected) =>
+                    selected[0]
+                      ? (callerNumbers.find((n) => n.e164 === selected[0].value)?.label
+                        ?? formatFr(selected[0].value))
+                      : '—'}
+                />
+              )}
+            </>
+          )}
+        </div>
 
         {limit !== null && (
           <span
@@ -190,7 +224,7 @@ export function PowerStrip({
 
       <div className="calls-power-strip__lines" role="status" aria-live="polite">
         {activeLines.length === 0 ? (
-          <span className="calls-muted">
+          <span className="calls-power-strip__hint">
             {pool.state.queue.length} contact{pool.state.queue.length > 1 ? 's' : ''} joignable
             {pool.state.queue.length > 1 ? 's' : ''}
             {unreachable > 0 && ` · ${unreachable} sans numéro composable`}
@@ -204,7 +238,9 @@ export function PowerStrip({
               <span className="calls-power-strip__line-name">
                 {byPhone.get(line.destination)?.contact_name ?? line.destination}
               </span>
-              <span className="calls-muted">{LINE_LABEL[line.phase] ?? line.phase}</span>
+              <span className="calls-power-strip__line-phase">
+                {LINE_LABEL[line.phase] ?? line.phase}
+              </span>
               {['dialing', 'ringing'].includes(line.phase) && (
                 <Button variant="ghost" size="sm" onClick={() => pool.skip(line.slot)}>
                   Passer

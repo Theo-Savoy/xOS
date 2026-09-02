@@ -1457,8 +1457,16 @@ export function RunnerView({
             <Button
               variant={powerOn ? 'primary' : 'secondary'}
               type="button"
+              className={`calls-power-toggle${powerOn ? ' calls-power-toggle--on' : ''}`}
               aria-pressed={powerOn}
-              onClick={() => setPowerOn((value) => !value)}
+              onClick={() => {
+                setPowerOn((value) => {
+                  if (!value) {
+                    playComboSound('power-launch', { master: soundsEnabled });
+                  }
+                  return !value;
+                });
+              }}
               title="Composer plusieurs contacts en parallèle"
             >
               Power

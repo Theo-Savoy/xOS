@@ -13,7 +13,9 @@ import {
   type TelnyxNotification,
 } from '../infrastructure/telnyx/rtcClient';
 import {
+  DialerApiError,
   blockedReasonMessage,
+  callBlockedMessage,
   fetchPowerPoolStatus,
   fetchRtcToken,
   hangupPowerPool,
@@ -398,7 +400,14 @@ export function useDialerPool({
       // l'état play (le pool n'a jamais eu de session_id). Si une session
       // existe déjà, l'erreur vient d'après le démarrage : on garde l'état.
       if (!sessionIdRef.current) rollback();
-      dispatch({ type: 'pool-error', error: telnyxErrorMessage(error) });
+      // Un refus serveur (quota, session power déjà ouverte, entitlement) a un
+      // message métier ; seul le reste relève du transport WebRTC.
+      dispatch({
+        type: 'pool-error',
+        error: error instanceof DialerApiError
+          ? callBlockedMessage(error)
+          : telnyxErrorMessage(error),
+      });
     }
   }, [applyServerStatus, callSessionId, callerNumber, ensureAgentRegistered, simulate, size, startDemo, token]);
 

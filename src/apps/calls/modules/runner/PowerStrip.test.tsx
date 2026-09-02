@@ -4,10 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionContact } from '../../types';
 import { PowerStrip } from './PowerStrip';
 
-const { mockUseDialerPool, mockFetchDialerConfig } = vi.hoisted(() => ({
+const { mockUseDialerPool, mockFetchDialerConfig, mockPlayComboSound } = vi.hoisted(() => ({
   mockUseDialerPool: vi.fn(),
   mockFetchDialerConfig: vi.fn(),
+  mockPlayComboSound: vi.fn(),
 }));
+vi.mock('../gamification/comboSounds', () => ({ playComboSound: mockPlayComboSound }));
+vi.mock('../gamification/comboKeyboard', () => ({ readSoundsEnabled: () => true }));
 vi.mock('../dialer/application/useDialerPool', () => ({ useDialerPool: mockUseDialerPool }));
 vi.mock('../dialer/dialerApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../dialer/dialerApi')>()),
@@ -119,15 +122,49 @@ describe('PowerStrip — file de séance', () => {
   });
 });
 
+describe('PowerStrip — lancement', () => {
+  it('joue le son de lancement et pousse l’animation sur l’encart', () => {
+    const play = vi.fn();
+    mockUseDialerPool.mockImplementation(() => ({ ...poolStub(), play }));
+    const { container } = render(
+      <PowerStrip
+        token="tok" sessionId={7} contacts={[contact({ id: 1, phone: '+33100000001' })]}
+        currentUserId="me" onFocusContact={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Lancer 3 appels/ }));
+    expect(mockPlayComboSound).toHaveBeenCalledWith('power-launch', { master: true });
+    expect(play).toHaveBeenCalled();
+    expect(container.querySelector('.calls-power-strip--launching')).toBeTruthy();
+  });
+});
+
 describe('PowerStrip — numéro sortant et quota', () => {
   it('propose les numéros du compte et transmet celui choisi au pool', async () => {
     renderStrip([contact({ id: 1, phone: '+33100000001' })]);
-    const select = await screen.findByLabelText('Numéro sortant');
+    const trigger = await screen.findByRole('button', { name: 'Numéro sortant' });
+    // Défaut : premier numéro alloué, affiché par son libellé métier.
     await waitFor(() => expect(poolOptions.callerNumber).toBe('+33184800001'));
-    expect(screen.getByText('Ligne Paris · +33184800001')).toBeTruthy();
+    expect(trigger.textContent).toContain('Ligne Paris');
 
-    fireEvent.change(select, { target: { value: '+33478900002' } });
+    // Le second numéro n'a pas de libellé : il s'affiche formaté.
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('option', { name: '+33 4 78 90 00 02' }));
     await waitFor(() => expect(poolOptions.callerNumber).toBe('+33478900002'));
+  });
+
+  it('formate les numéros en clair dans la liste déroulante', async () => {
+    renderStrip([contact({ id: 1, phone: '+33100000001' })]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Numéro sortant' }));
+    expect(screen.getByRole('option', { name: 'Ligne Paris · +33 1 84 80 00 01' })).toBeTruthy();
+  });
+
+  it('retire les réglages pendant un cycle pour ne garder que l’essentiel', async () => {
+    mockUseDialerPool.mockImplementation(() => ({ ...poolStub(), isRunning: true }));
+    renderStrip([contact({ id: 1, phone: '+33100000001' })]);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Raccrocher tout' })).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'Numéro sortant' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Appels en parallèle' })).toBeNull();
   });
 
   it('affiche la consommation du quota du jour', async () => {
@@ -149,6 +186,6 @@ describe('PowerStrip — numéro sortant et quota', () => {
     mockFetchDialerConfig.mockResolvedValue({ ...config(), caller_numbers: [] });
     renderStrip([contact({ id: 1, phone: '+33100000001' })]);
     await screen.findByText('12/50');
-    expect(screen.queryByLabelText('Numéro sortant')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Numéro sortant' })).toBeNull();
   });
 });

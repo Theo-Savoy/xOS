@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DialerApiError } from '../dialerApi';
 import { useDialerPool } from './useDialerPool';
 
 const {
@@ -501,6 +502,22 @@ describe('useDialerPool — Voice API + poste WebRTC (lot 11.8)', () => {
     expect(result.current.state.queue).toEqual(['+33100000001']);
     expect(result.current.isRunning).toBe(false);
     expect(mockFetchPowerPoolStatus).not.toHaveBeenCalled();
+  });
+
+  it('explique une session power orpheline (409) au lieu du code brut', async () => {
+    const client = makeClient();
+    mockCreateRtcClient.mockResolvedValue(client);
+    mockStartPowerPool.mockRejectedValue(
+      new DialerApiError(409, 'power_pool_already_active', 'power_pool_already_active'),
+    );
+    const { result } = renderHook(() => useDialerPool({ token: 'tok', size: 1 }));
+    act(() => result.current.setQueue(['+33100000001']));
+
+    await act(async () => { await playUntilReady(result, client); });
+
+    expect(result.current.state.error).toMatch(/session power est déjà ouverte/);
+    expect(result.current.state.queue).toEqual(['+33100000001']);
+    expect(result.current.isRunning).toBe(false);
   });
 
   it('ignore un rechargement de file pendant un cycle en cours', async () => {

@@ -64,6 +64,14 @@ describe('RunnerView — encart power', () => {
     expect(screen.queryByTestId('power-strip')).toBeNull();
   });
 
+  it('signale visuellement le mode actif sur le bouton Power', () => {
+    render(<RunnerView {...baseProps} token="tok" canPowerDialer />);
+    expect(powerButton()!.className).not.toContain('calls-power-toggle--on');
+
+    fireEvent.click(powerButton()!);
+    expect(powerButton()!.className).toContain('calls-power-toggle--on');
+  });
+
   it('n’expose pas le power dans la file de rappels (séances mélangées)', () => {
     render(<RunnerView {...baseProps} token="tok" canPowerDialer variant="recalls" />);
     expect(powerButton()).toBeNull();

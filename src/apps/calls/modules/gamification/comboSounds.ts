@@ -3,7 +3,8 @@ import { type ComboSoundGroup, isSoundGroupEnabled } from './comboSoundPrefs';
 import type { RdvHeat } from './rdvCelebrate';
 
 export type SoundKind =
-  'result-pick' | 'nav' | 'success' | 'recall' | 'warn' | 'whoosh' | 'demo';
+  'result-pick' | 'nav' | 'success' | 'recall' | 'warn' | 'whoosh' | 'demo'
+  | 'power-launch';
 
 type PlayOptions = {
   master?: boolean;
@@ -18,6 +19,7 @@ const KIND_DEFAULT_GROUP: Record<SoundKind, ComboSoundGroup> = {
   warn: 'warn',
   whoosh: 'navigation',
   demo: 'demo',
+  'power-launch': 'navigation',
 };
 
 let audioCtx: AudioContext | null = null;
@@ -179,6 +181,15 @@ export function playComboSound(
       tone(392, 0.09, 'triangle', 0.032, 0, true);
       tone(494, 0.09, 'triangle', 0.028, 0.08, true);
       tone(587, 0.12, 'triangle', 0.024, 0.16, true);
+      break;
+    case 'power-launch':
+      // Décollage : montée en quintes puis octave tenue. Plus appuyé que
+      // 'whoosh' (navigation courante) sans atteindre la fanfare RDV.
+      tone(261.63, 0.07, 'triangle', 0.026, 0, true);
+      tone(392, 0.07, 'triangle', 0.03, 0.055, true);
+      tone(523.25, 0.08, 'triangle', 0.032, 0.11, true);
+      tone(783.99, 0.1, 'sine', 0.03, 0.17, true);
+      tone(1046.5, 0.26, 'sine', 0.024, 0.24, true);
       break;
     default:
       break;

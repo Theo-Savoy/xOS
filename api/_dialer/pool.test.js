@@ -310,6 +310,48 @@ describe('startPool', () => {
     expect(client.from).not.toHaveBeenCalledWith('call_sessions');
   });
 
+  it('compose depuis le numéro sortant choisi quand il appartient au compte', async () => {
+    const owned = thenable({ data: { e164: '+33184800001' }, error: null });
+    const pool = thenable({ data: { id: 'pool-1' }, error: null });
+    const client = {
+      from: vi.fn((table) => {
+        if (table === 'dialer_phone_numbers') return owned;
+        if (table === 'dialer_pool_sessions') return pool;
+        return thenable();
+      }),
+    };
+    mocks.openCallRow.mockResolvedValue({ id: 1 });
+    mocks.dialContact.mockResolvedValue({ call_control_id: 'cc-1' });
+
+    await startPool({
+      client, user: { id: 'user-1' }, flags,
+      body: {
+        destinations: ['+3310000001'], parallelism: 1,
+        caller_number: '+33184800001',
+      },
+    });
+
+    expect(mocks.openCallRow).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ outboundNumber: '+33184800001' }),
+    );
+    expect(mocks.dialContact).toHaveBeenCalledWith(
+      expect.objectContaining({ from: '+33184800001', to: '+3310000001' }),
+    );
+  });
+
+  it('refuse un numéro sortant qui n’appartient pas au compte', async () => {
+    const client = { from: vi.fn(() => thenable({ data: null, error: null })) };
+    const result = await startPool({
+      client, user: { id: 'user-1' }, flags,
+      body: {
+        destinations: ['+3310000001'], parallelism: 1,
+        caller_number: '+33999999999',
+      },
+    });
+    expect(result).toEqual({ status: 403, body: { error: 'caller_number_not_owned' } });
+    expect(mocks.dialContact).not.toHaveBeenCalled();
+  });
+
   it('ne compose jamais en dry-run, même avec une séance valide', async () => {
     mocks.loadUserEntitlements.mockResolvedValue({
       enabled: true, dryRun: true, budgetDayCents: 1000, callsDayLimit: 50,
