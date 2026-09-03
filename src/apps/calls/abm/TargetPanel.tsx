@@ -45,8 +45,9 @@ export type TargetPanelProps = {
   onToggleContact: (accountId: string, contactId: string) => void;
   onRemoveAccount: (accountId: string) => void;
   onClearTarget: () => void;
-  onPrepareSessions: () => void;
+  onPrepareSessions?: () => void;
   isMobileDrawer?: boolean;
+  hideFooter?: boolean;
 };
 
 export function TargetPanel({
@@ -56,6 +57,7 @@ export function TargetPanel({
   onClearTarget,
   onPrepareSessions,
   isMobileDrawer = false,
+  hideFooter = false,
 }: TargetPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     // Open the first account by default if present
@@ -237,22 +239,23 @@ export function TargetPanel({
         })}
       </div>
 
-      <div className="calls-abm-target-panel__footer">
-        <Button
-          className="calls-abm-target-panel__cta"
-          onClick={onPrepareSessions}
-          disabled={totalRetainedContacts === 0}
-          aria-disabled={totalRetainedContacts === 0}
-          title={
-            totalRetainedContacts === 0
-              ? 'Sélectionnez au moins un contact pour préparer les séances'
-              : undefined
-          }
-        >
-          Préparer les séances →
-        </Button>
-      </div>
-
+      {!hideFooter && onPrepareSessions && (
+        <div className="calls-abm-target-panel__footer">
+          <Button
+            className="calls-abm-target-panel__cta"
+            onClick={onPrepareSessions}
+            disabled={totalRetainedContacts === 0}
+            aria-disabled={totalRetainedContacts === 0}
+            title={
+              totalRetainedContacts === 0
+                ? 'Sélectionnez au moins un contact pour préparer les séances'
+                : undefined
+            }
+          >
+            Préparer les séances →
+          </Button>
+        </div>
+      )}
       <ConfirmDialog
         open={confirmClearOpen}
         title="Vider la cible"

@@ -135,6 +135,26 @@ function renderView(
   return { ...utils, onCreateAudience, onBack };
 }
 
+async function searchQuery(
+  user: ReturnType<typeof userEvent.setup>,
+  query: string,
+) {
+  await user.type(screen.getByLabelText('Nom du compte'), query);
+  await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+}
+
+async function goToComposer(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+  );
+}
+
+async function goToPlanifier(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
+  );
+}
+
 describe('AccountSearchView', () => {
   it('searches, renders grouped account cards, previews the FFD packing, and creates audience sessions', async () => {
     const user = userEvent.setup();
@@ -144,8 +164,7 @@ describe('AccountSearchView', () => {
     });
     const { onCreateAudience } = renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
@@ -163,21 +182,18 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
-    expect(
-      screen.getAllByText(
-        (c) => c.includes('1 compte') && c.includes('1 contact'),
-      )[0],
-    ).toBeTruthy();
-
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
     );
+
+    await goToComposer(user);
     expect(
-      screen.getAllByText(
+      screen.getByText(
         (c) => c.includes('2 comptes') && c.includes('3 contacts'),
-      )[0],
+      ),
     ).toBeTruthy();
 
+    await goToPlanifier(user);
     expect(screen.getByText('Aperçu : 1 séance')).toBeTruthy();
 
     await user.click(
@@ -280,7 +296,10 @@ describe('AccountSearchView', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
     await screen.findByText('ACME');
 
-    expect(screen.queryByText('Découper en plusieurs séances')).toBeNull();
+    expect(screen.queryByText('Découpage en séances')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    ).toHaveProperty('disabled', true);
   });
 
   it('lets the user select readable owner names while sending Salesforce IDs', async () => {
@@ -336,13 +355,14 @@ describe('AccountSearchView', () => {
     });
     const { onCreateAudience } = renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
+    await goToComposer(user);
+    await goToPlanifier(user);
     await user.type(
       screen.getByLabelText('Nom des séances (préfixe)'),
       'ACME décisionnaires DAF',
@@ -364,12 +384,13 @@ describe('AccountSearchView', () => {
     });
     const { onCreateAudience } = renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
+    await goToComposer(user);
+    await goToPlanifier(user);
 
     const scheduledFor = tomorrowParisIso();
     await user.click(screen.getByLabelText('Date de la séance'));
@@ -398,12 +419,13 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
+    await goToComposer(user);
+    await goToPlanifier(user);
     await user.click(screen.getByLabelText('Date de la séance'));
     const todayBtn = screen.getByRole('button', {
       name: "Aujourd'hui",
@@ -541,10 +563,11 @@ describe('AccountSearchView', () => {
       name: 'Sélectionner uniquement les comptes avec contacts',
     });
     await user.click(withContactsBtn);
+    await goToComposer(user);
     expect(
-      screen.getAllByText(
+      screen.getByText(
         (c) => c.includes('2 comptes') && c.includes('3 contacts'),
-      )[0],
+      ),
     ).toBeTruthy();
   });
 
@@ -567,10 +590,11 @@ describe('AccountSearchView', () => {
 
     // Tri par contacts décroissant: ACME Europe (2), ACME (1), Wayne (0)
     await selectSortOption('Contacts (décroissant)');
-    const itemsContactsDesc = screen
-      .getAllByRole('listitem')
-      .map((el) => el.querySelector('strong')?.textContent);
-    expect(itemsContactsDesc).toEqual([
+    const accountNames = () =>
+      within(screen.getByRole('list', { name: 'Comptes trouvés' }))
+        .getAllByRole('listitem')
+        .map((el) => el.querySelector('strong')?.textContent);
+    expect(accountNames()).toEqual([
       'ACME Europe',
       'ACME',
       'Wayne Enterprises',
@@ -578,24 +602,15 @@ describe('AccountSearchView', () => {
 
     // Tri par nom décroissant: Wayne, ACME Europe, ACME
     await selectSortOption('Nom (Z → A)');
-    const itemsNameDesc = screen
-      .getAllByRole('listitem')
-      .map((el) => el.querySelector('strong')?.textContent);
-    expect(itemsNameDesc).toEqual(['Wayne Enterprises', 'ACME Europe', 'ACME']);
+    expect(accountNames()).toEqual(['Wayne Enterprises', 'ACME Europe', 'ACME']);
 
     // Tri par nom croissant: ACME, ACME Europe, Wayne
     await selectSortOption('Nom (A → Z)');
-    const itemsNameAsc = screen
-      .getAllByRole('listitem')
-      .map((el) => el.querySelector('strong')?.textContent);
-    expect(itemsNameAsc).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+    expect(accountNames()).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
 
     // Tri par tier prioritaire: ACME (Tier A), ACME Europe (Tier B), Wayne (sans tier)
     await selectSortOption('Tier (prioritaire)');
-    const itemsTierAsc = screen
-      .getAllByRole('listitem')
-      .map((el) => el.querySelector('strong')?.textContent);
-    expect(itemsTierAsc).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+    expect(accountNames()).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
   });
 
   it('persists and restores user preferences in localStorage', async () => {
@@ -812,15 +827,11 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     // Add ACME to target
     await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
-    expect(
-      screen.getAllByText(/1 compte · 1 contact retenu/).length,
-    ).toBeGreaterThanOrEqual(1);
 
     // Now change a filter
     vi.mocked(fetchAccountsSearch).mockResolvedValueOnce({
@@ -830,14 +841,14 @@ describe('AccountSearchView', () => {
     await user.click(screen.getByText('Filtres entreprise'));
     await user.click(screen.getByRole('checkbox', { name: 'B' }));
 
-    // Target remains completely intact!
+    // Target remains completely intact (découplée de la recherche)
+    await goToComposer(user);
     expect(
-      screen.getAllByText(/1 compte · 1 contact retenu/).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByText(/1 compte · 1 contact retenu/),
+    ).toBeTruthy();
     expect(
-      screen.getAllByRole('button', { name: 'Retirer ACME de la cible' })
-        .length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByRole('button', { name: 'Retirer ACME de la cible' }),
+    ).toBeTruthy();
   });
 
   it('(2) contact sub-selection propagates to onCreateAudience payload', async () => {
@@ -848,17 +859,17 @@ describe('AccountSearchView', () => {
     });
     const { onCreateAudience } = renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME Europe');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME Europe');
     await screen.findByText('ACME Europe');
 
     // Select ACME Europe (initially 2 contacts)
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
     );
+    await goToComposer(user);
     expect(
-      screen.getAllByText(/1 compte · 2 contacts retenus/).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByText(/1 compte · 2 contacts retenus/),
+    ).toBeTruthy();
 
     // In TargetPanel, uncheck Alice Martin
     const aliceCheckbox = screen.getByRole('checkbox', {
@@ -868,10 +879,11 @@ describe('AccountSearchView', () => {
 
     // Summary updates to 1 contact
     expect(
-      screen.getAllByText(/1 compte · 1 contact retenu/).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByText(/1 compte · 1 contact retenu/),
+    ).toBeTruthy();
 
-    // Create session
+    // Create session from Planifier (CTA unique du récap)
+    await goToPlanifier(user);
     await user.click(screen.getByRole('button', { name: 'Créer 1 séance ABM' }));
 
     // Verify payload only contains Jean Petit, NOT Alice Martin
@@ -903,15 +915,15 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     // Select ACME
     await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    await goToComposer(user);
     expect(
-      screen.getAllByText(/1 compte · 1 contact retenu/).length,
-    ).toBeGreaterThanOrEqual(1);
+      screen.getByText(/1 compte · 1 contact retenu/),
+    ).toBeTruthy();
 
     // Click "Vider" in TargetPanel
     await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
@@ -930,5 +942,141 @@ describe('AccountSearchView', () => {
     const confirmBtns = screen.getAllByRole('button', { name: 'Vider la cible' });
     await user.click(confirmBtns[confirmBtns.length - 1]);
     expect(screen.queryAllByText(/1 compte · 1 contact retenu/)).toHaveLength(0);
+  });
+});
+
+describe('AccountSearchView — wizard 3 étapes', () => {
+  it('shows contextual titles, an explicit back button, and no session badge', () => {
+    renderView();
+    expect(
+      screen.getByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retour' })).toBeTruthy();
+    expect(screen.queryByText('Nouvelle séance')).toBeNull();
+    expect(screen.queryByText('Mode ABM')).toBeNull();
+  });
+
+  it('keeps a single primary CTA in the persistent recap sidebar', () => {
+    renderView();
+    expect(
+      screen.getAllByRole('button', { name: 'Continuer vers Composer →' }),
+    ).toHaveLength(1);
+    expect(screen.getByText('Votre sélection')).toBeTruthy();
+  });
+
+  it('blocks Composer and Planifier until at least one contact is retained', () => {
+    renderView();
+    expect(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    ).toHaveProperty('disabled', true);
+    expect(
+      screen.getByRole('button', { name: /Étape 2: Composer/ }),
+    ).toHaveProperty('disabled', true);
+    expect(
+      screen.getByRole('button', { name: /Étape 3: Planifier/ }),
+    ).toHaveProperty('disabled', true);
+  });
+
+  it('preserves targetList and plan fields when navigating back and forth', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acmeSubsidiary],
+      truncated: false,
+    });
+    renderView();
+
+    await searchQuery(user, 'ACME Europe');
+    await screen.findByText('ACME Europe');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
+    );
+
+    await goToComposer(user);
+    expect(
+      screen.getByRole('heading', { name: 'Composez votre liste' }),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Retenir Alice Martin' }),
+    );
+    expect(screen.getByText(/1 compte · 1 contact retenu/)).toBeTruthy();
+
+    await goToPlanifier(user);
+    expect(
+      screen.getByRole('heading', { name: 'Planifiez votre séance' }),
+    ).toBeTruthy();
+    await user.type(
+      screen.getByLabelText('Nom des séances (préfixe)'),
+      'Comité DAF',
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /Étape 1: Cibler/ }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Sélectionner ACME Europe',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    await user.click(
+      screen.getByRole('button', { name: /Étape 2: Composer/ }),
+    );
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Retenir Alice Martin',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Retenir Jean Petit',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    await user.click(
+      screen.getByRole('button', { name: /Étape 3: Planifier/ }),
+    );
+    expect(
+      (screen.getByLabelText('Nom des séances (préfixe)') as HTMLInputElement)
+        .value,
+    ).toBe('Comité DAF');
+  });
+
+  it('alerts on dropped accounts after bin-packing overflow', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme, acmeSubsidiary],
+      truncated: false,
+    });
+    renderView();
+
+    await searchQuery(user, 'ACME');
+    await screen.findByText('ACME');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
+    );
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
+    );
+    await goToComposer(user);
+    await goToPlanifier(user);
+
+    fireEvent.change(screen.getByLabelText('Contacts par séance'), {
+      target: { value: '1' },
+    });
+    fireEvent.change(screen.getByLabelText('Nombre max de séances'), {
+      target: { value: '1' },
+    });
+
+    expect(screen.getByRole('alert').textContent).toMatch(/écarté/);
+    expect(screen.getByText('Comptes écartés')).toBeTruthy();
   });
 });
