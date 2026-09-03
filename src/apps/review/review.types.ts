@@ -259,3 +259,68 @@ export function productivityOf(
   if (!row || !('fte' in row)) return undefined;
   return row;
 }
+
+export type ReasonRow = {
+  label: string;
+  count: number;
+  pct: number;
+};
+
+export type ReasonTable = {
+  items: ReasonRow[];
+  n_displayed: number;
+  n_total: number;
+  truncated?: boolean;
+};
+
+export type MarketShareYear = {
+  fy: string;
+  n_marche: number;
+  n_lost: number;
+  share: number;
+  pct: number;
+};
+
+export type MarketMixRow = {
+  n: number;
+  marche: number;
+  produit: number;
+  prix: number;
+  marche_pct: number;
+  produit_pct: number;
+  prix_pct: number;
+};
+
+export type MarketTest = {
+  z: number | null;
+  p: number | null;
+  fy_from: string | null;
+  fy_to: string | null;
+  x1?: number;
+  n1?: number;
+  x2?: number;
+  n2?: number;
+};
+
+export type MarketPayload = {
+  resource: 'market';
+  fy: string;
+  compare: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  conclusion: string;
+  share: MarketShareYear[];
+  mix: {
+    global: MarketMixRow;
+    catalogue: MarketMixRow;
+    sur_mesure: MarketMixRow;
+  };
+  test: MarketTest;
+  loss_reasons: ReasonTable;
+  win_reasons: ReasonTable;
+  win_by_offer: {
+    catalogue: ReasonTable;
+    sur_mesure: ReasonTable;
+  };
+};

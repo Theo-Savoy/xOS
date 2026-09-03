@@ -11,6 +11,7 @@
  * GET  /api/review?resource=product[&fy=FY26]
  * GET  /api/review?resource=cycles[&fy=FY26]
  * GET  /api/review?resource=commercial[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=market[&fy=FY26&compare=FY25]
  * GET  /api/review?resource=fte-config
  * POST /api/review?resource=fte-config  { FY25, FY26 }
  * POST /api/review?resource=shared  { config, note?, recipient_id? }
@@ -18,7 +19,7 @@
  *
  * Auth: Supabase JWT (Bearer token).
  * Access: manager/admin → global + owner filter; commercial → own data + shared only.
- * Resources business (overview, bridge, product, cycles, commercial, fte-config) : manager/admin uniquement.
+ * Resources business (overview, bridge, product, cycles, commercial, market, fte-config) : manager/admin uniquement.
  */
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
@@ -57,6 +58,7 @@ import { splitNewRenew } from './_business-review/classify.js';
 import { computeCycles } from './_business-review/cycles.js';
 import { computeProduct } from './_business-review/product.js';
 import { computeCommercial } from './_business-review/commercial.js';
+import { computeMarket } from './_business-review/market.js';
 import { loadFte, saveFte } from './_business-review/fte-config.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
@@ -75,6 +77,7 @@ const BUSINESS_RESOURCES = [
   'product',
   'cycles',
   'commercial',
+  'market',
 ];
 const SETTINGS_RESOURCES = ['fte-config'];
 const VALID_RESOURCES = [
@@ -350,6 +353,25 @@ async function reviewHandler(request) {
           truncated: truncated_fys.length > 0,
           truncated_fys,
           ...commercial,
+        });
+      }
+
+      if (resource === 'market') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const market = computeMarket(fetched.window);
+        return json(200, {
+          resource: 'market',
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: {
+            ok: true,
+            delta_count: 0,
+            delta_amount: 0,
+          },
+          ...market,
         });
       }
     } catch (err) {

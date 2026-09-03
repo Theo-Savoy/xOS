@@ -100,6 +100,7 @@ describe('GET /api/review — resources business', () => {
       'product',
       'cycles',
       'commercial',
+      'market',
       'fte-config',
     ]);
   });

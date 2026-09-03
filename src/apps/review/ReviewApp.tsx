@@ -34,14 +34,19 @@ import { PerformanceSection } from './sections/PerformanceSection';
 import { ProductCompareSection } from './sections/ProductCompareSection';
 import { ProductivitySection } from './sections/ProductivitySection';
 import { SalesComparisonSection } from './sections/SalesComparisonSection';
+import { MarketSignalSection } from './sections/MarketSignalSection';
+import { MarketStudiesSection } from './sections/MarketStudiesSection';
+import { WinReasonsSection } from './sections/WinReasonsSection';
 import { ActivityAnnex } from './sections/annexes/ActivityAnnex';
 import { JeromeAnnex } from './sections/annexes/JeromeAnnex';
 import { ProductFyAnnex } from './sections/annexes/ProductFyAnnex';
+import { ReasonsAnnex } from './sections/annexes/ReasonsAnnex';
 import { useBusinessReview } from './useBusinessReview';
 import type {
   BridgePayload,
   CommercialPayload,
   CyclesPayload,
+  MarketPayload,
   OverviewPayload,
   ProductPayload,
 } from './review.types';
@@ -151,7 +156,10 @@ type NavId =
   | 'a2'
   | 'a3'
   | 'a5'
+  | 'a6'
   | 'market'
+  | 'market-studies'
+  | 'win-reasons'
   | 'diagnosis'
   | 'cockpit'
   | 'funnel'
@@ -201,7 +209,11 @@ const NAV_FAMILIES: {
   {
     id: 'market',
     label: 'Marché',
-    items: [{ id: 'market', label: 'Signal', soon: true }],
+    items: [
+      { id: 'market', label: 'Signal' },
+      { id: 'market-studies', label: 'Études' },
+      { id: 'win-reasons', label: 'Motifs de gain' },
+    ],
   },
   {
     id: 'diagnosis',
@@ -230,6 +242,7 @@ const ANNEX_ITEMS: {
   { id: 'a3', label: 'A3 · Activité', ready: true },
   { id: 'a4', label: 'A4 · Historique' },
   { id: 'a5', label: 'A5 · Produit × exercice', ready: true },
+  { id: 'a6', label: 'A6 · Motifs', ready: true },
 ];
 
 const LEGACY_NAV: NavId[] = ['cockpit', 'funnel', 'attention', 'shared'];
@@ -342,6 +355,9 @@ export default function ReviewApp({
     nav === 'a3';
   const commercialResource =
     canFetchBusiness && commercialNav ? 'commercial' : null;
+  const marketNav =
+    nav === 'market' || nav === 'win-reasons' || nav === 'a6';
+  const marketResource = canFetchBusiness && marketNav ? 'market' : null;
   const overview = useBusinessReview<OverviewPayload>(token, overviewResource, {
     fy: period,
     compare,
@@ -363,6 +379,10 @@ export default function ReviewApp({
     commercialResource,
     { fy: period, compare },
   );
+  const market = useBusinessReview<MarketPayload>(token, marketResource, {
+    fy: period,
+    compare,
+  });
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -462,13 +482,15 @@ export default function ReviewApp({
     bridge.fetchedAt ||
     product.fetchedAt ||
     cycles.fetchedAt ||
-    commercial.fetchedAt
+    commercial.fetchedAt ||
+    market.fetchedAt
       ? new Date(
           overview.fetchedAt ||
             bridge.fetchedAt ||
             product.fetchedAt ||
             cycles.fetchedAt ||
             commercial.fetchedAt ||
+            market.fetchedAt ||
             0,
         ).toLocaleTimeString('fr-FR', {
           hour: '2-digit',
@@ -481,14 +503,16 @@ export default function ReviewApp({
       bridge.error ||
       product.error ||
       cycles.error ||
-      commercial.error;
+      commercial.error ||
+      market.error;
   const refreshing =
     (isLegacy && loading) ||
     overview.loading ||
     bridge.loading ||
     product.loading ||
     cycles.loading ||
-    commercial.loading;
+    commercial.loading ||
+    market.loading;
 
   const handlePeriod = (next: string) => {
     setPeriod(next);
@@ -505,6 +529,7 @@ export default function ReviewApp({
     product.refresh();
     cycles.refresh();
     commercial.refresh();
+    market.refresh();
   };
 
   if (!roleKnown) {
@@ -699,7 +724,20 @@ export default function ReviewApp({
                 loading={commercial.loading}
               />
             )}
-            {(nav === 'market' || nav === 'diagnosis') && (
+            {nav === 'market' && (
+              <MarketSignalSection
+                data={market.data}
+                loading={market.loading}
+              />
+            )}
+            {nav === 'market-studies' && <MarketStudiesSection />}
+            {nav === 'win-reasons' && (
+              <WinReasonsSection data={market.data} loading={market.loading} />
+            )}
+            {nav === 'a6' && (
+              <ReasonsAnnex data={market.data} loading={market.loading} />
+            )}
+            {nav === 'diagnosis' && (
               <EmptyState
                 title="Prochain lot"
                 description="Cette famille arrive avec les lots 2 à 5. Le cockpit actuel reste disponible dans la sidebar."

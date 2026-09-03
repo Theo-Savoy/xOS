@@ -1,5 +1,5 @@
 /**
- * Fixture d'or Business Review — reproduisant §2.1, §2.2, §2.4, §2.11.
+ * Fixture d'or Business Review — reproduisant §2.1, §2.2, §2.4, §2.5, §2.10, §2.11.
  * Totaux NEW/RENEW et montants Owner FY25/FY26 conservés pour les tests du lot 1.
  */
 const PAUL = { id: '005AZ000000fLYkYAM', name: 'Paul Rathouin' };
@@ -92,6 +92,24 @@ function lostBatch({ fy, prefix, name, count, closeDate, owner, saleType }) {
   );
 }
 
+const LOSS = 'Raison_de_perte_V2__c';
+const WIN = 'Raison_de_gain_V2__c';
+
+function fillReasons(records, field, specs) {
+  let offset = 0;
+  for (const { label, count } of specs) {
+    for (let i = 0; i < count; i += 1) {
+      const record = records[offset + i];
+      if (record) record[field] = label;
+    }
+    offset += count;
+  }
+}
+
+function bySale(records, saleType) {
+  return records.filter((record) => record.Type_de_vente__c === saleType);
+}
+
 const FY22 = {
   won: [
     opp({
@@ -175,7 +193,7 @@ const fy24Autre = wonBatch({
   fy: 'FY24',
   prefix: 'OT',
   name: 'lms',
-  amounts: [2_000],
+  amounts: splitAmount(2_000, 2),
   closeDate: FY24_CLOSE,
   owner: PAUL,
   saleType: SALE.autre,
@@ -229,6 +247,10 @@ const fy24Lost = [
     saleType: SALE.autre,
   }),
 ];
+fillReasons(fy24Lost, LOSS, [
+  { label: 'Projet abandonné', count: 180 },
+  { label: 'Design', count: fy24Lost.length - 180 },
+]);
 
 const FY24 = {
   won: [...fy24WonNew, ...fy24Renew],
@@ -362,6 +384,10 @@ const fy25Lost = [
     saleType: SALE.autre,
   }),
 ];
+fillReasons(fy25Lost, LOSS, [
+  { label: 'Projet abandonné', count: 135 },
+  { label: 'Design', count: fy25Lost.length - 135 },
+]);
 
 const FY25 = {
   won: [...fy25WonNew, ...fy25CatRenew, ...fy25AutreRenew],
@@ -510,6 +536,58 @@ const fy26Lost = [
     saleType: SALE.autre,
   }),
 ];
+fillReasons(bySale(fy26Lost, SALE.catalogue), LOSS, [
+  { label: 'Projet abandonné', count: 32 },
+  { label: 'Aucune réponse client', count: 18 },
+  { label: 'Budget non obtenu', count: 6 },
+  { label: 'Internalisation', count: 5 },
+  { label: 'Sous contrat', count: 4 },
+  { label: 'No go XOS', count: 5 },
+  { label: 'Design', count: 4 },
+  { label: 'Réponse XOS', count: 6 },
+  { label: 'Prix', count: 5 },
+]);
+fillReasons(bySale(fy26Lost, SALE.sur_mesure), LOSS, [
+  { label: 'Projet abandonné', count: 15 },
+  { label: 'Aucune réponse client', count: 8 },
+  { label: 'Budget non obtenu', count: 3 },
+  { label: 'Internalisation', count: 2 },
+  { label: 'Sous contrat', count: 2 },
+  { label: 'No go XOS', count: 2 },
+  { label: 'Design', count: 2 },
+  { label: 'Réponse XOS', count: 3 },
+  { label: 'Prix', count: 1 },
+]);
+fillReasons(bySale(fy26Lost, SALE.conseil), LOSS, [
+  { label: 'Projet abandonné', count: 3 },
+  { label: 'Aucune réponse client', count: 2 },
+  { label: 'Internalisation', count: 1 },
+]);
+fillReasons(bySale(fy26Lost, SALE.autre), LOSS, [
+  { label: 'Sous contrat', count: 1 },
+]);
+fillReasons(fy26Cat, WIN, [
+  { label: 'Prix', count: 14 },
+  { label: 'Pertinence du dispositif', count: 3 },
+  { label: 'Accompagnement du commercial', count: 3 },
+  { label: 'Notoriété', count: 2 },
+  { label: 'Offre clés en main', count: 1 },
+  { label: 'Réactivité', count: 1 },
+  { label: 'Pertinence du profil', count: 1 },
+]);
+fillReasons(fy26Sm, WIN, [
+  { label: 'Offre clés en main', count: 8 },
+  { label: 'Pertinence du dispositif', count: 7 },
+  { label: 'Accompagnement du commercial', count: 5 },
+  { label: 'Accompagnement du CP', count: 4 },
+  { label: 'Prix', count: 2 },
+  { label: 'Réactivité', count: 1 },
+]);
+fillReasons(fy26Conseil, WIN, [
+  { label: 'Prix', count: 1 },
+  { label: 'Autre motif', count: 2 },
+]);
+fillReasons(fy26Autre, WIN, [{ label: 'Autre motif', count: 1 }]);
 
 const FY26 = {
   won: [
