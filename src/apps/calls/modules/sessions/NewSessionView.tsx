@@ -797,7 +797,7 @@ export function NewSessionView({
                     />
                     {splitSessions && (
                       <>
-                        <div className="calls-fb-row">
+                        <div className="calls-name-form__split-fields">
                           <label className="calls-field">
                             <span>Taille cible par séance</span>
                             <input
