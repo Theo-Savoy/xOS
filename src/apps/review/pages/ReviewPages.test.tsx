@@ -59,7 +59,7 @@ describe('pages du bilan', () => {
     unmountProduct();
 
     const { unmount: unmountMarket } = render(
-      <MarketPage period={period} market={idle} channels={idle} />,
+      <MarketPage market={idle} channels={idle} />,
     );
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Marché/);
     expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA NEW/);
@@ -287,7 +287,7 @@ describe('pages du bilan', () => {
       /Cadrage/,
     );
     expect(container.textContent).toMatch(
-      /Le narratif \(patterns et verdict\) reste calibré sur l'exercice FY26 complet/,
+      /Le narratif reste calibré sur FY26 complet\./,
     );
     expect(container.querySelector('.review-patterns-grid')).toBeNull();
     expect(screen.queryByText('Pattern 1')).toBeNull();

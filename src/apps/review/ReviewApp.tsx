@@ -364,7 +364,7 @@ export default function ReviewApp({
               />
             ) : null}
             {nav === 'market' ? (
-              <MarketPage period={period} market={market} channels={channels} />
+              <MarketPage market={market} channels={channels} />
             ) : null}
             {nav === 'diagnostic' ? (
               <DiagnosticPage
