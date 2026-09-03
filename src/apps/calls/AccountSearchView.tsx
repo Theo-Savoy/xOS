@@ -161,8 +161,8 @@ type AccountSearchViewProps = {
 function SearchModeIcon(): ReactNode {
   return (
     <svg
-      width="16"
-      height="16"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -180,8 +180,8 @@ function SearchModeIcon(): ReactNode {
 function FiltersModeIcon(): ReactNode {
   return (
     <svg
-      width="16"
-      height="16"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -644,37 +644,43 @@ export function AccountSearchView({
             <div className="calls-wizard-step-pane" data-step="cibler">
               {searchMode === null && (
                 <div
-                  className="calls-fb-starter-cards"
+                  className="calls-abm-choice-cards"
                   role="region"
                   aria-label="Mode de recherche"
                 >
-                  <div className="calls-fb-starter-cards__grid">
+                  <div className="calls-abm-choice-cards__grid">
                     <Button
                       variant="secondary"
-                      size="sm"
-                      className="calls-fb-starter-card"
+                      className="calls-abm-choice-card"
                       onClick={() => setSearchMode('name')}
                     >
-                      <span className="calls-fb-starter-card__icon">
+                      <span className="calls-abm-choice-card__icon">
                         <SearchModeIcon />
                       </span>
-                      <span className="calls-fb-starter-card__body">
-                        <strong>Rechercher par nom</strong>
-                        <small>Saisissez le nom d&apos;une entreprise</small>
+                      <span className="calls-abm-choice-card__body">
+                        <span className="calls-abm-choice-card__title">
+                          Rechercher par nom
+                        </span>
+                        <span className="calls-abm-choice-card__desc">
+                          Saisissez le nom d&apos;une entreprise ou son compte principal
+                        </span>
                       </span>
                     </Button>
                     <Button
                       variant="secondary"
-                      size="sm"
-                      className="calls-fb-starter-card"
+                      className="calls-abm-choice-card"
                       onClick={() => setSearchMode('filters')}
                     >
-                      <span className="calls-fb-starter-card__icon">
+                      <span className="calls-abm-choice-card__icon">
                         <FiltersModeIcon />
                       </span>
-                      <span className="calls-fb-starter-card__body">
-                        <strong>Rechercher par filtres</strong>
-                        <small>Secteurs, effectifs, tier, propriétaires</small>
+                      <span className="calls-abm-choice-card__body">
+                        <span className="calls-abm-choice-card__title">
+                          Rechercher par filtres
+                        </span>
+                        <span className="calls-abm-choice-card__desc">
+                          Secteurs, effectifs, type de client, tier, propriétaires
+                        </span>
                       </span>
                     </Button>
                   </div>
