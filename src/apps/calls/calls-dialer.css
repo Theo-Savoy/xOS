@@ -255,30 +255,36 @@
   margin-bottom: 0.75rem;
   position: relative;
 }
-/* Halo statique ambre 10-12% sur header et PowerStrip en mode Power */
+/* Univers immersif Power : header et PowerStrip avec identité ambre/bleu nuit */
 .calls-view--power .calls-view__header {
-  box-shadow: 0 0 28px -6px rgba(234, 184, 77, 0.12);
-  transition: box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.calls-view--power .calls-power-strip {
-  border-color: rgba(234, 184, 77, 0.35);
-  box-shadow: 0 0 32px -8px rgba(234, 184, 77, 0.12);
+  border-bottom: 1px solid var(--combo-power-border-subtle, rgba(234, 184, 77, 0.16));
+  padding-bottom: 0.85rem;
+  box-shadow: 0 8px 24px -12px rgba(234, 184, 77, 0.18);
   transition:
     border-color 420ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* En conversation : silence et calme absolu, halos coupés, simple filet ambre */
+.calls-view--power .calls-power-strip {
+  border-color: var(--combo-power-border, rgba(234, 184, 77, 0.35));
+  background: linear-gradient(180deg, rgba(24, 20, 18, 0.72) 0%, rgba(10, 14, 32, 0.85) 100%);
+  box-shadow: 0 4px 28px -6px rgba(234, 184, 77, 0.16), inset 0 1px 0 rgba(234, 184, 77, 0.2);
+  transition:
+    border-color 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* En conversation : signature Power lisible et calme, focus conversation */
 .calls-view--power-conversation .calls-view__header {
+  border-bottom-color: rgba(234, 184, 77, 0.12);
   box-shadow: none;
 }
 
 .calls-view--power-conversation .calls-power-strip {
   border-color: rgba(234, 184, 77, 0.22);
-  box-shadow: none;
+  background: rgba(8, 12, 28, 0.8);
+  box-shadow: inset 0 1px 0 rgba(234, 184, 77, 0.12);
 }
-
 /* Badges identitaires sans dépendre uniquement de la couleur */
 .calls-view__title-tags {
   display: flex;
@@ -294,13 +300,16 @@
   gap: 0.45rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--combo-power, #eab84d);
+  color: var(--combo-power-soft, #ffe4a3);
   margin-left: 0.75rem;
   vertical-align: middle;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  background: rgba(234, 184, 77, 0.12);
+  border: 1px solid var(--combo-power-border, rgba(234, 184, 77, 0.32));
+  border-radius: 999px;
 }
-
 .calls-power-indicator__dot {
   display: inline-block;
   width: 0.45rem;
@@ -319,35 +328,39 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem;
   font-size: 0.85rem;
-  color: var(--xos-text-muted);
+  color: var(--combo-power-soft, #ffe4a3);
   font-variant-numeric: tabular-nums;
+  background: rgba(234, 184, 77, 0.06);
+  border: 1px solid var(--combo-power-border-subtle, rgba(234, 184, 77, 0.14));
+  border-radius: var(--xos-radius-sm, 0.35rem);
 }
 
 .calls-power-kpis-condensed strong,
 .calls-power-kpis-condensed .xos-numeric {
-  color: var(--xos-text);
+  color: #ffffff;
   font-weight: 600;
 }
 
 .calls-power-kpis-condensed__sep {
-  color: var(--xos-border-subtle, rgba(255, 255, 255, 0.2));
+  color: var(--combo-power-border, rgba(234, 184, 77, 0.3));
 }
 
 /* ── File d'appel en mode Power (vue tableau toujours visible) ───────────── */
 .calls-cockpit-list-wrap--power {
-  max-width: 72rem;
   width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
 }
 
 .calls-cockpit-list--power {
   padding: 0;
-  border: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
-  background: rgba(4, 8, 24, 0.55);
+  border: 1px solid var(--combo-power-border, rgba(234, 184, 77, 0.24));
+  background: linear-gradient(180deg, rgba(16, 17, 34, 0.82) 0%, rgba(8, 11, 26, 0.92) 100%);
   border-radius: var(--xos-radius-md, 0.5rem);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.45), 0 0 24px -10px rgba(234, 184, 77, 0.12);
   overflow: hidden;
 }
 
@@ -356,24 +369,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
-  background: rgba(0, 0, 0, 0.14);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--combo-power-border-subtle, rgba(234, 184, 77, 0.16));
+  background: linear-gradient(90deg, rgba(234, 184, 77, 0.08) 0%, rgba(8, 12, 28, 0.4) 100%);
   flex-wrap: wrap;
 }
 
 .calls-cockpit-list__toolbar--power .calls-power-queue-summary__text {
-  font-size: 0.84rem;
-  color: var(--xos-text-muted);
+  font-size: 0.86rem;
+  color: var(--combo-power-soft, #ffe4a3);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
 .calls-cockpit-list__toolbar--power .calls-power-queue-summary__text strong {
-  color: var(--xos-text);
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .calls-cockpit-list__filters--power {
@@ -389,13 +402,16 @@
   height: 2.1rem;
   font-size: 0.82rem;
   padding: 0.3rem 0.75rem;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.12));
+  background: rgba(5, 8, 20, 0.65);
+  border: 1px solid var(--combo-power-border, rgba(234, 184, 77, 0.28));
   border-radius: var(--xos-radius-sm, 0.35rem);
+  color: var(--xos-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .calls-cockpit-list__filters--power .calls-cockpit-list__search:focus {
   border-color: var(--combo-power, #eab84d);
+  box-shadow: 0 0 0 2px rgba(234, 184, 77, 0.2);
   outline: none;
 }
 
@@ -417,37 +433,36 @@
   grid-template-columns: minmax(11rem, 1.4fr) minmax(9rem, 1.1fr) minmax(13rem, 1.5fr) minmax(8.5rem, 0.9fr);
   align-items: center;
   gap: 0.75rem;
-  padding: 0.55rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid rgba(234, 184, 77, 0.08);
   font-size: 0.84rem;
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
   transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .calls-cockpit-list__rows--power li:not(.calls-cockpit-list__header):hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(234, 184, 77, 0.045);
 }
 
 .calls-cockpit-list__rows--power li.calls-cockpit-list__row--selected {
-  background: color-mix(in srgb, var(--combo-power, #eab84d) 8%, rgba(255, 255, 255, 0.02));
+  background: color-mix(in srgb, var(--combo-power, #eab84d) 12%, rgba(10, 14, 30, 0.75));
   border-left-color: var(--combo-power, #eab84d);
 }
 
 .calls-cockpit-list__rows--power li.calls-cockpit-list__row--done {
-  opacity: 0.62;
+  opacity: 0.58;
 }
 
 .calls-cockpit-list__header--power {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--xos-text-muted);
-  background: rgba(0, 0, 0, 0.18);
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  color: var(--combo-power-soft, #ffe4a3);
+  background: rgba(234, 184, 77, 0.07);
+  padding: 0.65rem 1.25rem;
   user-select: none;
-  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--combo-power-border-subtle, rgba(234, 184, 77, 0.16));
 }
 
 .calls-cockpit-list__rows--power .calls-cockpit-list__name {
@@ -643,7 +658,7 @@
 
 .calls-power-strip__line--dialing,
 .calls-power-strip__line--ringing {
-  border-left-color: var(--xos-accent);
+  border-left-color: var(--combo-power);
 }
 
 .calls-power-strip__line--ringing .calls-power-strip__line-phase {

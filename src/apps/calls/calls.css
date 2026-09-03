@@ -51,6 +51,9 @@
   --combo-power-soft: #ffe4a3;
   --combo-power-deep: #3a2508;
   --combo-power-contrast: #071326;
+  --combo-power-glow: rgba(234, 184, 77, 0.22);
+  --combo-power-border: rgba(234, 184, 77, 0.28);
+  --combo-power-border-subtle: rgba(234, 184, 77, 0.14);
 }
 
 .calls-app:has(.calls-view--power) {
@@ -58,42 +61,64 @@
   --combo-power-soft: #ffe4a3;
   --combo-power-deep: #3a2508;
   --combo-power-contrast: #071326;
+  --combo-power-glow: rgba(234, 184, 77, 0.22);
+  --combo-power-border: rgba(234, 184, 77, 0.28);
+  --combo-power-border-subtle: rgba(234, 184, 77, 0.14);
+  /* Univers Power : l'accent global XOS bascule sur le jaune
+     pour que tous les CTA, focus et accents d'interface
+     appartiennent au même langage visuel. Les couleurs
+     sémantiques (succès/danger/warning/highlight/Salesforce)
+     restent inchangées pour ne pas perdre la lecture des états. */
+  --xos-accent: var(--combo-power);
+  --xos-alert: var(--combo-power-soft);
   background:
     radial-gradient(
       circle at 18% 0%,
-      rgba(234, 184, 77, 0.08),
+      rgba(234, 184, 77, 0.16),
       transparent 52%
     ),
     radial-gradient(
-      circle at 82% 20%,
-      rgba(234, 184, 77, 0.05),
+      circle at 82% 16%,
+      rgba(234, 184, 77, 0.11),
       transparent 45%
     ),
     radial-gradient(
+      circle at 50% 100%,
+      rgba(58, 37, 8, 0.42),
+      transparent 58%
+    ),
+    radial-gradient(
       circle at 10% 0%,
-      color-mix(in srgb, var(--xos-accent) 14%, transparent),
+      color-mix(in srgb, var(--combo-power-glow) 18%, transparent),
       transparent 40%
     ),
     radial-gradient(
       circle at 90% 100%,
-      rgba(56, 189, 248, 0.06),
+      rgba(56, 189, 248, 0.05),
       transparent 36%
     ),
-    rgba(4, 8, 28, 0.72);
+    rgba(5, 9, 26, 0.88);
   transition: background 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* En conversation : calme absolu, teinte ambre réduite à 2-3%, aucun mouvement */
+/* En conversation : signature Power lisible et calme, concentration sur l'appel */
 .calls-app:has(.calls-view--power-conversation) {
+  --xos-accent: var(--combo-power);
+  --xos-alert: var(--combo-power-soft);
   background:
     radial-gradient(
       circle at 18% 0%,
-      rgba(234, 184, 77, 0.025),
-      transparent 45%
+      rgba(234, 184, 77, 0.08),
+      transparent 48%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(58, 37, 8, 0.24),
+      transparent 56%
     ),
     radial-gradient(
       circle at 10% 0%,
-      color-mix(in srgb, var(--xos-accent) 10%, transparent),
+      color-mix(in srgb, var(--combo-power-glow) 12%, transparent),
       transparent 40%
     ),
     radial-gradient(
@@ -101,7 +126,7 @@
       rgba(56, 189, 248, 0.04),
       transparent 36%
     ),
-    rgba(4, 8, 28, 0.72);
+    rgba(5, 9, 26, 0.88);
 }
 
 .calls-view {
