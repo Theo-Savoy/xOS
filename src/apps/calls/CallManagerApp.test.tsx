@@ -266,7 +266,7 @@ describe('CallManagerApp component', () => {
     // Re-ouvre et choisit ABM
     await user.click(screen.getByText('Nouvelle séance'));
     await user.click(screen.getByText('Comptes précis (ABM)'));
-    expect(screen.getByText('Rechercher des comptes')).toBeTruthy();
+    expect(screen.getByText('Définissez votre cible')).toBeTruthy();
   });
 
   it('opens the first ABM session directly in the pre-session flow', async () => {
@@ -393,6 +393,12 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
+    );
+    await user.click(
       screen.getByRole('button', { name: 'Créer 1 séance ABM' }),
     );
 
@@ -401,7 +407,7 @@ describe('CallManagerApp component', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
     expect(
-      screen.queryByRole('heading', { name: 'Rechercher des comptes' }),
+      screen.queryByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeNull();
   });
 
@@ -535,6 +541,12 @@ describe('CallManagerApp component', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
     );
     await user.click(
       screen.getByRole('button', { name: 'Créer 1 séance ABM' }),
@@ -1070,7 +1082,7 @@ describe('CallManagerApp component', () => {
     await user.click(screen.getByText('Comptes précis (ABM)'));
     expect(onParamsChange).toHaveBeenCalledWith({ view: 'abm' });
     expect(
-      await screen.findByRole('heading', { name: 'Rechercher des comptes' }),
+      await screen.findByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeTruthy();
 
     // Clic Retour depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
@@ -1094,7 +1106,7 @@ describe('CallManagerApp component', () => {
       />,
     );
     expect(
-      await screen.findByRole('heading', { name: 'Rechercher des comptes' }),
+      await screen.findByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeTruthy();
 
     onParamsChange.mockClear();
