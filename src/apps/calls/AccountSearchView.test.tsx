@@ -713,7 +713,7 @@ describe('AccountSearchView', () => {
     expect(screen.queryByText('Recherche des comptes en cours…')).toBeNull();
   });
 
-  it('filters by sector using the FilterableMultiSelect popover with search and removes via active chips', async () => {
+  it('filters by sector using the PicklistMultiSelect popover with search and removes via active chips', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
       accounts: [acme],
