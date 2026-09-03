@@ -387,8 +387,11 @@ describe('CallManagerApp component', () => {
 
     render(<CallManagerApp params={{ view: 'abm' }} />);
 
-    await user.type(await screen.findByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await user.click(
+      await screen.findByRole('button', { name: /Rechercher par nom/ }),
+    );
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.keyboard('{Enter}');
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
@@ -537,8 +540,11 @@ describe('CallManagerApp component', () => {
     }
     render(<Harness />);
 
-    await user.type(await screen.findByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await user.click(
+      await screen.findByRole('button', { name: /Rechercher par nom/ }),
+    );
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.keyboard('{Enter}');
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );

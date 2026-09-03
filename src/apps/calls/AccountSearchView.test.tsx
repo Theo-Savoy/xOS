@@ -154,13 +154,18 @@ function chooseFiltersSearchSync() {
   );
 }
 
+function chooseNameSearchSync() {
+  if (screen.queryByLabelText('Nom du compte')) return;
+  fireEvent.click(screen.getByRole('button', { name: /Rechercher par nom/ }));
+}
+
 async function searchQuery(
   user: ReturnType<typeof userEvent.setup>,
   query: string,
 ) {
   await chooseNameSearch(user);
   await user.type(screen.getByLabelText('Nom du compte'), query);
-  await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+  await user.keyboard('{Enter}');
 }
 
 async function goToComposer(user: ReturnType<typeof userEvent.setup>) {
@@ -521,6 +526,85 @@ describe('AccountSearchView', () => {
     }
   });
 
+  it('hides the Rechercher button and auto-searches the name after 300ms', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(fetchAccountsSearch).mockResolvedValue({
+        accounts: [acme],
+        truncated: false,
+      });
+      renderView();
+      chooseNameSearchSync();
+
+      expect(screen.queryByRole('button', { name: 'Rechercher' })).toBeNull();
+
+      fireEvent.change(screen.getByLabelText('Nom du compte'), {
+        target: { value: 'ACME' },
+      });
+      act(() => {
+        vi.advanceTimersByTime(299);
+      });
+      expect(fetchAccountsSearch).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+
+      expect(fetchAccountsSearch).toHaveBeenCalledTimes(1);
+      expect(fetchAccountsSearch).toHaveBeenCalledWith(
+        'token-123',
+        { q: 'ACME', filters: expect.any(Object) },
+        expect.any(Object),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not auto-search when the name has fewer than 2 characters and no filter is set', async () => {
+    vi.useFakeTimers();
+    try {
+      renderView();
+      chooseNameSearchSync();
+      fireEvent.change(screen.getByLabelText('Nom du compte'), {
+        target: { value: 'A' },
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(fetchAccountsSearch).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('submits the current query immediately on Enter without waiting for debounce', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(fetchAccountsSearch).mockResolvedValue({
+        accounts: [acme],
+        truncated: false,
+      });
+      renderView();
+      chooseNameSearchSync();
+      fireEvent.change(screen.getByLabelText('Nom du compte'), {
+        target: { value: 'ACME' },
+      });
+      fireEvent.keyDown(screen.getByLabelText('Nom du compte'), {
+        key: 'Enter',
+      });
+
+      expect(fetchAccountsSearch).toHaveBeenCalledTimes(1);
+      expect(fetchAccountsSearch).toHaveBeenCalledWith(
+        'token-123',
+        { q: 'ACME', filters: expect.any(Object) },
+        expect.any(Object),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('calls onBack when clicking the Retour button', async () => {
     const user = userEvent.setup();
     const onBack = vi.fn();
@@ -755,7 +839,9 @@ describe('AccountSearchView', () => {
     fireEvent.change(screen.getByLabelText('Nom du compte'), {
       target: { value: 'ACME' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Rechercher' }));
+    fireEvent.keyDown(screen.getByLabelText('Nom du compte'), {
+      key: 'Enter',
+    });
 
     expect(screen.getByText('Recherche des comptes en cours…')).toBeTruthy();
     expect(screen.getByRole('status', { busy: true })).toBeTruthy();

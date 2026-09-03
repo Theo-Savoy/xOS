@@ -239,6 +239,8 @@ export function AccountSearchView({
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | NodeJS.Timeout | null>(null);
   const skipNextAutoSearch = useRef(true);
+  const inflightSearchKey = useRef<string | null>(null);
+  const lastCompletedSearchKey = useRef<string | null>(null);
 
   const ownerOptions = useMemo(
     () =>
@@ -306,11 +308,22 @@ export function AccountSearchView({
     }));
   };
 
+  const searchKeyOf = (q: string, curFilters: AbmFilters) =>
+    JSON.stringify({ q: q.trim(), ...curFilters });
+
   const runSearch = async (q: string, curFilters: AbmFilters) => {
     if (!token || (!hasAnyFilter(curFilters) && q.trim().length < 2)) return;
+    const key = searchKeyOf(q, curFilters);
+    if (
+      key === inflightSearchKey.current ||
+      key === lastCompletedSearchKey.current
+    ) {
+      return;
+    }
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    inflightSearchKey.current = key;
     setLoading(true);
     setError(null);
     try {
@@ -324,13 +337,17 @@ export function AccountSearchView({
       setTruncated(data.truncated);
       setExcludedCount(data.excluded_count ?? 0);
       setSearched(true);
+      lastCompletedSearchKey.current = key;
     } catch (err) {
       if (ctrl.signal.aborted) return;
       setError(errorMessage(err));
       setAccounts([]);
       setExcludedCount(0);
     } finally {
-      setLoading(false);
+      if (abortRef.current === ctrl) {
+        inflightSearchKey.current = null;
+        setLoading(false);
+      }
     }
   };
 
@@ -342,6 +359,9 @@ export function AccountSearchView({
   const executeResetAll = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     abortRef.current?.abort();
+    skipNextAutoSearch.current = true;
+    inflightSearchKey.current = null;
+    lastCompletedSearchKey.current = null;
     setQuery('');
     setFilters(emptyAbmFilters());
     setSearchMode(null);
@@ -366,12 +386,14 @@ export function AccountSearchView({
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const eligible = query.trim().length >= 2 || hasAnyFilter(filters);
+    if (!eligible) return;
     debounceRef.current = setTimeout(() => void runSearch(query, filters), 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [query, filters]);
 
   const sortedAccounts = useMemo(() => {
     if (sortBy === 'default') return accounts;
@@ -647,20 +669,13 @@ export function AccountSearchView({
                               onKeyDown={(e) =>
                                 e.key === 'Enter' &&
                                 canSearch &&
-                                !loading &&
                                 void handleSearch()
                               }
                               aria-label="Nom du compte"
                             />
                           </label>
-                          <div className="calls-fb-actions">
-                            <Button
-                              onClick={() => void handleSearch()}
-                              disabled={!canSearch || loading}
-                            >
-                              {loading ? 'Recherche…' : 'Rechercher'}
-                            </Button>
-                            {(query.trim() || hasAnyFilter(filters)) && (
+                          {(query.trim() || hasAnyFilter(filters)) && (
+                            <div className="calls-fb-actions">
                               <Button
                                 variant="secondary"
                                 onClick={handleResetAll}
@@ -669,8 +684,8 @@ export function AccountSearchView({
                               >
                                 Réinitialiser
                               </Button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </>
                       )}
 
