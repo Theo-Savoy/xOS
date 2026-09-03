@@ -72,7 +72,16 @@ async function sfToken(client, user) {
   return result.accessToken;
 }
 
-export default async function handler(request) {
+// Vercel Web Handlers : exports nommés par méthode → le runtime passe un
+// `Request` standard (URL absolue). L'ancien `export default` déclenchait la
+// signature Node legacy (IncomingMessage) et `new URL(request.url)` levait
+// `TypeError: Invalid URL` sur toutes les resources.
+export const GET = reviewHandler;
+export const POST = reviewHandler;
+export const DELETE = reviewHandler;
+export const OPTIONS = reviewHandler;
+
+async function reviewHandler(request) {
   const user = await verifyJWT(request);
   if (!user) return json(401, { error: 'unauthorized' });
 
