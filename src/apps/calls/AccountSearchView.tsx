@@ -91,6 +91,7 @@ type AbmFilters = {
   type_client: TypeClient[];
   tiers: Tier[];
   proprietaires: string[];
+  compte_principal: string | null;
 };
 
 const emptyAbmFilters = (): AbmFilters => ({
@@ -99,6 +100,7 @@ const emptyAbmFilters = (): AbmFilters => ({
   type_client: [],
   tiers: [],
   proprietaires: [],
+  compte_principal: null,
 });
 
 const hasAnyFilter = (f: AbmFilters) =>
@@ -106,7 +108,8 @@ const hasAnyFilter = (f: AbmFilters) =>
   f.effectifs.length > 0 ||
   f.type_client.length > 0 ||
   f.tiers.length > 0 ||
-  f.proprietaires.length > 0;
+  f.proprietaires.length > 0 ||
+  Boolean(f.compte_principal?.trim());
 
 function errorMessage(err: unknown): string {
   if (err instanceof CallsApiError) {
@@ -261,7 +264,8 @@ export function AccountSearchView({
       filters.effectifs.length +
       filters.type_client.length +
       filters.tiers.length +
-      filters.proprietaires.length,
+      filters.proprietaires.length +
+      (filters.compte_principal?.trim() ? 1 : 0),
     [filters],
   );
 
@@ -279,10 +283,21 @@ export function AccountSearchView({
       const name = ownerOptions.find((o) => o.value === p)?.label || p;
       list.push({ key: 'proprietaires', value: p, label: name });
     }
+    if (filters.compte_principal?.trim()) {
+      list.push({
+        key: 'compte_principal',
+        value: filters.compte_principal,
+        label: `Groupe : ${filters.compte_principal}`,
+      });
+    }
     return list;
   }, [filters, ownerOptions]);
 
   const removeFilterItem = (key: keyof AbmFilters, value: string) => {
+    if (key === 'compte_principal') {
+      setFilter({ compte_principal: null });
+      return;
+    }
     setFilters((prev) => ({
       ...prev,
       [key]: (prev[key] as string[]).filter((item) => item !== value),
@@ -740,6 +755,21 @@ export function AccountSearchView({
                             }
                           />
                         )}
+                        <label className="calls-field">
+                          <span>Compte principal (ID CRM)</span>
+                          <input
+                            type="text"
+                            className="calls-input"
+                            value={filters.compte_principal ?? ''}
+                            onChange={(e) =>
+                              setFilter({
+                                compte_principal: e.target.value || null,
+                              })
+                            }
+                            placeholder="001…"
+                            aria-label="Compte principal (ID CRM)"
+                          />
+                        </label>
                       </div>
                     </details>
                     {(query.trim() || hasAnyFilter(filters)) && (

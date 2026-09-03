@@ -860,6 +860,35 @@ describe('AccountSearchView', () => {
     ).toBeTruthy();
   });
 
+  it('sends compte_principal in the ABM search filters', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    await chooseFiltersSearch(user);
+    await user.type(
+      screen.getByLabelText('Compte principal (ID CRM)'),
+      '001PARENT000000AAA',
+    );
+
+    await waitFor(() =>
+      expect(fetchAccountsSearch).toHaveBeenCalledWith(
+        'token-123',
+        {
+          q: '',
+          filters: expect.objectContaining({
+            compte_principal: '001PARENT000000AAA',
+          }),
+        },
+        expect.any(Object),
+      ),
+    );
+    expect(screen.getByText('Groupe : 001PARENT000000AAA')).toBeTruthy();
+  });
+
   it('allows clearing all active filters with Tout effacer button in active chips', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
