@@ -455,6 +455,34 @@
   color: var(--xos-text-muted);
 }
 
+.calls-abm-target-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.calls-abm-target-filters .calls-fb-control {
+  gap: 0.25rem;
+}
+
+.calls-abm-target-filters .calls-chip {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.calls-abm-target-filters .calls-input {
+  width: 100%;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.calls-abm-target-filters__hidden {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--xos-text-muted);
+}
+
 .calls-abm-target-panel__list {
   display: flex;
   flex-direction: column;
