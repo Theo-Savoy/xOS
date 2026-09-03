@@ -22,7 +22,7 @@ export function SynthesisSection({
     return (
       <EmptyState
         title="Aucune synthèse"
-        description="Les 4 cartes de l'exercice n'ont pas encore de données."
+        description="Quatre indicateurs de cadrage de la période sélectionnée."
       />
     );
   }

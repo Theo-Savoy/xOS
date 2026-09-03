@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import fyWindow from './__fixtures__/fy-window.js';
-import { catalogueBridge, ownerBridge, volumeTicketBridge } from './bridge.js';
+import {
+  bridgeByProduct,
+  catalogueBridge,
+  ownerBridge,
+  productBridge,
+  volumeTicketBridge,
+} from './bridge.js';
 
 function within(actual, expected, tol = 100) {
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tol);
@@ -51,5 +57,34 @@ describe('catalogueBridge', () => {
     within(result.renew + result.volume + result.ticket, -591_600);
     expect(result.share_renew * 100).toBeCloseTo(56.4, 1);
     expect(result.share_new * 100).toBeCloseTo(43.6, 1);
+  });
+});
+
+
+describe('bridgeByProduct', () => {
+  it('décompose le bridge pour les 3 produits (catalogue, sur_mesure, conseil)', () => {
+    const result = bridgeByProduct(fyWindow.FY25.won, fyWindow.FY26.won);
+    expect(result).toHaveProperty('catalogue');
+    expect(result).toHaveProperty('sur_mesure');
+    expect(result).toHaveProperty('conseil');
+
+    // catalogue équivaut à catalogueBridge
+    const cat = catalogueBridge(fyWindow.FY25.won, fyWindow.FY26.won);
+    expect(result.catalogue.renew).toBe(cat.renew);
+    expect(result.catalogue.volume).toBe(cat.volume);
+    expect(result.catalogue.ticket).toBe(cat.ticket);
+
+    // vérifie conservation pour chaque produit
+    expect(result.catalogue.conservation.ok).toBe(true);
+    expect(result.sur_mesure.conservation.ok).toBe(true);
+    expect(result.conseil.conservation.ok).toBe(true);
+  });
+
+  it('productBridge fonctionne pour sur_mesure', () => {
+    const sm = productBridge(fyWindow.FY25.won, fyWindow.FY26.won, 'sur_mesure');
+    expect(sm.conservation.ok).toBe(true);
+    expect(typeof sm.renew).toBe('number');
+    expect(typeof sm.volume).toBe('number');
+    expect(typeof sm.ticket).toBe('number');
   });
 });

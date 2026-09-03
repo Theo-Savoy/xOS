@@ -12,7 +12,7 @@ import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur } from '../review.helpers';
-import { seriesLabel, seriesSpanLabel } from '../review.period';
+import { ANNUAL_ONLY_FY, FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function PerformanceSection({
@@ -31,10 +31,11 @@ export function PerformanceSection({
     );
   }
   if (!data?.series?.length) {
+    const targetFy = data?.fy || ANNUAL_ONLY_FY;
     return (
       <EmptyState
         title="Aucune série"
-        description={`Pas de CA NEW / RENEW sur la fenêtre ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
+        description={`Pas de CA sur la fenêtre ${seriesLabel(targetFy, data?.period)}.`}
       />
     );
   }
@@ -45,8 +46,8 @@ export function PerformanceSection({
     const previous = data.series[index - 1];
     return {
       fy: seriesLabel(row.fy, data.period),
-      NEW: row.new,
-      RENEW: row.renew,
+      'Nouvelles affaires': row.new,
+      Renouvellements: row.renew,
       NEWDelta: previous ? row.new - previous.new : null,
       RENEWDelta: previous ? row.renew - previous.renew : null,
     };
@@ -57,7 +58,7 @@ export function PerformanceSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            NEW et RENEW
+            Nouvelles affaires et renouvellements
           </h3>
           <ScopeTag scope="total" />
         </div>
@@ -68,15 +69,15 @@ export function PerformanceSection({
           label={`CA total ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.total ?? 0)}
           scope="total"
-          hint={`NEW ${fmtEur(current?.new ?? 0)} · RENEW ${fmtEur(current?.renew ?? 0)}`}
+          hint={`Nouv. aff. ${fmtEur(current?.new ?? 0)} · Renouv. ${fmtEur(current?.renew ?? 0)}`}
         />
         <StatCard
-          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.new ?? 0)}
           scope="new"
         />
         <StatCard
-          label={`CA RENEW ${seriesLabel(data.fy, data.period)}`}
+          label={`CA renouv. ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.renew ?? 0)}
           scope="total"
         />
@@ -91,18 +92,18 @@ export function PerformanceSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          {data.period?.granularity === 'semester'
-            ? seriesSpanLabel('FY22', data.fy, data.period)
-            : `Série empilée FY22→${data.fy}`}
+          {seriesSpanLabel(data.series[0]?.fy || FY_OPTIONS[0].value, data.fy, data.period)}
         </h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
             <XAxis
               dataKey="fy"
+              stroke="var(--xos-border)"
               tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
             />
             <YAxis
+              stroke="var(--xos-border)"
               tickFormatter={(v: number) => fmtEur(v)}
               tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
               width={72}
@@ -110,15 +111,15 @@ export function PerformanceSection({
             <ReviewChartTooltip
               content={<ChartTooltip valueFormatter={fmtEur} />}
             />
-            <Legend />
+            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar
-              dataKey="NEW"
+              dataKey="Nouvelles affaires"
               stackId="ca"
               fill="var(--xos-accent)"
               radius={[0, 0, 0, 0]}
             />
             <Bar
-              dataKey="RENEW"
+              dataKey="Renouvellements"
               stackId="ca"
               fill="#5b8def"
               radius={[4, 4, 0, 0]}

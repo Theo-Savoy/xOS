@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ANNUAL_ONLY_FY,
   FY_OPTIONS,
   businessReviewPath,
   comparisonFy,
   fyBounds,
+  fyEndLabel,
+  isAnnualOnlySelection,
   periodQuery,
   periodRangeLabel,
   periodTitle,
@@ -21,6 +24,14 @@ describe('période du bilan', () => {
       'FY25',
       'FY26',
     ]);
+    expect(ANNUAL_ONLY_FY).toBe('FY26');
+    expect(fyEndLabel(ANNUAL_ONLY_FY)).toBe('30/06/2026');
+    expect(
+      isAnnualOnlySelection({ mode: 'fy', fy: ANNUAL_ONLY_FY, semester: 'S1' }),
+    ).toBe(true);
+    expect(
+      isAnnualOnlySelection({ mode: 'semester', fy: ANNUAL_ONLY_FY, semester: 'S1' }),
+    ).toBe(false);
   });
 
   it('borne FY26 de juillet à juin', () => {

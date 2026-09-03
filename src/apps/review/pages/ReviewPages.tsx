@@ -1,7 +1,12 @@
 import { GlassCard, Tag } from '../../../components/ui';
 import { InfoHint } from '../components/InfoHint';
-import type { PeriodSelection } from '../review.period';
-import { comparisonFy } from '../review.period';
+import {
+  ANNUAL_ONLY_FY,
+  comparisonFy,
+  fyEndLabel,
+  isAnnualOnlySelection,
+  type PeriodSelection,
+} from '../review.period';
 import type { ScopeKind } from '../review.types';
 import type {
   BridgePayload,
@@ -82,7 +87,8 @@ export function SummaryPage({
   synthesis: Loadable<SynthesisPayload>;
   bridge: Loadable<BridgePayload>;
 }) {
-  const narrativeAvailable = period.mode === 'fy' && period.fy === 'FY26';
+  const narrativeAvailable = isAnnualOnlySelection(period);
+  const hasNarrative = Boolean(synthesis.data?.patterns?.length);
   return (
     <div className="review-page">
       <PageHeader
@@ -92,13 +98,13 @@ export function SummaryPage({
       />
       <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
       <BridgeNewSection data={bridge.data} loading={bridge.loading} />
-      {narrativeAvailable ? (
+      {narrativeAvailable && hasNarrative ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
-      ) : (
+      ) : narrativeAvailable ? null : (
         <AnnualOnlyNotice>
           {period.mode === 'semester'
-            ? 'Le narratif reste calibré sur FY26 complet.'
-            : 'Le narratif et le verdict sont calibrés sur FY26.'}
+            ? `Le narratif n'est disponible que sur l'exercice ${ANNUAL_ONLY_FY} complet.`
+            : `Le narratif et le verdict restent réservés à ${ANNUAL_ONLY_FY}.`}
         </AnnualOnlyNotice>
       )}
     </div>
@@ -114,12 +120,12 @@ export function TrajectoryPage({
   overview: Loadable<OverviewPayload>;
   portfolio: Loadable<PortfolioPayload>;
 }) {
-  const portfolioAvailable = period.mode === 'fy' && period.fy === 'FY26';
+  const portfolioAvailable = isAnnualOnlySelection(period);
   return (
     <div className="review-page">
       <PageHeader
         title="Trajectoire"
-        description="Les flux NEW et RENEW dans le temps, puis la lecture distincte du stock catalogue."
+        description="Les flux nouvelles affaires et renouvellements dans le temps, puis la lecture distincte du stock catalogue."
         scopes={['total']}
       />
       {period.mode === 'fy' ? (
@@ -128,7 +134,7 @@ export function TrajectoryPage({
       <HistorySection data={overview.data} loading={overview.loading} />
       {!portfolioAvailable ? (
         <AnnualOnlyNotice>
-          Le portefeuille de référence reste arrêté au 30/06/2026.
+          {`Le portefeuille de référence reste arrêté au ${fyEndLabel(ANNUAL_ONLY_FY)}.`}
         </AnnualOnlyNotice>
       ) : (
         <PortfolioSection data={portfolio.data} loading={portfolio.loading} />
@@ -144,7 +150,7 @@ export function CommercialPage({
   period: PeriodSelection;
   commercial: Loadable<CommercialPayload>;
 }) {
-  const productivityAvailable = period.mode === 'fy' && period.fy === 'FY26';
+  const productivityAvailable = isAnnualOnlySelection(period);
   return (
     <div className="review-page">
       <PageHeader
@@ -159,7 +165,7 @@ export function CommercialPage({
       />
       {!productivityAvailable ? (
         <AnnualOnlyNotice>
-          Les ratios par ETP exigent FY25 et FY26 complets.
+          {`Les ratios par ETP exigent ${comparisonFy(ANNUAL_ONLY_FY)} et ${ANNUAL_ONLY_FY} complets.`}
         </AnnualOnlyNotice>
       ) : (
         <ProductivitySection
@@ -237,7 +243,7 @@ export function DiagnosticPage({
   quality: Loadable<QualityPayload>;
   definitions: Loadable<DefinitionsPayload>;
 }) {
-  const diagnosisAvailable = period.mode === 'fy' && period.fy === 'FY26';
+  const diagnosisAvailable = isAnnualOnlySelection(period);
   return (
     <div className="review-page">
       <PageHeader
@@ -247,7 +253,7 @@ export function DiagnosticPage({
       />
       {!diagnosisAvailable ? (
         <AnnualOnlyNotice>
-          La matrice de diagnostic est calibrée sur FY26.
+          {`La matrice de diagnostic est calibrée sur ${ANNUAL_ONLY_FY}.`}
         </AnnualOnlyNotice>
       ) : (
         <DiagnosisSection data={diagnosis.data} loading={diagnosis.loading} />

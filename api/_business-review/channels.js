@@ -9,7 +9,8 @@ import { isRenew, splitNewRenew } from './classify.js';
 const { opportunity: opp } = mapping.objects;
 
 export const CHANNEL_SLIDE_N = 4;
-export const CONCENTRATION_TOP_N = 5;
+export const CONCENTRATION_TOP_N = 15;
+const CONCENTRATION_TOP5 = 5;
 export const CHANNEL_NONE = 'Détecté/Signé hors action marketing';
 
 function amountOf(record) {
@@ -123,7 +124,12 @@ export function computeChannels(window, fy = 'FY26') {
     pct: roundPct1(row.amount, totalSigned),
   }));
   const top1 = top[0]?.amount || 0;
-  const top5 = top.slice(0, CONCENTRATION_TOP_N).reduce((s, row) => s + row.amount, 0);
+  const top5 = top
+    .slice(0, CONCENTRATION_TOP5)
+    .reduce((s, row) => s + row.amount, 0);
+  const topN = top
+    .slice(0, CONCENTRATION_TOP_N)
+    .reduce((s, row) => s + row.amount, 0);
 
   return {
     fy,
@@ -137,6 +143,7 @@ export function computeChannels(window, fy = 'FY26') {
       items: top,
       top1_pct: roundPct1(top1, totalSigned),
       top5_pct: roundPct1(top5, totalSigned),
+      topN_pct: roundPct1(topN, totalSigned),
       n_displayed: Math.min(CONCENTRATION_TOP_N, top.length),
       n_total: top.length,
       truncated: top.length > CONCENTRATION_TOP_N,

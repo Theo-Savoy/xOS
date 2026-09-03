@@ -203,7 +203,6 @@ export function computeMarket(window, { fy, compare } = {}) {
 
   const currentFy =
     (fy && share.some((row) => row.fy === fy) && fy) ||
-    share.find((row) => row.fy === 'FY26')?.fy ||
     share.at(-1)?.fy;
   const current = mixByFy[currentFy] || {
     global: packMix(emptyMix()),

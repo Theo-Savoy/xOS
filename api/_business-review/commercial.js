@@ -17,7 +17,7 @@ const { opportunity: opp, event: evt } = mapping.objects;
 const ATTRIBUTION_LIMIT =
   'Attribution par Owner courant du snapshot — pas de reconstitution historique.';
 const RDV_LIMIT =
-  'RDV Salesforce · périmètre différent du snapshot Excel du 21/07/2026';
+  'RDV Salesforce · périmètre différent du snapshot Excel utilisé pour la revue';
 
 function amountOf(record) {
   return Number(record?.[opp.fields.amount]) || 0;
@@ -245,8 +245,8 @@ export function computeCommercial(
   options = {},
 ) {
   const fys = Object.keys(window || {}).sort();
-  const fy = options.fy || fys.at(-1) || 'FY26';
-  const compare = options.compare || fys.at(-2) || 'FY25';
+  const fy = options.fy || fys.at(-1);
+  const compare = options.compare || fys.at(-2);
 
   const peopleByFy = Object.fromEntries(
     fys.map((year) => [

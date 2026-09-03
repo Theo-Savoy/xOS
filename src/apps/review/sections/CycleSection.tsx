@@ -12,7 +12,7 @@ import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtDays } from '../review.helpers';
-import { seriesLabel, seriesSpanLabel } from '../review.period';
+import { ANNUAL_ONLY_FY, FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { CyclesPayload } from '../review.types';
 
 const PRODUCT_ORDER = ['catalogue', 'sur_mesure', 'conseil', 'autre'] as const;
@@ -39,10 +39,12 @@ export function CycleSection({
     );
   }
   if (!data?.series?.length) {
+    const startFy = data?.series?.[0]?.fy || FY_OPTIONS[0].value;
+    const endFy = data?.fy || ANNUAL_ONLY_FY;
     return (
       <EmptyState
-        title="Aucun cycle"
-        description={`Pas de dates exploitables sur la fenêtre ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
+        title="Aucun cycle sur la période"
+        description={`Aucune date de cycle exploitable sur la fenêtre ${seriesSpanLabel(startFy, endFy, data?.period)}.`}
       />
     );
   }
@@ -71,7 +73,7 @@ export function CycleSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Cycles NEW
+            Cycles des nouvelles affaires
           </h3>
           <ScopeTag scope="signatures-new" />
         </div>
@@ -98,16 +100,18 @@ export function CycleSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Médiane et moyenne {seriesSpanLabel('FY22', data.fy, data.period)}
+          Médiane et moyenne {seriesSpanLabel(data.series[0]?.fy || FY_OPTIONS[0].value, data.fy, data.period)}
         </h3>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
             <XAxis
               dataKey="fy"
+              stroke="var(--xos-border)"
               tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
             />
             <YAxis
+              stroke="var(--xos-border)"
               tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
               width={40}
             />
@@ -116,7 +120,7 @@ export function CycleSection({
                 <ChartTooltip valueFormatter={(value) => fmtDays(value)} />
               }
             />
-            <Legend />
+            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Line
               type="monotone"
               dataKey="Médiane"

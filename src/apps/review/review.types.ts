@@ -4,6 +4,11 @@ export type Conservation = {
   delta_amount: number;
 };
 
+/** Slot futur IA/commentaires. Rien n'est affiché tant que status === 'none'. */
+export type ReviewAnalysis = {
+  status: 'none';
+};
+
 export type ReviewPayloadPeriod = {
   granularity: 'year' | 'semester';
   semester: 'S1' | 'S2' | null;
@@ -41,6 +46,7 @@ export type OverviewPayload = {
   conservation: Conservation;
   series: OverviewYear[];
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type VolumeTicketStep = {
@@ -83,8 +89,12 @@ export type BridgePayload = {
   volume_ticket: VolumeTicketBridge;
   owner: OwnerBridge;
   catalogue?: CatalogueBridge;
+  by_product?: Record<ProductBridgeKey, CatalogueBridge>;
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
+
+export type ProductBridgeKey = 'catalogue' | 'sur_mesure' | 'conseil';
 
 export type CatalogueBridge = {
   renew: number;
@@ -145,6 +155,7 @@ export type ProductPayload = {
   conservation: Conservation;
   series: ProductYear[];
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type CycleProductStats = {
@@ -180,6 +191,7 @@ export type CyclesPayload = {
   conservation: Conservation;
   series: CycleYear[];
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type ScopeKind = 'total' | 'new' | 'signatures-new';
@@ -261,6 +273,7 @@ export type CommercialPayload = {
   attribution_limit: string;
   rdv_limit: string;
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export function productivityOf(
@@ -343,6 +356,7 @@ export type MarketPayload = {
     conseil: ReasonTable;
   };
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type PortfolioStatus = {
@@ -381,6 +395,7 @@ export type PortfolioPayload = {
     retained: { count: number; pct: number };
     lost: { count: number; pct: number };
   };
+  analysis?: ReviewAnalysis;
 };
 
 export type ChannelRow = {
@@ -415,6 +430,7 @@ export type ChannelsPayload = {
     items: ConcentrationRow[];
     top1_pct: number;
     top5_pct: number;
+    topN_pct?: number;
     n_displayed: number;
     n_total: number;
     truncated: boolean;
@@ -422,6 +438,7 @@ export type ChannelsPayload = {
   };
   sdr_limit: string;
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type DiagnosisFactor = {
@@ -443,6 +460,7 @@ export type DiagnosisPayload = {
   factors: DiagnosisFactor[];
   attribution_limit: string;
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type SynthesisCard = {
@@ -472,6 +490,7 @@ export type SynthesisPayload = {
   verdict: string;
   key_point: string;
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type QualityPayload = {
@@ -492,6 +511,7 @@ export type QualityPayload = {
   n_won_new: number;
   limits: string[];
   period?: ReviewPayloadPeriod;
+  analysis?: ReviewAnalysis;
 };
 
 export type DefinitionItem = {
@@ -504,4 +524,5 @@ export type DefinitionsPayload = {
   resource: 'definitions';
   conservation: Conservation;
   items: DefinitionItem[];
+  analysis?: ReviewAnalysis;
 };

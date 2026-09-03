@@ -85,8 +85,8 @@ export function WinReasonsSection({
   if (!data?.win_by_offer) {
     return (
       <EmptyState
-        title="Aucun motif"
-        description="Pas de motifs de gain ou perte sur cette fenêtre."
+        title="Aucun motif sur la période"
+        description="Aucun motif de gain ou de perte sur cette fenêtre."
       />
     );
   }

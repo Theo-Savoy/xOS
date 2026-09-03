@@ -21,7 +21,7 @@ export function DiagnosisSection({
   if (!data?.factors?.length) {
     return (
       <EmptyState
-        title="Aucun diagnostic"
+        title="Aucun diagnostic sur la période"
         description="La matrice de facteurs n'a pas encore de données."
       />
     );

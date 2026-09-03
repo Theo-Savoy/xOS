@@ -35,8 +35,8 @@ export function PortfolioSection({
   if (!data?.statuses || !data.cohort) {
     return (
       <EmptyState
-        title="Aucun portefeuille"
-        description="Pas de statuts ni de cohorte catalogue sur cette fenêtre."
+        title="Aucun portefeuille sur la période"
+        description="Aucun statut ni cohorte catalogue sur cette fenêtre."
       />
     );
   }

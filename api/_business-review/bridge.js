@@ -152,18 +152,18 @@ export function ownerBridge(prevRecords, currRecords) {
 }
 
 /**
- * Bridge catalogue total = delta RENEW + volume NEW + ticket NEW (R9).
+ * Bridge par produit total = delta RENEW + volume NEW + ticket NEW (R9).
  * Formule séquentielle du volume/ticket — P4.
  */
-export function catalogueBridge(prevRecords, currRecords) {
-  const prevCat = (prevRecords || []).filter(
-    (record) => productKey(record) === 'catalogue',
+export function productBridge(prevRecords, currRecords, key = 'catalogue') {
+  const prevProd = (prevRecords || []).filter(
+    (record) => productKey(record) === key,
   );
-  const currCat = (currRecords || []).filter(
-    (record) => productKey(record) === 'catalogue',
+  const currProd = (currRecords || []).filter(
+    (record) => productKey(record) === key,
   );
-  const prevSplit = splitNewRenew(prevCat);
-  const currSplit = splitNewRenew(currCat);
+  const prevSplit = splitNewRenew(prevProd);
+  const currSplit = splitNewRenew(currProd);
   const vt = volumeTicketBridge(prevSplit.new, currSplit.new);
   const renew = currSplit.renew.amount - prevSplit.renew.amount;
   const total = renew + vt.volume + vt.ticket;
@@ -200,5 +200,24 @@ export function catalogueBridge(prevRecords, currRecords) {
       ok: Math.abs(renew + vt.volume + vt.ticket - total) <= 100,
       delta_amount: renew + vt.volume + vt.ticket - total,
     },
+  };
+}
+
+/**
+ * Bridge catalogue total = delta RENEW + volume NEW + ticket NEW (R9).
+ * Rétrocompatibilité : délègue à productBridge('catalogue').
+ */
+export function catalogueBridge(prevRecords, currRecords) {
+  return productBridge(prevRecords, currRecords, 'catalogue');
+}
+
+/**
+ * Bridge pour l'ensemble des 3 familles de produits : catalogue, sur_mesure, conseil.
+ */
+export function bridgeByProduct(prevRecords, currRecords) {
+  return {
+    catalogue: productBridge(prevRecords, currRecords, 'catalogue'),
+    sur_mesure: productBridge(prevRecords, currRecords, 'sur_mesure'),
+    conseil: productBridge(prevRecords, currRecords, 'conseil'),
   };
 }

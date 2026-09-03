@@ -50,7 +50,7 @@ describe('Salesforce per-user credentials', () => {
       'user-refresh-token',
     );
     const parts = encrypted.split('.');
-    parts[2] = `${parts[2].slice(0, 3)}x${parts[2].slice(4)}`;
+    parts[2] = `A${parts[2]}`;
     await expect(decryptRefreshToken(parts.join('.'))).rejects.toThrow();
   });
 

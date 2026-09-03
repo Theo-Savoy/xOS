@@ -32,7 +32,6 @@ function mixRow(label: string, row: MarketMixRow | undefined) {
   };
 }
 
-
 export function MarketSignalSection({
   data,
   loading,
@@ -52,7 +51,7 @@ export function MarketSignalSection({
     return (
       <EmptyState
         title="Aucun signal marché"
-        description="Pas de motifs de perte NEW sur cette fenêtre."
+        description="Pas de motifs de perte sur cette fenêtre."
       />
     );
   }
@@ -86,13 +85,13 @@ export function MarketSignalSection({
           label={`Part marché / client ${seriesLabel(currentShare?.fy ?? '', data.period)}`}
           value={fmtPct1((currentShare?.pct ?? 0) / 100)}
           scope="new"
-          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes NEW`}
+          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes (nouv. aff.)`}
         />
       </div>
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Répartition des pertes NEW par offre
+          Répartition des pertes nouv. aff. par offre
         </h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stacked} layout="vertical" margin={{ left: 24 }}>
@@ -101,12 +100,14 @@ export function MarketSignalSection({
               type="number"
               domain={[0, 100]}
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+              stroke="var(--xos-border)"
               unit=" %"
             />
             <YAxis
               type="category"
               dataKey="offre"
               tick={{ fontSize: 12, fill: 'var(--xos-text-secondary)' }}
+              stroke="var(--xos-border)"
               width={90}
             />
             <ReviewChartTooltip
@@ -118,7 +119,7 @@ export function MarketSignalSection({
                 />
               }
             />
-            <Legend />
+            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar
               dataKey="Marché / client"
               stackId="mix"
@@ -133,8 +134,7 @@ export function MarketSignalSection({
           </BarChart>
         </ResponsiveContainer>
         <p className="review-section-note">
-          Les trois motifs somment à 100 % sur chaque ligne. Prix est déduit du
-          reliquat déclaré.
+          Chaque ligne totalise 100 % : marché, produit et prix couvrent toutes les pertes déclarées.
         </p>
       </GlassCard>
 
@@ -150,9 +150,11 @@ export function MarketSignalSection({
             <XAxis
               dataKey="fy"
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+              stroke="var(--xos-border)"
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+              stroke="var(--xos-border)"
               unit=" %"
             />
             <ReviewChartTooltip
@@ -174,13 +176,6 @@ export function MarketSignalSection({
             />
           </LineChart>
         </ResponsiveContainer>
-        {data.test.p !== null ? (
-          <p className="review-section-note">
-            Le test {seriesLabel(data.test.fy_from ?? 'N-1', data.period)}→
-            {seriesLabel(data.test.fy_to ?? 'N', data.period)} ne prouve pas
-            l'aggravation : le signal domine, p reste au-dessus de 0,05.
-          </p>
-        ) : null}
       </GlassCard>
     </div>
   );

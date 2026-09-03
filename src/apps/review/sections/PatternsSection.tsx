@@ -20,8 +20,8 @@ export function PatternsSection({
   if (!data?.patterns?.length) {
     return (
       <EmptyState
-        title="Aucun pattern"
-        description="La synthèse n'a pas encore de conclusion."
+        title="Pas encore de conclusion"
+        description="La synthèse de la période n'a pas encore de conclusions."
       />
     );
   }

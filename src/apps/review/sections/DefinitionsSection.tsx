@@ -19,8 +19,8 @@ export function DefinitionsSection({
   if (!data?.items?.length) {
     return (
       <EmptyState
-        title="Contrats de calcul indisponibles"
-        description="Les contrats de calcul n'ont pas été chargés."
+        title="Définitions indisponibles"
+        description="Les règles de calcul n'ont pas été chargées."
       />
     );
   }

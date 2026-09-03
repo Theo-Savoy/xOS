@@ -35,8 +35,7 @@ export function QualitySection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            Compteurs live · le snapshot du 21/07/2026 n&apos;est pas une cible
-            à figer
+            Fiabilité des données : écarts détectés sur la fenêtre
           </p>
         </div>
       </header>
@@ -50,7 +49,7 @@ export function QualitySection({
         <StatCard
           label="Cycles négatifs"
           value={String(data.negative_cycles)}
-          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures NEW`}
+          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures nouv. aff.`}
         />
         <StatCard
           label="Cycles > 365 j"

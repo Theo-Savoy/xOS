@@ -59,7 +59,7 @@ export function BridgeNewSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Écart NEW
+            Écart nouvelles affaires
           </h3>
           <ScopeTag scope="new" />
         </div>
@@ -67,7 +67,7 @@ export function BridgeNewSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA NEW ${seriesLabel(data.compare, data.period)}`}
+          label={`CA nouv. aff. ${seriesLabel(data.compare, data.period)}`}
           value={fmtEur(vt.prev.amount)}
           scope="new"
           hint={`${vt.prev.count} signatures`}
@@ -83,7 +83,7 @@ export function BridgeNewSection({
           hint={`Δ ticket × signatures ${data.fy}`}
         />
         <StatCard
-          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(vt.curr.amount)}
           scope="new"
           hint={`${vt.curr.count} signatures`}
@@ -92,16 +92,16 @@ export function BridgeNewSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Waterfall NEW {seriesLabel(data.compare, data.period)} →{' '}
+          Waterfall nouvelles affaires {seriesLabel(data.compare, data.period)} →{' '}
           {seriesLabel(data.fy, data.period)}
         </h3>
         <WaterfallChart
           steps={steps}
           scope="new"
-          source="Salesforce · CA NEW"
+          source="Salesforce · CA nouvelles affaires"
         />
         <p className="review-section-note">
-          Le bridge montre d'où vient l'écart, pas pourquoi il existe.
+          Le bridge décompose l'écart (volume, ticket) sans expliquer sa cause.
         </p>
       </GlassCard>
     </div>

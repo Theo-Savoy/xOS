@@ -154,5 +154,6 @@ describe('GET /api/review — resources business', () => {
       compare_label: 'FY25 S1',
     });
     expect(Array.isArray(body.cards)).toBe(true);
+    expect(body.analysis).toEqual({ status: 'none' });
   });
 });

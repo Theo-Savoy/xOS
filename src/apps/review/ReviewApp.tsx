@@ -1,5 +1,5 @@
 /**
- * Bilan — Business Review FY26 adaptée au web.
+ * Bilan — Business Review adaptée au web.
  * Six pages d’analyse, sans transposition slide par slide ni annexes séparées.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -15,7 +15,11 @@ import {
   SummaryPage,
   TrajectoryPage,
 } from './pages/ReviewPages';
-import type { PeriodSelection } from './review.period';
+import {
+  ANNUAL_ONLY_FY,
+  isAnnualOnlySelection,
+  type PeriodSelection,
+} from './review.period';
 import type {
   BridgePayload,
   ChannelsPayload,
@@ -64,7 +68,7 @@ export default function ReviewApp({
   const [nav, setNav] = useState<NavId>(params?.shared ? 'shared' : 'summary');
   const [period, setPeriod] = useState<PeriodSelection>({
     mode: 'fy',
-    fy: 'FY26',
+    fy: ANNUAL_ONLY_FY,
     semester: 'S1',
   });
   const [isManager, setIsManager] = useState(false);
@@ -94,8 +98,7 @@ export default function ReviewApp({
   }, [token]);
 
   const canFetch = roleKnown && isManager;
-  const semester = period.mode === 'semester';
-  const referenceFy = !semester && period.fy === 'FY26';
+  const referenceFy = isAnnualOnlySelection(period);
   const overview = useBusinessReview<OverviewPayload>(
     token,
     canFetch && nav === 'trajectory' ? 'overview' : null,

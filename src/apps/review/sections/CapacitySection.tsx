@@ -99,7 +99,7 @@ export function CapacitySection({
         <WaterfallChart
           steps={steps}
           scope="new"
-          source="Salesforce · CA NEW par Owner courant"
+          source="Salesforce · CA nouvelles affaires par Owner courant"
         />
         <p className="review-section-note">
           {fmtEur(bridge.total)} = actifs − PDG − partis.{' '}
@@ -113,8 +113,8 @@ export function CapacitySection({
           <thead>
             <tr>
               <th>Exercice</th>
-              <th>CA NEW</th>
-              <th>Signatures NEW</th>
+              <th>CA nouv. aff.</th>
+              <th>Signatures nouv. aff.</th>
               <th>Détections</th>
             </tr>
           </thead>
