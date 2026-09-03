@@ -327,48 +327,79 @@ describe('RunnerView — encart power', () => {
     expect(container.querySelector('.calls-power-kpis-condensed')).toBeTruthy();
   });
 
-  it('replie la queue par défaut en Power et masque les contrôles de sélection/colonnes superflues', () => {
+  it('affiche le tableau Power directement sans état replié avec les 4 colonnes dont l’email', () => {
+    const alice = {
+      id: 3,
+      position: 2,
+      sf_contact_id: '003000000000003',
+      sf_account_id: null,
+      contact_name: 'Alice Martin',
+      account_name: 'Beta Corp',
+      phone: '+33102030406',
+      email: 'alice@beta.corp',
+      title: 'Directrice',
+      linkedin_url: null,
+      status: 'pending',
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    } as SessionContact;
+
+    const onFocusContact = vi.fn();
     const { container } = render(
-      <RunnerView {...baseProps} token="tok" canPowerDialer />,
+      <RunnerView
+        {...baseProps}
+        contacts={[bob, alice]}
+        onFocusContact={onFocusContact}
+        token="tok"
+        canPowerDialer
+      />,
     );
     fireEvent.click(screen.getByRole('button', { name: /Liste/ }));
     fireEvent.click(powerSwitch()!);
 
-    // Queue repliée par défaut
+    // Tableau visible directement sans bouton Voir/Masquer
+    expect(screen.queryByRole('button', { name: 'Voir' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Masquer' })).toBeNull();
+
+    // Résumé et filtre immédiatement accessibles
     const summaryText = container.querySelector(
       '.calls-power-queue-summary__text',
     )!;
-    expect(summaryText.textContent).toContain("File d'appel · 1 prêt");
-    const voirBtn = screen.getByRole('button', { name: 'Voir' });
-    expect(voirBtn).toBeTruthy();
-    expect(
-      screen.queryByRole('searchbox', { name: 'Filtrer la liste' }),
-    ).toBeNull();
-
-    // Pas de contrôles de sélection de masse
-    expect(screen.queryByRole('button', { name: /Sélectionner/ })).toBeNull();
-
-    // Déplier la queue
-    fireEvent.click(voirBtn);
-    expect(screen.getByRole('button', { name: 'Masquer' })).toBeTruthy();
+    expect(summaryText.textContent).toContain("File d'appel · 2 prêts");
     expect(
       screen.getByRole('searchbox', { name: 'Filtrer la liste' }),
     ).toBeTruthy();
 
-    // Vue restreinte : Contact, Entreprise, Tentative / état
-    expect(
-      container.querySelector('.calls-cockpit-list__header--power'),
-    ).toBeTruthy();
+    // En-têtes du tableau Power : Contact, Entreprise, Email, Tentative / état
+    const header = container.querySelector('.calls-cockpit-list__header--power')!;
+    expect(header).toBeTruthy();
+    expect(header.textContent).toContain('Contact');
+    expect(header.textContent).toContain('Entreprise');
+    expect(header.textContent).toContain('Email');
+    expect(header.textContent).toContain('Tentative / état');
+
+    // Affichage des emails avec mailto ou fallback "Aucun email"
+    const aliceMail = screen.getByRole('link', { name: 'alice@beta.corp' });
+    expect(aliceMail).toBeTruthy();
+    expect(aliceMail.getAttribute('href')).toBe('mailto:alice@beta.corp');
+
+    expect(screen.getByText('Aucun email')).toBeTruthy();
+
+    // Interaction clic ligne/contact vers la fiche
+    fireEvent.click(screen.getByRole('button', { name: /Alice Martin/ }));
+    expect(onFocusContact).toHaveBeenCalledWith(alice.id);
+
+    // Pas de contrôles de sélection de masse ni de suppression
+    expect(screen.queryByRole('button', { name: /Sélectionner/ })).toBeNull();
     expect(
       screen.queryByRole('checkbox', { name: /Sélectionner Bob Durand/ }),
     ).toBeNull();
     expect(
       screen.queryByRole('button', { name: /Retirer Bob Durand de la séance/ }),
     ).toBeNull();
-
-    // Re-masquer
-    fireEvent.click(screen.getByRole('button', { name: 'Masquer' }));
-    expect(screen.getByRole('button', { name: 'Voir' })).toBeTruthy();
   });
 
   it('bascule la fiche et la consignation au décrochage, la file disparaît', () => {

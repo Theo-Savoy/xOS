@@ -224,7 +224,6 @@ export function RunnerView({
   const [powerConversation, setPowerConversation] = useState(false);
   const [powerRunning, setPowerRunning] = useState(false);
   const [powerHangupRetryable, setPowerHangupRetryable] = useState(false);
-  const [powerQueueExpanded, setPowerQueueExpanded] = useState(false);
   const powerHangupRef = useRef<(() => void) | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -1834,8 +1833,8 @@ export function RunnerView({
       ) : mode === 'list' ? (
         isPowerConversationActive ? null : isPowerActive ? (
           <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
-            {!powerQueueExpanded ? (
-              <GlassCard className="calls-power-queue-summary">
+            <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
+              <div className="calls-cockpit-list__toolbar calls-cockpit-list__toolbar--power">
                 <span className="calls-power-queue-summary__text">
                   File d&apos;appel ·{' '}
                   <strong className="xos-numeric">{powerReadyCount}</strong>{' '}
@@ -1851,118 +1850,112 @@ export function RunnerView({
                     </>
                   )}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  className="calls-power-queue-summary__toggle"
-                  onClick={() => setPowerQueueExpanded(true)}
-                  aria-expanded={false}
-                >
-                  Voir
-                </Button>
-              </GlassCard>
-            ) : (
-              <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
-                <div className="calls-power-queue-summary calls-power-queue-summary--expanded">
-                  <span className="calls-power-queue-summary__text">
-                    File d&apos;appel ·{' '}
-                    <strong className="xos-numeric">{powerReadyCount}</strong>{' '}
-                    prêt{powerReadyCount > 1 ? 's' : ''}
-                    {powerUnreachableCount > 0 && (
-                      <>
-                        {' '}
-                        ·{' '}
-                        <span className="xos-numeric">
-                          {powerUnreachableCount}
-                        </span>{' '}
-                        sans numéro valide
-                      </>
-                    )}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    className="calls-power-queue-summary__toggle"
-                    onClick={() => setPowerQueueExpanded(false)}
-                    aria-expanded={true}
-                  >
-                    Masquer
-                  </Button>
-                </div>
                 <div className="calls-cockpit-list__filters calls-cockpit-list__filters--power">
                   <input
                     type="search"
                     className="calls-input calls-cockpit-list__search"
-                    placeholder="Filtrer nom, entreprise…"
+                    placeholder="Filtrer nom, entreprise, email…"
                     value={listQuery}
                     onChange={(e) => setListQuery(e.target.value)}
                     aria-label="Filtrer la liste"
                   />
                 </div>
-                <div className="calls-cockpit-list__scroll">
-                  <ul className="calls-cockpit-list__rows calls-cockpit-list__rows--power">
-                    <li
-                      className="calls-cockpit-list__header calls-cockpit-list__header--power"
-                      aria-hidden="true"
-                    >
-                      <span>Contact</span>
-                      <span>Entreprise</span>
-                      <span>Tentative / état</span>
-                    </li>
-                    {filteredContacts.map((contact) => {
-                      const status = listStatusDisplay(contact);
-                      return (
-                        <li
-                          key={contact.id}
-                          className={`calls-cockpit-list__row--power${contact.status !== 'pending' ? ' calls-cockpit-list__row--done' : ''}`}
+              </div>
+              <div className="calls-cockpit-list__scroll">
+                <ul className="calls-cockpit-list__rows calls-cockpit-list__rows--power">
+                  <li
+                    className="calls-cockpit-list__header calls-cockpit-list__header--power"
+                    aria-hidden="true"
+                  >
+                    <span>Contact</span>
+                    <span>Entreprise</span>
+                    <span>Email</span>
+                    <span>Tentative / état</span>
+                  </li>
+                  {filteredContacts.map((contact) => {
+                    const status = listStatusDisplay(contact);
+                    const isSelected =
+                      contact.id === focusedContactId ||
+                      contact.id === focusedId ||
+                      contact.id === currentContact?.id;
+                    return (
+                      <li
+                        key={contact.id}
+                        className={[
+                          'calls-cockpit-list__row',
+                          'calls-cockpit-list__row--power',
+                          contact.status !== 'pending'
+                            ? 'calls-cockpit-list__row--done'
+                            : '',
+                          isSelected
+                            ? 'calls-cockpit-list__row--selected'
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          className="calls-cockpit-list__name"
+                          onClick={() => openDetail(contact.id)}
                         >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            type="button"
-                            className="calls-cockpit-list__name"
-                            onClick={() => openDetail(contact.id)}
-                          >
-                            <strong title={contact.contact_name}>
-                              {contact.contact_name}
-                            </strong>
-                            {contact.title && (
-                              <small className="calls-muted calls-cockpit-list__subtitle">
-                                {contact.title}
-                              </small>
-                            )}
-                          </Button>
-                          <span
-                            className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
-                            title={contact.account_name ?? undefined}
-                          >
-                            {contact.account_name ?? '—'}
-                          </span>
-                          <span
-                            className="calls-cockpit-list__status"
-                            title={status.label}
-                          >
-                            <Tag variant={status.variant}>{status.label}</Tag>
-                            {(contact.attempt_count ?? 0) > 0 && (
-                              <small className="calls-cockpit-list__attempt">
-                                {formatAttemptLabel(contact.attempt_count ?? 0)}
-                              </small>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                    {filteredContacts.length === 0 && (
-                      <li className="calls-cockpit-list__empty">
-                        Aucun contact pour ce filtre.
+                          <strong title={contact.contact_name}>
+                            {contact.contact_name}
+                          </strong>
+                          {contact.title && (
+                            <small className="calls-muted calls-cockpit-list__subtitle">
+                              {contact.title}
+                            </small>
+                          )}
+                        </Button>
+                        <span
+                          className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
+                          title={contact.account_name ?? undefined}
+                        >
+                          {contact.account_name ?? '—'}
+                        </span>
+                        <span
+                          className="calls-cockpit-list__cell calls-cockpit-list__cell--email"
+                          title={contact.email ?? 'Aucun email'}
+                        >
+                          {contact.email ? (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="calls-cockpit-list__email"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.email}
+                            </a>
+                          ) : (
+                            <span className="calls-cockpit-list__empty-field calls-muted">
+                              Aucun email
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className="calls-cockpit-list__status"
+                          title={status.label}
+                        >
+                          <Tag variant={status.variant}>{status.label}</Tag>
+                          {(contact.attempt_count ?? 0) > 0 && (
+                            <small className="calls-cockpit-list__attempt">
+                              {formatAttemptLabel(contact.attempt_count ?? 0)}
+                            </small>
+                          )}
+                        </span>
                       </li>
-                    )}
-                  </ul>
-                </div>
-              </GlassCard>
-            )}
+                    );
+                  })}
+                  {filteredContacts.length === 0 && (
+                    <li className="calls-cockpit-list__empty">
+                      Aucun contact pour ce filtre.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </GlassCard>
           </div>
         ) : (
           <div className="calls-cockpit-list-wrap">
