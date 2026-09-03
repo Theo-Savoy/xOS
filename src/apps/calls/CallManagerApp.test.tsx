@@ -1119,6 +1119,31 @@ describe('CallManagerApp component', () => {
     expect(screen.queryByText('Définissez votre cible')).toBeNull();
   });
 
+  it('returns to session-type-select when clicking Quitter from classic new session view', async () => {
+    const onParamsChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CallManagerApp
+        params={{ view: 'new' }}
+        onParamsChange={onParamsChange}
+      />,
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+
+    onParamsChange.mockClear();
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+    expect(screen.getByText('Liste classique')).toBeTruthy();
+    expect(screen.queryByText('Définissez votre cible')).toBeNull();
+  });
+
   it('recalculates the detailed preview automatically after a filter change, ignoring stale responses', async () => {
     const user = userEvent.setup();
     let resolveFirst!: (response: Response) => void;
