@@ -451,8 +451,9 @@ export function NewSessionView({
             variant="secondary"
             className="calls-view__back"
             onClick={onBack}
+            aria-label="Quitter la création de séance"
           >
-            Retour
+            Quitter
           </Button>
           <div className="calls-view__titleblock">
             <Tag variant="accent">Nouvelle séance</Tag>

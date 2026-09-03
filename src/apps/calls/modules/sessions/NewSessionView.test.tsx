@@ -41,6 +41,14 @@ function baseProps(preview: ContactPreview[] = [], previewLoading = false) {
 }
 
 describe('NewSessionView — UX writing & wizard (spec §4.3 & plan)', () => {
+  it('labels the header exit action as leaving session creation', () => {
+    render(<NewSessionView {...baseProps()} />);
+    expect(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retour' })).toBeNull();
+  });
+
   it("never renders the residual 'Comptes précis (ABM)' button (criterion 1)", () => {
     render(
       <NewSessionView
