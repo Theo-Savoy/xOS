@@ -4,7 +4,6 @@ import {
   WaterfallChart,
   type WaterfallStep,
 } from '../components/WaterfallChart';
-import { fmtEur } from '../review.helpers';
 import { seriesLabel } from '../review.period';
 import type { BridgePayload, CatalogueBridge } from '../review.types';
 
@@ -56,17 +55,17 @@ export function TotalBridgeSection({
       kind: 'total',
     },
     {
-      name: 'Delta renouvellements',
+      name: 'Delta renew',
       amount: renew,
       kind: renew >= 0 ? 'up' : 'down',
     },
     {
-      name: 'Volume nouvelles affaires',
+      name: 'Volume new',
       amount: vt.volume,
       kind: vt.volume >= 0 ? 'up' : 'down',
     },
     {
-      name: 'Ticket nouvelles affaires',
+      name: 'Ticket new',
       amount: vt.ticket,
       kind: vt.ticket >= 0 ? 'up' : 'down',
     },
@@ -96,12 +95,8 @@ export function TotalBridgeSection({
           source="Salesforce · CA total"
         />
         <p className="review-section-note">
-          Lecture : le CA total de {compareLabel} devient celui de {fyLabel} par
-          trois marches. Les renouvellements ({fmtEur(renew)}) sont le CA
-          resigné sur les clients existants. Le volume ({fmtEur(vt.volume)}) est
-          l'effet du nombre de signatures nouvelles affaires, le ticket (
-          {fmtEur(vt.ticket)}) celui du montant moyen par signature. Les
-          renouvellements couvrent catalogue, sur-mesure et conseil.
+          Trois marches entre {compareLabel} et {fyLabel} : renouvellements,
+          volume et ticket nouvelles affaires.
         </p>
       </GlassCard>
     </div>

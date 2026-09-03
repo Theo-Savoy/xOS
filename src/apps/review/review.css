@@ -292,21 +292,23 @@
   text-transform: uppercase;
 }
 
-.review-chart-card .recharts-legend-item-text,
-.review-section .recharts-legend-item-text {
-  color: var(--xos-text) !important;
-  fill: var(--xos-text) !important;
-  font-size: 11px;
-}
-
-.review-chart-card .recharts-cartesian-axis-tick text,
-.review-section .recharts-cartesian-axis-tick text,
+/* Textes des graphiques : `fill` est hérité en SVG, donc un token manquant
+   retombe en noir sur fond sombre. Une seule règle couvre tous les `<text>`
+   Recharts (ticks, labels, étiquettes de barres), avec repli explicite. */
+.review-chart-card .recharts-wrapper text,
+.review-section .recharts-wrapper text,
 .review-chart-card .recharts-text,
 .review-section .recharts-text {
-  fill: var(--xos-text-secondary) !important;
-  color: var(--xos-text-secondary) !important;
-  /* Recharts pose un `stroke` hérité sur les textes : contour noir sur fond sombre. */
+  fill: var(--xos-text-secondary, rgba(244, 245, 251, 0.82)) !important;
   stroke: none !important;
+}
+
+/* La légende Recharts est du HTML : `color`, pas `fill`. */
+.review-chart-card .recharts-legend-item-text,
+.review-section .recharts-legend-item-text {
+  color: var(--xos-text, #f4f5fb) !important;
+  fill: var(--xos-text, #f4f5fb) !important;
+  font-size: 11px;
 }
 
 .review-chart-card .recharts-cartesian-axis-line,
@@ -403,17 +405,19 @@ button.review-hint:focus-visible .review-hint__bubble {
   gap: var(--xos-space-3);
 }
 
-/* Cadrage : 4 tuiles carrées pleine largeur, hauteurs alignées. */
+/* Cadrage : 4 tuiles compactes pleine largeur, hauteur dictée par le contenu. */
 .review-kpi-grid--quad {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--xos-space-4);
+  gap: var(--xos-space-3);
 }
 
 .review-kpi-grid--quad > .review-kpi-card {
-  aspect-ratio: 1 / 1;
-  max-height: 260px;
-  justify-content: center;
-  padding: var(--xos-space-5);
+  gap: var(--xos-space-1);
+  padding: var(--xos-space-4);
+}
+
+.review-kpi-grid--quad .review-kpi-value {
+  font-size: clamp(19px, 1.6vw, 23px);
 }
 
 .review-kpi-card {

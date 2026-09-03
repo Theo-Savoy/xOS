@@ -73,6 +73,7 @@
   --xos-surface-plain: #fff;
 
   --xos-text: #f4f5fb;
+  --xos-text-secondary: rgba(244, 245, 251, 0.82);
   --xos-text-muted: rgba(244, 245, 251, 0.64);
 
   /* Fenêtres : coque translucide + contenu opaque */

@@ -196,7 +196,7 @@ describe('ProductCompareSection', () => {
     );
     expect(screen.getByText('Indicateur')).toBeTruthy();
     expect(screen.getByText('Écart')).toBeTruthy();
-    expect(screen.getByText('Opportunités fermées (nouv. aff.)')).toBeTruthy();
+    expect(screen.getByText('Opportunités fermées (new)')).toBeTruthy();
     expect(screen.getByText('CA nouvelles affaires')).toBeTruthy();
   });
 

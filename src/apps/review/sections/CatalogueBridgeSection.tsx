@@ -66,17 +66,17 @@ export function CatalogueBridgeSection({
       kind: 'total',
     },
     {
-      name: 'Renouvellements',
+      name: 'Delta renew',
       amount: cat.renew,
       kind: cat.renew >= 0 ? 'up' : 'down',
     },
     {
-      name: 'Volume nouv. aff.',
+      name: 'Volume new',
       amount: cat.volume,
       kind: cat.volume >= 0 ? 'up' : 'down',
     },
     {
-      name: 'Ticket nouv. aff.',
+      name: 'Ticket new',
       amount: cat.ticket,
       kind: cat.ticket >= 0 ? 'up' : 'down',
     },

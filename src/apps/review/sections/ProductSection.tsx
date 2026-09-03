@@ -105,17 +105,17 @@ export function ProductSection({
           kind: 'total',
         },
         {
-          name: 'Renouvellements',
+          name: 'Delta renew',
           amount: gap.renew,
           kind: gap.renew >= 0 ? 'up' : 'down',
         },
         {
-          name: 'Volume nouvelles affaires',
+          name: 'Volume new',
           amount: gap.volume,
           kind: gap.volume >= 0 ? 'up' : 'down',
         },
         {
-          name: 'Ticket nouvelles affaires',
+          name: 'Ticket new',
           amount: gap.ticket,
           kind: gap.ticket >= 0 ? 'up' : 'down',
         },
