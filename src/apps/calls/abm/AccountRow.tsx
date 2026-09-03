@@ -77,7 +77,7 @@ export function AccountRow({
               aria-label={`Retirer ${account.name} de la cible`}
             >
               <CheckIcon />
-              <span>Dans la cible</span>
+              <span>Ajouté</span>
             </Button>
           ) : (
             <Button
