@@ -53,7 +53,7 @@
   list-style: none;
   padding: 0;
   margin: 1rem 0 0 0;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--xos-border);
   padding-top: 0.5rem;
 }
 
@@ -77,7 +77,7 @@
   cursor: pointer;
   padding: 0.25rem;
   margin-left: 0.5rem;
-  color: var(--color-fg-muted);
+  color: var(--xos-text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -111,7 +111,7 @@
   margin: 0;
   font-size: 0.85rem;
 }
-\n/* ABM Layout */
+/* ABM Layout */
 .calls-abm-layout {
   display: flex;
   flex-direction: column;
