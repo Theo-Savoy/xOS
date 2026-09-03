@@ -114,7 +114,7 @@ describe('pages du bilan', () => {
     expect(screen.getByText('Contrats de calcul indisponibles')).toBeTruthy();
   });
 
-  it('compose la Synthèse en grille hero puis patterns 2 colonnes', () => {
+  it('empile la Synthèse en pleine largeur puis patterns 2 colonnes', () => {
     const conservation = { ok: true, delta_count: 0, delta_amount: 0 };
     const synthesis: SynthesisPayload = {
       resource: 'synthesis',
@@ -181,16 +181,87 @@ describe('pages du bilan', () => {
       />,
     );
 
-    const hero = container.querySelector('.review-page-grid--hero');
-    expect(hero).toBeTruthy();
-    expect(hero?.querySelectorAll(':scope > .review-section')).toHaveLength(2);
-    expect(hero?.textContent).toMatch(/Quatre chiffres/);
-    expect(hero?.textContent).toMatch(/Waterfall NEW/);
+    expect(container.querySelector('.review-page-grid--hero')).toBeNull();
+    const sections = container.querySelectorAll(
+      ':scope > .review-page > .review-section',
+    );
+    expect(sections.length).toBeGreaterThanOrEqual(3);
+    expect(container.textContent).toMatch(
+      /Cadrage de l’exercice|Cadrage de l'exercice/,
+    );
+    expect(container.textContent).toMatch(/Waterfall NEW/);
+    expect(container.querySelector('.review-kpi-grid--quad')).toBeTruthy();
 
     const patterns = container.querySelector('.review-patterns-grid');
     expect(patterns).toBeTruthy();
     expect(patterns?.querySelectorAll('.review-pattern-card')).toHaveLength(4);
     expect(container.querySelector('.review-studies-grid')).toBeNull();
     expect(screen.getByText('Verdict de test')).toBeTruthy();
+  });
+
+  it('épure l’UI : pas de badge conservation, titres descriptifs, hints accessibles', () => {
+    const conservation = { ok: true, delta_count: 0, delta_amount: 0 };
+    const synthesis: SynthesisPayload = {
+      resource: 'synthesis',
+      fy: 'FY26',
+      compare: 'FY25',
+      truncated: false,
+      truncated_fys: [],
+      conservation,
+      cards: [
+        {
+          key: 'ca',
+          label: 'CA total',
+          display: '1 M€',
+          value: 1,
+          scope: 'total',
+        },
+      ],
+      patterns: [{ id: 'p1', title: 'Pattern 1', body: 'Corps 1' }],
+      verdict: 'Verdict de test',
+      key_point: 'Point clé de synthèse',
+    };
+
+    const { container } = render(
+      <SummaryPage
+        period={period}
+        synthesis={{ data: synthesis, loading: false }}
+        overview={idle}
+        bridge={idle}
+      />,
+    );
+
+    // (a) la conservation reste dans la payload mais ne s'affiche plus.
+    expect(synthesis.conservation.ok).toBe(true);
+    expect(container.querySelector('.review-conservation')).toBeNull();
+    expect(container.textContent).not.toMatch(/Conservation OK/);
+    expect(container.textContent).not.toMatch(/Écart conservation/);
+
+    // (b) les titres décrivent la fonction, jamais le constat de l'année.
+    for (const banned of [
+      'Le recul NEW combine',
+      'Quatre chiffres pour cadrer',
+      'Quatre lectures stables',
+      'NEW et RENEW reculent ensemble',
+    ]) {
+      expect(container.textContent).not.toMatch(banned);
+    }
+    const titles = [...container.querySelectorAll('.review-card-title')].map(
+      (node) => node.textContent?.trim() ?? '',
+    );
+    expect(titles.some((title) => title.startsWith('Cadrage de l'))).toBe(true);
+
+    // (c) le contexte éditorial passe par une icône « i » focusable.
+    const hints = container.querySelectorAll('button.review-hint');
+    expect(hints.length).toBeGreaterThan(0);
+    for (const hint of hints) {
+      expect(hint.getAttribute('aria-label')).toBeTruthy();
+      expect(hint.querySelector('[role="tooltip"]')?.textContent).toBeTruthy();
+    }
+    expect(
+      [...hints].some((hint) =>
+        hint.textContent?.includes('Point clé de synthèse'),
+      ),
+    ).toBe(true);
   });
 });

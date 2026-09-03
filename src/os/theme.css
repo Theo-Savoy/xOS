@@ -92,6 +92,16 @@
   --xos-success: #6effbb;
   --xos-warn: #f5c542;
   --xos-danger: #ff7e8a;
+
+  /* Échelle d'espacement — grille 4 px, à utiliser pour gap/padding/margin */
+  --xos-space-1: 4px;
+  --xos-space-2: 8px;
+  --xos-space-3: 12px;
+  --xos-space-4: 16px;
+  --xos-space-5: 24px;
+  --xos-space-6: 32px;
+  --xos-space-7: 48px;
+  --xos-space-8: 64px;
 }
 
 .xos-numeric {

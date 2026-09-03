@@ -8,7 +8,6 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -71,14 +70,13 @@ export function CycleSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Le cycle NEW se polarise : médiane courte, moyenne tirée par des
-            dossiers longs <ScopeTag scope="signatures-new" />
+            Cycles de vente NEW : médiane, moyenne et exclusions{' '}
+            <ScopeTag scope="signatures-new" />
           </h3>
           <p className="review-section-kicker">
-            Signatures NEW · médiane, moyenne, n valide et exclusions ensemble
+            Signatures NEW · n valide affiché avec chaque agrégat
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -101,9 +99,7 @@ export function CycleSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">
-          Médiane et moyenne FY22→{data.fy}
-        </h3>
+        <h3 className="review-card-title">Médiane et moyenne FY22→{data.fy}</h3>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
@@ -149,9 +145,7 @@ export function CycleSection({
       </GlassCard>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">
-          Cycles par produit {current?.fy}
-        </h3>
+        <h3 className="review-card-title">Cycles par produit {current?.fy}</h3>
         <table className="review-data-table">
           <thead>
             <tr>

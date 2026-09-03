@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtPct1 } from '../review.helpers';
 import type { MarketPayload, ReasonTable } from '../review.types';
@@ -71,14 +70,13 @@ export function WinReasonsSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Catalogue gagne sur le prix, sur-mesure sur le clés en main{' '}
+            Motifs de gain déclarés par offre{' '}
             <ScopeTag scope="signatures-new" />
           </h3>
           <p className="review-section-kicker">
             Signatures NEW · motifs déclarés, pas de causalité · {data.fy}
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-compare-grid">

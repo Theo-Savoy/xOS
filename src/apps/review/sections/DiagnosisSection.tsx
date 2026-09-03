@@ -1,6 +1,6 @@
 import { EmptyState, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { FactorMatrix } from '../components/FactorMatrix';
+import { InfoHint } from '../components/InfoHint';
 import { ScopeTag } from '../components/ScopeTag';
 import type { DiagnosisPayload } from '../review.types';
 
@@ -32,12 +32,18 @@ export function DiagnosisSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Ce qu&apos;on sait mesurer, et ce qu&apos;on ne peut pas attribuer{' '}
-            <ScopeTag scope="total" />
+            Matrice de diagnostic : mesure et attribution{' '}
+            <ScopeTag scope="total" />{' '}
+            <InfoHint
+              label="Limite d’attribution"
+              text={data.attribution_limit}
+            />
           </h3>
-          <p className="review-section-kicker">{data.attribution_limit}</p>
+          <p className="review-section-kicker">
+            Impact, fiabilité de mesure, fiabilité d&apos;attribution, données
+            manquantes
+          </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
       <FactorMatrix factors={data.factors} />
     </div>

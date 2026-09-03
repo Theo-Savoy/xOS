@@ -1,4 +1,10 @@
-import { Button, EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import {
+  Button,
+  EmptyState,
+  GlassCard,
+  Skeleton,
+} from '../../../components/ui';
+import { InfoHint } from '../components/InfoHint';
 
 export type SharedAnalysis = {
   id: string;
@@ -42,8 +48,13 @@ export function SharedSection({
     <div className="review-page">
       <header className="review-page-heading">
         <div>
-          <h1>Partages</h1>
-          <p>Conserver un instant de lecture sans dupliquer les données métier.</p>
+          <h1>
+            Partages{' '}
+            <InfoHint
+              label="Comment lire la page Partages"
+              text="Conserver un instant de lecture sans dupliquer les données métier."
+            />
+          </h1>
         </div>
         {isManager ? (
           <Button size="sm" onClick={onShare}>

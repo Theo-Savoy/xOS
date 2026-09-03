@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtNum, fmtPct1 } from '../review.helpers';
 import type { CommercialPayload, CommercialPerson } from '../review.types';
@@ -50,7 +49,6 @@ export function ActivitySection({
             les lignes
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <GlassCard className="review-chart-card">

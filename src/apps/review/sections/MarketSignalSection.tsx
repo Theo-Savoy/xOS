@@ -10,7 +10,6 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -74,8 +73,7 @@ export function MarketSignalSection({
   const series = data.share.map((row, index) => ({
     fy: row.fy,
     pct: row.pct,
-    pctDelta:
-      index > 0 ? row.pct - data.share[index - 1].pct : null,
+    pctDelta: index > 0 ? row.pct - data.share[index - 1].pct : null,
   }));
 
   return (
@@ -83,14 +81,13 @@ export function MarketSignalSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            {data.conclusion} <ScopeTag scope="new" />
+            Signal marché : part des pertes « marché / client »{' '}
+            <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Pertes NEW · part « marché / client » · motifs déclarés, pas de
-            causalité
+            {data.conclusion} · motifs déclarés, pas de causalité
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -112,7 +109,9 @@ export function MarketSignalSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Répartition des pertes NEW par offre</h3>
+        <h3 className="review-card-title">
+          Répartition des pertes NEW par offre
+        </h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stacked} layout="vertical" margin={{ left: 24 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />

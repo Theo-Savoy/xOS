@@ -8,7 +8,6 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -57,13 +56,12 @@ export function PerformanceSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            NEW et RENEW reculent ensemble <ScopeTag scope="total" />
+            Trajectoire NEW / RENEW <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             CA total · FY22→{data.fy} · le stock ARR catalogue n'est pas un flux
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -93,9 +91,7 @@ export function PerformanceSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">
-          Série empilée FY22→{data.fy}
-        </h3>
+        <h3 className="review-card-title">Série empilée FY22→{data.fy}</h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />

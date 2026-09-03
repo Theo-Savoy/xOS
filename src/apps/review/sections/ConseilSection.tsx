@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
@@ -38,13 +37,12 @@ export function ConseilSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Conseil : 8 signatures, pas 3 <ScopeTag scope="total" />
+            Conseil : volumes et CA par exercice <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             CA total Conseil · NEW + RENEW · {data.fy}
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -92,7 +90,9 @@ export function ConseilSection({
               return (
                 <tr
                   key={row.fy}
-                  className={row.fy === data.fy ? 'review-data-table__current' : ''}
+                  className={
+                    row.fy === data.fy ? 'review-data-table__current' : ''
+                  }
                 >
                   <td>{row.fy}</td>
                   <td>{fmtEur(c.amount_total)}</td>
@@ -107,9 +107,9 @@ export function ConseilSection({
           </tbody>
         </table>
         <p className="review-section-note">
-          {data.fy} = {conseil?.total_signatures ?? 0} ventes · {conseil?.new ?? 0}{' '}
-          NEW · {conseil?.renew ?? 0} RENEW. Ne jamais lire «{' '}
-          {conseil?.new ?? 0} signatures » sans qualifier NEW.
+          {data.fy} = {conseil?.total_signatures ?? 0} ventes ·{' '}
+          {conseil?.new ?? 0} NEW · {conseil?.renew ?? 0} RENEW. Ne jamais lire
+          « {conseil?.new ?? 0} signatures » sans qualifier NEW.
         </p>
       </GlassCard>
     </div>

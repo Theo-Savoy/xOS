@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import {
@@ -61,7 +60,7 @@ export function CapacitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            La baisse de capacité se lit après le bridge Owner{' '}
+            Capacité commerciale : bridge Owner puis équipe active{' '}
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
@@ -69,12 +68,11 @@ export function CapacitySection({
             l'équipe active
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Bridge Owner NEW — cadrage avant tout diagnostic d'équipe
+          Bridge Owner NEW — cadrage de l'écart
         </h3>
         <div className="review-kpi-grid">
           <StatCard
@@ -99,15 +97,13 @@ export function CapacitySection({
           source="Salesforce · CA NEW par Owner courant"
         />
         <p className="review-section-note">
-          {fmtEur(bridge.total)} = actifs − PDG − partis. Le bridge montre
-          d'où vient l'écart, pas pourquoi il existe. {data.attribution_limit}
+          {fmtEur(bridge.total)} = actifs − PDG − partis. Le bridge montre d'où
+          vient l'écart, pas pourquoi il existe. {data.attribution_limit}
         </p>
       </GlassCard>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">
-          Équipe active — Paul / Christophe
-        </h3>
+        <h3 className="review-card-title">Équipe active — Paul / Christophe</h3>
         <table className="review-data-table">
           <thead>
             <tr>
@@ -135,9 +131,7 @@ export function CapacitySection({
         </table>
         <p className="review-section-note">
           Jérôme (PDG) et le SDR sont hors de cette série.{' '}
-          {/S[12]$/.test(data.fy)
-            ? 'ETP annuels : '
-            : 'ETP sales : '}
+          {/S[12]$/.test(data.fy) ? 'ETP annuels : ' : 'ETP sales : '}
           {fmtNum(productivityOf(data, data.compare)?.fte ?? null, 2)} →{' '}
           {fmtNum(productivityOf(data, data.fy)?.fte ?? null, 2)}.
         </p>

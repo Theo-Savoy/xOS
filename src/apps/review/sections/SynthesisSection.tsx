@@ -1,5 +1,5 @@
 import { EmptyState, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
+import { InfoHint } from '../components/InfoHint';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import type { SynthesisPayload } from '../review.types';
@@ -32,14 +32,15 @@ export function SynthesisSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Quatre chiffres pour cadrer l&apos;exercice{' '}
-            <ScopeTag scope="total" />
+            Cadrage de l&apos;exercice <ScopeTag scope="total" />{' '}
+            <InfoHint label="Point clé du cadrage" text={data.key_point} />
           </h3>
-          <p className="review-section-kicker">{data.key_point}</p>
+          <p className="review-section-kicker">
+            Quatre indicateurs : performance, offres, capacité, marché
+          </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
-      <div className="review-kpi-grid">
+      <div className="review-kpi-grid review-kpi-grid--quad">
         {data.cards.map((card) => (
           <StatCard
             key={card.key}
