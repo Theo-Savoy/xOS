@@ -190,6 +190,10 @@ export function AccountSearchView({
   const [targetSize, setTargetSize] = useState(initialPrefs.targetSize ?? 50);
   const [maxSessions, setMaxSessions] = useState(initialPrefs.maxSessions ?? 5);
 
+  useEffect(() => {
+    if (initialStep !== undefined) setStep(initialStep);
+  }, [initialStep]);
+
   const setFilter = (patch: Partial<AbmFilters>) =>
     setFilters((c) => ({ ...c, ...patch }));
 
@@ -447,6 +451,26 @@ export function AccountSearchView({
     });
   };
 
+  const handleStepChange = (next: WizardStep) => {
+    if (next === 0) {
+      setStep(0);
+      return;
+    }
+    if (next === 1 && canProceedToStep2) {
+      setStep(1);
+      return;
+    }
+    if (next === 2 && canProceedToStep2 && canProceedToStep3) {
+      setStep(2);
+    }
+  };
+
+  const handleNext = () => {
+    if (step === 0 && canProceedToStep2) setStep(1);
+    else if (step === 1 && canProceedToStep3) setStep(2);
+    else if (step === 2 && canLaunchSession) handleCreateClick();
+  };
+
   return (
     <div className="calls-view">
       <header className="calls-view__header calls-view__header--runner">
@@ -455,9 +479,8 @@ export function AccountSearchView({
             variant="secondary"
             className="calls-view__back"
             onClick={onBack}
-            aria-label="Retour"
           >
-            ← Lister les séances
+            Retour
           </Button>
           <div className="calls-view__titleblock">
             <h2>{STEP_TITLES[step]}</h2>
@@ -465,7 +488,7 @@ export function AccountSearchView({
         </div>
         <WizardStepper
           currentStep={step}
-          onStepChange={setStep}
+          onStepChange={handleStepChange}
           canProceedToStep2={canProceedToStep2}
           canProceedToStep3={canProceedToStep3}
         />
@@ -706,7 +729,7 @@ export function AccountSearchView({
                       <Skeleton height="2rem" width="5rem" />
                     </div>
                   ))}
-                  <p className="calls-muted calls-p-1">
+                  <p className="calls-muted calls-abm-skeleton-status">
                     Recherche des comptes en cours…
                   </p>
                 </div>
@@ -717,12 +740,14 @@ export function AccountSearchView({
                   title="Cibler des comptes spécifiques"
                   description="Recherchez une entreprise par son nom ou combinez les filtres d'entreprise pour composer votre cible."
                   action={
-        <div className="calls-abm-bottom-bar-summary calls-wizard-bottom-bar__info xos-numeric">
-          {targetList.size} compte{targetList.size > 1 ? 's' : ''} ·{' '}
-          {totalRetainedInTarget} contact
-          {totalRetainedInTarget > 1 ? 's' : ''} retenu
-          {totalRetainedInTarget > 1 ? 's' : ''}
-        </div>
+                    <div className="calls-abm-prompts">
+                      <span className="calls-abm-prompts__label">
+                        Ou démarrez directement avec :
+                      </span>
+                      {ownerOptions.length > 0 && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() =>
                             setFilter({
                               proprietaires: [ownerOptions[0].value],
@@ -851,19 +876,21 @@ export function AccountSearchView({
                   }
                 />
               ) : (
-                <TargetPanel
-                  targetList={targetList}
-                  onToggleContact={handleToggleContact}
-                  onRemoveAccount={(id) =>
-                    setTargetList((prev) => {
-                      const n = new Map(prev);
-                      n.delete(id);
-                      return n;
-                    })
-                  }
-                  onClearTarget={() => setTargetList(new Map())}
-                  hideFooter
-                />
+                <div className="calls-wizard-target">
+                  <TargetPanel
+                    targetList={targetList}
+                    onToggleContact={handleToggleContact}
+                    onRemoveAccount={(id) =>
+                      setTargetList((prev) => {
+                        const n = new Map(prev);
+                        n.delete(id);
+                        return n;
+                      })
+                    }
+                    onClearTarget={() => setTargetList(new Map())}
+                    hideFooter
+                  />
+                </div>
               )}
 
               <div className="calls-wizard-nav">
@@ -889,6 +916,7 @@ export function AccountSearchView({
                     value={sessionName}
                     onChange={(e) => setSessionName(e.target.value)}
                     placeholder="Ex: 'ACME décisionnaires' → #1, #2, ..."
+                    aria-label="Nom des séances (préfixe)"
                   />
                 </label>
                 <DatePicker
@@ -918,6 +946,7 @@ export function AccountSearchView({
                         setTargetSize(n);
                         writePrefs({ targetSize: n });
                       }}
+                      aria-label="Contacts par séance"
                     />
                   </label>
                   <label className="calls-field">
@@ -932,10 +961,19 @@ export function AccountSearchView({
                         setMaxSessions(n);
                         writePrefs({ maxSessions: n });
                       }}
+                      aria-label="Nombre max de séances"
                     />
                   </label>
                 </div>
+              </GlassCard>
 
+              <GlassCard className="calls-abm-section-card">
+                <div className="calls-abm-section-card__header">
+                  <h3 className="calls-abm-section-card__title">
+                    Aperçu : {groups.length} séance
+                    {groups.length > 1 ? 's' : ''}
+                  </h3>
+                </div>
                 {droppedAccounts.length > 0 && (
                   <div className="calls-warn-banner" role="alert">
                     {droppedAccounts.length} compte
@@ -944,14 +982,6 @@ export function AccountSearchView({
                     {droppedAccounts.map((a) => a.name).join(', ')}
                   </div>
                 )}
-
-                <div className="calls-abm-section-card__header">
-                  <h4 className="calls-abm-section-card__title">
-                    Aperçu : {groups.length} séance
-                    {groups.length > 1 ? 's' : ''}
-                  </h4>
-                </div>
-
                 <div className="calls-abm-plan-groups">
                   {groups.map((g, i) => (
                     <div key={i} className="calls-abm-plan-group-card">
@@ -997,60 +1027,10 @@ export function AccountSearchView({
             canProceedToStep3={canProceedToStep3}
             canLaunchSession={canLaunchSession}
             creating={creating}
-            onNext={() => {
-              if (step === 0 && canProceedToStep2) setStep(1);
-              else if (step === 1 && canProceedToStep3) setStep(2);
-              else if (step === 2 && canLaunchSession) handleCreateClick();
-            }}
-            onStepClick={(targetStep) => {
-              if (targetStep === 0) setStep(0);
-              else if (targetStep === 1 && canProceedToStep2) setStep(1);
-              else if (
-                targetStep === 2 &&
-                canProceedToStep2 &&
-                canProceedToStep3
-              )
-                setStep(2);
-            }}
+            onNext={handleNext}
+            onStepClick={handleStepChange}
           />
         </aside>
-      </div>
-
-      <div
-        className="calls-abm-bottom-bar calls-wizard-bottom-bar"
-        role="region"
-        aria-label="Action rapide"
-      >
-        <div className="calls-abm-bottom-bar-summary calls-wizard-bottom-bar__info xos-numeric">
-          <strong>
-            {targetList.size} compte{targetList.size > 1 ? 's' : ''}
-          </strong>{' '}
-          · {totalRetainedInTarget} contact
-          {totalRetainedInTarget > 1 ? 's' : ''}
-        </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            if (step === 0 && canProceedToStep2) setStep(1);
-            else if (step === 1 && canProceedToStep3) setStep(2);
-            else if (step === 2 && canLaunchSession) handleCreateClick();
-          }}
-          disabled={
-            step === 0
-              ? !canProceedToStep2
-              : step === 1
-                ? !canProceedToStep3
-                : !canLaunchSession || creating
-          }
-        >
-          {step === 0
-            ? 'Composer ▸'
-            : step === 1
-              ? 'Planifier ▸'
-              : creating
-                ? 'Création…'
-                : `Créer ${groups.length} séance${groups.length > 1 ? 's' : ''}`}
-        </Button>
       </div>
 
       <ConfirmDialog
