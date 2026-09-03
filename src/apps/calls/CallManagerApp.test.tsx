@@ -391,12 +391,14 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('button', { name: /Rechercher par nom/ }),
     );
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.keyboard('{Enter}');
+    await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    );
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+      screen.getByRole('button', { name: 'Continuer vers les contacts →' }),
     );
     await user.click(
       screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
@@ -544,12 +546,14 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('button', { name: /Rechercher par nom/ }),
     );
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.keyboard('{Enter}');
+    await user.click(
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+    );
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
+      screen.getByRole('button', { name: 'Continuer vers les contacts →' }),
     );
     await user.click(
       screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
@@ -1091,9 +1095,11 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeTruthy();
 
-    // Clic Retour depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
+    // Clic Quitter depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
     onParamsChange.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
     expect(onParamsChange).toHaveBeenCalledWith({
       view: 'session-type-select',
     });
@@ -1116,7 +1122,9 @@ describe('CallManagerApp component', () => {
     ).toBeTruthy();
 
     onParamsChange.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
     expect(onParamsChange).toHaveBeenCalledWith({
       view: 'session-type-select',
     });
