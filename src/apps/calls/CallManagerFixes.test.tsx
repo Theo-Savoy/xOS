@@ -1679,12 +1679,14 @@ describe('call targeting copy and controls', () => {
     expect(screen.getByRole('button', { name: 'Paul Rathouin' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jérôme Bosio' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Yanis Agharbi' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Théo Savoy' })).toBeNull();
-    expect(screen.getByText(/Compte principal \(ID CRM/)).toBeTruthy();
-    expect(screen.getByLabelText('Contacts max')).toBeTruthy();
-    expect(
-      screen.getByLabelText('Maximum de contacts par entreprise'),
-    ).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Théo Savoy' })).toBeNull();
+        // Le champ zombie "Compte principal" a été retiré (le mode ABM le couvre).
+        expect(screen.queryByText(/Compte principal \(ID CRM/)).toBeNull();
+        // Les plafonds vivent à l'étape Composer, plus dans les filtres (étape Cibler).
+        expect(screen.queryByLabelText('Contacts max')).toBeNull();
+        expect(
+          screen.queryByLabelText('Maximum de contacts par entreprise'),
+        ).toBeNull();
     expect(
       screen
         .getByRole('button', { name: 'Avertir' })
@@ -1767,16 +1769,16 @@ describe('call targeting copy and controls', () => {
       />,
     );
 
-    const presetSelect = screen.getByRole('button', { name: 'Preset' });
-    await user.click(presetSelect);
-    await user.click(
-      screen.getByRole('option', { name: /Partagé par un collègue/i }),
-    );
-    expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Supprimer le preset Partagé par un collègue' }),
+    ).toBeNull();
 
-    await user.click(presetSelect);
-    await user.click(screen.getByRole('option', { name: /Partagé à moi/i }));
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: /Partagé à moi/ }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Supprimer le preset Partagé à moi' }),
+    ).toBeTruthy();
   });
 
   it('renders a normalized v2.0 preset without crashing on missing fonctions', () => {

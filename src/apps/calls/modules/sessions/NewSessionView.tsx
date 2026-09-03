@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Checkbox, GlassCard, Tag } from '../../../../components/ui';
+import { Button, Checkbox, GlassCard, Select, Tag } from '../../../../components/ui';
 import {
+  CONTACT_LIMIT_OPTIONS,
+  CONTACT_LIST_UNLIMITED,
+  MAX_PER_COMPANY_OPTIONS,
   type CallTargetPreset,
   type ContactLimit,
   type DedupEntry,
@@ -90,6 +93,12 @@ function Cell({
   );
 }
 
+function limitLabel(limit: ContactLimit): string {
+  return limit === CONTACT_LIST_UNLIMITED
+    ? 'Pas de limite (max 2000)'
+    : String(limit);
+}
+
 export function NewSessionView({
   filters,
   onFiltersChange,
@@ -109,7 +118,6 @@ export function NewSessionView({
   excludedCount = 0,
   previewTruncated,
   presets,
-  presetsLoading,
   savingPreset,
   currentUserId,
   team = [],
@@ -462,12 +470,7 @@ export function NewSessionView({
               matchCountCapped={matchCountCapped}
               matchCountLoading={matchCountLoading}
                 matchCountError={matchCountError}
-                contactLimit={contactLimit}
-                onContactLimitChange={onContactLimitChange}
-                maxPerCompany={maxPerCompany}
-                onMaxPerCompanyChange={onMaxPerCompanyChange}
-                presets={presets}
-                presetsLoading={presetsLoading}
+              presets={presets}
                 savingPreset={savingPreset}
                 currentUserId={currentUserId}
                 onLoadPreset={onLoadPreset}
@@ -560,6 +563,37 @@ export function NewSessionView({
                         Tout désélectionner
                       </Button>
                     </div>
+                  </div>
+                  <div className="calls-preview__limits">
+                    <Select
+                      label="Contacts max"
+                      options={CONTACT_LIMIT_OPTIONS.map((limit) => ({
+                        value: String(limit),
+                        label: limitLabel(limit),
+                      }))}
+                      value={String(contactLimit)}
+                      onChange={(val) =>
+                        onContactLimitChange(Number(val) as ContactLimit)
+                      }
+                      aria-label="Contacts max"
+                    />
+                    <Select
+                      label="Max / entreprise"
+                      options={[
+                        { value: '', label: 'Pas de limite' },
+                        ...MAX_PER_COMPANY_OPTIONS.map((limit) => ({
+                          value: String(limit),
+                          label: `${limit} par entreprise`,
+                        })),
+                      ]}
+                      value={maxPerCompany ? String(maxPerCompany) : ''}
+                      onChange={(val) =>
+                        onMaxPerCompanyChange(
+                          val ? (Number(val) as MaxPerCompany) : null,
+                        )
+                      }
+                      aria-label="Maximum de contacts par entreprise"
+                    />
                   </div>
                   {capHint && (
                     <p
@@ -879,15 +913,6 @@ export function NewSessionView({
             shareMemberCount={shareMemberIds.size}
             splitSessions={splitSessions}
             packedSessionsCount={packedGroups.length}
-            canProceedToStep2={canProceedToStep2}
-            canProceedToStep3={canProceedToStep3}
-            canLaunchSession={canLaunchSession}
-            loading={loading}
-            onNext={() => {
-              if (step === 0 && canProceedToStep2) setStep(1);
-              else if (step === 1 && canProceedToStep3) setStep(2);
-              else if (step === 2 && canLaunchSession) handleCreate();
-            }}
             onStepClick={(targetStep) => {
               if (targetStep === 0) setStep(0);
               else if (targetStep === 1 && canProceedToStep2) setStep(1);

@@ -24,11 +24,6 @@ export type WizardRecapProps = {
   shareMemberCount: number;
   splitSessions: boolean;
   packedSessionsCount: number;
-  canProceedToStep2: boolean;
-  canProceedToStep3: boolean;
-  canLaunchSession: boolean;
-  loading: boolean;
-  onNext: () => void;
   onStepClick?: (step: WizardStep) => void;
   className?: string;
 };
@@ -66,11 +61,6 @@ export function WizardRecap({
   shareMemberCount,
   splitSessions,
   packedSessionsCount,
-  canProceedToStep2,
-  canProceedToStep3,
-  canLaunchSession,
-  loading,
-  onNext,
   onStepClick,
   className = '',
 }: WizardRecapProps) {
@@ -85,24 +75,6 @@ export function WizardRecap({
       : sessionType === 'relance'
         ? 'Relance'
         : 'Mixte';
-
-  const nextCtaLabel =
-    step === 0
-      ? 'Continuer vers Composer →'
-      : step === 1
-        ? 'Continuer vers Planifier →'
-        : loading
-          ? 'Création…'
-          : splitSessions
-            ? `Créer ${packedSessionsCount} séance${packedSessionsCount > 1 ? 's' : ''}`
-            : 'Lancer la séance';
-
-  const nextDisabled =
-    step === 0
-      ? !canProceedToStep2
-      : step === 1
-        ? !canProceedToStep3
-        : !canLaunchSession || loading;
 
   return (
     <GlassCard
@@ -244,17 +216,6 @@ export function WizardRecap({
           )}
         </div>
       </section>
-
-      {/* Bottom CTA */}
-      <div className="calls-wizard-recap__cta">
-        <Button
-          onClick={onNext}
-          disabled={nextDisabled}
-          className="calls-wizard-recap__cta-btn"
-        >
-          {nextCtaLabel}
-        </Button>
-      </div>
     </GlassCard>
   );
 }

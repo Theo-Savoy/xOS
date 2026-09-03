@@ -1,20 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button, Checkbox, GlassCard, Select, Tag } from '../../components/ui';
+import { Button, Checkbox, GlassCard, Tag } from '../../components/ui';
 import {
-  CONTACT_LIMIT_OPTIONS,
-  CONTACT_LIST_UNLIMITED,
   EFFECTIF_TRANCHES,
   FONCTION_PRESETS,
-  MAX_PER_COMPANY_OPTIONS,
   RESULTAT_CALL_VALUES,
   SECTEUR_VALUES,
   SECTEUR_FAMILIES,
   TIER_VALUES,
   TYPE_CLIENT_VALUES,
   type CallTargetPreset,
-  type ContactLimit,
   type FilterTree,
-  type MaxPerCompany,
 } from '../../crm';
 import { getOpportunityFilterGuidance } from '../../crm/opportunityFilters';
 import { isAccountOwnerFilterCandidate } from './accountOwners';
@@ -36,12 +31,7 @@ type FilterBuilderProps = {
   matchCountCapped: boolean;
   matchCountLoading: boolean;
   matchCountError: string | null;
-  contactLimit: ContactLimit;
-  onContactLimitChange: (limit: ContactLimit) => void;
-  maxPerCompany: MaxPerCompany | null;
-  onMaxPerCompanyChange: (value: MaxPerCompany | null) => void;
   presets: CallTargetPreset[];
-  presetsLoading: boolean;
   savingPreset: boolean;
   currentUserId: string;
   onLoadPreset: (preset: CallTargetPreset) => void;
@@ -49,12 +39,6 @@ type FilterBuilderProps = {
   onDeletePreset: (id: number) => void;
   team?: TeamMember[];
 };
-
-function limitLabel(limit: ContactLimit): string {
-  return limit === CONTACT_LIST_UNLIMITED
-    ? 'Pas de limite (max 2000)'
-    : String(limit);
-}
 
 function SectionSummary({ title, count }: { title: string; count: number }) {
   return (
@@ -131,6 +115,45 @@ function BookmarkIcon(): ReactNode {
   );
 }
 
+function SaveIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
+function TrashIcon(): ReactNode {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
 export function FilterBuilder({
   filters,
   onChange,
@@ -140,12 +163,7 @@ export function FilterBuilder({
   matchCountCapped,
   matchCountLoading,
   matchCountError,
-  contactLimit,
-  onContactLimitChange,
-  maxPerCompany,
-  onMaxPerCompanyChange,
   presets,
-  presetsLoading,
   savingPreset,
   currentUserId,
   onLoadPreset,
@@ -172,9 +190,6 @@ export function FilterBuilder({
     setPresetShared(false);
   };
 
-  const selectedPreset = presets.find(
-    (preset) => String(preset.id) === selectedPresetId,
-  );
   const entrepriseCount = countEntrepriseFilters(filters.entreprise);
   const contactCount = countContactFilters(filters.contact);
   const relanceCount = countRelanceFilters(filters.relance);
@@ -288,98 +303,85 @@ export function FilterBuilder({
             </span>
           </Button>
 
-          {presets.slice(0, 3).map((p) => {
+          {presets.map((p) => {
             const isPresetActive = String(p.id) === selectedPresetId;
+            const isOwner = p.owner === currentUserId;
             return (
-              <Button
+              <div
                 key={p.id}
-                variant="secondary"
-                size="sm"
-                className={`calls-fb-starter-card${isPresetActive ? ' calls-fb-starter-card--active' : ''}`}
-                onClick={() => {
-                  setSelectedPresetId(String(p.id));
-                  onLoadPreset(p);
-                }}
-                aria-pressed={isPresetActive}
+                className={`calls-fb-starter-card-wrap${isPresetActive ? ' calls-fb-starter-card-wrap--active' : ''}`}
               >
-                <span className="calls-fb-starter-card__icon">
-                  <BookmarkIcon />
-                </span>
-                <span className="calls-fb-starter-card__body">
-                  <strong>{p.name}</strong>
-                  <small>{p.shared ? 'Partagé équipe' : 'Mon preset'}</small>
-                </span>
-              </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={`calls-fb-starter-card${isPresetActive ? ' calls-fb-starter-card--active' : ''}`}
+                  onClick={() => {
+                    setSelectedPresetId(String(p.id));
+                    onLoadPreset(p);
+                  }}
+                  aria-pressed={isPresetActive}
+                >
+                  <span className="calls-fb-starter-card__icon">
+                    <BookmarkIcon />
+                  </span>
+                  <span className="calls-fb-starter-card__body">
+                    <strong>{p.name}</strong>
+                    <small>{p.shared ? 'Partagé équipe' : 'Mon preset'}</small>
+                  </span>
+                </Button>
+                {isPresetActive && isOwner && (
+                  <button
+                    type="button"
+                    className="calls-fb-starter-card__remove"
+                    aria-label={`Supprimer le preset ${p.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePreset(Number(p.id));
+                      setSelectedPresetId('');
+                    }}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             );
           })}
-        </div>
-      </div>
 
-      {/* 2. Sélection et gestion des presets */}
-      <div className="calls-fb-presets">
-        <Select
-          label="Preset"
-          options={[
-            {
-              value: '',
-              label: presetsLoading
-                ? 'Chargement…'
-                : '— Choisir un preset —',
-            },
-            ...presets.map((p) => ({
-              value: String(p.id),
-              label: `${p.name}${p.shared ? ' (partagé)' : ''}`,
-            })),
-          ]}
-          value={selectedPresetId}
-          onChange={(val) => {
-            setSelectedPresetId(val);
-            const preset = presets.find((p) => String(p.id) === val);
-            if (preset) onLoadPreset(preset);
-          }}
-          aria-label="Preset"
-        />
-        {selectedPreset?.owner === currentUserId && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              onDeletePreset(Number(selectedPresetId));
-              setSelectedPresetId('');
-            }}
-          >
-            Supprimer
-          </Button>
-        )}
-        <details className="calls-fb-save-menu">
-          <summary>
-            <span>Sauvegarder ce filtre…</span>
-          </summary>
-          <div className="calls-fb-save">
-            <input
-              type="text"
-              className="calls-input"
-              placeholder="Nom du preset à sauver"
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-            />
-            <Checkbox
-              checked={presetShared}
-              onChange={setPresetShared}
-              label="Partager à l'équipe"
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleSavePreset}
-              disabled={savingPreset || !presetName.trim()}
-            >
-              {savingPreset
-                ? 'Sauvegarde…'
-                : 'Garder ce filtre pour plus tard'}
-            </Button>
-          </div>
-        </details>
+          {/* Carte "Sauvegarder ce filtre…" — unifie la création de preset avec le démarrage rapide */}
+          <details className="calls-fb-starter-card-wrap calls-fb-save-card">
+            <summary className="calls-fb-starter-card">
+              <span className="calls-fb-starter-card__icon">
+                <SaveIcon />
+              </span>
+              <span className="calls-fb-starter-card__body">
+                <strong>Enregistrer cette recherche</strong>
+                <small>Garder ce filtre pour plus tard</small>
+              </span>
+            </summary>
+            <div className="calls-fb-save">
+              <input
+                type="text"
+                className="calls-input"
+                placeholder="Nom du filtre"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+              />
+              <Checkbox
+                checked={presetShared}
+                onChange={setPresetShared}
+                label="Partager à l'équipe"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSavePreset}
+                disabled={savingPreset || !presetName.trim()}
+              >
+                {savingPreset ? 'Sauvegarde…' : 'Enregistrer'}
+              </Button>
+            </div>
+          </details>
+        </div>
       </div>
 
       {/* 3. Groupe Entreprise — replié par défaut */}
@@ -588,58 +590,6 @@ export function FilterBuilder({
               />
             </label>
           </div>
-        </div>
-      </details>
-
-      {/* 6. Options avancées (Plafonds & compte principal) — replié par défaut */}
-      <details className="calls-fb-section calls-fb-advanced">
-        <SectionSummary title="Options avancées (plafonds & exclusions)" count={filters.entreprise.compte_principal ? 1 : 0} />
-        <div className="calls-fb-section__body">
-          <div className="calls-fb-row">
-            <Select
-              label="Contacts max"
-              options={CONTACT_LIMIT_OPTIONS.map((limit) => ({
-                value: String(limit),
-                label: limitLabel(limit),
-              }))}
-              value={String(contactLimit)}
-              onChange={(val) =>
-                onContactLimitChange(Number(val) as ContactLimit)
-              }
-              aria-label="Contacts max"
-            />
-            <Select
-              label="Max / entreprise"
-              options={[
-                { value: '', label: 'Pas de limite' },
-                ...MAX_PER_COMPANY_OPTIONS.map((limit) => ({
-                  value: String(limit),
-                  label: `${limit} par entreprise`,
-                })),
-              ]}
-              value={maxPerCompany ? String(maxPerCompany) : ''}
-              onChange={(val) =>
-                onMaxPerCompanyChange(
-                  val ? (Number(val) as MaxPerCompany) : null,
-                )
-              }
-              aria-label="Maximum de contacts par entreprise"
-            />
-          </div>
-          <label className="calls-field">
-            <span>Compte principal (ID CRM, cible le groupe)</span>
-            <input
-              type="text"
-              className="calls-input"
-              value={filters.entreprise.compte_principal ?? ''}
-              onChange={(e) =>
-                setEntreprise({
-                  compte_principal: e.target.value.trim() || null,
-                })
-              }
-              placeholder="001…"
-            />
-          </label>
         </div>
       </details>
 
