@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Button } from './components/ui/Button';
 import { LoginScreen } from './auth/LoginScreen';
 import { useSession } from './auth/useSession';
@@ -98,6 +99,7 @@ function App() {
           accessToken={session.access_token}
         />
       </div>
+      <Analytics />
     </div>
   );
 }

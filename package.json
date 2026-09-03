@@ -16,6 +16,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
     "@telnyx/webrtc": "^2.27.8",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2",
     "cmdk": "^1.1.1",
     "react": "^19",
