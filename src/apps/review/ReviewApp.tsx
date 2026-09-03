@@ -275,12 +275,7 @@ export default function ReviewApp({
     <div className="review-app review-app--shell">
       <header className="review-header">
         <div className="review-header-left">
-          <div>
-            <h2 className="review-title">Bilan</h2>
-            <span className="review-subtitle">
-              Business Review · FY juillet → juin
-            </span>
-          </div>
+          <h2 className="review-title">Bilan</h2>
           <span className="review-live">
             Données live{liveAt ? ` · ${liveAt}` : ''}
           </span>
@@ -309,7 +304,6 @@ export default function ReviewApp({
 
       <div className="review-body">
         <nav className="review-sidebar" aria-label="Pages du bilan">
-          <span className="review-nav-family-label">Analyse</span>
           {ANALYSIS_PAGES.map((page) => (
             <Button
               key={page.id}
