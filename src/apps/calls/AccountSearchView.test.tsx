@@ -889,6 +889,27 @@ describe('AccountSearchView', () => {
     expect(screen.getByText('Groupe : 001PARENT000000AAA')).toBeTruthy();
   });
 
+  it('presents account results in a dedicated stage beside the form', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    const { container } = renderView();
+
+    expect(container.querySelector('.calls-abm-cibler--split')).toBeNull();
+    await searchQuery(user, 'ACME');
+    await screen.findByText('ACME');
+
+    expect(container.querySelector('.calls-abm-cibler--split')).toBeTruthy();
+    expect(container.querySelector('.calls-abm-cibler__form')).toBeTruthy();
+    expect(container.querySelector('.calls-abm-cibler__results')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Comptes trouvés' }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Nom du compte')).toBeTruthy();
+  });
+
   it('allows clearing all active filters with Tout effacer button in active chips', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({

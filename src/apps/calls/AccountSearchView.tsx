@@ -258,6 +258,7 @@ export function AccountSearchView({
   );
 
   const canSearch = query.trim().length >= 2 || hasAnyFilter(filters);
+  const showResultsStage = searched || loading;
   const activeFiltersCount = useMemo(
     () =>
       filters.secteurs.length +
@@ -608,6 +609,15 @@ export function AccountSearchView({
               )}
 
               {searchMode !== null && (
+              <div
+                className={[
+                  'calls-abm-cibler',
+                  showResultsStage ? 'calls-abm-cibler--split' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+              <div className="calls-abm-cibler__form">
               <GlassCard className="calls-filterbuilder">
                 <div className="calls-abm-mode-switch">
                   <Button
@@ -787,8 +797,22 @@ export function AccountSearchView({
                   </>
                 )}
               </GlassCard>
-              )}
+                {!loading &&
+                  !searched &&
+                  accounts.length === 0 &&
+                  !error && (
+                    <EmptyState title="Commencez votre recherche" />
+                  )}
+              </div>
 
+              {showResultsStage && (
+              <section
+                className="calls-abm-cibler__results"
+                aria-label="Résultats de recherche"
+              >
+                <h3 className="calls-abm-cibler__results-title">
+                  Comptes trouvés
+                </h3>
               {truncated && (
                 <GlassCard className="calls-truncated-banner" role="status">
                   <p>Résultats partiels : affinez votre recherche.</p>
@@ -823,14 +847,6 @@ export function AccountSearchView({
                     Recherche des comptes en cours…
                   </p>
                 </div>
-              )}
-
-              {!loading &&
-                !searched &&
-                searchMode !== null &&
-                accounts.length === 0 &&
-                !error && (
-                <EmptyState title="Commencez votre recherche" />
               )}
 
               {!loading && searched && accounts.length === 0 && !error && (
@@ -922,6 +938,10 @@ export function AccountSearchView({
                     ))}
                   </div>
                 </>
+              )}
+              </section>
+              )}
+              </div>
               )}
             </div>
           )}
