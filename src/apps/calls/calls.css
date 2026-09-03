@@ -620,13 +620,86 @@
   font-size: 0.9rem;
 }
 
-.calls-wizard-target .calls-abm-target-panel {
-  background: transparent;
-  border: none;
-  padding: 0;
+.calls-abm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
 }
 
-.calls-wizard-target .calls-abm-target-panel__list {
+.calls-abm-composer__summary {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-abm-composer__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.calls-abm-composer__filters .calls-input {
+  width: 100%;
+}
+
+.calls-abm-composer__hidden {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-abm-composer__accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.calls-abm-composer--drawer .calls-abm-composer__accounts {
+  max-height: calc(100cqh - 16rem);
+  overflow-y: auto;
+}
+
+.calls-abm-composer__account-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.calls-abm-composer__account-count {
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-abm-composer__contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.calls-abm-composer__footer,
+.calls-abm-composer__cta {
+  width: 100%;
+}
+
+.calls-abm-composer .calls-plan-card__head {
+  flex-wrap: wrap;
+}
+
+.calls-abm-composer .calls-plan-card__head .xos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.calls-abm-composer__account-tools .xos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.calls-wizard-target .calls-abm-composer__accounts {
   max-height: none;
 }
 

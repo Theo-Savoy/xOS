@@ -1115,7 +1115,7 @@ describe('AccountSearchView', () => {
     expect(sentContacts[0].contact_name).toBe('Jean Petit');
   });
 
-  it('(3) asks for confirmation before clearing target with Vider la cible', async () => {
+  it('(3) asks for confirmation before clearing target with Vider le panier', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
       accounts: [acme],
@@ -1133,22 +1133,17 @@ describe('AccountSearchView', () => {
     await goToComposer(user);
     expect(screen.getByText(/1 compte · 1 contact retenu/)).toBeTruthy();
 
-    // Click "Vider" in TargetPanel
-    await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
-    expect(
-      screen.getByText(/Êtes-vous sûr de vouloir vider la cible/),
-    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Vider le panier' }));
+    expect(screen.getByText(/Vider le panier retirera/)).toBeTruthy();
 
-    // Cancel: target intact
     await user.click(screen.getByRole('button', { name: 'Annuler' }));
     expect(
       screen.getAllByText(/1 compte · 1 contact retenu/).length,
     ).toBeGreaterThanOrEqual(1);
 
-    // Confirm: target cleared
-    await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
+    await user.click(screen.getByRole('button', { name: 'Vider le panier' }));
     const confirmBtns = screen.getAllByRole('button', {
-      name: 'Vider la cible',
+      name: 'Vider le panier',
     });
     await user.click(confirmBtns[confirmBtns.length - 1]);
     expect(screen.queryAllByText(/1 compte · 1 contact retenu/)).toHaveLength(

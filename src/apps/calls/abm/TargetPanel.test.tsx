@@ -255,4 +255,24 @@ describe('TargetPanel — filtres de contacts', () => {
       within(panel()).getByText(/1 compte · 3 contacts retenus/),
     ).toBeTruthy();
   });
+
+  it('renders the composer as a plan card with classic contact sections', () => {
+    const { container } = render(
+      <Harness initial={makeTargetList([marie, jean, alice])} />,
+    );
+
+    expect(container.querySelector('.calls-plan-card')).toBeTruthy();
+    expect(container.querySelector('.calls-fb-section')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Comptes ciblés' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Vider le panier' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Retirer ACME de la cible' }),
+    ).toBeTruthy();
+  });
 });
