@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NewSessionView } from './NewSessionView';
@@ -513,5 +513,27 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     expect(screen.getByRole('heading', { name: 'Découpage' })).toBeTruthy();
     expect(document.querySelector('.calls-name-form')).toBeNull();
     expect(screen.queryByText(/contacts? sélectionnés?/)).toBeNull();
+  });
+
+  it("places Toute l'équipe inside the team chips group, not the card header", () => {
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        team={[{ user_id: 'user-2', label: 'Alice', sf_user_id: '005A' }]}
+        onCreateAudience={vi.fn()}
+        initialStep={2}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Collègues' });
+    expect(
+      within(group).getByRole('button', { name: "Toute l'équipe" }),
+    ).toBeTruthy();
+    expect(document.querySelector('.calls-plan-card__head')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: "Toute l'équipe" }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('false');
   });
 });
