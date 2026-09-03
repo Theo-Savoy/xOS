@@ -28,9 +28,8 @@ import {
   type AudienceSessionGroup,
 } from './api';
 import { packAccountsIntoSessions } from './audienceBinPacking';
-import { ChipGroup } from './filterControls';
+import { ChipGroup, PicklistMultiSelect } from './filterControls';
 import { asOptions } from './filterControls.helpers';
-import { FilterableMultiSelect } from './FilterableMultiSelect';
 import { DatePicker } from './formControls';
 import { tomorrowParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
@@ -890,16 +889,13 @@ export function AccountSearchView({
             </summary>
             <div className="calls-fb-section__body calls-abm-filters-card__body">
               <div className="calls-abm-filter-row">
-                <span className="calls-abm-filter-row__label">
-                  Secteurs d&apos;activité
-                </span>
-                <FilterableMultiSelect
+                <PicklistMultiSelect
                   label="Secteurs d'activité"
                   options={asOptions(SECTEUR_VALUES)}
                   groups={secteurGroups}
                   value={filters.secteurs}
                   onChange={(secteurs) => setFilter({ secteurs })}
-                  searchPlaceholder="Rechercher parmi 50+ secteurs…"
+                  searchPlaceholder="Rechercher un secteur…"
                 />
               </div>
               <div className="calls-abm-filter-row">

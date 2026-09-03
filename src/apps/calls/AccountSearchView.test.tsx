@@ -11,7 +11,6 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FilterableMultiSelect } from './FilterableMultiSelect';
 import { AccountSearchView } from './AccountSearchView';
 import { fetchAccountsSearch } from './api';
 import { todayParisIso, tomorrowParisIso } from './formControls.helpers';
@@ -722,16 +721,8 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    // Open the sector popover
-    const sectorTrigger = screen.getByRole('button', {
-      name: /Secteurs d'activité/,
-    });
-    await user.click(sectorTrigger);
-
-    // Search within the popover
-    const searchInput = screen.getByPlaceholderText(
-      'Rechercher parmi 50+ secteurs…',
-    );
+    // Search within PicklistMultiSelect
+    const searchInput = screen.getByPlaceholderText('Rechercher un secteur…');
     await user.type(searchInput, 'Services informatiques');
 
     // Click on the checkbox for Services informatiques
@@ -812,110 +803,5 @@ describe('AccountSearchView', () => {
     await user.click(clearAllChipsBtn);
 
     expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
-  });
-});
-
-describe('FilterableMultiSelect', () => {
-  const sampleOptions = [
-    { value: 'opt1', label: 'Option Alpha' },
-    { value: 'opt2', label: 'Option Beta' },
-    { value: 'opt3', label: 'Option Gamma' },
-  ];
-
-  const sampleGroups = [
-    { id: 'g1', label: 'Groupe Un', values: ['opt1', 'opt2'] },
-    { id: 'g2', label: 'Groupe Deux', values: ['opt3'] },
-  ];
-
-  it('renders trigger, opens popover on click, filters options and toggles individual option', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-
-    render(
-      <FilterableMultiSelect
-        label="Test Select"
-        options={sampleOptions}
-        groups={sampleGroups}
-        value={['opt1']}
-        onChange={onChange}
-      />,
-    );
-
-    // Trigger shows label and selected count badge
-    const trigger = screen.getByRole('button', {
-      name: /Test Select/,
-    });
-    expect(trigger).toBeTruthy();
-    expect(screen.getByText('1')).toBeTruthy();
-
-    // Open popover
-    await user.click(trigger);
-    expect(screen.getByRole('dialog', { name: 'Test Select' })).toBeTruthy();
-
-    // Filter via search input
-    const searchInput = screen.getByRole('searchbox', {
-      name: 'Rechercher dans Test Select',
-    });
-    await user.type(searchInput, 'Beta');
-    expect(screen.getByText('Option Beta')).toBeTruthy();
-    expect(screen.queryByText('Option Gamma')).toBeNull();
-
-    // Toggle Option Beta
-    const betaCheckbox = screen.getByRole('checkbox', {
-      name: 'Option Beta',
-    });
-    await user.click(betaCheckbox);
-    expect(onChange).toHaveBeenCalledWith(['opt1', 'opt2']);
-  });
-
-  it('selects and deselects entire family group with group header checkbox', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-
-    render(
-      <FilterableMultiSelect
-        label="Test Select"
-        options={sampleOptions}
-        groups={sampleGroups}
-        value={['opt1']}
-        onChange={onChange}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: /Test Select/ }));
-
-    // Toggle group G1 (contains opt1 and opt2)
-    const g1Checkbox = screen.getByRole('checkbox', {
-      name: 'Sélectionner toute la catégorie Groupe Un',
-    });
-    await user.click(g1Checkbox);
-
-    expect(onChange).toHaveBeenCalledWith(['opt1', 'opt2']);
-  });
-
-  it('clears all selections via header Effacer button and closes on Escape', async () => {
-    const user = userEvent.setup();
-    const onChange = vi.fn();
-
-    render(
-      <FilterableMultiSelect
-        label="Test Select"
-        options={sampleOptions}
-        value={['opt1', 'opt2']}
-        onChange={onChange}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: /Test Select/ }));
-    expect(screen.getByRole('dialog', { name: 'Test Select' })).toBeTruthy();
-
-    // Clear all
-    const clearBtn = screen.getByRole('button', { name: 'Tout effacer' });
-    await user.click(clearBtn);
-    expect(onChange).toHaveBeenCalledWith([]);
-
-    // Press Escape to close
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'Test Select' })).toBeNull();
   });
 });
