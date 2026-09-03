@@ -4,7 +4,7 @@
  */
 import mapping from '../_crm/mapping.js';
 import { trackingModeFor } from '../_config/access.js';
-import { splitNewRenew } from './classify.js';
+import { productKey, splitNewRenew } from './classify.js';
 
 const { opportunity: opp } = mapping.objects;
 
@@ -149,4 +149,56 @@ export function ownerBridge(prevRecords, currRecords) {
     delta_amount: result.total - expected,
   };
   return result;
+}
+
+/**
+ * Bridge catalogue total = delta RENEW + volume NEW + ticket NEW (R9).
+ * Formule séquentielle du volume/ticket — P4.
+ */
+export function catalogueBridge(prevRecords, currRecords) {
+  const prevCat = (prevRecords || []).filter(
+    (record) => productKey(record) === 'catalogue',
+  );
+  const currCat = (currRecords || []).filter(
+    (record) => productKey(record) === 'catalogue',
+  );
+  const prevSplit = splitNewRenew(prevCat);
+  const currSplit = splitNewRenew(currCat);
+  const vt = volumeTicketBridge(prevSplit.new, currSplit.new);
+  const renew = currSplit.renew.amount - prevSplit.renew.amount;
+  const total = renew + vt.volume + vt.ticket;
+  const absTotal = Math.abs(total);
+  return {
+    renew,
+    volume: vt.volume,
+    ticket: vt.ticket,
+    total,
+    delta: total,
+    share_renew: absTotal > 0 ? Math.abs(renew) / absTotal : 0,
+    share_new: absTotal > 0 ? Math.abs(vt.volume + vt.ticket) / absTotal : 0,
+    prev: {
+      new: {
+        amount: prevSplit.new.amount,
+        count: prevSplit.new.count,
+      },
+      renew: {
+        amount: prevSplit.renew.amount,
+        count: prevSplit.renew.count,
+      },
+    },
+    curr: {
+      new: {
+        amount: currSplit.new.amount,
+        count: currSplit.new.count,
+      },
+      renew: {
+        amount: currSplit.renew.amount,
+        count: currSplit.renew.count,
+      },
+    },
+    conservation: {
+      ok: Math.abs(renew + vt.volume + vt.ticket - total) <= 100,
+      delta_amount: renew + vt.volume + vt.ticket - total,
+    },
+  };
 }

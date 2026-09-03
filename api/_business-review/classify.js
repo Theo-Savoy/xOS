@@ -12,6 +12,22 @@ export function isRenew(name) {
   return lower.includes('renew') || lower.includes('tacite');
 }
 
+const SALE_TYPE_TO_KEY = new Map();
+for (const [key, labels] of Object.entries(opp.saleTypes || {})) {
+  for (const label of labels || []) {
+    SALE_TYPE_TO_KEY.set(String(label).trim().toLowerCase(), key);
+  }
+}
+
+/** catalogue | sur_mesure | conseil | autre (P3 : LMS, XOS+, vide). */
+export function productKey(record) {
+  const label = String(record?.[opp.saleTypeField] || '')
+    .trim()
+    .toLowerCase();
+  if (!label) return 'autre';
+  return SALE_TYPE_TO_KEY.get(label) || 'autre';
+}
+
 function safeAmount(record) {
   return Number(record?.[opp.fields.amount]) || 0;
 }

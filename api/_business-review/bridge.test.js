@@ -1,18 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ownerBridge, volumeTicketBridge } from './bridge.js';
-
-const fyWindow = JSON.parse(
-  readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      '__fixtures__/fy-window.json',
-    ),
-    'utf8',
-  ),
-);
+import fyWindow from './__fixtures__/fy-window.js';
+import { catalogueBridge, ownerBridge, volumeTicketBridge } from './bridge.js';
 
 function within(actual, expected, tol = 100) {
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tol);
@@ -51,5 +39,17 @@ describe('ownerBridge', () => {
       result.active.delta + result.dg.delta + result.departed.delta,
       -163_700,
     );
+  });
+});
+
+describe('catalogueBridge', () => {
+  it('décompose le recul catalogue FY25→FY26 (R9, §2.2)', () => {
+    const result = catalogueBridge(fyWindow.FY25.won, fyWindow.FY26.won);
+    within(result.renew, -333_700);
+    within(result.volume, -173_600);
+    within(result.ticket, -84_300);
+    within(result.renew + result.volume + result.ticket, -591_600);
+    expect(result.share_renew * 100).toBeCloseTo(56.4, 1);
+    expect(result.share_new * 100).toBeCloseTo(43.6, 1);
   });
 });

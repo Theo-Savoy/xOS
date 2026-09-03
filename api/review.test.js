@@ -97,6 +97,8 @@ describe('GET /api/review — resources business', () => {
       'shared',
       'overview',
       'bridge',
+      'product',
+      'cycles',
     ]);
   });
 });

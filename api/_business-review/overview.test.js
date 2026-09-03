@@ -1,18 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import fyWindow from './__fixtures__/fy-window.js';
 import { computeOverview } from './overview.js';
-
-const fyWindow = JSON.parse(
-  readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      '__fixtures__/fy-window.json',
-    ),
-    'utf8',
-  ),
-);
 
 describe('computeOverview', () => {
   it('reproduit FY26 §2.1 à ±500 € et expose FY22→FY26', () => {

@@ -16,3 +16,17 @@ export function fmtEur(n: number): string {
   }
   return `${sign}${abs.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`;
 }
+
+export function fmtDays(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
+  return `${Math.round(n)} j`;
+}
+
+/** Pourcentage à 1 décimale (P5 : une seule règle d'arrondi). */
+export function fmtPct1(ratio: number | null | undefined): string {
+  if (ratio === null || ratio === undefined) return '—';
+  return `${(ratio * 100).toLocaleString('fr-FR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })} %`;
+}

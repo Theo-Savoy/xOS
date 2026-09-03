@@ -8,12 +8,14 @@
  * GET  /api/review?resource=shared
  * GET  /api/review?resource=overview[&fy=FY26]
  * GET  /api/review?resource=bridge[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=product[&fy=FY26]
+ * GET  /api/review?resource=cycles[&fy=FY26]
  * POST /api/review?resource=shared  { config, note?, recipient_id? }
  * DELETE /api/review?resource=shared&id=<uuid>
  *
  * Auth: Supabase JWT (Bearer token).
  * Access: manager/admin → global + owner filter; commercial → own data + shared only.
- * Resources business (overview, bridge) : manager/admin uniquement.
+ * Resources business (overview, bridge, product, cycles) : manager/admin uniquement.
  */
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
@@ -43,8 +45,14 @@ import { listShared, createShared, revokeShared } from './_review/shared.js';
 import { fyRange } from './_business-review/soql.js';
 import { fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
-import { ownerBridge, volumeTicketBridge } from './_business-review/bridge.js';
+import {
+  catalogueBridge,
+  ownerBridge,
+  volumeTicketBridge,
+} from './_business-review/bridge.js';
 import { splitNewRenew } from './_business-review/classify.js';
+import { computeCycles } from './_business-review/cycles.js';
+import { computeProduct } from './_business-review/product.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
 
@@ -56,7 +64,7 @@ const LEGACY_RESOURCES = [
   'attention',
   'shared',
 ];
-const BUSINESS_RESOURCES = ['overview', 'bridge'];
+const BUSINESS_RESOURCES = ['overview', 'bridge', 'product', 'cycles'];
 const VALID_RESOURCES = [...LEGACY_RESOURCES, ...BUSINESS_RESOURCES];
 const BUSINESS_FROM_FY = 22;
 
@@ -202,12 +210,17 @@ async function reviewHandler(request) {
         const currNew = splitNewRenew(currWon).new;
         const volumeTicket = volumeTicketBridge(prevNew, currNew);
         const owner = ownerBridge(prevWon, currWon);
+        const catalogue = catalogueBridge(prevWon, currWon);
         const conservation = {
-          ok: volumeTicket.conservation.ok && owner.conservation.ok,
+          ok:
+            volumeTicket.conservation.ok &&
+            owner.conservation.ok &&
+            catalogue.conservation.ok,
           delta_count: 0,
           delta_amount:
             (volumeTicket.conservation.delta_amount || 0) +
-            (owner.conservation.delta_amount || 0),
+            (owner.conservation.delta_amount || 0) +
+            (catalogue.conservation.delta_amount || 0),
         };
         return json(200, {
           resource: 'bridge',
@@ -218,6 +231,39 @@ async function reviewHandler(request) {
           conservation,
           volume_ticket: volumeTicket,
           owner,
+          catalogue,
+        });
+      }
+
+      if (resource === 'product') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const product = computeProduct(fetched.window);
+        return json(200, {
+          resource: 'product',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: product.conservation,
+          series: product.series,
+        });
+      }
+
+      if (resource === 'cycles') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const cycles = computeCycles(fetched.window);
+        return json(200, {
+          resource: 'cycles',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: {
+            ok: true,
+            delta_count: 0,
+            delta_amount: 0,
+          },
+          series: cycles.series,
         });
       }
     } catch (err) {

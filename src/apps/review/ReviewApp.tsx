@@ -26,9 +26,19 @@ import {
 import { apiFetch } from '../../lib/apiClient';
 import { supabase } from '../../lib/supabase';
 import { BridgeNewSection } from './sections/BridgeNewSection';
+import { CatalogueBridgeSection } from './sections/CatalogueBridgeSection';
+import { ConseilSection } from './sections/ConseilSection';
+import { CycleSection } from './sections/CycleSection';
 import { PerformanceSection } from './sections/PerformanceSection';
+import { ProductCompareSection } from './sections/ProductCompareSection';
+import { ProductFyAnnex } from './sections/annexes/ProductFyAnnex';
 import { useBusinessReview } from './useBusinessReview';
-import type { BridgePayload, OverviewPayload } from './review.types';
+import type {
+  BridgePayload,
+  CyclesPayload,
+  OverviewPayload,
+  ProductPayload,
+} from './review.types';
 import './review.css';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -126,7 +136,11 @@ type NavId =
   | 'performance'
   | 'bridge-new'
   | 'commercial'
-  | 'product'
+  | 'cycle'
+  | 'product-compare'
+  | 'catalogue-bridge'
+  | 'conseil'
+  | 'a5'
   | 'market'
   | 'diagnosis'
   | 'cockpit'
@@ -163,7 +177,12 @@ const NAV_FAMILIES: {
   {
     id: 'product',
     label: 'Produit',
-    items: [{ id: 'product', label: 'Offres', soon: true }],
+    items: [
+      { id: 'cycle', label: 'Cycle' },
+      { id: 'product-compare', label: 'Catalogue vs sur-mesure' },
+      { id: 'catalogue-bridge', label: 'Recul catalogue' },
+      { id: 'conseil', label: 'Conseil' },
+    ],
   },
   {
     id: 'market',
@@ -187,10 +206,12 @@ const NAV_FAMILIES: {
   },
 ];
 
-const ANNEX_ITEMS = [
-  { id: 'a1', label: 'A1 · Définitions' },
-  { id: 'a4', label: 'A4 · Historique' },
-];
+const ANNEX_ITEMS: { id: NavId | 'a1' | 'a4'; label: string; ready?: boolean }[] =
+  [
+    { id: 'a1', label: 'A1 · Définitions' },
+    { id: 'a4', label: 'A4 · Historique' },
+    { id: 'a5', label: 'A5 · Produit × exercice', ready: true },
+  ];
 
 const LEGACY_NAV: NavId[] = ['cockpit', 'funnel', 'attention', 'shared'];
 
@@ -285,12 +306,28 @@ export default function ReviewApp({
   const overviewResource =
     canFetchBusiness && nav === 'performance' ? 'overview' : null;
   const bridgeResource =
-    canFetchBusiness && nav === 'bridge-new' ? 'bridge' : null;
+    canFetchBusiness && (nav === 'bridge-new' || nav === 'catalogue-bridge')
+      ? 'bridge'
+      : null;
+  const productResource =
+    canFetchBusiness &&
+    (nav === 'product-compare' || nav === 'conseil' || nav === 'a5')
+      ? 'product'
+      : null;
+  const cyclesResource = canFetchBusiness && nav === 'cycle' ? 'cycles' : null;
   const overview = useBusinessReview<OverviewPayload>(token, overviewResource, {
     fy: period,
     compare,
   });
   const bridge = useBusinessReview<BridgePayload>(token, bridgeResource, {
+    fy: period,
+    compare,
+  });
+  const product = useBusinessReview<ProductPayload>(token, productResource, {
+    fy: period,
+    compare,
+  });
+  const cycles = useBusinessReview<CyclesPayload>(token, cyclesResource, {
     fy: period,
     compare,
   });
@@ -389,15 +426,30 @@ export default function ReviewApp({
 
   const compareOptions = FY_OPTIONS.filter((opt) => opt.value < period);
   const liveAt =
-    overview.fetchedAt || bridge.fetchedAt
-      ? new Date(overview.fetchedAt || bridge.fetchedAt || 0).toLocaleTimeString(
-          'fr-FR',
-          { hour: '2-digit', minute: '2-digit' },
-        )
+    overview.fetchedAt ||
+    bridge.fetchedAt ||
+    product.fetchedAt ||
+    cycles.fetchedAt
+      ? new Date(
+          overview.fetchedAt ||
+            bridge.fetchedAt ||
+            product.fetchedAt ||
+            cycles.fetchedAt ||
+            0,
+        ).toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : null;
-  const sectionError = isLegacy ? error : overview.error || bridge.error;
+  const sectionError = isLegacy
+    ? error
+    : overview.error || bridge.error || product.error || cycles.error;
   const refreshing =
-    (isLegacy && loading) || overview.loading || bridge.loading;
+    (isLegacy && loading) ||
+    overview.loading ||
+    bridge.loading ||
+    product.loading ||
+    cycles.loading;
 
   const handlePeriod = (next: string) => {
     setPeriod(next);
@@ -411,6 +463,8 @@ export default function ReviewApp({
     if (isLegacy) fetchData();
     overview.refresh();
     bridge.refresh();
+    product.refresh();
+    cycles.refresh();
   };
 
   if (!roleKnown) {
@@ -519,11 +573,27 @@ export default function ReviewApp({
               Annexes
             </Button>
             {annexesOpen
-              ? ANNEX_ITEMS.map((item) => (
-                  <span key={item.id} className="review-nav-item review-nav-item--muted">
-                    {item.label}
-                  </span>
-                ))
+              ? ANNEX_ITEMS.map((item) =>
+                  item.ready ? (
+                    <Button
+                      key={item.id}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={`review-nav-item ${nav === item.id ? 'review-nav-item--active' : ''}`}
+                      onClick={() => setNav(item.id as NavId)}
+                    >
+                      {item.label}
+                    </Button>
+                  ) : (
+                    <span
+                      key={item.id}
+                      className="review-nav-item review-nav-item--muted"
+                    >
+                      {item.label}
+                    </span>
+                  ),
+                )
               : null}
           </div>
         </nav>
@@ -537,8 +607,29 @@ export default function ReviewApp({
             {nav === 'bridge-new' && (
               <BridgeNewSection data={bridge.data} loading={bridge.loading} />
             )}
+            {nav === 'cycle' && (
+              <CycleSection data={cycles.data} loading={cycles.loading} />
+            )}
+            {nav === 'product-compare' && (
+              <ProductCompareSection
+                data={product.data}
+                loading={product.loading}
+                compare={compare}
+              />
+            )}
+            {nav === 'catalogue-bridge' && (
+              <CatalogueBridgeSection
+                data={bridge.data}
+                loading={bridge.loading}
+              />
+            )}
+            {nav === 'conseil' && (
+              <ConseilSection data={product.data} loading={product.loading} />
+            )}
+            {nav === 'a5' && (
+              <ProductFyAnnex data={product.data} loading={product.loading} />
+            )}
             {(nav === 'commercial' ||
-              nav === 'product' ||
               nav === 'market' ||
               nav === 'diagnosis') && (
               <EmptyState
