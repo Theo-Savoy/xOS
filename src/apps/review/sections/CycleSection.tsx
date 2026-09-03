@@ -4,12 +4,12 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ConservationBadge } from '../components/ConservationBadge';
+import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtDays } from '../review.helpers';
@@ -49,11 +49,22 @@ export function CycleSection({
 
   const current =
     data.series.find((row) => row.fy === data.fy) || data.series.at(-1);
-  const chartData = data.series.map((row) => ({
-    fy: row.fy,
-    Médiane: row.median,
-    Moyenne: row.mean,
-  }));
+  const chartData = data.series.map((row, index) => {
+    const previous = data.series[index - 1];
+    return {
+      fy: row.fy,
+      Médiane: row.median,
+      Moyenne: row.mean,
+      medianDelta:
+        previous?.median != null && row.median != null
+          ? row.median - previous.median
+          : null,
+      meanDelta:
+        previous?.mean != null && row.mean != null
+          ? row.mean - previous.mean
+          : null,
+    };
+  });
 
   return (
     <div className="review-section">
@@ -90,7 +101,9 @@ export function CycleSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Médiane et moyenne FY22→FY26</h3>
+        <h3 className="review-card-title">
+          Médiane et moyenne FY22→{data.fy}
+        </h3>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
@@ -102,7 +115,20 @@ export function CycleSection({
               tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
               width={40}
             />
-            <Tooltip />
+            <ReviewChartTooltip
+              content={
+                <ChartTooltip
+                  scope="signatures-new"
+                  source="Salesforce · cycles NEW exploitables"
+                  compareLabel="période comparable"
+                  deltaKeys={{ Médiane: 'medianDelta', Moyenne: 'meanDelta' }}
+                  valueFormatter={(value) => fmtDays(value)}
+                  deltaFormatter={(value) =>
+                    `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(Math.round(value))} j`
+                  }
+                />
+              }
+            />
             <Legend />
             <Line
               type="monotone"

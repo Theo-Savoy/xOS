@@ -88,7 +88,11 @@ export function CatalogueBridgeSection({
         <h3 className="review-card-title">
           Waterfall catalogue {data.compare} → {data.fy}
         </h3>
-        <WaterfallChart steps={steps} />
+        <WaterfallChart
+          steps={steps}
+          scope="total"
+          source="Salesforce · CA total catalogue"
+        />
         <div className="review-split-bar" aria-hidden="true">
           <span
             className="review-split-bar__renew"

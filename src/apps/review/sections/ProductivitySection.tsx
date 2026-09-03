@@ -71,7 +71,7 @@ export function ProductivitySection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">Capacité et ratios</h3>
-        <table className="review-data-table">
+        <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
               <th>Exercice</th>

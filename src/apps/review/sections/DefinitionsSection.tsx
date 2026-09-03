@@ -1,9 +1,9 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import type { DefinitionsPayload } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import type { DefinitionsPayload } from '../review.types';
 
-export function DefinitionsAnnex({
+export function DefinitionsSection({
   data,
   loading,
 }: {
@@ -20,7 +20,7 @@ export function DefinitionsAnnex({
   if (!data?.items?.length) {
     return (
       <EmptyState
-        title="Annexe A1"
+        title="Contrats de calcul indisponibles"
         description="Les contrats de calcul n'ont pas été chargés."
       />
     );
@@ -31,7 +31,7 @@ export function DefinitionsAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A1 · Contrats de calcul <ScopeTag scope="total" />
+            Contrats de calcul <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             Neuf règles métier affichables — source de vérité du bilan

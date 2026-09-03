@@ -93,7 +93,11 @@ export function CapacitySection({
             hint={`${fmtEur(bridge.departed.prev)} → ${fmtEur(bridge.departed.curr)}`}
           />
         </div>
-        <WaterfallChart steps={steps} />
+        <WaterfallChart
+          steps={steps}
+          scope="new"
+          source="Salesforce · CA NEW par Owner courant"
+        />
         <p className="review-section-note">
           {fmtEur(bridge.total)} = actifs − PDG − partis. Le bridge montre
           d'où vient l'écart, pas pourquoi il existe. {data.attribution_limit}

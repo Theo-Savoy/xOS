@@ -1,8 +1,9 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ScopeTag } from '../../components/ScopeTag';
-import { StatCard } from '../../components/StatCard';
-import { fmtEur, fmtPct1 } from '../../review.helpers';
-import type { CommercialPayload, DgYear } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { StatCard } from '../components/StatCard';
+import { fmtEur, fmtPct1 } from '../review.helpers';
+import type { CommercialPayload, DgYear } from '../review.types';
 
 function Metric({
   label,
@@ -34,7 +35,7 @@ function pack(row: DgYear | undefined) {
   };
 }
 
-export function JeromeAnnex({
+export function LeadershipSection({
   data,
   loading,
 }: {
@@ -51,7 +52,7 @@ export function JeromeAnnex({
   if (!data?.dg) {
     return (
       <EmptyState
-        title="Annexe A2"
+        title="Lecture PDG indisponible"
         description="Pas de données PDG sur cette fenêtre."
       />
     );
@@ -65,7 +66,7 @@ export function JeromeAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A2 · Jérôme — activité PDG, hors classement commercial{' '}
+            Jérôme — activité PDG, hors classement commercial{' '}
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
@@ -73,6 +74,7 @@ export function JeromeAnnex({
             comparaison sales
           </p>
         </div>
+        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">

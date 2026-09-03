@@ -1,10 +1,10 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import { fmtEur, fmtPct1 } from '../../review.helpers';
-import type { OverviewPayload } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { fmtEur, fmtPct1 } from '../review.helpers';
+import type { OverviewPayload } from '../review.types';
 
-export function HistoryAnnex({
+export function HistorySection({
   data,
   loading,
 }: {
@@ -21,7 +21,7 @@ export function HistoryAnnex({
   if (!data?.series?.length) {
     return (
       <EmptyState
-        title="Annexe A4"
+        title="Historique indisponible"
         description="Pas de série FY22→FY26."
       />
     );
@@ -32,7 +32,7 @@ export function HistoryAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A4 · Historique FY22→FY26 <ScopeTag scope="total" />
+            Historique FY22→{data.fy} <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             CA total = NEW + RENEW · détections, fermées et signatures NEW
@@ -41,7 +41,7 @@ export function HistoryAnnex({
         <ConservationBadge conservation={data.conservation} />
       </header>
       <GlassCard className="review-chart-card">
-        <table className="review-data-table">
+        <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
               <th>FY</th>

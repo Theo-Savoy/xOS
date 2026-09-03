@@ -1,10 +1,10 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import { StatCard } from '../../components/StatCard';
-import type { QualityPayload } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { StatCard } from '../components/StatCard';
+import type { QualityPayload } from '../review.types';
 
-export function QualityAnnex({
+export function QualitySection({
   data,
   loading,
 }: {
@@ -21,7 +21,7 @@ export function QualityAnnex({
   if (!data) {
     return (
       <EmptyState
-        title="Annexe A8"
+        title="Qualité indisponible"
         description="Les compteurs qualité n'ont pas été chargés."
       />
     );
@@ -32,7 +32,7 @@ export function QualityAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A8 · Qualité des données <ScopeTag scope="total" />
+            Qualité des données <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             Compteurs live · le snapshot du 21/07/2026 n&apos;est pas une cible

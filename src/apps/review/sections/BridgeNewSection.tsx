@@ -33,8 +33,16 @@ export function BridgeNewSection({
   const vt = data.volume_ticket;
   const steps = [
     { name: data.compare, amount: vt.prev.amount, kind: 'total' as const },
-    { name: 'Volume', amount: vt.volume, kind: 'down' as const },
-    { name: 'Ticket', amount: vt.ticket, kind: 'down' as const },
+    {
+      name: 'Volume',
+      amount: vt.volume,
+      kind: vt.volume >= 0 ? ('up' as const) : ('down' as const),
+    },
+    {
+      name: 'Ticket',
+      amount: vt.ticket,
+      kind: vt.ticket >= 0 ? ('up' as const) : ('down' as const),
+    },
     { name: data.fy, amount: vt.curr.amount, kind: 'total' as const },
   ];
 
@@ -83,40 +91,11 @@ export function BridgeNewSection({
         <h3 className="review-card-title">
           Waterfall NEW {data.compare} → {data.fy}
         </h3>
-        <WaterfallChart steps={steps} />
+        <WaterfallChart steps={steps} scope="new" source="Salesforce · CA NEW" />
         <p className="review-section-note">
           Le bridge montre d'où vient l'écart, pas pourquoi il existe.
         </p>
       </GlassCard>
-
-      {data.owner ? (
-        <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">
-            Bridge Owner NEW — cadrage avant tout diagnostic d'équipe
-          </h3>
-          <div className="review-kpi-grid">
-            <StatCard
-              label={data.owner.active.label}
-              value={fmtEur(data.owner.active.delta)}
-              hint={`${fmtEur(data.owner.active.prev)} → ${fmtEur(data.owner.active.curr)}`}
-            />
-            <StatCard
-              label={data.owner.dg.label}
-              value={fmtEur(data.owner.dg.delta)}
-              hint={`${fmtEur(data.owner.dg.prev)} → ${fmtEur(data.owner.dg.curr)}`}
-            />
-            <StatCard
-              label={data.owner.departed.label}
-              value={fmtEur(data.owner.departed.delta)}
-              hint={`${fmtEur(data.owner.departed.prev)} → ${fmtEur(data.owner.departed.curr)}`}
-            />
-          </div>
-          <p className="review-section-note">
-            Attribution par Owner courant du snapshot — pas de reconstitution
-            historique.
-          </p>
-        </GlassCard>
-      ) : null}
     </div>
   );
 }
