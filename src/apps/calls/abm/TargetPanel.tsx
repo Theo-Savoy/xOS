@@ -1,8 +1,14 @@
 import { useState } from 'react';
+import {
+  FONCTION_PRESETS,
+  type FonctionPresetId,
+} from '../../../crm';
 import { Button, GlassCard, SegmentedControl } from '../../../components/ui';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { ChipGroup } from '../filterControls';
 import type { AccountSearchContact, AccountSearchHit } from '../types';
 import { ContactRow } from './ContactRow';
+import { contactMatchesFonctionPresets } from './fonctionPresetMatch';
 import { CloseIcon } from './icons';
 
 const CHANNEL_FILTER_OPTIONS = [
@@ -25,14 +31,17 @@ function matchesContactView(
   contact: AccountSearchContact,
   channel: ContactChannelFilter,
   search: string,
+  fonctionIds: readonly FonctionPresetId[],
 ): boolean {
   if (channel === 'phone' && !contactHasPhone(contact)) return false;
   if (channel === 'email' && !contactHasEmail(contact)) return false;
   const query = search.trim().toLowerCase();
-  if (!query) return true;
-  const name = contact.contact_name.toLowerCase();
-  const title = (contact.title ?? '').toLowerCase();
-  return name.includes(query) || title.includes(query);
+  if (query) {
+    const name = contact.contact_name.toLowerCase();
+    const title = (contact.title ?? '').toLowerCase();
+    if (!name.includes(query) && !title.includes(query)) return false;
+  }
+  return contactMatchesFonctionPresets(contact.title, fonctionIds);
 }
 
 export type TargetEntry = {
@@ -63,6 +72,7 @@ export function TargetPanel({
   const [contactFilter, setContactFilter] =
     useState<ContactChannelFilter>('all');
   const [contactSearch, setContactSearch] = useState('');
+  const [fonctionIds, setFonctionIds] = useState<FonctionPresetId[]>([]);
 
   const entries = Array.from(targetList.values());
   const totalAccounts = targetList.size;
@@ -75,7 +85,12 @@ export function TargetPanel({
     for (const contact of account.contacts) {
       if (
         contactIds.has(contact.sf_contact_id) &&
-        !matchesContactView(contact, contactFilter, contactSearch)
+        !matchesContactView(
+          contact,
+          contactFilter,
+          contactSearch,
+          fonctionIds,
+        )
       ) {
         hidden += 1;
       }
@@ -133,6 +148,16 @@ export function TargetPanel({
             value={[contactFilter]}
             onChange={handleChannelChange}
           />
+          <ChipGroup
+            label="Fonction"
+            hint="Presets sur le poste (OR entre les cases cochées)"
+            options={FONCTION_PRESETS.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+            }))}
+            value={fonctionIds}
+            onChange={(next) => setFonctionIds(next)}
+          />
           <input
             type="text"
             className="calls-input"
@@ -156,7 +181,12 @@ export function TargetPanel({
           const retainedCount = contactIds.size;
           const totalCount = account.contacts.length;
           const visibleContacts = account.contacts.filter((contact) =>
-            matchesContactView(contact, contactFilter, contactSearch),
+            matchesContactView(
+              contact,
+              contactFilter,
+              contactSearch,
+              fonctionIds,
+            ),
           );
 
           return (
@@ -165,8 +195,8 @@ export function TargetPanel({
               className="calls-abm-composer__account"
               role="listitem"
             >
-              <details className="calls-fb-section" defaultOpen>
-                <summary>
+              <div className="calls-fb-section">
+                <div className="calls-abm-composer__account-head">
                   <span className="calls-fb-section__title">
                     {account.name}
                     <span
@@ -176,22 +206,22 @@ export function TargetPanel({
                       {retainedCount}/{totalCount}
                     </span>
                   </span>
-                </summary>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemoveAccount(account.id)}
+                    aria-label={`Retirer ${account.name} de la cible`}
+                  >
+                    <CloseIcon />
+                    Retirer
+                  </Button>
+                </div>
                 <div className="calls-fb-section__body">
                   <div className="calls-abm-composer__account-tools">
                     <span className="calls-abm-composer__account-count xos-numeric">
                       {retainedCount} / {totalCount} retenu
                       {retainedCount > 1 ? 's' : ''}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemoveAccount(account.id)}
-                      aria-label={`Retirer ${account.name} de la cible`}
-                    >
-                      <CloseIcon />
-                      Retirer
-                    </Button>
                   </div>
                   <div
                     className="calls-abm-composer__contacts"
@@ -210,7 +240,7 @@ export function TargetPanel({
                     ))}
                   </div>
                 </div>
-              </details>
+              </div>
             </div>
           );
         })}

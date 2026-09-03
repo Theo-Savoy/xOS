@@ -655,6 +655,20 @@
   gap: 0.75rem;
 }
 
+.calls-abm-composer__account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.calls-abm-composer__account-head .xos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .calls-abm-composer--drawer .calls-abm-composer__accounts {
   max-height: calc(100cqh - 16rem);
   overflow-y: auto;
