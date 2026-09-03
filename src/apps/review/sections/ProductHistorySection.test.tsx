@@ -188,7 +188,7 @@ describe('ProductHistorySection', () => {
     expect(screen.getByText('Signatures')).toBeTruthy();
     expect(screen.getByText('Perdues')).toBeTruthy();
     expect(screen.getByText('Closing')).toBeTruthy();
-    expect(screen.getByText('CA nouv. aff.')).toBeTruthy();
+    expect(screen.getByText('CA nouvelles affaires')).toBeTruthy();
     expect(screen.getByText('Cycle médian')).toBeTruthy();
   });
 

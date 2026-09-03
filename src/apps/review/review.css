@@ -301,13 +301,18 @@
 
 .review-chart-card .recharts-cartesian-axis-tick text,
 .review-section .recharts-cartesian-axis-tick text,
-.review-chart-card .recharts-text {
+.review-chart-card .recharts-text,
+.review-section .recharts-text {
   fill: var(--xos-text-secondary) !important;
   color: var(--xos-text-secondary) !important;
+  /* Recharts pose un `stroke` hérité sur les textes : contour noir sur fond sombre. */
+  stroke: none !important;
 }
 
 .review-chart-card .recharts-cartesian-axis-line,
-.review-chart-card .recharts-cartesian-axis-tick-line {
+.review-chart-card .recharts-cartesian-axis-tick-line,
+.review-section .recharts-cartesian-axis-line,
+.review-section .recharts-cartesian-axis-tick-line {
   stroke: var(--xos-border) !important;
 }
 

@@ -70,12 +70,16 @@ export function WaterfallChart({
         <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
         <XAxis
           dataKey="name"
-          tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+          tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)', stroke: 'none' }}
+          axisLine={{ stroke: 'var(--xos-border)' }}
+          tickLine={false}
         />
         <YAxis
           tickFormatter={(v: number) => fmtEur(v)}
-          tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+          tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)', stroke: 'none' }}
           width={72}
+          axisLine={{ stroke: 'var(--xos-border)' }}
+          tickLine={false}
         />
         <ReviewChartTooltip
           content={(props) => {

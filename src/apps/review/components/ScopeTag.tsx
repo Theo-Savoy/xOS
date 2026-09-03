@@ -3,7 +3,7 @@ import type { ScopeKind } from '../review.types';
 const SCOPE_LABELS: Record<ScopeKind, string> = {
   total: 'CA total',
   new: 'Nouvelles affaires',
-  'signatures-new': 'Signatures nouv. aff.',
+  'signatures-new': 'Signatures nouvelles affaires',
 };
 
 export function ScopeTag({

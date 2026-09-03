@@ -106,7 +106,9 @@ export default function ReviewApp({
   );
   const bridge = useBusinessReview<BridgePayload>(
     token,
-    canFetch && (nav === 'summary' || nav === 'product') ? 'bridge' : null,
+    canFetch && (nav === 'summary' || nav === 'trajectory' || nav === 'product')
+      ? 'bridge'
+      : null,
     period,
   );
   const commercial = useBusinessReview<CommercialPayload>(
@@ -116,7 +118,7 @@ export default function ReviewApp({
   );
   const product = useBusinessReview<ProductPayload>(
     token,
-    canFetch && nav === 'product' ? 'product' : null,
+    canFetch && (nav === 'summary' || nav === 'product') ? 'product' : null,
     period,
   );
   const cycles = useBusinessReview<CyclesPayload>(
@@ -346,12 +348,14 @@ export default function ReviewApp({
                 period={period}
                 synthesis={synthesis}
                 bridge={bridge}
+                product={product}
               />
             ) : null}
             {nav === 'trajectory' ? (
               <TrajectoryPage
                 period={period}
                 overview={overview}
+                bridge={bridge}
                 portfolio={portfolio}
               />
             ) : null}
