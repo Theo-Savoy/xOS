@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import { respond, verifyJWT } from './_auth.js';
-import { getProfile } from './_calls/profileCache.js';
-import { canManageSettings } from './_config/access.js';
+import { respond, verifyJWT } from '../_auth.js';
+import { getProfile } from '../_calls/profileCache.js';
+import { canManageSettings } from '../_config/access.js';
 import {
   FISCAL_QUARTER_MONTHS,
   quarterlyToMonthlyIndicative,
-} from './_weekly/targets.js';
-import { buildSeasonality, dateKey, fiscalQuarter } from './perf.js';
-import { fetchSFToken, searchContacts } from './_crm/salesforce.js';
-import mapping from './_crm/mapping.js';
+} from './targets.js';
+import { buildSeasonality, dateKey, fiscalQuarter } from '../perf.js';
+import { fetchSFToken, searchContacts } from '../_crm/salesforce.js';
+import mapping from '../_crm/mapping.js';
 
 const TARGETS_KEY = 'weekly_targets';
 

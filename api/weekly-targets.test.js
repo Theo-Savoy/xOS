@@ -27,7 +27,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mockFrom }),
 }));
 
-import { GET } from './weekly-targets.js';
+import { GET } from './_weekly/router.js';
 
 const teamProfiles = [
   {

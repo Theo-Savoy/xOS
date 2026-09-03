@@ -1,4 +1,4 @@
-import { insertUserNotification } from '../notifications.js';
+import { insertUserNotification } from '../_notifications/router.js';
 import { getProfile } from './profileCache.js';
 import { goalNotificationDedupeKey } from './notificationHelpers.js';
 import mapping from '../_crm/mapping.js';

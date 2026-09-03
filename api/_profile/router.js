@@ -1,13 +1,13 @@
 /**
- * api/profile.js — profil de l'utilisateur connecté.
+ * api/_profile/router.js — profil de l'utilisateur connecté.
  *
  * GET /api/profile
  * Auth: Supabase JWT (Bearer token).
  * Retourne { role, sf_user_id, full_name, sf_auth_connected_at }.
  */
-import { verifyJWT, respond } from './_auth.js';
-import { getServiceClient } from './_calls/http.js';
-import { getProfile } from './_calls/profileCache.js';
+import { verifyJWT, respond } from '../_auth.js';
+import { getServiceClient } from '../_calls/http.js';
+import { getProfile } from '../_calls/profileCache.js';
 
 export async function GET(request) {
   const user = await verifyJWT(request);

@@ -25,7 +25,7 @@ vi.mock('../_calls/http.js', () => ({
   getServiceClient: mockGetServiceClient,
 }));
 
-import { __resetPicklistCache, GET } from './picklists.js';
+import { __resetPicklistCache, GET } from '../_crm/picklistsRouter.js';
 
 const FIELD = 'Raison_de_perte_V2__c';
 

@@ -62,7 +62,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
-import { GET, insertUserNotification } from './notifications.js';
+import { GET, insertUserNotification } from './_notifications/router.js';
 
 function request(url = 'https://xos.test/api/notifications') {
   return new Request(url, {
