@@ -424,4 +424,21 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     await user.click(chip);
     expect(screen.getByRole('button', { name: /Tier A & B/i })).toBeTruthy();
   });
+
+  it('splits the planifier step into Informations, Équipe and Découpage cards', () => {
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        team={[{ user_id: 'user-2', label: 'Alice', sf_user_id: '005A' }]}
+        onCreateAudience={vi.fn()}
+        initialStep={2}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Informations' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Équipe' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Découpage' })).toBeTruthy();
+    expect(document.querySelector('.calls-name-form')).toBeNull();
+    expect(screen.queryByText(/contacts? sélectionnés?/)).toBeNull();
+  });
 });

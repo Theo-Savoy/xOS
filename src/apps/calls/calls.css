@@ -6587,25 +6587,65 @@ a.calls-contact-card__peer:hover {
   min-width: 0;
 }
 
-.calls-name-form__split-fields {
+.calls-plan {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calls-plan-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.calls-plan-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.calls-plan-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.calls-plan-card__fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calls-plan-card__fields .calls-field {
+  margin: 0;
+}
+
+.calls-plan-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.calls-plan-card__split-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   align-items: end;
 }
 
-.calls-name-form__split-fields .calls-field {
+.calls-plan-card__split-fields .calls-field {
   margin: 0;
   gap: 0.25rem;
 }
 
-.calls-name-form__split-fields .calls-input {
+.calls-plan-card__split-fields .calls-input {
   min-height: 2.25rem;
 }
 
 @container calls-app (max-width: 719px) {
   .calls-preview__limits,
-  .calls-name-form__split-fields {
+  .calls-plan-card__split-fields {
     grid-template-columns: 1fr;
   }
 }

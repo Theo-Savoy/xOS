@@ -760,36 +760,74 @@ export function NewSessionView({
           {/* Étape 3 : PLANIFIER */}
           {step === 2 && (
             <div className="calls-wizard-step-pane" data-step="planifier">
-              <GlassCard className="calls-name-form">
-                <div className="calls-name-form__meta">
-                  <Tag>
-                    {selectedContacts.length} contact
-                    {selectedContacts.length > 1 ? 's' : ''} sélectionné
-                    {selectedContacts.length > 1 ? 's' : ''}
-                  </Tag>
-                </div>
-                <label className="calls-field">
-                  <span>Nom de la séance</span>
-                  <input
-                    type="text"
-                    value={sessionName}
-                    onChange={(e) => setSessionName(e.target.value)}
-                    placeholder="Prospection Lyon"
-                    className="calls-input"
-                  />
-                </label>
-                <DatePicker
-                  label="Date de séance"
-                  value={scheduledFor}
-                  onChange={setScheduledFor}
-                />
-                <SessionTypePicker
-                  value={sessionType}
-                  onChange={setSessionType}
-                />
+              <div className="calls-plan">
+                <GlassCard className="calls-plan-card">
+                  <h3 className="calls-plan-card__title">Informations</h3>
+                  <div className="calls-plan-card__fields">
+                    <label className="calls-field">
+                      <span>Nom de la séance</span>
+                      <input
+                        type="text"
+                        value={sessionName}
+                        onChange={(e) => setSessionName(e.target.value)}
+                        placeholder="Prospection Lyon"
+                        className="calls-input"
+                      />
+                    </label>
+                    <DatePicker
+                      label="Date de séance"
+                      value={scheduledFor}
+                      onChange={setScheduledFor}
+                    />
+                    <SessionTypePicker
+                      value={sessionType}
+                      onChange={setSessionType}
+                    />
+                  </div>
+                </GlassCard>
+
+                {shareableTeam.length > 0 && (
+                  <GlassCard className="calls-plan-card">
+                    <div className="calls-plan-card__head">
+                      <h3 className="calls-plan-card__title">Équipe</h3>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className={`calls-list-filter-chip${allTeamSelected ? ' calls-list-filter-chip--active' : ''}`}
+                        aria-pressed={allTeamSelected}
+                        onClick={toggleAllTeam}
+                      >
+                        Toute l&apos;équipe
+                      </Button>
+                    </div>
+                    <div
+                      className="calls-plan-card__chips"
+                      role="group"
+                      aria-label="Collègues"
+                    >
+                      {shareableTeam.map((member) => {
+                        const checked = shareMemberIds.has(member.user_id);
+                        return (
+                          <span
+                            key={member.user_id}
+                            className={`calls-share-chip${checked ? ' calls-share-chip--active' : ''}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onChange={() => toggleShareMember(member.user_id)}
+                              label={member.label}
+                            />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </GlassCard>
+                )}
 
                 {onCreateAudience && (
-                  <div className="calls-name-form__split">
+                  <GlassCard className="calls-plan-card">
+                    <h3 className="calls-plan-card__title">Découpage</h3>
                     <Checkbox
                       checked={splitSessions}
                       onChange={setSplitSessions}
@@ -797,8 +835,8 @@ export function NewSessionView({
                       aria-label="Découper en plusieurs séances"
                     />
                     {splitSessions && (
-                      <>
-                        <div className="calls-name-form__split-fields">
+                      <div className="calls-plan-card__fields">
+                        <div className="calls-plan-card__split-fields">
                           <label className="calls-field">
                             <span>Taille cible par séance</span>
                             <input
@@ -833,50 +871,11 @@ export function NewSessionView({
                           {packedGroups.length > 1 ? 's' : ''} · les contacts
                           d&apos;un même compte restent ensemble.
                         </p>
-                      </>
+                      </div>
                     )}
-                  </div>
+                  </GlassCard>
                 )}
-
-                {shareableTeam.length > 0 && (
-                  <div className="calls-name-form__share">
-                    <div className="calls-name-form__share-head">
-                      <span>Partager avec</span>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className={`calls-list-filter-chip${allTeamSelected ? ' calls-list-filter-chip--active' : ''}`}
-                        aria-pressed={allTeamSelected}
-                        onClick={toggleAllTeam}
-                      >
-                        Toute l&apos;équipe
-                      </Button>
-                    </div>
-                    <div
-                      className="calls-name-form__share-chips"
-                      role="group"
-                      aria-label="Collègues"
-                    >
-                      {shareableTeam.map((member) => {
-                        const checked = shareMemberIds.has(member.user_id);
-                        return (
-                          <span
-                            key={member.user_id}
-                            className={`calls-share-chip${checked ? ' calls-share-chip--active' : ''}`}
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onChange={() => toggleShareMember(member.user_id)}
-                              label={member.label}
-                            />
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </GlassCard>
+              </div>
 
               <div className="calls-wizard-nav">
                 <Button variant="secondary" onClick={() => setStep(1)}>
