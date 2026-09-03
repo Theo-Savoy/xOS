@@ -10,12 +10,15 @@
  * GET  /api/review?resource=bridge[&fy=FY26&compare=FY25]
  * GET  /api/review?resource=product[&fy=FY26]
  * GET  /api/review?resource=cycles[&fy=FY26]
+ * GET  /api/review?resource=commercial[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=fte-config
+ * POST /api/review?resource=fte-config  { FY25, FY26 }
  * POST /api/review?resource=shared  { config, note?, recipient_id? }
  * DELETE /api/review?resource=shared&id=<uuid>
  *
  * Auth: Supabase JWT (Bearer token).
  * Access: manager/admin → global + owner filter; commercial → own data + shared only.
- * Resources business (overview, bridge, product, cycles) : manager/admin uniquement.
+ * Resources business (overview, bridge, product, cycles, commercial, fte-config) : manager/admin uniquement.
  */
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
@@ -43,7 +46,7 @@ import { computeAttention } from './_review/attention.js';
 import { computeCallStats } from './_review/calls.js';
 import { listShared, createShared, revokeShared } from './_review/shared.js';
 import { fyRange } from './_business-review/soql.js';
-import { fetchFyWindow } from './_business-review/fetch.js';
+import { fetchEventsWindow, fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
 import {
   catalogueBridge,
@@ -53,6 +56,8 @@ import {
 import { splitNewRenew } from './_business-review/classify.js';
 import { computeCycles } from './_business-review/cycles.js';
 import { computeProduct } from './_business-review/product.js';
+import { computeCommercial } from './_business-review/commercial.js';
+import { loadFte, saveFte } from './_business-review/fte-config.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
 
@@ -64,8 +69,19 @@ const LEGACY_RESOURCES = [
   'attention',
   'shared',
 ];
-const BUSINESS_RESOURCES = ['overview', 'bridge', 'product', 'cycles'];
-const VALID_RESOURCES = [...LEGACY_RESOURCES, ...BUSINESS_RESOURCES];
+const BUSINESS_RESOURCES = [
+  'overview',
+  'bridge',
+  'product',
+  'cycles',
+  'commercial',
+];
+const SETTINGS_RESOURCES = ['fte-config'];
+const VALID_RESOURCES = [
+  ...LEGACY_RESOURCES,
+  ...BUSINESS_RESOURCES,
+  ...SETTINGS_RESOURCES,
+];
 const BUSINESS_FROM_FY = 22;
 
 function json(status, body, extraHeaders = {}) {
@@ -167,6 +183,44 @@ async function reviewHandler(request) {
     return json(405, { error: 'method_not_allowed' });
   }
 
+  // --- ETP (settings, pas de Salesforce) ---
+  if (resource === 'fte-config') {
+    if (!roleAtLeast(profile.role, 'manager')) {
+      return json(403, { error: 'manager_required' });
+    }
+    if (method === 'GET') {
+      try {
+        const value = await loadFte(client);
+        return json(200, { resource: 'fte-config', value });
+      } catch (err) {
+        console.error('review fte-config error:', err);
+        return json(500, {
+          error: 'internal_error',
+          message: String(err.message || err),
+        });
+      }
+    }
+    if (method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json(400, { error: 'invalid_json' });
+      }
+      try {
+        const value = await saveFte(client, body.value ?? body);
+        return json(200, { resource: 'fte-config', value });
+      } catch (err) {
+        console.error('review fte-config error:', err);
+        return json(500, {
+          error: 'internal_error',
+          message: String(err.message || err),
+        });
+      }
+    }
+    return json(405, { error: 'method_not_allowed' });
+  }
+
   // --- Business review (manager/admin, fenêtre multi-FY) ---
   if (BUSINESS_RESOURCES.includes(resource)) {
     if (!roleAtLeast(profile.role, 'manager')) {
@@ -264,6 +318,38 @@ async function reviewHandler(request) {
             delta_amount: 0,
           },
           series: cycles.series,
+        });
+      }
+
+      if (resource === 'commercial') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const [fetched, fte, events] = await Promise.all([
+          fetchFyWindow(token, fyInts),
+          loadFte(client),
+          fetchEventsWindow(token, fyInts),
+        ]);
+        const commercial = computeCommercial(
+          fetched.window,
+          fte,
+          events.window,
+          {
+            fy: fyParsed.label,
+            compare: compareParsed.label,
+          },
+        );
+        const truncated_fys = [
+          ...new Set([
+            ...(fetched.truncated_fys || []),
+            ...(events.truncated_fys || []),
+          ]),
+        ];
+        return json(200, {
+          resource: 'commercial',
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+          truncated: truncated_fys.length > 0,
+          truncated_fys,
+          ...commercial,
         });
       }
     } catch (err) {

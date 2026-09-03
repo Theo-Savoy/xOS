@@ -26,15 +26,21 @@ import {
 import { apiFetch } from '../../lib/apiClient';
 import { supabase } from '../../lib/supabase';
 import { BridgeNewSection } from './sections/BridgeNewSection';
+import { CapacitySection } from './sections/CapacitySection';
 import { CatalogueBridgeSection } from './sections/CatalogueBridgeSection';
 import { ConseilSection } from './sections/ConseilSection';
 import { CycleSection } from './sections/CycleSection';
 import { PerformanceSection } from './sections/PerformanceSection';
 import { ProductCompareSection } from './sections/ProductCompareSection';
+import { ProductivitySection } from './sections/ProductivitySection';
+import { SalesComparisonSection } from './sections/SalesComparisonSection';
+import { ActivityAnnex } from './sections/annexes/ActivityAnnex';
+import { JeromeAnnex } from './sections/annexes/JeromeAnnex';
 import { ProductFyAnnex } from './sections/annexes/ProductFyAnnex';
 import { useBusinessReview } from './useBusinessReview';
 import type {
   BridgePayload,
+  CommercialPayload,
   CyclesPayload,
   OverviewPayload,
   ProductPayload,
@@ -135,11 +141,15 @@ type Owner = { sf_user_id: string; name: string };
 type NavId =
   | 'performance'
   | 'bridge-new'
-  | 'commercial'
+  | 'sales-compare'
+  | 'capacity'
+  | 'productivity'
   | 'cycle'
   | 'product-compare'
   | 'catalogue-bridge'
   | 'conseil'
+  | 'a2'
+  | 'a3'
   | 'a5'
   | 'market'
   | 'diagnosis'
@@ -172,7 +182,11 @@ const NAV_FAMILIES: {
   {
     id: 'commercial',
     label: 'Commercial',
-    items: [{ id: 'commercial', label: 'Équipe', soon: true }],
+    items: [
+      { id: 'sales-compare', label: 'Paul / Christophe' },
+      { id: 'capacity', label: 'Capacité' },
+      { id: 'productivity', label: 'Productivité' },
+    ],
   },
   {
     id: 'product',
@@ -206,12 +220,17 @@ const NAV_FAMILIES: {
   },
 ];
 
-const ANNEX_ITEMS: { id: NavId | 'a1' | 'a4'; label: string; ready?: boolean }[] =
-  [
-    { id: 'a1', label: 'A1 · Définitions' },
-    { id: 'a4', label: 'A4 · Historique' },
-    { id: 'a5', label: 'A5 · Produit × exercice', ready: true },
-  ];
+const ANNEX_ITEMS: {
+  id: NavId | 'a1' | 'a4';
+  label: string;
+  ready?: boolean;
+}[] = [
+  { id: 'a1', label: 'A1 · Définitions' },
+  { id: 'a2', label: 'A2 · Jérôme', ready: true },
+  { id: 'a3', label: 'A3 · Activité', ready: true },
+  { id: 'a4', label: 'A4 · Historique' },
+  { id: 'a5', label: 'A5 · Produit × exercice', ready: true },
+];
 
 const LEGACY_NAV: NavId[] = ['cockpit', 'funnel', 'attention', 'shared'];
 
@@ -315,6 +334,14 @@ export default function ReviewApp({
       ? 'product'
       : null;
   const cyclesResource = canFetchBusiness && nav === 'cycle' ? 'cycles' : null;
+  const commercialNav =
+    nav === 'sales-compare' ||
+    nav === 'capacity' ||
+    nav === 'productivity' ||
+    nav === 'a2' ||
+    nav === 'a3';
+  const commercialResource =
+    canFetchBusiness && commercialNav ? 'commercial' : null;
   const overview = useBusinessReview<OverviewPayload>(token, overviewResource, {
     fy: period,
     compare,
@@ -331,6 +358,11 @@ export default function ReviewApp({
     fy: period,
     compare,
   });
+  const commercial = useBusinessReview<CommercialPayload>(
+    token,
+    commercialResource,
+    { fy: period, compare },
+  );
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -429,12 +461,14 @@ export default function ReviewApp({
     overview.fetchedAt ||
     bridge.fetchedAt ||
     product.fetchedAt ||
-    cycles.fetchedAt
+    cycles.fetchedAt ||
+    commercial.fetchedAt
       ? new Date(
           overview.fetchedAt ||
             bridge.fetchedAt ||
             product.fetchedAt ||
             cycles.fetchedAt ||
+            commercial.fetchedAt ||
             0,
         ).toLocaleTimeString('fr-FR', {
           hour: '2-digit',
@@ -443,13 +477,18 @@ export default function ReviewApp({
       : null;
   const sectionError = isLegacy
     ? error
-    : overview.error || bridge.error || product.error || cycles.error;
+    : overview.error ||
+      bridge.error ||
+      product.error ||
+      cycles.error ||
+      commercial.error;
   const refreshing =
     (isLegacy && loading) ||
     overview.loading ||
     bridge.loading ||
     product.loading ||
-    cycles.loading;
+    cycles.loading ||
+    commercial.loading;
 
   const handlePeriod = (next: string) => {
     setPeriod(next);
@@ -465,6 +504,7 @@ export default function ReviewApp({
     bridge.refresh();
     product.refresh();
     cycles.refresh();
+    commercial.refresh();
   };
 
   if (!roleKnown) {
@@ -607,6 +647,24 @@ export default function ReviewApp({
             {nav === 'bridge-new' && (
               <BridgeNewSection data={bridge.data} loading={bridge.loading} />
             )}
+            {nav === 'sales-compare' && (
+              <SalesComparisonSection
+                data={commercial.data}
+                loading={commercial.loading}
+              />
+            )}
+            {nav === 'capacity' && (
+              <CapacitySection
+                data={commercial.data}
+                loading={commercial.loading}
+              />
+            )}
+            {nav === 'productivity' && (
+              <ProductivitySection
+                data={commercial.data}
+                loading={commercial.loading}
+              />
+            )}
             {nav === 'cycle' && (
               <CycleSection data={cycles.data} loading={cycles.loading} />
             )}
@@ -629,9 +687,19 @@ export default function ReviewApp({
             {nav === 'a5' && (
               <ProductFyAnnex data={product.data} loading={product.loading} />
             )}
-            {(nav === 'commercial' ||
-              nav === 'market' ||
-              nav === 'diagnosis') && (
+            {nav === 'a2' && (
+              <JeromeAnnex
+                data={commercial.data}
+                loading={commercial.loading}
+              />
+            )}
+            {nav === 'a3' && (
+              <ActivityAnnex
+                data={commercial.data}
+                loading={commercial.loading}
+              />
+            )}
+            {(nav === 'market' || nav === 'diagnosis') && (
               <EmptyState
                 title="Prochain lot"
                 description="Cette famille arrive avec les lots 2 à 5. Le cockpit actuel reste disponible dans la sidebar."

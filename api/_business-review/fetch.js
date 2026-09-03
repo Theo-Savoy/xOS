@@ -4,7 +4,12 @@
  */
 import { fyLabel } from '../_review/period.js';
 import { searchContacts } from '../_crm/salesforce.js';
-import { closedOppsForFy, createdOppsForFy, wonOppsForFy } from './soql.js';
+import {
+  closedOppsForFy,
+  createdOppsForFy,
+  eventsForFy,
+  wonOppsForFy,
+} from './soql.js';
 
 async function fetchSoql(token, soql, search) {
   const result = await search(token, soql);
@@ -53,6 +58,37 @@ export async function fetchFyWindow(token, fyInts, search = searchContacts) {
         created: payload.created,
       },
     ]),
+  );
+  const truncated_fys = entries
+    .filter(([, payload]) => payload.truncated)
+    .map(([label]) => label);
+
+  return {
+    window,
+    truncated: truncated_fys.length > 0,
+    truncated_fys,
+  };
+}
+
+/**
+ * Fenêtre d'Events (RDV) par exercice — même découpage que les opportunités (P2, D5).
+ */
+export async function fetchEventsWindow(
+  token,
+  fyInts,
+  search = searchContacts,
+) {
+  const ints = fyInts || [];
+  const entries = await Promise.all(
+    ints.map(async (fyInt) => {
+      const label = fyLabel(fyInt);
+      const fetched = await fetchSoql(token, eventsForFy(fyInt), search);
+      return [label, fetched];
+    }),
+  );
+
+  const window = Object.fromEntries(
+    entries.map(([label, payload]) => [label, payload.records]),
   );
   const truncated_fys = entries
     .filter(([, payload]) => payload.truncated)

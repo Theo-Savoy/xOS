@@ -6,7 +6,7 @@ import mapping from '../_crm/mapping.js';
 import { escapeSOQL } from '../_crm/salesforce.js';
 import { fyBounds } from '../_review/period.js';
 
-const { opportunity: opp } = mapping.objects;
+const { opportunity: opp, event: evt } = mapping.objects;
 
 function asFyInt(fyInt) {
   const n = Number(fyInt);
@@ -67,4 +67,16 @@ export function createdOppsForFy(fyInt) {
 
 export function closedOppsForFy(fyInt) {
   return `SELECT ${oppFields().join(', ')} FROM ${opp.name} WHERE ${opp.fields.isClosed} = true AND ${closeDateClause(fyInt)} ORDER BY ${opp.fields.closeDate} ASC`;
+}
+
+/** Events (RDV) d'un exercice — filtre Subject « rdv » en JS (D5, P11). */
+export function eventsForFy(fyInt) {
+  const { from, toExclusive } = fyBounds(asFyInt(fyInt));
+  const fields = [
+    evt.fields.subject,
+    evt.fields.activityDate,
+    evt.fields.ownerId,
+    'Owner.Name',
+  ];
+  return `SELECT ${fields.join(', ')} FROM ${evt.name} WHERE ${evt.fields.ownerId} != null AND ${evt.fields.activityDate} >= ${escapeSOQL(from)} AND ${evt.fields.activityDate} < ${escapeSOQL(toExclusive)} ORDER BY ${evt.fields.activityDate} ASC`;
 }

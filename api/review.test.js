@@ -99,6 +99,8 @@ describe('GET /api/review — resources business', () => {
       'bridge',
       'product',
       'cycles',
+      'commercial',
+      'fte-config',
     ]);
   });
 });

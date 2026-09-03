@@ -172,3 +172,90 @@ export type CyclesPayload = {
 };
 
 export type ScopeKind = 'total' | 'new' | 'signatures-new';
+
+export type CommercialPerson = {
+  ownerId: string;
+  name: string;
+  mode: string;
+  rdv: number;
+  weeks: number;
+  rdvPerWeek: number | null;
+  detections: number;
+  detectionRate: number | null;
+  closedNew: number;
+  signaturesNew: number;
+  closing: number | null;
+  ticket: number | null;
+  amountNew: number;
+};
+
+export type CompanyTotals = {
+  amountNew: number;
+  signaturesNew: number;
+  detections: number;
+  closedNew: number;
+  closing: number | null;
+};
+
+export type DgYear = {
+  detections: number;
+  closedNew: number;
+  signaturesNew: number;
+  closing: number | null;
+  ticket: number | null;
+  amountNew: number;
+  rdv: number;
+};
+
+export type CapacityYear = {
+  fy: string;
+  amountNew: number;
+  signaturesNew: number;
+  detections: number;
+};
+
+export type ProductivityRow = {
+  fy: string;
+  fte: number;
+  amountNew: number;
+  signatures: number;
+  detections: number;
+  caPerFte: number | null;
+  signaturesPerFte: number | null;
+  detectionsPerFte: number | null;
+};
+
+export type ProductivityEvolution = {
+  caPerFte: number | null;
+  signaturesPerFte: number | null;
+  detectionsPerFte: number | null;
+};
+
+export type CommercialPayload = {
+  resource: 'commercial';
+  fy: string;
+  compare: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  sales: CommercialPerson[];
+  activity: CommercialPerson[];
+  company: CompanyTotals;
+  dg: Record<string, DgYear>;
+  capacity: CapacityYear[];
+  ownerBridge: OwnerBridge;
+  productivity: {
+    evolution: ProductivityEvolution;
+  } & Record<string, ProductivityRow | ProductivityEvolution>;
+  attribution_limit: string;
+  rdv_limit: string;
+};
+
+export function productivityOf(
+  payload: CommercialPayload,
+  fy: string,
+): ProductivityRow | undefined {
+  const row = payload.productivity[fy];
+  if (!row || !('fte' in row)) return undefined;
+  return row;
+}

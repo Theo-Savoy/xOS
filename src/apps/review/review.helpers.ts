@@ -30,3 +30,20 @@ export function fmtPct1(ratio: number | null | undefined): string {
     maximumFractionDigits: 1,
   })} %`;
 }
+
+export function fmtPctDelta(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
+  const rounded = Math.round(n);
+  return `${rounded > 0 ? '+' : ''}${rounded} %`;
+}
+
+export function fmtNum(
+  n: number | null | undefined,
+  digits = 1,
+): string {
+  if (n === null || n === undefined) return '—';
+  return n.toLocaleString('fr-FR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
