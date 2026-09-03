@@ -172,7 +172,7 @@ function AccountCard({
               {account.contacts.length} contact{account.contacts.length > 1 ? 's' : ''}
             </Tag>
           ) : (
-            <Tag variant="destructive" title="Aucun contact disponible — exclusion automatique">
+            <Tag variant="warning" title="Aucun contact disponible — exclusion automatique">
               0 contact (exclu)
             </Tag>
           )}
