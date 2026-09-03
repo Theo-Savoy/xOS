@@ -135,11 +135,7 @@
   z-index: 15;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: color-mix(
-    in srgb,
-    var(--xos-surface-plain, #0d1117) 85%,
-    transparent
-  );
+  background: var(--xos-glass-bg);
   border: 1px solid var(--xos-border);
   border-radius: var(--xos-radius-lg, 12px);
   padding: 0.85rem 1rem;
@@ -375,7 +371,7 @@
   min-width: 300px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: color-mix(in srgb, var(--xos-surface-plain, #0e121a) 92%, black);
+  background: color-mix(in srgb, var(--xos-window-content-bg) 92%, black);
   border: 1px solid var(--xos-border);
   border-radius: var(--xos-radius-lg, 12px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
@@ -559,7 +555,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  background: color-mix(in srgb, var(--xos-surface-plain, #0d1117) 90%, black);
+  background: color-mix(in srgb, var(--xos-window-content-bg) 90%, black);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--xos-border);
@@ -591,27 +587,6 @@
   }
 }
 
-/* Desktop Layout (>= 1100px) */
-@media (min-width: 1100px) {
-  .calls-abm-layout {
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    align-items: start;
-    gap: 1.5rem;
-  }
-  .calls-abm-sidebar {
-    display: flex;
-    flex-direction: column;
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-  }
-  .calls-abm-bottom-bar {
-    display: none;
-  }
-}
-
 @container calls-app (min-width: 1100px) {
   .calls-abm-layout {
     display: grid;
@@ -624,7 +599,7 @@
     flex-direction: column;
     position: sticky;
     top: 1rem;
-    max-height: calc(100vh - 2rem);
+    max-height: calc(100cqh - 2rem);
     overflow-y: auto;
   }
   .calls-abm-bottom-bar {
