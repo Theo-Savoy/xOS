@@ -2,6 +2,8 @@
  * Fixture d'or Business Review — reproduisant §2.1, §2.2, §2.4, §2.5, §2.10, §2.11.
  * Totaux NEW/RENEW et montants Owner FY25/FY26 conservés pour les tests du lot 1.
  */
+import { annotateLot5, buildArrCohort } from './annotate-lot5.js';
+
 const PAUL = { id: '005AZ000000fLYkYAM', name: 'Paul Rathouin' };
 const CHRISTOPHE = { id: '0055I000002lY9QQAU', name: 'Christophe Hirtz' };
 const JEROME = { id: '005b0000005zfnvAAA', name: 'Jérôme Bosio' };
@@ -416,6 +418,8 @@ const fy26Cat = wonBatch({
   owner: PAUL,
   saleType: SALE.catalogue,
 });
+fy26Cat[0].Amount += 1_159;
+fy26Cat[18].Amount -= 1_159;
 const fy26Sm = wonBatch({
   fy: 'FY26',
   prefix: 'SM',
@@ -471,7 +475,7 @@ const fy26CatRenew = wonBatch({
   fy: 'FY26',
   prefix: 'REN',
   name: 'catalogue',
-  amounts: [546_500],
+  amounts: [331_000, ...splitAmount(215_500, 38)],
   closeDate: FY26_CLOSE,
   owner: PAUL,
   saleType: SALE.catalogue,
@@ -607,5 +611,8 @@ const FY26 = {
 };
 
 const fyWindow = { FY22, FY23, FY24, FY25, FY26 };
+
+annotateLot5(fyWindow);
+export const arrCohort = buildArrCohort(fyWindow);
 
 export default fyWindow;

@@ -588,3 +588,24 @@
   font-weight: 400;
   color: var(--xos-text-muted);
 }
+
+.review-factor-matrix {
+  display: block;
+  overflow-x: auto;
+}
+
+.review-factor-matrix th,
+.review-factor-matrix td {
+  vertical-align: top;
+  white-space: normal;
+  min-width: 9rem;
+}
+
+.review-factor-matrix th:first-child,
+.review-factor-matrix td:first-child {
+  min-width: 11rem;
+}
+
+.review-pattern-card .review-card-title {
+  margin-bottom: 6px;
+}

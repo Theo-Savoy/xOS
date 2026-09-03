@@ -37,18 +37,33 @@ import { SalesComparisonSection } from './sections/SalesComparisonSection';
 import { MarketSignalSection } from './sections/MarketSignalSection';
 import { MarketStudiesSection } from './sections/MarketStudiesSection';
 import { WinReasonsSection } from './sections/WinReasonsSection';
+import { SynthesisSection } from './sections/SynthesisSection';
+import { PortfolioSection } from './sections/PortfolioSection';
+import { ChannelsSection } from './sections/ChannelsSection';
+import { DiagnosisSection } from './sections/DiagnosisSection';
+import { PatternsSection } from './sections/PatternsSection';
 import { ActivityAnnex } from './sections/annexes/ActivityAnnex';
+import { CampaignsAnnex } from './sections/annexes/CampaignsAnnex';
+import { DefinitionsAnnex } from './sections/annexes/DefinitionsAnnex';
+import { HistoryAnnex } from './sections/annexes/HistoryAnnex';
 import { JeromeAnnex } from './sections/annexes/JeromeAnnex';
 import { ProductFyAnnex } from './sections/annexes/ProductFyAnnex';
+import { QualityAnnex } from './sections/annexes/QualityAnnex';
 import { ReasonsAnnex } from './sections/annexes/ReasonsAnnex';
 import { useBusinessReview } from './useBusinessReview';
 import type {
   BridgePayload,
+  ChannelsPayload,
   CommercialPayload,
   CyclesPayload,
+  DefinitionsPayload,
+  DiagnosisPayload,
   MarketPayload,
   OverviewPayload,
+  PortfolioPayload,
   ProductPayload,
+  QualityPayload,
+  SynthesisPayload,
 } from './review.types';
 import './review.css';
 
@@ -144,6 +159,7 @@ type SharedAnalysis = {
 type Owner = { sf_user_id: string; name: string };
 
 type NavId =
+  | 'synthesis'
   | 'performance'
   | 'bridge-new'
   | 'sales-compare'
@@ -153,14 +169,21 @@ type NavId =
   | 'product-compare'
   | 'catalogue-bridge'
   | 'conseil'
+  | 'a1'
   | 'a2'
   | 'a3'
+  | 'a4'
   | 'a5'
   | 'a6'
+  | 'a7'
+  | 'a8'
   | 'market'
   | 'market-studies'
   | 'win-reasons'
+  | 'portfolio'
+  | 'channels'
   | 'diagnosis'
+  | 'patterns'
   | 'cockpit'
   | 'funnel'
   | 'attention'
@@ -183,6 +206,7 @@ const NAV_FAMILIES: {
     id: 'performance',
     label: 'Performance',
     items: [
+      { id: 'synthesis', label: 'Synthèse' },
       { id: 'performance', label: 'NEW et RENEW' },
       { id: 'bridge-new', label: 'Bridge NEW' },
     ],
@@ -218,7 +242,12 @@ const NAV_FAMILIES: {
   {
     id: 'diagnosis',
     label: 'Diagnostic',
-    items: [{ id: 'diagnosis', label: 'Fiabilité', soon: true }],
+    items: [
+      { id: 'portfolio', label: 'Portefeuille' },
+      { id: 'channels', label: 'Canaux' },
+      { id: 'diagnosis', label: 'Diagnostic' },
+      { id: 'patterns', label: 'Conclusion' },
+    ],
   },
   {
     id: 'cockpit-legacy',
@@ -233,16 +262,18 @@ const NAV_FAMILIES: {
 ];
 
 const ANNEX_ITEMS: {
-  id: NavId | 'a1' | 'a4';
+  id: NavId;
   label: string;
   ready?: boolean;
 }[] = [
-  { id: 'a1', label: 'A1 · Définitions' },
+  { id: 'a1', label: 'A1 · Définitions', ready: true },
   { id: 'a2', label: 'A2 · Jérôme', ready: true },
   { id: 'a3', label: 'A3 · Activité', ready: true },
-  { id: 'a4', label: 'A4 · Historique' },
+  { id: 'a4', label: 'A4 · Historique', ready: true },
   { id: 'a5', label: 'A5 · Produit × exercice', ready: true },
   { id: 'a6', label: 'A6 · Motifs', ready: true },
+  { id: 'a7', label: 'A7 · Campagnes', ready: true },
+  { id: 'a8', label: 'A8 · Qualité', ready: true },
 ];
 
 const LEGACY_NAV: NavId[] = ['cockpit', 'funnel', 'attention', 'shared'];
@@ -289,7 +320,7 @@ export default function ReviewApp({
 } = {}) {
   const [token, setToken] = useState<string | null>(null);
   const [nav, setNav] = useState<NavId>(
-    params?.shared ? 'shared' : 'performance',
+    params?.shared ? 'shared' : 'synthesis',
   );
   const [period, setPeriod] = useState('FY26');
   const [compare, setCompare] = useState('FY25');
@@ -336,7 +367,9 @@ export default function ReviewApp({
   const isLegacy = LEGACY_NAV.includes(nav);
   const canFetchBusiness = roleKnown && isManager;
   const overviewResource =
-    canFetchBusiness && nav === 'performance' ? 'overview' : null;
+    canFetchBusiness && (nav === 'performance' || nav === 'a4')
+      ? 'overview'
+      : null;
   const bridgeResource =
     canFetchBusiness && (nav === 'bridge-new' || nav === 'catalogue-bridge')
       ? 'bridge'
@@ -383,6 +416,51 @@ export default function ReviewApp({
     fy: period,
     compare,
   });
+  const synthesisResource =
+    canFetchBusiness && (nav === 'synthesis' || nav === 'patterns')
+      ? 'synthesis'
+      : null;
+  const portfolioResource =
+    canFetchBusiness && nav === 'portfolio' ? 'portfolio' : null;
+  const channelsResource =
+    canFetchBusiness && (nav === 'channels' || nav === 'a7')
+      ? 'channels'
+      : null;
+  const diagnosisResource =
+    canFetchBusiness && nav === 'diagnosis' ? 'diagnosis' : null;
+  const qualityResource =
+    canFetchBusiness && nav === 'a8' ? 'quality' : null;
+  const definitionsResource =
+    canFetchBusiness && nav === 'a1' ? 'definitions' : null;
+  const synthesis = useBusinessReview<SynthesisPayload>(
+    token,
+    synthesisResource,
+    { fy: period, compare },
+  );
+  const portfolio = useBusinessReview<PortfolioPayload>(
+    token,
+    portfolioResource,
+    { fy: period, compare },
+  );
+  const channels = useBusinessReview<ChannelsPayload>(
+    token,
+    channelsResource,
+    { fy: period, compare },
+  );
+  const diagnosis = useBusinessReview<DiagnosisPayload>(
+    token,
+    diagnosisResource,
+    { fy: period, compare },
+  );
+  const quality = useBusinessReview<QualityPayload>(token, qualityResource, {
+    fy: period,
+    compare,
+  });
+  const definitions = useBusinessReview<DefinitionsPayload>(
+    token,
+    definitionsResource,
+    { fy: period, compare },
+  );
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -477,26 +555,25 @@ export default function ReviewApp({
   }, [funnel]);
 
   const compareOptions = FY_OPTIONS.filter((opt) => opt.value < period);
-  const liveAt =
+  const fetchedAt =
     overview.fetchedAt ||
     bridge.fetchedAt ||
     product.fetchedAt ||
     cycles.fetchedAt ||
     commercial.fetchedAt ||
-    market.fetchedAt
-      ? new Date(
-          overview.fetchedAt ||
-            bridge.fetchedAt ||
-            product.fetchedAt ||
-            cycles.fetchedAt ||
-            commercial.fetchedAt ||
-            market.fetchedAt ||
-            0,
-        ).toLocaleTimeString('fr-FR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : null;
+    market.fetchedAt ||
+    synthesis.fetchedAt ||
+    portfolio.fetchedAt ||
+    channels.fetchedAt ||
+    diagnosis.fetchedAt ||
+    quality.fetchedAt ||
+    definitions.fetchedAt;
+  const liveAt = fetchedAt
+    ? new Date(fetchedAt).toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
   const sectionError = isLegacy
     ? error
     : overview.error ||
@@ -504,7 +581,13 @@ export default function ReviewApp({
       product.error ||
       cycles.error ||
       commercial.error ||
-      market.error;
+      market.error ||
+      synthesis.error ||
+      portfolio.error ||
+      channels.error ||
+      diagnosis.error ||
+      quality.error ||
+      definitions.error;
   const refreshing =
     (isLegacy && loading) ||
     overview.loading ||
@@ -512,7 +595,13 @@ export default function ReviewApp({
     product.loading ||
     cycles.loading ||
     commercial.loading ||
-    market.loading;
+    market.loading ||
+    synthesis.loading ||
+    portfolio.loading ||
+    channels.loading ||
+    diagnosis.loading ||
+    quality.loading ||
+    definitions.loading;
 
   const handlePeriod = (next: string) => {
     setPeriod(next);
@@ -530,6 +619,12 @@ export default function ReviewApp({
     cycles.refresh();
     commercial.refresh();
     market.refresh();
+    synthesis.refresh();
+    portfolio.refresh();
+    channels.refresh();
+    diagnosis.refresh();
+    quality.refresh();
+    definitions.refresh();
   };
 
   if (!roleKnown) {
@@ -666,6 +761,12 @@ export default function ReviewApp({
         <div className="review-main">
           {sectionError ? <div className="review-error">{sectionError}</div> : null}
           <main className="review-content">
+            {nav === 'synthesis' && (
+              <SynthesisSection
+                data={synthesis.data}
+                loading={synthesis.loading}
+              />
+            )}
             {nav === 'performance' && (
               <PerformanceSection data={overview.data} loading={overview.loading} />
             )}
@@ -737,10 +838,43 @@ export default function ReviewApp({
             {nav === 'a6' && (
               <ReasonsAnnex data={market.data} loading={market.loading} />
             )}
+            {nav === 'a1' && (
+              <DefinitionsAnnex
+                data={definitions.data}
+                loading={definitions.loading}
+              />
+            )}
+            {nav === 'a4' && (
+              <HistoryAnnex data={overview.data} loading={overview.loading} />
+            )}
+            {nav === 'a7' && (
+              <CampaignsAnnex data={channels.data} loading={channels.loading} />
+            )}
+            {nav === 'a8' && (
+              <QualityAnnex data={quality.data} loading={quality.loading} />
+            )}
+            {nav === 'portfolio' && (
+              <PortfolioSection
+                data={portfolio.data}
+                loading={portfolio.loading}
+              />
+            )}
+            {nav === 'channels' && (
+              <ChannelsSection
+                data={channels.data}
+                loading={channels.loading}
+              />
+            )}
             {nav === 'diagnosis' && (
-              <EmptyState
-                title="Prochain lot"
-                description="Cette famille arrive avec les lots 2 à 5. Le cockpit actuel reste disponible dans la sidebar."
+              <DiagnosisSection
+                data={diagnosis.data}
+                loading={diagnosis.loading}
+              />
+            )}
+            {nav === 'patterns' && (
+              <PatternsSection
+                data={synthesis.data}
+                loading={synthesis.loading}
               />
             )}
             {nav === 'cockpit' &&

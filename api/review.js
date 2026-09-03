@@ -12,6 +12,12 @@
  * GET  /api/review?resource=cycles[&fy=FY26]
  * GET  /api/review?resource=commercial[&fy=FY26&compare=FY25]
  * GET  /api/review?resource=market[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=portfolio[&fy=FY26]
+ * GET  /api/review?resource=channels[&fy=FY26]
+ * GET  /api/review?resource=diagnosis[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=synthesis[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=quality[&fy=FY26]
+ * GET  /api/review?resource=definitions
  * GET  /api/review?resource=fte-config
  * POST /api/review?resource=fte-config  { FY25, FY26 }
  * POST /api/review?resource=shared  { config, note?, recipient_id? }
@@ -19,7 +25,7 @@
  *
  * Auth: Supabase JWT (Bearer token).
  * Access: manager/admin → global + owner filter; commercial → own data + shared only.
- * Resources business (overview, bridge, product, cycles, commercial, market, fte-config) : manager/admin uniquement.
+ * Resources business (overview … quality, definitions, fte-config) : manager/admin uniquement.
  */
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
@@ -46,7 +52,7 @@ import { computeFunnel } from './_review/funnel.js';
 import { computeAttention } from './_review/attention.js';
 import { computeCallStats } from './_review/calls.js';
 import { listShared, createShared, revokeShared } from './_review/shared.js';
-import { fyRange } from './_business-review/soql.js';
+import { arrCatalogueOpps, fyRange } from './_business-review/soql.js';
 import { fetchEventsWindow, fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
 import {
@@ -59,6 +65,17 @@ import { computeCycles } from './_business-review/cycles.js';
 import { computeProduct } from './_business-review/product.js';
 import { computeCommercial } from './_business-review/commercial.js';
 import { computeMarket } from './_business-review/market.js';
+import {
+  computePortfolio,
+  deriveArrCohort,
+} from './_business-review/portfolio.js';
+import { computeChannels } from './_business-review/channels.js';
+import { computeDiagnosis } from './_business-review/diagnosis.js';
+import {
+  computeDefinitions,
+  computeSynthesis,
+} from './_business-review/synthesis.js';
+import { computeQuality } from './_business-review/quality.js';
 import { loadFte, saveFte } from './_business-review/fte-config.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
@@ -78,8 +95,13 @@ const BUSINESS_RESOURCES = [
   'cycles',
   'commercial',
   'market',
+  'portfolio',
+  'channels',
+  'diagnosis',
+  'synthesis',
+  'quality',
 ];
-const SETTINGS_RESOURCES = ['fte-config'];
+const SETTINGS_RESOURCES = ['fte-config', 'definitions'];
 const VALID_RESOURCES = [
   ...LEGACY_RESOURCES,
   ...BUSINESS_RESOURCES,
@@ -222,6 +244,18 @@ async function reviewHandler(request) {
       }
     }
     return json(405, { error: 'method_not_allowed' });
+  }
+
+  if (resource === 'definitions') {
+    if (!roleAtLeast(profile.role, 'manager')) {
+      return json(403, { error: 'manager_required' });
+    }
+    if (method !== 'GET') return json(405, { error: 'method_not_allowed' });
+    return json(200, {
+      resource: 'definitions',
+      conservation: { ok: true, delta_count: 0, delta_amount: 0 },
+      ...computeDefinitions(),
+    });
   }
 
   // --- Business review (manager/admin, fenêtre multi-FY) ---
@@ -372,6 +406,133 @@ async function reviewHandler(request) {
             delta_amount: 0,
           },
           ...market,
+        });
+      }
+
+      if (resource === 'portfolio') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        let arrRecords = [];
+        try {
+          arrRecords = await crmRecords(token, arrCatalogueOpps());
+        } catch {
+          arrRecords = [];
+        }
+        const cohort = deriveArrCohort(
+          fetched.window,
+          fyParsed.label,
+          arrRecords,
+        );
+        const portfolio = computePortfolio(
+          fetched.window,
+          cohort,
+          fyParsed.label,
+        );
+        return json(200, {
+          resource: 'portfolio',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: portfolio.conservation,
+          statuses: portfolio.statuses,
+          cohort: portfolio.cohort,
+        });
+      }
+
+      if (resource === 'channels') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const channels = computeChannels(fetched.window, fyParsed.label);
+        return json(200, {
+          resource: 'channels',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: channels.conservation,
+          channels: channels.channels,
+          concentration: channels.concentration,
+          sdr_limit: channels.sdr_limit,
+        });
+      }
+
+      if (resource === 'quality') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const quality = computeQuality(fetched.window, fyParsed.label);
+        return json(200, {
+          resource: 'quality',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: {
+            ok: true,
+            delta_count: 0,
+            delta_amount: 0,
+          },
+          ...quality,
+        });
+      }
+
+      if (resource === 'diagnosis' || resource === 'synthesis') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const [fetched, fte] = await Promise.all([
+          fetchFyWindow(token, fyInts),
+          loadFte(client),
+        ]);
+        let arrRecords = [];
+        try {
+          arrRecords = await crmRecords(token, arrCatalogueOpps());
+        } catch {
+          arrRecords = [];
+        }
+        const cohort = deriveArrCohort(
+          fetched.window,
+          fyParsed.label,
+          arrRecords,
+        );
+        const portfolio = computePortfolio(
+          fetched.window,
+          cohort,
+          fyParsed.label,
+        );
+        const channels = computeChannels(fetched.window, fyParsed.label);
+        const market = computeMarket(fetched.window);
+        const cycles = computeCycles(fetched.window);
+        if (resource === 'diagnosis') {
+          const diagnosis = computeDiagnosis({
+            portfolio,
+            channels,
+            market,
+            cycles,
+            fte,
+          });
+          return json(200, {
+            resource: 'diagnosis',
+            fy: fyParsed.label,
+            compare: compareParsed.label,
+            truncated: fetched.truncated,
+            truncated_fys: fetched.truncated_fys,
+            ...diagnosis,
+          });
+        }
+        const overview = computeOverview(fetched.window);
+        const prevWon = fetched.window[compareParsed.label]?.won || [];
+        const currWon = fetched.window[fyParsed.label]?.won || [];
+        const catalogue = catalogueBridge(prevWon, currWon);
+        const synthesis = computeSynthesis({
+          overview,
+          catalogue,
+          fte,
+          market,
+          portfolio,
+        });
+        return json(200, {
+          resource: 'synthesis',
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          ...synthesis,
         });
       }
     } catch (err) {

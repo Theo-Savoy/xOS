@@ -324,3 +324,159 @@ export type MarketPayload = {
     sur_mesure: ReasonTable;
   };
 };
+
+export type PortfolioStatus = {
+  key: string;
+  label: string;
+  kind: 'flux' | 'stock';
+  count: number;
+  amount: number;
+};
+
+export type PortfolioPayload = {
+  resource: 'portfolio';
+  fy: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation & {
+    signed?: {
+      ok: boolean;
+      delta_amount: number;
+      actual: number;
+      expected: number;
+    };
+    lost_share?: { ok: boolean; ratio: number; expected: number };
+  };
+  statuses: {
+    gagnes: PortfolioStatus;
+    fidelises: PortfolioStatus;
+    engages: PortfolioStatus;
+    perdus: PortfolioStatus;
+    n_accounts: number;
+  };
+  cohort: {
+    n_accounts: number;
+    arr: number;
+    retained: { count: number; pct: number };
+    lost: { count: number; pct: number };
+  };
+};
+
+export type ChannelRow = {
+  label: string;
+  closed: number;
+  won: number;
+  amount: number;
+  closing: number | null;
+  closing_pct: number;
+};
+
+export type ConcentrationRow = {
+  rank: number;
+  name: string;
+  amount: number;
+  pct: number;
+};
+
+export type ChannelsPayload = {
+  resource: 'channels';
+  fy: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  channels: {
+    items: ChannelRow[];
+    n_displayed: number;
+    n_total: number;
+    truncated: boolean;
+  };
+  concentration: {
+    items: ConcentrationRow[];
+    top1_pct: number;
+    top5_pct: number;
+    n_displayed: number;
+    n_total: number;
+    truncated: boolean;
+    total: number;
+  };
+  sdr_limit: string;
+};
+
+export type DiagnosisFactor = {
+  id: string;
+  facteur: string;
+  impact: string;
+  fiabilite_mesure: string;
+  fiabilite_attribution: string;
+  manque: string;
+};
+
+export type DiagnosisPayload = {
+  resource: 'diagnosis';
+  fy: string;
+  compare: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  factors: DiagnosisFactor[];
+  attribution_limit: string;
+};
+
+export type SynthesisCard = {
+  key: string;
+  label: string;
+  display: string;
+  value: number;
+  scope: ScopeKind;
+  hint?: string;
+};
+
+export type SynthesisPattern = {
+  id: string;
+  title: string;
+  body: string;
+};
+
+export type SynthesisPayload = {
+  resource: 'synthesis';
+  fy: string;
+  compare: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  cards: SynthesisCard[];
+  patterns: SynthesisPattern[];
+  verdict: string;
+  key_point: string;
+};
+
+export type QualityPayload = {
+  resource: 'quality';
+  fy: string;
+  truncated: boolean;
+  truncated_fys: string[];
+  conservation: Conservation;
+  tag_mismatch: number;
+  negative_cycles: number;
+  over_365: number;
+  over_730: number;
+  missing_amount: number;
+  won_total: number;
+  created_rows: number;
+  closed_rows: number;
+  n_valid: number;
+  n_won_new: number;
+  limits: string[];
+};
+
+export type DefinitionItem = {
+  id: string;
+  title: string;
+  body: string;
+};
+
+export type DefinitionsPayload = {
+  resource: 'definitions';
+  conservation: Conservation;
+  items: DefinitionItem[];
+};

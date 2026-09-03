@@ -35,6 +35,8 @@ function oppFields() {
     opp.fields.createdDate,
     opp.fields.ownerId,
     opp.fields.ownerName,
+    opp.fields.accountId,
+    opp.fields.accountName,
     opp.fields.stageName,
     opp.fields.isWon,
     opp.fields.isClosed,
@@ -67,6 +69,15 @@ export function createdOppsForFy(fyInt) {
 
 export function closedOppsForFy(fyInt) {
   return `SELECT ${oppFields().join(', ')} FROM ${opp.name} WHERE ${opp.fields.isClosed} = true AND ${closeDateClause(fyInt)} ORDER BY ${opp.fields.closeDate} ASC`;
+}
+
+/** Contrats ARR catalogue (cohorte d'ouverture, R6 / R12). */
+export function arrCatalogueOpps() {
+  const types = (opp.arrCommissionTypes || [])
+    .map((label) => `'${escapeSOQL(label)}'`)
+    .join(', ');
+  const sale = escapeSOQL((opp.saleTypes?.catalogue || ['Catalogue'])[0]);
+  return `SELECT ${oppFields().join(', ')} FROM ${opp.name} WHERE ${opp.fields.isWon} = true AND ${opp.saleTypeField} = '${sale}' AND ${opp.commissionTypeField} IN (${types}) ORDER BY ${opp.fields.closeDate} ASC`;
 }
 
 /** Events (RDV) d'un exercice — filtre Subject « rdv » en JS (D5, P11). */

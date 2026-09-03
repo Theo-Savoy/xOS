@@ -101,7 +101,13 @@ describe('GET /api/review — resources business', () => {
       'cycles',
       'commercial',
       'market',
+      'portfolio',
+      'channels',
+      'diagnosis',
+      'synthesis',
+      'quality',
       'fte-config',
+      'definitions',
     ]);
   });
 });
