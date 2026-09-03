@@ -4265,18 +4265,6 @@
   border-bottom: 1px solid var(--xos-border);
 }
 
-.calls-fb-save {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-
-.calls-fb-save .calls-input {
-  min-width: 11rem;
-}
-
 .calls-checkbox--tight {
   margin-bottom: 0;
   white-space: normal;
@@ -4841,11 +4829,6 @@
   .calls-fb-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .calls-fb-save {
-    margin-left: 0;
-    width: 100%;
   }
 
   .calls-dedup {
@@ -6534,29 +6517,55 @@ a.calls-contact-card__peer:hover {
   border-color: var(--xos-danger, #e5484d);
 }
 
-/* Carte "Enregistrer cette recherche" : details/summary stylé comme une starter card */
+/* Carte Enregistrer : champ + actions visibles, pleine largeur pour garder
+   les starter cards à hauteur homogène. */
 .calls-fb-save-card {
+  grid-column: 1 / -1;
+}
+
+.calls-fb-save-card__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
   border-radius: var(--xos-radius, 8px);
+  background: color-mix(in srgb, var(--xos-surface) 60%, transparent);
+  border: 1px solid var(--xos-border);
 }
 
-.calls-fb-save-card > summary {
-  cursor: pointer;
-  list-style: none;
+.calls-fb-save-card__label {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.calls-fb-save-card > summary::-webkit-details-marker {
-  display: none;
+.calls-fb-save-card__input {
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
-.calls-fb-save-card[open] > summary {
-  background: color-mix(in srgb, var(--xos-surface) 90%, transparent);
+.calls-fb-save-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.calls-fb-save-card__share--on {
+  color: var(--xos-accent);
   border-color: var(--xos-accent);
 }
 
-.calls-fb-save-card .calls-fb-save {
-  margin-left: 0;
-  padding: 0.7rem 0.75rem;
-  border-top: 1px solid var(--xos-border);
+@container calls-app (max-width: 719px) {
+  .calls-fb-save-card__inner {
+    flex-wrap: wrap;
+  }
+
+  .calls-fb-save-card__input {
+    flex-basis: 100%;
+  }
 }
 
 /* Preview : rang des limites (Contacts max / Max par entreprise) — étape Composer */

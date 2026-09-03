@@ -135,6 +135,27 @@ function SaveIcon(): ReactNode {
   );
 }
 
+function TeamIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 function TrashIcon(): ReactNode {
   return (
     <svg
@@ -347,40 +368,43 @@ export function FilterBuilder({
             );
           })}
 
-          {/* Carte "Sauvegarder ce filtre…" — unifie la création de preset avec le démarrage rapide */}
-          <details className="calls-fb-starter-card-wrap calls-fb-save-card">
-            <summary className="calls-fb-starter-card">
+          <div className="calls-fb-starter-card-wrap calls-fb-save-card">
+            <div className="calls-fb-save-card__inner">
               <span className="calls-fb-starter-card__icon">
                 <SaveIcon />
               </span>
-              <span className="calls-fb-starter-card__body">
-                <strong>Enregistrer cette recherche</strong>
-                <small>Garder ce filtre pour plus tard</small>
-              </span>
-            </summary>
-            <div className="calls-fb-save">
+              <span className="calls-fb-save-card__label">Enregistrer</span>
               <input
                 type="text"
-                className="calls-input"
+                className="calls-input calls-fb-save-card__input"
                 placeholder="Nom du filtre"
+                aria-label="Nom du filtre"
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
               />
-              <Checkbox
-                checked={presetShared}
-                onChange={setPresetShared}
-                label="Partager à l'équipe"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSavePreset}
-                disabled={savingPreset || !presetName.trim()}
-              >
-                {savingPreset ? 'Sauvegarde…' : 'Enregistrer'}
-              </Button>
+              <div className="calls-fb-save-card__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSavePreset}
+                  disabled={savingPreset || !presetName.trim()}
+                >
+                  {savingPreset ? 'Sauvegarde…' : 'OK'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="icon"
+                  size="sm"
+                  className={`calls-fb-save-card__share${presetShared ? ' calls-fb-save-card__share--on' : ''}`}
+                  aria-pressed={presetShared}
+                  aria-label="Partager à l'équipe"
+                  onClick={() => setPresetShared((current) => !current)}
+                >
+                  <TeamIcon />
+                </Button>
+              </div>
             </div>
-          </details>
+          </div>
         </div>
       </div>
 
