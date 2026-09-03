@@ -19,7 +19,7 @@ describe('SessionTypeSelect', () => {
     );
 
     // Header
-    expect(screen.getByText('Nouvelle séance')).toBeTruthy();
+    expect(screen.queryByText('Nouvelle séance')).toBeNull();
     expect(
       screen.getByRole('heading', { level: 2, name: 'Choisir le type de séance' }),
     ).toBeTruthy();
