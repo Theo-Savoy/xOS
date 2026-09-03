@@ -6377,3 +6377,129 @@ a.calls-contact-card__peer:hover {
   background: color-mix(in srgb, var(--xos-accent) 20%, transparent);
   border-color: var(--xos-accent);
 }
+
+/* --- Starter Cards & Preset management in FilterBuilder --- */
+.calls-fb-starter-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-fb-starter-cards__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calls-fb-starter-cards__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--xos-text-muted);
+}
+
+.calls-fb-starter-cards__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.65rem;
+}
+
+.calls-fb-starter-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  padding: 0.55rem 0.75rem !important;
+  border-radius: var(--xos-radius, 8px) !important;
+  text-align: left !important;
+  height: auto !important;
+  background: color-mix(in srgb, var(--xos-surface) 60%, transparent) !important;
+  border: 1px solid var(--xos-border) !important;
+  transition: all 0.15s ease !important;
+}
+
+.calls-fb-starter-card:hover {
+  background: color-mix(in srgb, var(--xos-surface) 90%, transparent) !important;
+  border-color: var(--xos-accent) !important;
+}
+
+.calls-fb-starter-card--active {
+  background: color-mix(in srgb, var(--xos-accent) 15%, transparent) !important;
+  border-color: var(--xos-accent) !important;
+  color: var(--xos-text) !important;
+}
+
+.calls-fb-starter-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xos-accent) 18%, transparent);
+  color: var(--xos-accent);
+}
+
+.calls-fb-starter-card__body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.calls-fb-starter-card__body strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calls-fb-starter-card__body small {
+  font-size: 0.72rem;
+  color: var(--xos-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calls-fb-preset-manage {
+  border: 1px dashed var(--xos-border);
+  border-radius: var(--xos-radius, 8px);
+  background: color-mix(in srgb, var(--xos-surface) 30%, transparent);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.calls-fb-preset-manage summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calls-fb-preset-manage summary::-webkit-details-marker {
+  display: none;
+}
+
+.calls-fb-preset-manage summary:hover {
+  color: var(--xos-text);
+}
+
+.calls-fb-preset-manage__body {
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px dashed var(--xos-border);
+}
+
+.calls-fb-advanced {
+  border-style: dashed;
+}

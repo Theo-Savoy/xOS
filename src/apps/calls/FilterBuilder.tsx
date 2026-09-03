@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Button, GlassCard, Tag } from '../../components/ui';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Button, Checkbox, GlassCard, Select, Tag } from '../../components/ui';
 import {
   CONTACT_LIMIT_OPTIONS,
   CONTACT_LIST_UNLIMITED,
@@ -74,6 +74,63 @@ function SectionSummary({ title, count }: { title: string; count: number }) {
   );
 }
 
+function UserIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function TargetIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function BookmarkIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 export function FilterBuilder({
   filters,
   onChange,
@@ -114,6 +171,7 @@ export function FilterBuilder({
     setPresetName('');
     setPresetShared(false);
   };
+
   const selectedPreset = presets.find(
     (preset) => String(preset.id) === selectedPresetId,
   );
@@ -121,6 +179,7 @@ export function FilterBuilder({
   const contactCount = countContactFilters(filters.contact);
   const relanceCount = countRelanceFilters(filters.relance);
   const oppGuidance = getOpportunityFilterGuidance(filters.entreprise);
+
   const ownerOptions = useMemo(() => {
     const seen = new Set<string>();
     const options: { value: string; label: string }[] = [];
@@ -137,72 +196,197 @@ export function FilterBuilder({
     return options.sort((a, b) => a.label.localeCompare(b.label, 'fr'));
   }, [team]);
 
+  const userMember = team.find((m) => m.user_id === currentUserId);
+  const userSfId = userMember?.sf_user_id;
+  const myOwnerCandidate = userSfId
+    ? ownerOptions.find((o) => o.value === userSfId)
+    : ownerOptions[0];
+
+  const isMyAccountsActive = Boolean(
+    myOwnerCandidate &&
+      filters.entreprise.proprietaires.includes(myOwnerCandidate.value),
+  );
+
+  const isTierABActive =
+    filters.entreprise.tiers.includes('A') &&
+    filters.entreprise.tiers.includes('B');
+
+  const handleToggleMyAccounts = () => {
+    if (!myOwnerCandidate) return;
+    if (isMyAccountsActive) {
+      setEntreprise({
+        proprietaires: filters.entreprise.proprietaires.filter(
+          (id) => id !== myOwnerCandidate.value,
+        ),
+      });
+    } else {
+      setEntreprise({ proprietaires: [myOwnerCandidate.value] });
+    }
+  };
+
+  const handleToggleTierAB = () => {
+    if (isTierABActive) {
+      setEntreprise({
+        tiers: filters.entreprise.tiers.filter((t) => t !== 'A' && t !== 'B'),
+      });
+    } else {
+      const currentTiers = filters.entreprise.tiers;
+      const nextTiers: FilterTree['entreprise']['tiers'] = currentTiers.includes('A')
+        ? currentTiers.includes('B')
+          ? currentTiers
+          : [...currentTiers, 'B']
+        : currentTiers.includes('B')
+          ? [...currentTiers, 'A']
+          : [...currentTiers, 'A', 'B'];
+      setEntreprise({ tiers: nextTiers });
+    }
+  };
+
   return (
     <GlassCard className="calls-filterbuilder">
-      <div className="calls-fb-presets">
-        <label className="calls-field calls-field--inline">
-          <span>Preset</span>
-          <select
-            className="calls-select"
-            value={selectedPresetId}
-            disabled={presetsLoading || presets.length === 0}
-            onChange={(e) => {
-              setSelectedPresetId(e.target.value);
-              const preset = presets.find(
-                (p) => String(p.id) === e.target.value,
-              );
-              if (preset) onLoadPreset(preset);
-            }}
-          >
-            <option value="">
-              {presetsLoading ? 'Chargement…' : '— Charger un preset —'}
-            </option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.shared ? ' (partagé)' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        {selectedPreset?.owner === currentUserId && (
+      {/* 1. Cartes de démarrage rapide (presets en cartes) */}
+      <div
+        className="calls-fb-starter-cards"
+        role="region"
+        aria-label="Démarrage rapide"
+      >
+        <div className="calls-fb-starter-cards__header">
+          <span className="calls-fb-starter-cards__title">Démarrage rapide</span>
+        </div>
+        <div className="calls-fb-starter-cards__grid">
+          {myOwnerCandidate && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className={`calls-fb-starter-card${isMyAccountsActive ? ' calls-fb-starter-card--active' : ''}`}
+              onClick={handleToggleMyAccounts}
+              aria-pressed={isMyAccountsActive}
+            >
+              <span className="calls-fb-starter-card__icon">
+                <UserIcon />
+              </span>
+              <span className="calls-fb-starter-card__body">
+                <strong>Mes comptes</strong>
+                <small>{myOwnerCandidate.label}</small>
+              </span>
+            </Button>
+          )}
+
           <Button
             variant="secondary"
-            onClick={() => {
-              onDeletePreset(Number(selectedPresetId));
-              setSelectedPresetId('');
-            }}
+            size="sm"
+            className={`calls-fb-starter-card${isTierABActive ? ' calls-fb-starter-card--active' : ''}`}
+            onClick={handleToggleTierAB}
+            aria-pressed={isTierABActive}
           >
-            Supprimer
+            <span className="calls-fb-starter-card__icon">
+              <TargetIcon />
+            </span>
+            <span className="calls-fb-starter-card__body">
+              <strong>Tier A &amp; B</strong>
+              <small>Comptes prioritaires</small>
+            </span>
           </Button>
-        )}
-        <div className="calls-fb-save">
-          <input
-            type="text"
-            className="calls-input"
-            placeholder="Nom du preset à sauver"
-            value={presetName}
-            onChange={(e) => setPresetName(e.target.value)}
-          />
-          <label className="calls-checkbox calls-checkbox--tight">
-            <input
-              type="checkbox"
-              checked={presetShared}
-              onChange={(e) => setPresetShared(e.target.checked)}
-            />
-            Partager à l&apos;équipe
-          </label>
-          <Button
-            variant="secondary"
-            onClick={handleSavePreset}
-            disabled={savingPreset || !presetName.trim()}
-          >
-            {savingPreset ? 'Sauvegarde…' : 'Garder ce filtre pour plus tard'}
-          </Button>
+
+          {presets.slice(0, 3).map((p) => {
+            const isPresetActive = String(p.id) === selectedPresetId;
+            return (
+              <Button
+                key={p.id}
+                variant="secondary"
+                size="sm"
+                className={`calls-fb-starter-card${isPresetActive ? ' calls-fb-starter-card--active' : ''}`}
+                onClick={() => {
+                  setSelectedPresetId(String(p.id));
+                  onLoadPreset(p);
+                }}
+                aria-pressed={isPresetActive}
+              >
+                <span className="calls-fb-starter-card__icon">
+                  <BookmarkIcon />
+                </span>
+                <span className="calls-fb-starter-card__body">
+                  <strong>{p.name}</strong>
+                  <small>{p.shared ? 'Partagé équipe' : 'Mon preset'}</small>
+                </span>
+              </Button>
+            );
+          })}
         </div>
       </div>
 
-      <details className="calls-fb-section" open>
+      {/* 2. Menu discret de gestion des presets */}
+      <details className="calls-fb-preset-manage">
+        <summary>
+          <span>Gérer les presets ({presets.length})</span>
+        </summary>
+        <div className="calls-fb-preset-manage__body">
+          <div className="calls-fb-presets">
+            <Select
+              label="Preset enregistré"
+              options={[
+                {
+                  value: '',
+                  label: presetsLoading
+                    ? 'Chargement…'
+                    : '— Choisir un preset —',
+                },
+                ...presets.map((p) => ({
+                  value: String(p.id),
+                  label: `${p.name}${p.shared ? ' (partagé)' : ''}`,
+                })),
+              ]}
+              value={selectedPresetId}
+              onChange={(val) => {
+                setSelectedPresetId(val);
+                const preset = presets.find((p) => String(p.id) === val);
+                if (preset) onLoadPreset(preset);
+              }}
+              aria-label="Preset"
+            />
+            {selectedPreset?.owner === currentUserId && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  onDeletePreset(Number(selectedPresetId));
+                  setSelectedPresetId('');
+                }}
+              >
+                Supprimer
+              </Button>
+            )}
+          </div>
+
+          <div className="calls-fb-save">
+            <input
+              type="text"
+              className="calls-input"
+              placeholder="Nom du preset à sauver"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+            />
+            <Checkbox
+              checked={presetShared}
+              onChange={setPresetShared}
+              label="Partager à l'équipe"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSavePreset}
+              disabled={savingPreset || !presetName.trim()}
+            >
+              {savingPreset
+                ? 'Sauvegarde…'
+                : 'Garder ce filtre pour plus tard'}
+            </Button>
+          </div>
+        </div>
+      </details>
+
+      {/* 3. Groupe Entreprise — replié par défaut */}
+      <details className="calls-fb-section">
         <SectionSummary title="Entreprise" count={entrepriseCount} />
         <div className="calls-fb-section__body">
           <PicklistMultiSelect
@@ -279,34 +463,18 @@ export function FilterBuilder({
               )}
             </div>
           )}
-          <label className="calls-field">
-            <span>Compte principal (ID CRM, cible le groupe)</span>
-            <input
-              type="text"
-              className="calls-input"
-              value={filters.entreprise.compte_principal ?? ''}
-              onChange={(e) =>
-                setEntreprise({
-                  compte_principal: e.target.value.trim() || null,
-                })
-              }
-              placeholder="001…"
-            />
-          </label>
         </div>
       </details>
 
-      <details className="calls-fb-section" open>
+      {/* 4. Groupe Contact — replié par défaut */}
+      <details className="calls-fb-section">
         <SectionSummary title="Contact" count={contactCount} />
         <div className="calls-fb-section__body">
-          <label className="calls-checkbox">
-            <input
-              type="checkbox"
-              checked={filters.contact.a_telephone}
-              onChange={(e) => setContact({ a_telephone: e.target.checked })}
-            />
-            A un numéro de mobile
-          </label>
+          <Checkbox
+            checked={filters.contact.a_telephone}
+            onChange={(checked) => setContact({ a_telephone: checked })}
+            label="A un numéro de mobile"
+          />
           <ChipGroup
             label="Fonction"
             hint="Presets sur le poste (OR entre les cases cochées)"
@@ -317,17 +485,15 @@ export function FilterBuilder({
             value={filters.contact.fonctions}
             onChange={(fonctions) => setContact({ fonctions })}
           />
-          <label className="calls-checkbox">
-            <input
-              type="checkbox"
-              checked={filters.contact.exclure_npa}
-              onChange={(e) => setContact({ exclure_npa: e.target.checked })}
-            />
-            Exclure les « ne pas appeler »
-          </label>
+          <Checkbox
+            checked={filters.contact.exclure_npa}
+            onChange={(checked) => setContact({ exclure_npa: checked })}
+            label="Exclure les « ne pas appeler »"
+          />
         </div>
       </details>
 
+      {/* 5. Groupe Relance — replié par défaut */}
       <details className="calls-fb-section">
         <SectionSummary title="Relance" count={relanceCount} />
         <div className="calls-fb-section__body">
@@ -335,16 +501,13 @@ export function FilterBuilder({
             Filtres d&apos;historique d&apos;appel appliqués après la requête
             CRM (limite Salesforce sur les tâches).
           </p>
-          <label className="calls-checkbox">
-            <input
-              type="checkbox"
-              checked={!!filters.relance.jamais_appele}
-              onChange={(e) =>
-                setRelance({ jamais_appele: e.target.checked ? true : null })
-              }
-            />
-            Jamais appelé
-          </label>
+          <Checkbox
+            checked={!!filters.relance.jamais_appele}
+            onChange={(checked) =>
+              setRelance({ jamais_appele: checked ? true : null })
+            }
+            label="Jamais appelé"
+          />
           <div className="calls-fb-row">
             <label className="calls-field">
               <span>Dernier appel il y a plus de (jours)</span>
@@ -431,6 +594,59 @@ export function FilterBuilder({
         </div>
       </details>
 
+      {/* 6. Options avancées (Plafonds & compte principal) — replié par défaut */}
+      <details className="calls-fb-section calls-fb-advanced">
+        <SectionSummary title="Options avancées (plafonds & exclusions)" count={filters.entreprise.compte_principal ? 1 : 0} />
+        <div className="calls-fb-section__body">
+          <div className="calls-fb-row">
+            <Select
+              label="Contacts max"
+              options={CONTACT_LIMIT_OPTIONS.map((limit) => ({
+                value: String(limit),
+                label: limitLabel(limit),
+              }))}
+              value={String(contactLimit)}
+              onChange={(val) =>
+                onContactLimitChange(Number(val) as ContactLimit)
+              }
+              aria-label="Contacts max"
+            />
+            <Select
+              label="Max / entreprise"
+              options={[
+                { value: '', label: 'Pas de limite' },
+                ...MAX_PER_COMPANY_OPTIONS.map((limit) => ({
+                  value: String(limit),
+                  label: `${limit} par entreprise`,
+                })),
+              ]}
+              value={maxPerCompany ? String(maxPerCompany) : ''}
+              onChange={(val) =>
+                onMaxPerCompanyChange(
+                  val ? (Number(val) as MaxPerCompany) : null,
+                )
+              }
+              aria-label="Maximum de contacts par entreprise"
+            />
+          </div>
+          <label className="calls-field">
+            <span>Compte principal (ID CRM, cible le groupe)</span>
+            <input
+              type="text"
+              className="calls-input"
+              value={filters.entreprise.compte_principal ?? ''}
+              onChange={(e) =>
+                setEntreprise({
+                  compte_principal: e.target.value.trim() || null,
+                })
+              }
+              placeholder="001…"
+            />
+          </label>
+        </div>
+      </details>
+
+      {/* 7. Footer simplifié : comptage uniquement */}
       <footer className="calls-fb-footer">
         <div className="calls-fb-match" role="status" aria-live="polite">
           {matchCountLoading ? (
@@ -448,43 +664,6 @@ export function FilterBuilder({
             <Tag>Ajustez les filtres</Tag>
           )}
         </div>
-        <label className="calls-field calls-field--inline">
-          <span>Contacts max</span>
-          <select
-            className="calls-select"
-            value={contactLimit}
-            onChange={(e) =>
-              onContactLimitChange(Number(e.target.value) as ContactLimit)
-            }
-          >
-            {CONTACT_LIMIT_OPTIONS.map((limit) => (
-              <option key={limit} value={limit}>
-                {limitLabel(limit)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="calls-field calls-field--inline">
-          <span>Max / entreprise</span>
-          <select
-            className="calls-select"
-            value={maxPerCompany ?? ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              onMaxPerCompanyChange(
-                value ? (Number(value) as MaxPerCompany) : null,
-              );
-            }}
-            aria-label="Maximum de contacts par entreprise"
-          >
-            <option value="">Pas de limite</option>
-            {MAX_PER_COMPANY_OPTIONS.map((limit) => (
-              <option key={limit} value={limit}>
-                {limit}
-              </option>
-            ))}
-          </select>
-        </label>
         {previewLoading ? (
           <Tag role="status" aria-live="polite">
             Mise à jour de la liste…
