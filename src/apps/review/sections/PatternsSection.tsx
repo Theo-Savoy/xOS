@@ -38,7 +38,7 @@ export function PatternsSection({
         </div>
         <ConservationBadge conservation={data.conservation} />
       </header>
-      <div className="review-studies-grid">
+      <div className="review-patterns-grid">
         {data.patterns.map((pattern) => (
           <PatternCard key={pattern.id} pattern={pattern} />
         ))}
