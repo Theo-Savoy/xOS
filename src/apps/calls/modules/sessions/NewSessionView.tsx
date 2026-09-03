@@ -99,6 +99,12 @@ function limitLabel(limit: ContactLimit): string {
     : String(limit);
 }
 
+const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
+  0: 'Définissez votre cible',
+  1: 'Composez votre liste',
+  2: 'Planifiez votre séance',
+};
+
 export function NewSessionView({
   filters,
   onFiltersChange,
@@ -456,8 +462,7 @@ export function NewSessionView({
             Quitter
           </Button>
           <div className="calls-view__titleblock">
-            <Tag variant="accent">Nouvelle séance</Tag>
-            <h2>Composer une liste</h2>
+            <h2>{WIZARD_STEP_TITLES[step]}</h2>
           </div>
         </div>
         <WizardStepper

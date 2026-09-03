@@ -238,7 +238,7 @@ describe('CallManagerApp component', () => {
     await user.click(screen.getByText('Nouvelle séance'));
     await user.click(screen.getByText('Liste classique'));
 
-    expect(screen.getByText('Composer une liste')).toBeTruthy();
+    expect(screen.getByText('Définissez votre cible')).toBeTruthy();
     expect(screen.queryByText('Aperçu de la liste')).toBeNull();
     expect(screen.queryByText('Prévisualiser')).toBeNull();
   });
@@ -1033,7 +1033,7 @@ describe('CallManagerApp component', () => {
 
   it('restores new session view from persisted params', async () => {
     render(<CallManagerApp params={{ view: 'new' }} />);
-    expect(await screen.findByText('Composer une liste')).toBeTruthy();
+    expect(await screen.findByText('Définissez votre cible')).toBeTruthy();
   });
 
   it('syncs navigation params when changing view', async () => {
@@ -1081,7 +1081,7 @@ describe('CallManagerApp component', () => {
     });
     expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
     expect(screen.getByText('Liste classique')).toBeTruthy();
-    expect(screen.queryByText('Composer une liste')).toBeNull();
+    expect(screen.queryByText('Définissez votre cible')).toBeNull();
   });
 
   it('returns to session-type-select when clicking Retour from direct ABM view', async () => {
@@ -1104,7 +1104,7 @@ describe('CallManagerApp component', () => {
     });
     expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
     expect(screen.getByText('Liste classique')).toBeTruthy();
-    expect(screen.queryByText('Composer une liste')).toBeNull();
+    expect(screen.queryByText('Définissez votre cible')).toBeNull();
   });
 
   it('recalculates the detailed preview automatically after a filter change, ignoring stale responses', async () => {

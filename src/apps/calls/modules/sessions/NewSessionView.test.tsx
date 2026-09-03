@@ -49,6 +49,50 @@ describe('NewSessionView — UX writing & wizard (spec §4.3 & plan)', () => {
     expect(screen.queryByRole('button', { name: 'Retour' })).toBeNull();
   });
 
+  it('adapts the page title to the current wizard step and hides the session badge', async () => {
+    const user = userEvent.setup();
+    render(
+      <NewSessionView
+        {...baseProps([
+          {
+            sf_contact_id: '003a',
+            sf_account_id: '001a',
+            contact_name: 'Alice Martin',
+            account_name: 'Acme',
+            phone: '0102030405',
+          },
+        ])}
+        filters={{
+          ...emptyFilterTree(),
+          entreprise: {
+            ...emptyFilterTree().entreprise,
+            tiers: ['A'],
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Nouvelle séance')).toBeNull();
+    expect(screen.queryByText('Composer une liste')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: /Continuer vers Composer/i }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Composez votre liste' }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole('button', { name: /Continuer vers Planifier/i }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Planifiez votre séance' }),
+    ).toBeTruthy();
+  });
+
   it("never renders the residual 'Comptes précis (ABM)' button (criterion 1)", () => {
     render(
       <NewSessionView
