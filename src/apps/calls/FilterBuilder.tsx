@@ -21,6 +21,11 @@ import { isAccountOwnerFilterCandidate } from './accountOwners';
 import { ChipGroup, PicklistMultiSelect, TriState } from './filterControls';
 import { asOptions } from './filterControls.helpers';
 import type { TeamMember } from './types';
+import {
+  countContactFilters,
+  countEntrepriseFilters,
+  countRelanceFilters,
+} from './filterCounts';
 
 type FilterBuilderProps = {
   filters: FilterTree;
@@ -49,39 +54,6 @@ function limitLabel(limit: ContactLimit): string {
   return limit === CONTACT_LIST_UNLIMITED
     ? 'Pas de limite (max 2000)'
     : String(limit);
-}
-
-function countEntrepriseFilters(entreprise: FilterTree['entreprise']): number {
-  let count = 0;
-  if (entreprise.secteurs.length) count += 1;
-  if (entreprise.effectifs.length) count += 1;
-  if (entreprise.type_client.length) count += 1;
-  if (entreprise.tiers.length) count += 1;
-  if (entreprise.opp_ouverte !== null) count += 1;
-  if (entreprise.opp_perdue !== null) count += 1;
-  if (entreprise.compte_principal) count += 1;
-  if (entreprise.proprietaires.length) count += 1;
-  if (entreprise.comptes_cibles?.length) count += 1;
-  return count;
-}
-
-function countContactFilters(contact: FilterTree['contact']): number {
-  let count = 0;
-  // Defaults (téléphone + exclure NPA) don't count as "active" filters.
-  if (!contact.a_telephone) count += 1;
-  if (contact.fonctions.length) count += 1;
-  if (!contact.exclure_npa) count += 1;
-  return count;
-}
-
-function countRelanceFilters(relance: FilterTree['relance']): number {
-  let count = 0;
-  if (relance.jamais_appele !== null) count += 1;
-  if (relance.dernier_appel_avant_jours !== null) count += 1;
-  if (relance.dernier_appel_dans_jours !== null) count += 1;
-  if (relance.dernier_resultat.length) count += 1;
-  if (relance.exclure_si_plus_de) count += 1;
-  return count;
 }
 
 function SectionSummary({ title, count }: { title: string; count: number }) {
