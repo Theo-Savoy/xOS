@@ -442,17 +442,25 @@ export function NewSessionView({
 
       <div className="calls-wizard-layout">
         <div className="calls-wizard-main">
-          {/* Étape 1 : CIBLER */}
-          {step === 0 && (
-            <div className="calls-wizard-step-pane" data-step="cibler">
-              <FilterBuilder
-                filters={filters}
-                onChange={onFiltersChange}
-                previewCount={preview.length > 0 ? preview.length : null}
-                previewLoading={previewLoading}
-                matchCount={matchCount}
-                matchCountCapped={matchCountCapped}
-                matchCountLoading={matchCountLoading}
+        {error && (
+          <GlassCard className="calls-error">
+            <p role="alert" aria-live="assertive">
+              {error}
+            </p>
+          </GlassCard>
+        )}
+
+        {/* Étape 1 : CIBLER */}
+        {step === 0 && (
+          <div className="calls-wizard-step-pane" data-step="cibler">
+            <FilterBuilder
+              filters={filters}
+              onChange={onFiltersChange}
+              previewCount={preview.length > 0 ? preview.length : null}
+              previewLoading={previewLoading}
+              matchCount={matchCount}
+              matchCountCapped={matchCountCapped}
+              matchCountLoading={matchCountLoading}
                 matchCountError={matchCountError}
                 contactLimit={contactLimit}
                 onContactLimitChange={onContactLimitChange}
@@ -501,14 +509,6 @@ export function NewSessionView({
                     Modifier
                   </Button>
                 </div>
-              )}
-
-              {error && (
-                <GlassCard className="calls-error">
-                  <p role="alert" aria-live="assertive">
-                    {error}
-                  </p>
-                </GlassCard>
               )}
 
               {previewTruncated && (

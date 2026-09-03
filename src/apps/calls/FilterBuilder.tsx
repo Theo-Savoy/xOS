@@ -283,7 +283,7 @@ export function FilterBuilder({
               <TargetIcon />
             </span>
             <span className="calls-fb-starter-card__body">
-              <strong>Tier A &amp; B</strong>
+              <strong>{'Tier A & B'}</strong>
               <small>Comptes prioritaires</small>
             </span>
           </Button>
@@ -315,49 +315,46 @@ export function FilterBuilder({
         </div>
       </div>
 
-      {/* 2. Menu discret de gestion des presets */}
-      <details className="calls-fb-preset-manage">
-        <summary>
-          <span>Gérer les presets ({presets.length})</span>
-        </summary>
-        <div className="calls-fb-preset-manage__body">
-          <div className="calls-fb-presets">
-            <Select
-              label="Preset enregistré"
-              options={[
-                {
-                  value: '',
-                  label: presetsLoading
-                    ? 'Chargement…'
-                    : '— Choisir un preset —',
-                },
-                ...presets.map((p) => ({
-                  value: String(p.id),
-                  label: `${p.name}${p.shared ? ' (partagé)' : ''}`,
-                })),
-              ]}
-              value={selectedPresetId}
-              onChange={(val) => {
-                setSelectedPresetId(val);
-                const preset = presets.find((p) => String(p.id) === val);
-                if (preset) onLoadPreset(preset);
-              }}
-              aria-label="Preset"
-            />
-            {selectedPreset?.owner === currentUserId && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  onDeletePreset(Number(selectedPresetId));
-                  setSelectedPresetId('');
-                }}
-              >
-                Supprimer
-              </Button>
-            )}
-          </div>
-
+      {/* 2. Sélection et gestion des presets */}
+      <div className="calls-fb-presets">
+        <Select
+          label="Preset"
+          options={[
+            {
+              value: '',
+              label: presetsLoading
+                ? 'Chargement…'
+                : '— Choisir un preset —',
+            },
+            ...presets.map((p) => ({
+              value: String(p.id),
+              label: `${p.name}${p.shared ? ' (partagé)' : ''}`,
+            })),
+          ]}
+          value={selectedPresetId}
+          onChange={(val) => {
+            setSelectedPresetId(val);
+            const preset = presets.find((p) => String(p.id) === val);
+            if (preset) onLoadPreset(preset);
+          }}
+          aria-label="Preset"
+        />
+        {selectedPreset?.owner === currentUserId && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              onDeletePreset(Number(selectedPresetId));
+              setSelectedPresetId('');
+            }}
+          >
+            Supprimer
+          </Button>
+        )}
+        <details className="calls-fb-save-menu">
+          <summary>
+            <span>Sauvegarder ce filtre…</span>
+          </summary>
           <div className="calls-fb-save">
             <input
               type="text"
@@ -382,8 +379,8 @@ export function FilterBuilder({
                 : 'Garder ce filtre pour plus tard'}
             </Button>
           </div>
-        </div>
-      </details>
+        </details>
+      </div>
 
       {/* 3. Groupe Entreprise — replié par défaut */}
       <details className="calls-fb-section">
