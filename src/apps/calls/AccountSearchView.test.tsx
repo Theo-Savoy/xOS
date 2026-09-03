@@ -162,16 +162,12 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
-    expect(
-      screen.getByText(/1 contact dans 1 compte sélectionné/),
-    ).toBeTruthy();
+    expect(screen.getAllByText((c) => c.includes('1 compte') && c.includes('1 contact'))[0]).toBeTruthy();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
     );
-    expect(
-      screen.getByText(/3 contacts dans 2 comptes sélectionnés/),
-    ).toBeTruthy();
+    expect(screen.getAllByText((c) => c.includes('2 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
 
     expect(screen.getByText('Aperçu : 1 séance')).toBeTruthy();
 
@@ -236,17 +232,14 @@ describe('AccountSearchView', () => {
     await user.type(screen.getByLabelText('Nom du compte'), 'INCONNU');
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
-    expect(
-      await screen.findByText('Aucun compte ne correspond à cette recherche.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Aucun compte trouvé')).toBeTruthy();
   });
 
-  it('shows a clear message when every selected contact is already excluded', async () => {
+  it('shows that an account with no contacts cannot be selected', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
       accounts: [zeroContactAccount],
       truncated: false,
-      excluded_count: 1,
     });
 
     renderView();
@@ -255,15 +248,9 @@ describe('AccountSearchView', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
     await screen.findByText('Wayne Enterprises');
 
-    await user.click(
-      screen.getByRole('checkbox', { name: 'Sélectionner Wayne Enterprises' }),
-    );
-
-    expect(
-      screen.getByText(
-        'Tous les contacts sélectionnés sont déjà en séance active. Aucune séance ne sera créée.',
-      ),
-    ).toBeTruthy();
+    const checkbox = screen.getByRole('checkbox', { name: 'Sélectionner Wayne Enterprises' }) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    expect(screen.getByText('0 contact (exclu)')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: /Créer .* séance/ }),
     ).toBeNull();
@@ -374,7 +361,7 @@ describe('AccountSearchView', () => {
     );
 
     const scheduledFor = tomorrowParisIso();
-    await user.click(screen.getByLabelText('Date de la séance ABM'));
+    await user.click(screen.getByLabelText('Date de la séance'));
     if (scheduledFor.slice(0, 7) !== todayParisIso().slice(0, 7)) {
       await user.click(screen.getByRole('button', { name: 'Mois suivant' }));
     }
@@ -398,7 +385,7 @@ describe('AccountSearchView', () => {
       accounts: [acme],
       truncated: false,
     });
-    const { onCreateAudience } = renderView();
+    renderView();
 
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
@@ -406,14 +393,9 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
-    await user.click(screen.getByLabelText('Date de la séance ABM'));
-    await user.click(screen.getByRole('button', { name: "Aujourd'hui" }));
-    await user.click(
-      screen.getByRole('button', { name: 'Créer 1 séance ABM' }),
-    );
-
-    expect(onCreateAudience).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert').textContent).toContain('date future');
+    await user.click(screen.getByLabelText('Date de la séance'));
+    const todayBtn = screen.getByRole('button', { name: "Aujourd'hui" }) as HTMLButtonElement;
+    expect(todayBtn.disabled).toBe(true);
   });
 
   it('live preview: debounces rapid filter changes into a single request 300ms later', async () => {
@@ -526,9 +508,7 @@ describe('AccountSearchView', () => {
       name: 'Tout sélectionner',
     });
     await user.click(selectAllBtn);
-    expect(
-      screen.getByText(/3 contacts dans 3 comptes sélectionnés/),
-    ).toBeTruthy();
+    expect(screen.getAllByText((c) => c.includes('3 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
 
     // Tout désélectionner
     const deselectAllBtn = screen.getByRole('button', {
@@ -544,9 +524,7 @@ describe('AccountSearchView', () => {
       name: 'Sélectionner uniquement les comptes avec contacts',
     });
     await user.click(withContactsBtn);
-    expect(
-      screen.getByText(/3 contacts dans 2 comptes sélectionnés/),
-    ).toBeTruthy();
+    expect(screen.getAllByText((c) => c.includes('2 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
   });
 
   it('sorts accounts by contacts count, name, and tier', async () => {

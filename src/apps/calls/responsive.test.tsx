@@ -2,8 +2,8 @@
 
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AccountSearchView } from './AccountSearchView';
 import { SessionsView } from './modules/sessions/SessionsView';
-
 // jsdom's loader rejects `node:fs`; instead we expose the CSS through a
 // hoisted helper that vitest evaluates before jsdom wraps the module graph.
 const callsCss = vi.hoisted(() => {
@@ -46,6 +46,37 @@ describe.each([500, 800, 1200])('Combo at %ipx', (width) => {
       surface: viewport.querySelector('.calls-hub')?.className,
       layout:
         width < 720 ? 'compact' : width < 900 ? 'intermediate' : 'desktop',
+    }).toMatchSnapshot();
+  });
+});
+describe.each([320, 500, 800, 1200])('AccountSearchView at %ipx', (width) => {
+  it('renders ABM layout and exposes responsive CSS rules', () => {
+    const { container } = render(
+      <div style={{ width, maxWidth: '100%', overflow: 'auto' }}>
+        <AccountSearchView
+          token="fake-token"
+          onBack={vi.fn()}
+          onCreateAudience={vi.fn()}
+          creating={false}
+          createError={null}
+        />
+      </div>,
+    );
+
+    const viewport = container.firstElementChild as HTMLElement;
+    expect(viewport.style.width).toBe(`${width}px`);
+    
+    // DOM is structurally the same, visibility is CSS-driven
+    expect(viewport.querySelector('.calls-abm-layout')).toBeTruthy();
+    
+    // Ensure our new rules exist in the raw CSS
+    expect(callsCss).toContain('.calls-abm-sidebar {');
+    expect(callsCss).toContain('.calls-abm-bottom-bar {');
+    expect(callsCss).toContain('@container calls-app (min-width: 900px)');
+    
+    expect({
+      width,
+      layout: viewport.querySelector('.calls-abm-layout')?.className,
     }).toMatchSnapshot();
   });
 });
