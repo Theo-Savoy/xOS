@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, GlassCard, Tag } from '../../components/ui';
+import { Button, GlassCard, Skeleton, Tag } from '../../components/ui';
 import {
   EFFECTIF_TRANCHES,
   SECTEUR_FAMILIES,
@@ -22,6 +22,45 @@ import { asOptions } from './filterControls.helpers';
 import { DatePicker } from './formControls';
 import { todayParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
+
+export type AbmSortOption =
+  | 'default'
+  | 'name-asc'
+  | 'name-desc'
+  | 'contacts-desc'
+  | 'contacts-asc'
+  | 'tier-asc';
+
+const ABM_PREFS_KEY = 'calls_abm_prefs_v1';
+
+type AbmPreferences = {
+  sortBy?: AbmSortOption;
+  filtersOpen?: boolean;
+  targetSize?: number;
+  maxSessions?: number;
+};
+
+function readPreferences(): AbmPreferences {
+  try {
+    const raw = window.localStorage?.getItem(ABM_PREFS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as AbmPreferences;
+  } catch {
+    return {};
+  }
+}
+
+function writePreferences(patch: Partial<AbmPreferences>): void {
+  try {
+    const current = readPreferences();
+    window.localStorage?.setItem(
+      ABM_PREFS_KEY,
+      JSON.stringify({ ...current, ...patch }),
+    );
+  } catch {
+    // Ignore storage quota or access errors
+  }
+}
 
 type AbmFilters = {
   secteurs: Secteur[];
@@ -104,8 +143,15 @@ export function AccountSearchView({
   creating,
   createError,
 }: AccountSearchViewProps) {
+  const initialPrefs = useRef(readPreferences()).current;
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
+  const [filtersOpen, setFiltersOpen] = useState(
+    initialPrefs.filtersOpen ?? false,
+  );
+  const [sortBy, setSortBy] = useState<AbmSortOption>(
+    initialPrefs.sortBy ?? 'default',
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountSearchHit[]>([]);
@@ -116,14 +162,14 @@ export function AccountSearchView({
   const [sessionName, setSessionName] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
   const [dateError, setDateError] = useState<string | null>(null);
-  const [targetSize, setTargetSize] = useState(50);
-  const [maxSessions, setMaxSessions] = useState(5);
+  const [targetSize, setTargetSize] = useState(initialPrefs.targetSize ?? 50);
+  const [maxSessions, setMaxSessions] = useState(initialPrefs.maxSessions ?? 5);
 
   const setFilter = (patch: Partial<AbmFilters>) =>
     setFilters((current) => ({ ...current, ...patch }));
 
   const abortRef = useRef<AbortController | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<number | NodeJS.Timeout | null>(null);
   const skipNextAutoSearch = useRef(true);
 
   const ownerOptions = useMemo(
@@ -146,6 +192,16 @@ export function AccountSearchView({
   const canSearchWith = (q: string, currentFilters: AbmFilters) =>
     q.trim().length >= 2 || hasAnyFilter(currentFilters);
   const canSearch = canSearchWith(query, filters);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.secteurs.length > 0) count += filters.secteurs.length;
+    if (filters.effectifs.length > 0) count += filters.effectifs.length;
+    if (filters.type_client.length > 0) count += filters.type_client.length;
+    if (filters.tiers.length > 0) count += filters.tiers.length;
+    if (filters.proprietaires.length > 0) count += filters.proprietaires.length;
+    return count;
+  }, [filters]);
 
   const runSearch = async (q: string, currentFilters: AbmFilters) => {
     if (!canSearchWith(q, currentFilters) || !token) return;
@@ -183,6 +239,28 @@ export function AccountSearchView({
     await runSearch(query, filters);
   };
 
+  const handleResetFilters = () => {
+    setFilters(emptyAbmFilters());
+  };
+
+  const handleResetAll = () => {
+    if (selectedIds.size > 5) {
+      const ok = window.confirm(
+        `Réinitialiser la recherche effacera aussi ${selectedIds.size} compte${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's' : ''}. Continuer ?`,
+      );
+      if (!ok) return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+    setQuery('');
+    setFilters(emptyAbmFilters());
+    setAccounts([]);
+    setSelectedIds(new Set());
+    setSearched(false);
+    setError(null);
+    setDateError(null);
+  };
+
   // Live preview: modifier un filtre relance la recherche après 300ms, sans clic "Actualiser" (F.2).
   useEffect(() => {
     if (skipNextAutoSearch.current) {
@@ -207,6 +285,81 @@ export function AccountSearchView({
       return next;
     });
   };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(accounts.map((account) => account.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleSelectWithContacts = () => {
+    const withContacts = accounts.filter(
+      (account) => account.contacts.length > 0,
+    );
+    setSelectedIds(new Set(withContacts.map((account) => account.id)));
+  };
+
+  const handleSortChange = (newSort: AbmSortOption) => {
+    setSortBy(newSort);
+    writePreferences({ sortBy: newSort });
+  };
+
+  const handleFiltersToggle = (open: boolean) => {
+    setFiltersOpen(open);
+    writePreferences({ filtersOpen: open });
+  };
+
+  const handleTargetSizeChange = (val: number) => {
+    const next = Math.max(1, val);
+    setTargetSize(next);
+    writePreferences({ targetSize: next });
+  };
+
+  const handleMaxSessionsChange = (val: number) => {
+    const next = Math.max(1, val);
+    setMaxSessions(next);
+    writePreferences({ maxSessions: next });
+  };
+
+  const sortedAccounts = useMemo(() => {
+    if (sortBy === 'default') return accounts;
+    const list = [...accounts];
+    switch (sortBy) {
+      case 'name-asc':
+        return list.sort((a, b) =>
+          a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }),
+        );
+      case 'name-desc':
+        return list.sort((a, b) =>
+          b.name.localeCompare(a.name, 'fr', { sensitivity: 'base' }),
+        );
+      case 'contacts-desc':
+        return list.sort(
+          (a, b) =>
+            b.contacts.length - a.contacts.length ||
+            a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }),
+        );
+      case 'contacts-asc':
+        return list.sort(
+          (a, b) =>
+            a.contacts.length - b.contacts.length ||
+            a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }),
+        );
+      case 'tier-asc':
+        return list.sort((a, b) => {
+          const tierA = a.tier || 'ZZZ';
+          const tierB = b.tier || 'ZZZ';
+          return (
+            tierA.localeCompare(tierB) ||
+            a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
+          );
+        });
+      default:
+        return accounts;
+    }
+  }, [accounts, sortBy]);
 
   const selectedAccounts = useMemo(
     () => accounts.filter((account) => selectedIds.has(account.id)),
@@ -296,19 +449,61 @@ export function AccountSearchView({
               placeholder="ACME (optionnel si des filtres sont sélectionnés)"
             />
           </label>
-          <Button
-            onClick={() => void handleSearch()}
-            disabled={loading || !canSearch}
-          >
-            {loading ? 'Recherche…' : 'Rechercher'}
-          </Button>
+          <div className="calls-fb-actions">
+            <Button
+              onClick={() => void handleSearch()}
+              disabled={loading || !canSearch}
+            >
+              {loading ? 'Recherche…' : 'Rechercher'}
+            </Button>
+            {(query.trim() || hasAnyFilter(filters)) && (
+              <Button
+                variant="secondary"
+                onClick={handleResetAll}
+                disabled={loading}
+                aria-label="Réinitialiser la recherche"
+              >
+                Réinitialiser
+              </Button>
+            )}
+          </div>
         </div>
 
-        <details className="calls-fb-section">
+        <details
+          className="calls-fb-section"
+          open={filtersOpen}
+          onToggle={(e) => handleFiltersToggle(e.currentTarget.open)}
+        >
           <summary>
-            <span className="calls-fb-section__title">Filtres entreprise</span>
+            <span className="calls-fb-section__title">
+              Filtres entreprise
+              {activeFiltersCount > 0 && (
+                <span
+                  className="calls-fb-section__badge"
+                  aria-label={`${activeFiltersCount} filtre${activeFiltersCount > 1 ? 's' : ''} actif${activeFiltersCount > 1 ? 's' : ''}`}
+                >
+                  {activeFiltersCount}
+                </span>
+              )}
+            </span>
           </summary>
           <div className="calls-fb-section__body">
+            {activeFiltersCount > 0 && (
+              <div className="calls-abm-filters-header">
+                <span className="calls-muted" style={{ fontSize: '0.82rem' }}>
+                  {activeFiltersCount} critère
+                  {activeFiltersCount > 1 ? 's' : ''} sélectionné
+                  {activeFiltersCount > 1 ? 's' : ''}
+                </span>
+                <Button
+                  variant="secondary"
+                  onClick={handleResetFilters}
+                  aria-label="Effacer les filtres"
+                >
+                  Effacer les filtres
+                </Button>
+              </div>
+            )}
             <PicklistMultiSelect
               label="Secteurs d'activité"
               options={asOptions(SECTEUR_VALUES)}
@@ -355,6 +550,13 @@ export function AccountSearchView({
           <p role="alert" aria-live="assertive">
             {error || createError || dateError}
           </p>
+          {error && canSearch && !loading && (
+            <div style={{ marginTop: '0.25rem' }}>
+              <Button variant="secondary" onClick={() => void handleSearch()}>
+                Réessayer la recherche
+              </Button>
+            </div>
+          )}
         </GlassCard>
       )}
 
@@ -371,7 +573,56 @@ export function AccountSearchView({
         </div>
       )}
 
-      {accounts.length > 0 && (
+      {loading && (
+        <GlassCard
+          className="calls-loading-card"
+          role="status"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '30rem',
+              display: 'grid',
+              gap: '0.65rem',
+            }}
+          >
+            <Skeleton height="1.5rem" width="45%" />
+            <Skeleton height="1rem" width="85%" />
+            <Skeleton height="1rem" width="60%" />
+          </div>
+          <p className="calls-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+            Recherche des comptes en cours…
+          </p>
+        </GlassCard>
+      )}
+
+      {!loading && !searched && accounts.length === 0 && !error && (
+        <GlassCard className="calls-empty calls-empty--hero">
+          <Tag variant="accent">Mode ABM</Tag>
+          <h3>Cibler des comptes spécifiques</h3>
+          <p>
+            Recherchez une entreprise par son nom ou combinez les filtres
+            d&apos;entreprise pour composer votre sélection.
+          </p>
+        </GlassCard>
+      )}
+
+      {!loading && searched && accounts.length === 0 && !error && (
+        <GlassCard className="calls-empty calls-empty--hero">
+          <Tag variant="accent">Mode ABM</Tag>
+          <h3>Aucun compte trouvé</h3>
+          <p>Essayez un autre nom ou ajustez les filtres.</p>
+          {(query.trim() || hasAnyFilter(filters)) && (
+            <Button variant="secondary" onClick={handleResetAll}>
+              Réinitialiser la recherche
+            </Button>
+          )}
+        </GlassCard>
+      )}
+
+      {!loading && accounts.length > 0 && (
         <>
           <GlassCard className="calls-name-form calls-name-form--sticky">
             <div className="calls-name-form__meta">
@@ -413,7 +664,7 @@ export function AccountSearchView({
                     min={1}
                     value={targetSize}
                     onChange={(e) =>
-                      setTargetSize(Math.max(1, Number(e.target.value) || 1))
+                      handleTargetSizeChange(Number(e.target.value) || 1)
                     }
                   />
                 </label>
@@ -425,7 +676,7 @@ export function AccountSearchView({
                     min={1}
                     value={maxSessions}
                     onChange={(e) =>
-                      setMaxSessions(Math.max(1, Number(e.target.value) || 1))
+                      handleMaxSessionsChange(Number(e.target.value) || 1)
                     }
                   />
                 </label>
@@ -460,17 +711,67 @@ export function AccountSearchView({
             </GlassCard>
           )}
 
+          <div className="calls-abm-toolbar">
+            <div className="calls-abm-actions">
+              <Button
+                variant="secondary"
+                onClick={handleSelectAll}
+                disabled={selectedIds.size === accounts.length}
+                aria-label="Tout sélectionner"
+              >
+                Tout sélectionner ({accounts.length})
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleDeselectAll}
+                disabled={selectedIds.size === 0}
+                aria-label="Tout désélectionner"
+              >
+                Tout désélectionner
+              </Button>
+              {accounts.some((a) => a.contacts.length === 0) &&
+                accounts.some((a) => a.contacts.length > 0) && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleSelectWithContacts}
+                    aria-label="Sélectionner uniquement les comptes avec contacts"
+                  >
+                    Avec contacts uniquement
+                  </Button>
+                )}
+            </div>
+
+            <label className="calls-field calls-field--inline">
+              <span>Trier par</span>
+              <select
+                className="calls-select"
+                value={sortBy}
+                onChange={(e) =>
+                  handleSortChange(e.target.value as AbmSortOption)
+                }
+                aria-label="Trier les comptes"
+              >
+                <option value="default">Ordre par défaut</option>
+                <option value="name-asc">Nom (A → Z)</option>
+                <option value="name-desc">Nom (Z → A)</option>
+                <option value="contacts-desc">Contacts (décroissant)</option>
+                <option value="contacts-asc">Contacts (croissant)</option>
+                <option value="tier-asc">Tier (prioritaire)</option>
+              </select>
+            </label>
+          </div>
+
           <div
             className="calls-preview__table-wrap"
             role="list"
             aria-label="Comptes trouvés"
           >
-            {accounts.map((account) => {
+            {sortedAccounts.map((account) => {
               const checked = selectedIds.has(account.id);
               return (
                 <GlassCard
                   key={account.id}
-                  className="calls-preview"
+                  className={`calls-preview calls-account-card ${checked ? 'calls-account-card--selected' : ''}`}
                   role="listitem"
                 >
                   <div className="calls-preview__header">
@@ -487,7 +788,11 @@ export function AccountSearchView({
                       {account.tier && <Tag>Tier {account.tier}</Tag>}
                       {account.type_client && <Tag>{account.type_client}</Tag>}
                       {account.effectif && <Tag>{account.effectif}</Tag>}
-                      <Tag variant="accent">
+                      <Tag
+                        variant={
+                          account.contacts.length > 0 ? 'accent' : 'default'
+                        }
+                      >
                         {account.contacts.length} contact
                         {account.contacts.length > 1 ? 's' : ''}
                       </Tag>
@@ -503,14 +808,6 @@ export function AccountSearchView({
             })}
           </div>
         </>
-      )}
-
-      {!loading && searched && accounts.length === 0 && !error && (
-        <GlassCard className="calls-empty calls-empty--hero">
-          <Tag variant="accent">ABM</Tag>
-          <h3>Aucun compte trouvé</h3>
-          <p>Essayez un autre nom ou ajustez les filtres.</p>
-        </GlassCard>
       )}
     </div>
   );

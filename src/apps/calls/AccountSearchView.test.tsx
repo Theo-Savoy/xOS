@@ -20,9 +20,28 @@ vi.mock('./api', async (importOriginal) => {
   return { ...actual, fetchAccountsSearch: vi.fn() };
 });
 
+const localStore: Record<string, string> = {};
+const mockLocalStorage = {
+  getItem: vi.fn((key: string) => localStore[key] ?? null),
+  setItem: vi.fn((key: string, val: string) => {
+    localStore[key] = String(val);
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStore[key];
+  }),
+  clear: vi.fn(() => {
+    for (const k of Object.keys(localStore)) delete localStore[k];
+  }),
+};
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: mockLocalStorage,
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mockLocalStorage.clear();
 });
 
 const acme: AccountSearchHit = {
@@ -99,11 +118,12 @@ const team: TeamMember[] = [
 function renderView(
   overrides: Partial<Parameters<typeof AccountSearchView>[0]> = {},
 ) {
-  const onCreateAudience = vi.fn();
+  const onBack = overrides.onBack ?? vi.fn();
+  const onCreateAudience = overrides.onCreateAudience ?? vi.fn();
   const utils = render(
     <AccountSearchView
       token="token-123"
-      onBack={vi.fn()}
+      onBack={onBack}
       onCreateAudience={onCreateAudience}
       creating={false}
       createError={null}
@@ -111,7 +131,7 @@ function renderView(
       {...overrides}
     />,
   );
-  return { ...utils, onCreateAudience };
+  return { ...utils, onCreateAudience, onBack };
 }
 
 describe('AccountSearchView', () => {
@@ -473,5 +493,227 @@ describe('AccountSearchView', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('calls onBack when clicking the Retour button', async () => {
+    const user = userEvent.setup();
+    const onBack = vi.fn();
+    renderView({ onBack });
+
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports bulk selection: select all, deselect all, and with contacts only', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme, acmeSubsidiary, zeroContactAccount],
+      truncated: false,
+    });
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Initialement rien de sélectionné
+    expect(
+      screen.getByText('3 comptes trouvés · 3 contacts au total'),
+    ).toBeTruthy();
+
+    // Tout sélectionner (3 comptes)
+    const selectAllBtn = screen.getByRole('button', {
+      name: 'Tout sélectionner',
+    });
+    await user.click(selectAllBtn);
+    expect(
+      screen.getByText(/3 contacts dans 3 comptes sélectionnés/),
+    ).toBeTruthy();
+
+    // Tout désélectionner
+    const deselectAllBtn = screen.getByRole('button', {
+      name: 'Tout désélectionner',
+    });
+    await user.click(deselectAllBtn);
+    expect(
+      screen.getByText('3 comptes trouvés · 3 contacts au total'),
+    ).toBeTruthy();
+
+    // Sélectionner avec contacts uniquement (exclut Wayne Enterprises qui a 0 contacts)
+    const withContactsBtn = screen.getByRole('button', {
+      name: 'Sélectionner uniquement les comptes avec contacts',
+    });
+    await user.click(withContactsBtn);
+    expect(
+      screen.getByText(/3 contacts dans 2 comptes sélectionnés/),
+    ).toBeTruthy();
+  });
+
+  it('sorts accounts by contacts count, name, and tier', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme, acmeSubsidiary, zeroContactAccount],
+      truncated: false,
+    });
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    const sortSelect = screen.getByLabelText('Trier les comptes');
+
+    // Tri par contacts décroissant: ACME Europe (2), ACME (1), Wayne (0)
+    await user.selectOptions(sortSelect, 'contacts-desc');
+    const itemsContactsDesc = screen
+      .getAllByRole('listitem')
+      .map((el) => el.querySelector('strong')?.textContent);
+    expect(itemsContactsDesc).toEqual([
+      'ACME Europe',
+      'ACME',
+      'Wayne Enterprises',
+    ]);
+
+    // Tri par nom décroissant: Wayne, ACME Europe, ACME
+    await user.selectOptions(sortSelect, 'name-desc');
+    const itemsNameDesc = screen
+      .getAllByRole('listitem')
+      .map((el) => el.querySelector('strong')?.textContent);
+    expect(itemsNameDesc).toEqual(['Wayne Enterprises', 'ACME Europe', 'ACME']);
+
+    // Tri par nom croissant: ACME, ACME Europe, Wayne
+    await user.selectOptions(sortSelect, 'name-asc');
+    const itemsNameAsc = screen
+      .getAllByRole('listitem')
+      .map((el) => el.querySelector('strong')?.textContent);
+    expect(itemsNameAsc).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+
+    // Tri par tier prioritaire: ACME (Tier A), ACME Europe (Tier B), Wayne (sans tier)
+    await user.selectOptions(sortSelect, 'tier-asc');
+    const itemsTierAsc = screen
+      .getAllByRole('listitem')
+      .map((el) => el.querySelector('strong')?.textContent);
+    expect(itemsTierAsc).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+  });
+
+  it('persists and restores user preferences in localStorage', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme, acmeSubsidiary],
+      truncated: false,
+    });
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Modifier le tri doit sauvegarder dans localStorage
+    const sortSelect = screen.getByLabelText('Trier les comptes');
+    await user.selectOptions(sortSelect, 'contacts-desc');
+
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+      'calls_abm_prefs_v1',
+      expect.stringContaining('"sortBy":"contacts-desc"'),
+    );
+    expect(JSON.parse(localStore['calls_abm_prefs_v1']).sortBy).toBe(
+      'contacts-desc',
+    );
+  });
+
+  it('displays the initial empty state and allows resetting active search and filters', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    // État vide initial avant recherche
+    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+    expect(screen.queryByText('Cibler des comptes spécifiques')).toBeNull();
+
+    // Clic sur Réinitialiser
+    await user.click(
+      screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
+    );
+    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+    expect(screen.queryByText('ACME')).toBeNull();
+    expect(
+      (screen.getByLabelText('Nom du compte') as HTMLInputElement).value,
+    ).toBe('');
+  });
+
+  it('asks for confirmation before resetting when more than 5 accounts are selected', async () => {
+    const user = userEvent.setup();
+    const sixAccounts = [
+      acme,
+      acmeSubsidiary,
+      zeroContactAccount,
+      { ...acme, id: 'acc-3', name: 'Bravo Corp' },
+      { ...acme, id: 'acc-4', name: 'Charlie Inc' },
+      { ...acme, id: 'acc-5', name: 'Delta LLC' },
+    ];
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: sixAccounts,
+      truncated: false,
+    });
+    const confirmSpy = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Sélectionner les 6 comptes (> 5, seuil de confirmation).
+    await user.click(
+      screen.getByRole('button', { name: 'Tout sélectionner' }),
+    );
+
+    // Au-dessus du seuil : confirm s'affiche. Annuler préserve la sélection.
+    await user.click(
+      screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
+    );
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('ACME')).toBeTruthy();
+
+    // Confirmer cette fois : reset effectif.
+    await user.click(
+      screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
+    );
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+    confirmSpy.mockRestore();
+  });
+
+  it('renders a loading skeleton while searching', async () => {
+    let resolveSearch!: (value: unknown) => void;
+    const promise = new Promise((resolve) => {
+      resolveSearch = resolve;
+    });
+    vi.mocked(fetchAccountsSearch).mockReturnValue(promise as never);
+    renderView();
+
+    fireEvent.change(screen.getByLabelText('Nom du compte'), {
+      target: { value: 'ACME' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rechercher' }));
+
+    expect(screen.getByText('Recherche des comptes en cours…')).toBeTruthy();
+    expect(screen.getByRole('status', { busy: true })).toBeTruthy();
+
+    await act(async () => {
+      resolveSearch({ accounts: [acme], truncated: false });
+    });
+
+    expect(await screen.findByText('ACME')).toBeTruthy();
+    expect(screen.queryByText('Recherche des comptes en cours…')).toBeNull();
   });
 });

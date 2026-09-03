@@ -1051,6 +1051,62 @@ describe('CallManagerApp component', () => {
     expect(onParamsChange).toHaveBeenCalledWith({ view: 'new' });
   });
 
+  it('navigates from session-type-select to ABM and returns back to session-type-select', async () => {
+    const onParamsChange = vi.fn();
+    const user = userEvent.setup();
+    render(<CallManagerApp onParamsChange={onParamsChange} />);
+    await screen.findByText('Nouvelle séance');
+    onParamsChange.mockClear();
+
+    // Aller sur l'écran intermédiaire SessionTypeSelect
+    await user.click(screen.getByText('Nouvelle séance'));
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+
+    // Aller sur la vue ABM (AccountSearchView)
+    onParamsChange.mockClear();
+    await user.click(screen.getByText('Comptes précis (ABM)'));
+    expect(onParamsChange).toHaveBeenCalledWith({ view: 'abm' });
+    expect(
+      await screen.findByRole('heading', { name: 'Rechercher des comptes' }),
+    ).toBeTruthy();
+
+    // Clic Retour depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
+    onParamsChange.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+    expect(screen.getByText('Liste classique')).toBeTruthy();
+    expect(screen.queryByText('Composer une liste')).toBeNull();
+  });
+
+  it('returns to session-type-select when clicking Retour from direct ABM view', async () => {
+    const onParamsChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CallManagerApp
+        params={{ view: 'abm' }}
+        onParamsChange={onParamsChange}
+      />,
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Rechercher des comptes' }),
+    ).toBeTruthy();
+
+    onParamsChange.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+    expect(screen.getByText('Liste classique')).toBeTruthy();
+    expect(screen.queryByText('Composer une liste')).toBeNull();
+  });
+
   it('recalculates the detailed preview automatically after a filter change, ignoring stale responses', async () => {
     const user = userEvent.setup();
     let resolveFirst!: (response: Response) => void;
