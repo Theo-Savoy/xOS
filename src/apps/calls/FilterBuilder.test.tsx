@@ -31,8 +31,12 @@ const filterBuilderProps = {
   onDeletePreset: vi.fn(),
 };
 
-function contactSectionTitle() {
-  return screen.getByText('Contact').closest('.calls-fb-section__title');
+function contactSectionTitle(): HTMLElement {
+  const title = screen.getByText('Contact').closest('.calls-fb-section__title');
+  if (!(title instanceof HTMLElement)) {
+    throw new Error('Contact section title not found');
+  }
+  return title;
 }
 
 describe('FilterBuilder — champ zombie Niveau de décision', () => {
@@ -61,9 +65,7 @@ describe('FilterBuilder — champ zombie Niveau de décision', () => {
       />,
     );
 
-    const title = contactSectionTitle();
-    expect(title).toBeTruthy();
-    expect(within(title!).queryByLabelText(/filtre/)).toBeNull();
+    expect(within(contactSectionTitle()).queryByLabelText(/filtre/)).toBeNull();
   });
 
   it('still counts other contact filters in the section badge', () => {
@@ -80,8 +82,8 @@ describe('FilterBuilder — champ zombie Niveau de décision', () => {
       />,
     );
 
-    const title = contactSectionTitle();
-    expect(title).toBeTruthy();
-    expect(within(title!).getByLabelText('1 filtre actif')).toBeTruthy();
+    expect(
+      within(contactSectionTitle()).getByLabelText('1 filtre actif'),
+    ).toBeTruthy();
   });
 });
