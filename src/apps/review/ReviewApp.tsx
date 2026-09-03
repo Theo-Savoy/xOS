@@ -213,7 +213,8 @@ export default function ReviewApp() {
       .catch(() => {});
   }, [token]);
 
-  // Fetch data
+  // Fetch data — rendu progressif : chaque section s'affiche dès qu'elle arrive
+  // (Promise.all bloquait tout sur la resource la plus lente, ~9s d'écran vide).
   const fetchData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -222,33 +223,36 @@ export default function ReviewApp() {
       const ownerParam = owner ? `&owner=${owner}` : '';
       const base = `/api/review?period=${period}${ownerParam}`;
 
-      const [
-        kpisRes,
-        breakdownRes,
-        funnelRes,
-        callsRes,
-        attentionRes,
-        sharedRes,
-      ] = await Promise.all([
-        apiFetch<Kpis & { period: Period }>(token, `${base}&resource=kpis`),
-        apiFetch<Breakdown>(token, `${base}&resource=breakdown`),
-        apiFetch<Funnel>(token, `${base}&resource=funnel`),
-        apiFetch<CallStats>(token, `${base}&resource=calls`),
-        apiFetch<Attention>(token, `${base}&resource=attention`),
-        apiFetch<{ analyses: SharedAnalysis[] }>(
-          token,
-          '/api/review?resource=shared',
-        ),
-      ]);
+      const [kpisRes, breakdownRes, funnelRes, callsRes, attentionRes, sharedRes] =
+        await Promise.allSettled([
+          apiFetch<Kpis & { period: Period }>(token, `${base}&resource=kpis`),
+          apiFetch<Breakdown>(token, `${base}&resource=breakdown`),
+          apiFetch<Funnel>(token, `${base}&resource=funnel`),
+          apiFetch<CallStats>(token, `${base}&resource=calls`),
+          apiFetch<Attention>(token, `${base}&resource=attention`),
+          apiFetch<{ analyses: SharedAnalysis[] }>(
+            token,
+            '/api/review?resource=shared',
+          ),
+        ]);
 
-      setKpis(kpisRes);
-      setBreakdown(breakdownRes);
-      setFunnel(funnelRes);
-      setCallStats(callsRes);
-      setAttention(attentionRes);
-      setShared(sharedRes.analyses || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur de chargement');
+      const firstError = [kpisRes, breakdownRes, funnelRes, callsRes, attentionRes, sharedRes]
+        .find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (firstError) {
+        const err = firstError.reason;
+        setError(err instanceof Error ? err.message : 'Erreur de chargement');
+      }
+
+      if (kpisRes.status === 'fulfilled') {
+        setKpis(kpisRes.value);
+        setLoading(false); // le cockpit (section par défaut) est là → on affiche
+      }
+      if (breakdownRes.status === 'fulfilled') setBreakdown(breakdownRes.value);
+      if (funnelRes.status === 'fulfilled') setFunnel(funnelRes.value);
+      if (callsRes.status === 'fulfilled') setCallStats(callsRes.value);
+      if (attentionRes.status === 'fulfilled') setAttention(attentionRes.value);
+      if (sharedRes.status === 'fulfilled')
+        setShared(sharedRes.value.analyses || []);
     } finally {
       setLoading(false);
     }

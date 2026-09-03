@@ -225,57 +225,38 @@ export default async function handler(request) {
 
   try {
     if (resource === 'kpis') {
-      const [oppsByClose, oppsByCreated] = await Promise.all([
-        crmRecords(token, oppsByCloseDate(ownerIds, queryStart)),
-        crmRecords(token, oppsByCreatedDate(ownerIds, queryStart)),
-      ]);
-
-      // N-1 / N-2 comparisons
+      // N-1 / N-2 comparisons — 6 requêtes en UNE vague (2 vagues = 2× latence SF)
       const priorLabel = priorPeriodLabel(period);
       const prior2Label = prior2PeriodLabel(period);
       const priorParsed = priorLabel ? parsePeriod(priorLabel) : null;
       const prior2Parsed = prior2Label ? parsePeriod(prior2Label) : null;
 
-      const [priorWon, priorCreated, prior2Won, prior2Created] =
+      const [oppsByClose, oppsByCreated, priorWon, priorCreated, prior2Won, prior2Created] =
         await Promise.all([
+          crmRecords(token, oppsByCloseDate(ownerIds, queryStart)),
+          crmRecords(token, oppsByCreatedDate(ownerIds, queryStart)),
           priorParsed
             ? crmRecords(
                 token,
-                wonInPeriod(
-                  ownerIds,
-                  priorParsed.from,
-                  priorParsed.toExclusive,
-                ),
+                wonInPeriod(ownerIds, priorParsed.from, priorParsed.toExclusive),
               )
             : Promise.resolve([]),
           priorParsed
             ? crmRecords(
                 token,
-                oppsCreatedInPeriod(
-                  ownerIds,
-                  priorParsed.from,
-                  priorParsed.toExclusive,
-                ),
+                oppsCreatedInPeriod(ownerIds, priorParsed.from, priorParsed.toExclusive),
               )
             : Promise.resolve([]),
           prior2Parsed
             ? crmRecords(
                 token,
-                wonInPeriod(
-                  ownerIds,
-                  prior2Parsed.from,
-                  prior2Parsed.toExclusive,
-                ),
+                wonInPeriod(ownerIds, prior2Parsed.from, prior2Parsed.toExclusive),
               )
             : Promise.resolve([]),
           prior2Parsed
             ? crmRecords(
                 token,
-                oppsCreatedInPeriod(
-                  ownerIds,
-                  prior2Parsed.from,
-                  prior2Parsed.toExclusive,
-                ),
+                oppsCreatedInPeriod(ownerIds, prior2Parsed.from, prior2Parsed.toExclusive),
               )
             : Promise.resolve([]),
         ]);
