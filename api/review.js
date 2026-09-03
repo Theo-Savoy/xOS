@@ -1,16 +1,19 @@
 /**
- * api/review.js — Régie cockpit macro endpoint.
+ * api/review.js — Régie cockpit macro endpoint + Business Review FY26.
  *
  * GET  /api/review?resource=kpis&period=FY26[&owner=005...]
  * GET  /api/review?resource=breakdown&period=FY26[&owner=005...]
  * GET  /api/review?resource=funnel&period=FY26[&owner=005...]
  * GET  /api/review?resource=attention[&owner=005...]
  * GET  /api/review?resource=shared
+ * GET  /api/review?resource=overview[&fy=FY26]
+ * GET  /api/review?resource=bridge[&fy=FY26&compare=FY25]
  * POST /api/review?resource=shared  { config, note?, recipient_id? }
  * DELETE /api/review?resource=shared&id=<uuid>
  *
  * Auth: Supabase JWT (Bearer token).
  * Access: manager/admin → global + owner filter; commercial → own data + shared only.
+ * Resources business (overview, bridge) : manager/admin uniquement.
  */
 import { verifyJWT } from './_auth.js';
 import { getServiceClient } from './_calls/http.js';
@@ -37,8 +40,25 @@ import { computeFunnel } from './_review/funnel.js';
 import { computeAttention } from './_review/attention.js';
 import { computeCallStats } from './_review/calls.js';
 import { listShared, createShared, revokeShared } from './_review/shared.js';
+import { fyRange } from './_business-review/soql.js';
+import { fetchFyWindow } from './_business-review/fetch.js';
+import { computeOverview } from './_business-review/overview.js';
+import { ownerBridge, volumeTicketBridge } from './_business-review/bridge.js';
+import { splitNewRenew } from './_business-review/classify.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
+
+const LEGACY_RESOURCES = [
+  'kpis',
+  'breakdown',
+  'funnel',
+  'calls',
+  'attention',
+  'shared',
+];
+const BUSINESS_RESOURCES = ['overview', 'bridge'];
+const VALID_RESOURCES = [...LEGACY_RESOURCES, ...BUSINESS_RESOURCES];
+const BUSINESS_FROM_FY = 22;
 
 function json(status, body, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -95,6 +115,10 @@ async function reviewHandler(request) {
   const resource = url.searchParams.get('resource') || 'kpis';
   const method = request.method.toUpperCase();
 
+  if (!VALID_RESOURCES.includes(resource)) {
+    return json(400, { error: 'unknown_resource', valid: VALID_RESOURCES });
+  }
+
   // --- Shared analyses (Supabase only, no SF) ---
   if (resource === 'shared') {
     if (method === 'GET') {
@@ -133,6 +157,76 @@ async function reviewHandler(request) {
       return json(200, result);
     }
     return json(405, { error: 'method_not_allowed' });
+  }
+
+  // --- Business review (manager/admin, fenêtre multi-FY) ---
+  if (BUSINESS_RESOURCES.includes(resource)) {
+    if (!roleAtLeast(profile.role, 'manager')) {
+      return json(403, { error: 'manager_required' });
+    }
+    const fyParam = url.searchParams.get('fy') || 'FY26';
+    const compareParam = url.searchParams.get('compare') || 'FY25';
+    const fyParsed = parsePeriod(fyParam);
+    const compareParsed = parsePeriod(compareParam);
+    if (!fyParsed || fyParsed.granularity !== 'year') {
+      return json(400, { error: 'invalid_fy', hint: 'FY22 … FY26' });
+    }
+    if (!compareParsed || compareParsed.granularity !== 'year') {
+      return json(400, { error: 'invalid_compare', hint: 'FY22 … FY26' });
+    }
+
+    const token = await sfToken(client, user);
+    if (!token) return json(502, { error: 'sf_auth_error' });
+
+    try {
+      if (resource === 'overview') {
+        const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const overview = computeOverview(fetched.window);
+        return json(200, {
+          resource: 'overview',
+          fy: fyParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation: overview.conservation,
+          series: overview.series,
+        });
+      }
+
+      if (resource === 'bridge') {
+        const fyInts = fyRange(compareParsed.fyInt, fyParsed.fyInt);
+        const fetched = await fetchFyWindow(token, fyInts);
+        const prevWon = fetched.window[compareParsed.label]?.won || [];
+        const currWon = fetched.window[fyParsed.label]?.won || [];
+        const prevNew = splitNewRenew(prevWon).new;
+        const currNew = splitNewRenew(currWon).new;
+        const volumeTicket = volumeTicketBridge(prevNew, currNew);
+        const owner = ownerBridge(prevWon, currWon);
+        const conservation = {
+          ok: volumeTicket.conservation.ok && owner.conservation.ok,
+          delta_count: 0,
+          delta_amount:
+            (volumeTicket.conservation.delta_amount || 0) +
+            (owner.conservation.delta_amount || 0),
+        };
+        return json(200, {
+          resource: 'bridge',
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+          truncated: fetched.truncated,
+          truncated_fys: fetched.truncated_fys,
+          conservation,
+          volume_ticket: volumeTicket,
+          owner,
+        });
+      }
+    } catch (err) {
+      console.error('review business error:', err);
+      return json(500, {
+        error: 'internal_error',
+        message: String(err.message || err),
+      });
+    }
   }
 
   // --- SF-backed resources ---
@@ -271,7 +365,7 @@ async function reviewHandler(request) {
 
     return json(400, {
       error: 'unknown_resource',
-      valid: ['kpis', 'breakdown', 'funnel', 'calls', 'attention', 'shared'],
+      valid: VALID_RESOURCES,
     });
   } catch (err) {
     console.error('review error:', err);

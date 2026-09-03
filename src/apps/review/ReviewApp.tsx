@@ -1,6 +1,6 @@
 /**
- * src/apps/review/ReviewApp.tsx — Bilan : cockpit macro & partage d'analyses.
- * Sections : Cockpit (KPIs + breakdown), Funnel (SDR + appels), Attention, Partages.
+ * src/apps/review/ReviewApp.tsx — Bilan : Business Review FY26 + cockpit actuel.
+ * Shell à sidebar groupée (lot 1). Anciennes sections conservées jusqu'au lot 6.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -25,6 +25,10 @@ import {
 } from '../../components/ui';
 import { apiFetch } from '../../lib/apiClient';
 import { supabase } from '../../lib/supabase';
+import { BridgeNewSection } from './sections/BridgeNewSection';
+import { PerformanceSection } from './sections/PerformanceSection';
+import { useBusinessReview } from './useBusinessReview';
+import type { BridgePayload, OverviewPayload } from './review.types';
 import './review.css';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -118,23 +122,77 @@ type SharedAnalysis = {
 };
 type Owner = { sf_user_id: string; name: string };
 
-type Tab = 'cockpit' | 'funnel' | 'attention' | 'shared';
+type NavId =
+  | 'performance'
+  | 'bridge-new'
+  | 'commercial'
+  | 'product'
+  | 'market'
+  | 'diagnosis'
+  | 'cockpit'
+  | 'funnel'
+  | 'attention'
+  | 'shared';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'cockpit', label: 'Cockpit' },
-  { id: 'funnel', label: 'Funnel' },
-  { id: 'attention', label: 'Attention' },
-  { id: 'shared', label: 'Partages' },
-];
-
-const PERIOD_OPTIONS = [
-  { value: 'FY26', label: 'FY26' },
-  { value: 'FY26-Q1', label: 'FY26 Q1' },
-  { value: 'FY26-Q2', label: 'FY26 Q2' },
-  { value: 'FY26-Q3', label: 'FY26 Q3' },
-  { value: 'FY26-Q4', label: 'FY26 Q4' },
+const FY_OPTIONS = [
+  { value: 'FY22', label: 'FY22' },
+  { value: 'FY23', label: 'FY23' },
+  { value: 'FY24', label: 'FY24' },
   { value: 'FY25', label: 'FY25' },
+  { value: 'FY26', label: 'FY26' },
 ];
+
+const NAV_FAMILIES: {
+  id: string;
+  label: string;
+  items: { id: NavId; label: string; soon?: boolean }[];
+}[] = [
+  {
+    id: 'performance',
+    label: 'Performance',
+    items: [
+      { id: 'performance', label: 'NEW et RENEW' },
+      { id: 'bridge-new', label: 'Bridge NEW' },
+    ],
+  },
+  {
+    id: 'commercial',
+    label: 'Commercial',
+    items: [{ id: 'commercial', label: 'Équipe', soon: true }],
+  },
+  {
+    id: 'product',
+    label: 'Produit',
+    items: [{ id: 'product', label: 'Offres', soon: true }],
+  },
+  {
+    id: 'market',
+    label: 'Marché',
+    items: [{ id: 'market', label: 'Signal', soon: true }],
+  },
+  {
+    id: 'diagnosis',
+    label: 'Diagnostic',
+    items: [{ id: 'diagnosis', label: 'Fiabilité', soon: true }],
+  },
+  {
+    id: 'cockpit-legacy',
+    label: 'Cockpit actuel',
+    items: [
+      { id: 'cockpit', label: 'Cockpit' },
+      { id: 'funnel', label: 'Funnel' },
+      { id: 'attention', label: 'Attention' },
+      { id: 'shared', label: 'Partages' },
+    ],
+  },
+];
+
+const ANNEX_ITEMS = [
+  { id: 'a1', label: 'A1 · Définitions' },
+  { id: 'a4', label: 'A4 · Historique' },
+];
+
+const LEGACY_NAV: NavId[] = ['cockpit', 'funnel', 'attention', 'shared'];
 
 const PIE_COLORS = [
   '#5b8def',
@@ -171,13 +229,22 @@ function delta(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReviewApp() {
+export default function ReviewApp({
+  params,
+}: {
+  params?: Record<string, string>;
+} = {}) {
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('cockpit');
+  const [nav, setNav] = useState<NavId>(
+    params?.shared ? 'shared' : 'performance',
+  );
   const [period, setPeriod] = useState('FY26');
+  const [compare, setCompare] = useState('FY25');
+  const [annexesOpen, setAnnexesOpen] = useState(false);
   const [owner, setOwner] = useState<string | null>(null);
   const [owners] = useState<Owner[]>([]);
   const [isManager, setIsManager] = useState(false);
+  const [roleKnown, setRoleKnown] = useState(false);
 
   // Data
   const [kpis, setKpis] = useState<Kpis | null>(null);
@@ -206,12 +273,27 @@ export default function ReviewApp() {
     apiFetch<{ role: string; sf_user_id: string | null }>(token, '/api/profile')
       .then((p) => {
         setIsManager(p.role === 'manager' || p.role === 'admin');
+        setRoleKnown(true);
       })
-      .catch(() => {});
-    apiFetch<{ owners: Owner[] }>(token, '/api/review?resource=shared')
-      .then(() => {})
-      .catch(() => {});
+      .catch(() => {
+        setRoleKnown(true);
+      });
   }, [token]);
+
+  const isLegacy = LEGACY_NAV.includes(nav);
+  const canFetchBusiness = roleKnown && isManager;
+  const overviewResource =
+    canFetchBusiness && nav === 'performance' ? 'overview' : null;
+  const bridgeResource =
+    canFetchBusiness && nav === 'bridge-new' ? 'bridge' : null;
+  const overview = useBusinessReview<OverviewPayload>(token, overviewResource, {
+    fy: period,
+    compare,
+  });
+  const bridge = useBusinessReview<BridgePayload>(token, bridgeResource, {
+    fy: period,
+    compare,
+  });
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -255,8 +337,8 @@ export default function ReviewApp() {
   }, [token, period, owner]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (isLegacy) fetchData();
+  }, [fetchData, isLegacy]);
 
   // Share handler
   const handleShare = useCallback(async () => {
@@ -305,23 +387,84 @@ export default function ReviewApp() {
     return Math.max(...funnel.stages.map((s) => s.count), 1);
   }, [funnel]);
 
+  const compareOptions = FY_OPTIONS.filter((opt) => opt.value < period);
+  const liveAt =
+    overview.fetchedAt || bridge.fetchedAt
+      ? new Date(overview.fetchedAt || bridge.fetchedAt || 0).toLocaleTimeString(
+          'fr-FR',
+          { hour: '2-digit', minute: '2-digit' },
+        )
+      : null;
+  const sectionError = isLegacy ? error : overview.error || bridge.error;
+  const refreshing =
+    (isLegacy && loading) || overview.loading || bridge.loading;
+
+  const handlePeriod = (next: string) => {
+    setPeriod(next);
+    if (compare >= next) {
+      const prev = FY_OPTIONS.filter((opt) => opt.value < next).at(-1);
+      if (prev) setCompare(prev.value);
+    }
+  };
+
+  const handleRefresh = () => {
+    if (isLegacy) fetchData();
+    overview.refresh();
+    bridge.refresh();
+  };
+
+  if (!roleKnown) {
+    return (
+      <div className="review-app">
+        <div className="review-skeleton">
+          <Skeleton height={120} />
+          <Skeleton height={200} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isManager) {
+    return (
+      <div className="review-app">
+        <EmptyState
+          title="Bilan réservé aux managers"
+          description="Cette revue d'exercice n'est pas ouverte aux commerciaux. Demandez une analyse partagée à votre manager."
+        />
+      </div>
+    );
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="review-app">
-      {/* Header */}
+    <div className="review-app review-app--shell">
       <header className="review-header">
         <div className="review-header-left">
           <h2 className="review-title">Bilan</h2>
-          <span className="review-subtitle">Cockpit macro</span>
+          <span className="review-subtitle">Business Review FY26</span>
+          {liveAt ? (
+            <span className="review-live">Données live · {liveAt}</span>
+          ) : (
+            <span className="review-live">Données live</span>
+          )}
         </div>
         <div className="review-header-right">
           <Select
+            aria-label="Exercice"
             value={period}
-            onChange={(v) => setPeriod(v as string)}
-            options={PERIOD_OPTIONS}
+            onChange={(v) => handlePeriod(v)}
+            options={FY_OPTIONS}
           />
-          {isManager && (
+          <Select
+            aria-label="Comparaison"
+            value={compare}
+            onChange={(v) => setCompare(v)}
+            options={
+              compareOptions.length ? compareOptions : [{ value: 'FY25', label: 'FY25' }]
+            }
+          />
+          {isManager && isLegacy && (
             <Select
               value={owner || ''}
               onChange={(v) => setOwner(v || null)}
@@ -334,56 +477,97 @@ export default function ReviewApp() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={fetchData}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={refreshing}
           >
-            {loading ? '…' : '↻'}
+            {refreshing ? '…' : '↻'}
           </Button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <nav className="review-tabs">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`review-tab ${tab === t.id ? 'review-tab--active' : ''}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Error */}
-      {error && <div className="review-error">{error}</div>}
-
-      {/* Content */}
-      <main className="review-content">
-        {loading && !kpis ? (
-          <div className="review-skeleton">
-            <Skeleton height={120} />
-            <Skeleton height={200} />
-            <Skeleton height={200} />
+      <div className="review-body">
+        <nav className="review-sidebar" aria-label="Sections du bilan">
+          {NAV_FAMILIES.map((family) => (
+            <div key={family.id} className="review-nav-family">
+              <span className="review-nav-family-label">{family.label}</span>
+              {family.items.map((item) => (
+                <Button
+                  key={item.id}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={`review-nav-item ${nav === item.id ? 'review-nav-item--active' : ''}`}
+                  onClick={() => setNav(item.id)}
+                >
+                  {item.label}
+                  {item.soon ? (
+                    <span className="review-nav-soon">bientôt</span>
+                  ) : null}
+                </Button>
+              ))}
+            </div>
+          ))}
+          <div className="review-nav-family">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="review-nav-family-label review-nav-accordion"
+              aria-expanded={annexesOpen}
+              onClick={() => setAnnexesOpen((open) => !open)}
+            >
+              Annexes
+            </Button>
+            {annexesOpen
+              ? ANNEX_ITEMS.map((item) => (
+                  <span key={item.id} className="review-nav-item review-nav-item--muted">
+                    {item.label}
+                  </span>
+                ))
+              : null}
           </div>
-        ) : (
-          <>
-            {tab === 'cockpit' && (
-              <CockpitSection
-                kpis={kpis}
-                breakdown={breakdown}
-                pieData={pieData}
+        </nav>
+
+        <div className="review-main">
+          {sectionError ? <div className="review-error">{sectionError}</div> : null}
+          <main className="review-content">
+            {nav === 'performance' && (
+              <PerformanceSection data={overview.data} loading={overview.loading} />
+            )}
+            {nav === 'bridge-new' && (
+              <BridgeNewSection data={bridge.data} loading={bridge.loading} />
+            )}
+            {(nav === 'commercial' ||
+              nav === 'product' ||
+              nav === 'market' ||
+              nav === 'diagnosis') && (
+              <EmptyState
+                title="Prochain lot"
+                description="Cette famille arrive avec les lots 2 à 5. Le cockpit actuel reste disponible dans la sidebar."
               />
             )}
-            {tab === 'funnel' && (
+            {nav === 'cockpit' &&
+              (loading && !kpis ? (
+                <div className="review-skeleton">
+                  <Skeleton height={120} />
+                  <Skeleton height={200} />
+                </div>
+              ) : (
+                <CockpitSection
+                  kpis={kpis}
+                  breakdown={breakdown}
+                  pieData={pieData}
+                />
+              ))}
+            {nav === 'funnel' && (
               <FunnelSection
                 funnel={funnel}
                 callStats={callStats}
                 funnelMax={funnelMax}
               />
             )}
-            {tab === 'attention' && <AttentionSection attention={attention} />}
-            {tab === 'shared' && (
+            {nav === 'attention' && <AttentionSection attention={attention} />}
+            {nav === 'shared' && (
               <SharedSection
                 shared={shared}
                 isManager={isManager}
@@ -391,9 +575,9 @@ export default function ReviewApp() {
                 onRevoke={handleRevoke}
               />
             )}
-          </>
-        )}
-      </main>
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

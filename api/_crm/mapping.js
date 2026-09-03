@@ -286,6 +286,9 @@ const mapping = {
       },
       saleTypeField: 'Type_de_vente__c',
       lossReasonField: 'Raison_de_perte_V2__c',
+      winReasonField: 'Raison_de_gain_V2__c',
+      campaignField: 'CampaignId',
+      campaignNameField: 'Campaign.Name',
       describeMetadataKey: 'Opportunity',
       saleTypes: {
         catalogue: ['Catalogue'],

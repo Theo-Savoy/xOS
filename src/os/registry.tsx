@@ -53,7 +53,8 @@ export const appRegistry: AppManifest[] = [
     title: 'Bilan',
     icon: <ReviewIcon />,
     component: lazy(() => import('../apps/review/ReviewApp')),
-    defaultSize: { w: 1100, h: 700 },
+    defaultSize: { w: 1280, h: 820 },
+    roles: ['manager', 'admin'],
   },
   {
     id: 'hub',
