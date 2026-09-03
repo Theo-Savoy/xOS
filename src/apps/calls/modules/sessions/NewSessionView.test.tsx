@@ -164,6 +164,35 @@ describe('NewSessionView — UX writing & wizard (spec §4.3 & plan)', () => {
     expect(screen.getByText('Mise à jour…')).toBeTruthy();
   });
 
+  it('keeps the preview table visible while a ceiling change reloads', () => {
+    const alice: ContactPreview = {
+      sf_contact_id: '003a',
+      sf_account_id: '001a',
+      contact_name: 'Alice Martin',
+      account_name: 'Acme',
+      phone: '0102030405',
+    };
+    const { rerender } = render(
+      <NewSessionView {...baseProps([alice])} initialStep={1} />,
+    );
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Aperçu — 1 contact trouvé' }),
+    ).toBeTruthy();
+
+    rerender(<NewSessionView {...baseProps([], true)} initialStep={1} />);
+
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Aperçu — 1 contact trouvé' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Mise à jour…')).toBeTruthy();
+    expect(screen.queryByText('Aucun contact trouvé')).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: 'Mise à jour…' }),
+    ).toBeNull();
+  });
+
   it('keeps existing selections across a preview refresh and only drops contacts that disappeared', async () => {
     const user = userEvent.setup();
     const alice: ContactPreview = {

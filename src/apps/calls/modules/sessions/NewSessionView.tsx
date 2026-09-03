@@ -119,7 +119,7 @@ export function NewSessionView({
   matchCountLoading,
   matchCountError,
   error,
-  preview,
+  preview: previewProp,
   dedup,
   excludedCount = 0,
   previewTruncated,
@@ -152,6 +152,17 @@ export function NewSessionView({
       setStep(initialStep);
     }
   }, [initialStep]);
+
+  const lastGoodPreviewRef = useRef<ContactPreview[]>([]);
+  if (previewProp.length > 0) {
+    lastGoodPreviewRef.current = previewProp;
+  }
+  const preview =
+    previewProp.length === 0 &&
+    previewLoading &&
+    lastGoodPreviewRef.current.length > 0
+      ? lastGoodPreviewRef.current
+      : previewProp;
 
   const shareableTeam = useMemo(
     () =>
