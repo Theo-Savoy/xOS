@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button, Checkbox, GlassCard, Tag } from '../../components/ui';
+import { Button, Checkbox, GlassCard } from '../../components/ui';
 import {
   EFFECTIF_TRANCHES,
   FONCTION_PRESETS,
@@ -25,12 +25,6 @@ import {
 type FilterBuilderProps = {
   filters: FilterTree;
   onChange: (next: FilterTree) => void;
-  previewCount: number | null;
-  previewLoading: boolean;
-  matchCount: number | null;
-  matchCountCapped: boolean;
-  matchCountLoading: boolean;
-  matchCountError: string | null;
   presets: CallTargetPreset[];
   savingPreset: boolean;
   currentUserId: string;
@@ -135,6 +129,27 @@ function SaveIcon(): ReactNode {
   );
 }
 
+function TeamIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 function TrashIcon(): ReactNode {
   return (
     <svg
@@ -157,12 +172,6 @@ function TrashIcon(): ReactNode {
 export function FilterBuilder({
   filters,
   onChange,
-  previewCount,
-  previewLoading,
-  matchCount,
-  matchCountCapped,
-  matchCountLoading,
-  matchCountError,
   presets,
   savingPreset,
   currentUserId,
@@ -347,40 +356,43 @@ export function FilterBuilder({
             );
           })}
 
-          {/* Carte "Sauvegarder ce filtre…" — unifie la création de preset avec le démarrage rapide */}
-          <details className="calls-fb-starter-card-wrap calls-fb-save-card">
-            <summary className="calls-fb-starter-card">
+          <div className="calls-fb-starter-card-wrap calls-fb-save-card">
+            <div className="calls-fb-save-card__inner">
               <span className="calls-fb-starter-card__icon">
                 <SaveIcon />
               </span>
-              <span className="calls-fb-starter-card__body">
-                <strong>Enregistrer cette recherche</strong>
-                <small>Garder ce filtre pour plus tard</small>
-              </span>
-            </summary>
-            <div className="calls-fb-save">
+              <span className="calls-fb-save-card__label">Enregistrer</span>
               <input
                 type="text"
-                className="calls-input"
+                className="calls-input calls-fb-save-card__input"
                 placeholder="Nom du filtre"
+                aria-label="Nom du filtre"
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
               />
-              <Checkbox
-                checked={presetShared}
-                onChange={setPresetShared}
-                label="Partager à l'équipe"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSavePreset}
-                disabled={savingPreset || !presetName.trim()}
-              >
-                {savingPreset ? 'Sauvegarde…' : 'Enregistrer'}
-              </Button>
+              <div className="calls-fb-save-card__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSavePreset}
+                  disabled={savingPreset || !presetName.trim()}
+                >
+                  {savingPreset ? 'Sauvegarde…' : 'OK'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="icon"
+                  size="sm"
+                  className={`calls-fb-save-card__share${presetShared ? ' calls-fb-save-card__share--on' : ''}`}
+                  aria-pressed={presetShared}
+                  aria-label="Partager à l'équipe"
+                  onClick={() => setPresetShared((current) => !current)}
+                >
+                  <TeamIcon />
+                </Button>
+              </div>
             </div>
-          </details>
+          </div>
         </div>
       </div>
 
@@ -592,37 +604,6 @@ export function FilterBuilder({
           </div>
         </div>
       </details>
-
-      {/* 7. Footer simplifié : comptage uniquement */}
-      <footer className="calls-fb-footer">
-        <div className="calls-fb-match" role="status" aria-live="polite">
-          {matchCountLoading ? (
-            <Tag>Comptage…</Tag>
-          ) : matchCountError ? (
-            <Tag variant="alert" title={matchCountError}>
-              Comptage impossible
-            </Tag>
-          ) : matchCount !== null ? (
-            <Tag variant="accent">
-              {matchCountCapped ? '≥ ' : ''}
-              {matchCount} contact{matchCount > 1 ? 's' : ''} dans les filtres
-            </Tag>
-          ) : (
-            <Tag>Ajustez les filtres</Tag>
-          )}
-        </div>
-        {previewLoading ? (
-          <Tag role="status" aria-live="polite">
-            Mise à jour de la liste…
-          </Tag>
-        ) : (
-          previewCount !== null && (
-            <Tag variant="accent">
-              Aperçu : {previewCount} contact{previewCount > 1 ? 's' : ''}
-            </Tag>
-          )
-        )}
-      </footer>
     </GlassCard>
   );
 }

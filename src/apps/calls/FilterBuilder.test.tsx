@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyFilterTree } from '../../crm';
 import { FilterBuilder } from './FilterBuilder';
@@ -12,18 +13,7 @@ afterEach(() => {
 const filterBuilderProps = {
   filters: emptyFilterTree(),
   onChange: vi.fn(),
-  previewCount: null as number | null,
-  previewLoading: false,
-  matchCount: null as number | null,
-  matchCountCapped: false,
-  matchCountLoading: false,
-  matchCountError: null,
-  contactLimit: 200 as const,
-  onContactLimitChange: vi.fn(),
-  maxPerCompany: null as null,
-  onMaxPerCompanyChange: vi.fn(),
   presets: [] as [],
-  presetsLoading: false,
   savingPreset: false,
   currentUserId: 'user-1',
   onLoadPreset: vi.fn(),
@@ -85,5 +75,41 @@ describe('FilterBuilder — champ zombie Niveau de décision', () => {
     expect(
       within(contactSectionTitle()).getByLabelText('1 filtre actif'),
     ).toBeTruthy();
+  });
+});
+
+describe('FilterBuilder — carte Enregistrer compacte', () => {
+  it('shows the name field and actions without a details disclosure', async () => {
+    const user = userEvent.setup();
+    const onSavePreset = vi.fn();
+    render(
+      <FilterBuilder {...filterBuilderProps} onSavePreset={onSavePreset} />,
+    );
+
+    expect(screen.queryByText('Enregistrer cette recherche')).toBeNull();
+    expect(screen.queryByText('Garder ce filtre pour plus tard')).toBeNull();
+    expect(document.querySelector('.calls-fb-save-card details')).toBeNull();
+    expect(document.querySelector('.calls-fb-save-card summary')).toBeNull();
+
+    const nameField = screen.getByLabelText('Nom du filtre');
+    expect(nameField).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'OK' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: "Partager à l'équipe" }),
+    ).toBeTruthy();
+
+    await user.type(nameField, 'Relance Q4');
+    await user.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onSavePreset).toHaveBeenCalledWith('Relance Q4', false);
+  });
+
+  it('does not render a duplicate match-count footer', () => {
+    render(
+      <FilterBuilder
+        {...filterBuilderProps}
+      />,
+    );
+    expect(document.querySelector('.calls-fb-footer')).toBeNull();
+    expect(screen.queryByText(/dans les filtres/)).toBeNull();
   });
 });

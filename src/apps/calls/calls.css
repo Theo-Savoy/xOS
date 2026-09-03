@@ -4265,18 +4265,6 @@
   border-bottom: 1px solid var(--xos-border);
 }
 
-.calls-fb-save {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-
-.calls-fb-save .calls-input {
-  min-width: 11rem;
-}
-
 .calls-checkbox--tight {
   margin-bottom: 0;
   white-space: normal;
@@ -4743,20 +4731,6 @@
   padding: 0.25rem 0.4rem;
 }
 
-.calls-fb-footer {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding-top: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.calls-fb-match {
-  display: flex;
-  align-items: center;
-  min-width: 10rem;
-}
-
 /* ---------------------------------------------------------------------- */
 /* Dédup                                                                   */
 /* ---------------------------------------------------------------------- */
@@ -4841,11 +4815,6 @@
   .calls-fb-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .calls-fb-save {
-    margin-left: 0;
-    width: 100%;
   }
 
   .calls-dedup {
@@ -6318,11 +6287,19 @@ a.calls-contact-card__peer:hover {
 }
 
 .calls-wizard-recap__cta {
-  padding-top: 0.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--xos-border) 40%, transparent);
 }
 
 .calls-wizard-recap__cta-btn {
   width: 100%;
+}
+
+@container calls-app (max-width: 899px) {
+  .calls-wizard-recap__cta {
+    display: none;
+  }
 }
 
 /* --- Barre d'actions au bas des étapes --- */
@@ -6534,42 +6511,141 @@ a.calls-contact-card__peer:hover {
   border-color: var(--xos-danger, #e5484d);
 }
 
-/* Carte "Enregistrer cette recherche" : details/summary stylé comme une starter card */
+/* Carte Enregistrer : champ + actions visibles, pleine largeur pour garder
+   les starter cards à hauteur homogène. */
 .calls-fb-save-card {
+  grid-column: 1 / -1;
+}
+
+.calls-fb-save-card__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
   border-radius: var(--xos-radius, 8px);
+  background: color-mix(in srgb, var(--xos-surface) 60%, transparent);
+  border: 1px solid var(--xos-border);
 }
 
-.calls-fb-save-card > summary {
-  cursor: pointer;
-  list-style: none;
+.calls-fb-save-card__label {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.calls-fb-save-card > summary::-webkit-details-marker {
-  display: none;
+.calls-fb-save-card__input {
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
-.calls-fb-save-card[open] > summary {
-  background: color-mix(in srgb, var(--xos-surface) 90%, transparent);
+.calls-fb-save-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.calls-fb-save-card__share--on {
+  color: var(--xos-accent);
   border-color: var(--xos-accent);
 }
 
-.calls-fb-save-card .calls-fb-save {
-  margin-left: 0;
-  padding: 0.7rem 0.75rem;
-  border-top: 1px solid var(--xos-border);
+@container calls-app (max-width: 719px) {
+  .calls-fb-save-card__inner {
+    flex-wrap: wrap;
+  }
+
+  .calls-fb-save-card__input {
+    flex-basis: 100%;
+  }
 }
 
 /* Preview : rang des limites (Contacts max / Max par entreprise) — étape Composer */
 .calls-preview__limits {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.6rem 0 0;
-  border-top: 1px solid var(--xos-border);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: end;
+  padding-top: 0.75rem;
   margin-top: 0.75rem;
+  border-top: 1px solid var(--xos-border);
 }
 
-.calls-preview__limits .calls-select {
-  min-width: 12rem;
+.calls-preview__limits .xos-select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.calls-preview__limits .xos-select__trigger {
+  width: 100%;
+  min-width: 0;
+}
+
+.calls-plan {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calls-plan-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.calls-plan-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.calls-plan-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.calls-plan-card__fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calls-plan-card__fields .calls-field {
+  margin: 0;
+}
+
+.calls-plan-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.calls-plan-card__split-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.calls-plan-card__split-fields .calls-field {
+  margin: 0;
+  gap: 0.25rem;
+}
+
+.calls-plan-card__split-fields .calls-input {
+  min-height: 2.25rem;
+}
+
+@container calls-app (max-width: 719px) {
+  .calls-preview__limits,
+  .calls-plan-card__split-fields {
+    grid-template-columns: 1fr;
+  }
 }

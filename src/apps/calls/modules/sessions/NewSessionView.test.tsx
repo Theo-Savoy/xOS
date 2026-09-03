@@ -41,6 +41,58 @@ function baseProps(preview: ContactPreview[] = [], previewLoading = false) {
 }
 
 describe('NewSessionView — UX writing & wizard (spec §4.3 & plan)', () => {
+  it('labels the header exit action as leaving session creation', () => {
+    render(<NewSessionView {...baseProps()} />);
+    expect(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retour' })).toBeNull();
+  });
+
+  it('adapts the page title to the current wizard step and hides the session badge', async () => {
+    const user = userEvent.setup();
+    render(
+      <NewSessionView
+        {...baseProps([
+          {
+            sf_contact_id: '003a',
+            sf_account_id: '001a',
+            contact_name: 'Alice Martin',
+            account_name: 'Acme',
+            phone: '0102030405',
+          },
+        ])}
+        filters={{
+          ...emptyFilterTree(),
+          entreprise: {
+            ...emptyFilterTree().entreprise,
+            tiers: ['A'],
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Nouvelle séance')).toBeNull();
+    expect(screen.queryByText('Composer une liste')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: /Continuer vers Composer/i }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Composez votre liste' }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole('button', { name: /Continuer vers Planifier/i }),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Planifiez votre séance' }),
+    ).toBeTruthy();
+  });
+
   it("never renders the residual 'Comptes précis (ABM)' button (criterion 1)", () => {
     render(
       <NewSessionView
@@ -322,6 +374,45 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     expect(screen.getByRole('button', { name: /Tier A & B/i })).toBeTruthy();
   });
 
+  it('keeps the primary CTA in the recap sidebar, not in step footers', async () => {
+    const user = userEvent.setup();
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        filters={{
+          ...emptyFilterTree(),
+          entreprise: {
+            ...emptyFilterTree().entreprise,
+            tiers: ['A'],
+          },
+        }}
+      />,
+    );
+
+    const continueComposer = screen.getByRole('button', {
+      name: /Continuer vers Composer/i,
+    });
+    expect(continueComposer.closest('.calls-wizard-recap')).toBeTruthy();
+    expect(document.querySelector('.calls-wizard-nav')).toBeNull();
+
+    await user.click(continueComposer);
+    expect(
+      screen
+        .getByRole('button', { name: /Continuer vers Planifier/i })
+        .closest('.calls-wizard-recap'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: /Précédent : Cibler/i })
+        .closest('.calls-wizard-nav'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: /Continuer vers Planifier/i })
+        .closest('.calls-wizard-nav'),
+    ).toBeNull();
+  });
+
   it('accurately displays active filter and audience counters in the lateral recap', () => {
     render(
       <NewSessionView
@@ -376,5 +467,22 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     // Clic sur le chip de filtre actif -> retour immédiat à l'Étape 1 (Cibler)
     await user.click(chip);
     expect(screen.getByRole('button', { name: /Tier A & B/i })).toBeTruthy();
+  });
+
+  it('splits the planifier step into Informations, Équipe and Découpage cards', () => {
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        team={[{ user_id: 'user-2', label: 'Alice', sf_user_id: '005A' }]}
+        onCreateAudience={vi.fn()}
+        initialStep={2}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Informations' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Équipe' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Découpage' })).toBeTruthy();
+    expect(document.querySelector('.calls-name-form')).toBeNull();
+    expect(screen.queryByText(/contacts? sélectionnés?/)).toBeNull();
   });
 });

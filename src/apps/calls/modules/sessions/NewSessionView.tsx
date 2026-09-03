@@ -99,6 +99,12 @@ function limitLabel(limit: ContactLimit): string {
     : String(limit);
 }
 
+const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
+  0: 'Définissez votre cible',
+  1: 'Composez votre liste',
+  2: 'Planifiez votre séance',
+};
+
 export function NewSessionView({
   filters,
   onFiltersChange,
@@ -336,6 +342,25 @@ export function NewSessionView({
     selectedContacts.length > 0 &&
     (!splitSessions || packedGroups.length > 0);
 
+  const primaryDisabled =
+    step === 0
+      ? !canProceedToStep2
+      : step === 1
+        ? !canProceedToStep3
+        : loading || !canLaunchSession;
+
+  const handlePrimaryAction = () => {
+    if (step === 0) {
+      if (canProceedToStep2) setStep(1);
+      return;
+    }
+    if (step === 1) {
+      if (canProceedToStep3) setStep(2);
+      return;
+    }
+    if (canLaunchSession) handleCreate();
+  };
+
   const renderActiveFilterChips = () => {
     const chips: { key: string; label: string }[] = [];
     if (filters.entreprise.secteurs.length > 0) {
@@ -432,12 +457,12 @@ export function NewSessionView({
             variant="secondary"
             className="calls-view__back"
             onClick={onBack}
+            aria-label="Quitter la création de séance"
           >
-            Retour
+            Quitter
           </Button>
           <div className="calls-view__titleblock">
-            <Tag variant="accent">Nouvelle séance</Tag>
-            <h2>Composer une liste</h2>
+            <h2>{WIZARD_STEP_TITLES[step]}</h2>
           </div>
         </div>
         <WizardStepper
@@ -464,29 +489,14 @@ export function NewSessionView({
             <FilterBuilder
               filters={filters}
               onChange={onFiltersChange}
-              previewCount={preview.length > 0 ? preview.length : null}
-              previewLoading={previewLoading}
-              matchCount={matchCount}
-              matchCountCapped={matchCountCapped}
-              matchCountLoading={matchCountLoading}
-                matchCountError={matchCountError}
               presets={presets}
-                savingPreset={savingPreset}
-                currentUserId={currentUserId}
-                onLoadPreset={onLoadPreset}
-                onSavePreset={onSavePreset}
-                onDeletePreset={onDeletePreset}
-                team={team}
-              />
-
-              <div className="calls-wizard-nav calls-wizard-nav--end">
-                <Button
-                  onClick={() => setStep(1)}
-                  disabled={!canProceedToStep2}
-                >
-                  Continuer vers Composer →
-                </Button>
-              </div>
+              savingPreset={savingPreset}
+              currentUserId={currentUserId}
+              onLoadPreset={onLoadPreset}
+              onSavePreset={onSavePreset}
+              onDeletePreset={onDeletePreset}
+              team={team}
+            />
             </div>
           )}
 
@@ -748,12 +758,6 @@ export function NewSessionView({
                 <Button variant="secondary" onClick={() => setStep(0)}>
                   ← Précédent : Cibler
                 </Button>
-                <Button
-                  onClick={() => setStep(2)}
-                  disabled={!canProceedToStep3}
-                >
-                  Continuer vers Planifier →
-                </Button>
               </div>
             </div>
           )}
@@ -761,36 +765,74 @@ export function NewSessionView({
           {/* Étape 3 : PLANIFIER */}
           {step === 2 && (
             <div className="calls-wizard-step-pane" data-step="planifier">
-              <GlassCard className="calls-name-form">
-                <div className="calls-name-form__meta">
-                  <Tag>
-                    {selectedContacts.length} contact
-                    {selectedContacts.length > 1 ? 's' : ''} sélectionné
-                    {selectedContacts.length > 1 ? 's' : ''}
-                  </Tag>
-                </div>
-                <label className="calls-field">
-                  <span>Nom de la séance</span>
-                  <input
-                    type="text"
-                    value={sessionName}
-                    onChange={(e) => setSessionName(e.target.value)}
-                    placeholder="Prospection Lyon"
-                    className="calls-input"
-                  />
-                </label>
-                <DatePicker
-                  label="Date de séance"
-                  value={scheduledFor}
-                  onChange={setScheduledFor}
-                />
-                <SessionTypePicker
-                  value={sessionType}
-                  onChange={setSessionType}
-                />
+              <div className="calls-plan">
+                <GlassCard className="calls-plan-card">
+                  <h3 className="calls-plan-card__title">Informations</h3>
+                  <div className="calls-plan-card__fields">
+                    <label className="calls-field">
+                      <span>Nom de la séance</span>
+                      <input
+                        type="text"
+                        value={sessionName}
+                        onChange={(e) => setSessionName(e.target.value)}
+                        placeholder="Prospection Lyon"
+                        className="calls-input"
+                      />
+                    </label>
+                    <DatePicker
+                      label="Date de séance"
+                      value={scheduledFor}
+                      onChange={setScheduledFor}
+                    />
+                    <SessionTypePicker
+                      value={sessionType}
+                      onChange={setSessionType}
+                    />
+                  </div>
+                </GlassCard>
+
+                {shareableTeam.length > 0 && (
+                  <GlassCard className="calls-plan-card">
+                    <div className="calls-plan-card__head">
+                      <h3 className="calls-plan-card__title">Équipe</h3>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className={`calls-list-filter-chip${allTeamSelected ? ' calls-list-filter-chip--active' : ''}`}
+                        aria-pressed={allTeamSelected}
+                        onClick={toggleAllTeam}
+                      >
+                        Toute l&apos;équipe
+                      </Button>
+                    </div>
+                    <div
+                      className="calls-plan-card__chips"
+                      role="group"
+                      aria-label="Collègues"
+                    >
+                      {shareableTeam.map((member) => {
+                        const checked = shareMemberIds.has(member.user_id);
+                        return (
+                          <span
+                            key={member.user_id}
+                            className={`calls-share-chip${checked ? ' calls-share-chip--active' : ''}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onChange={() => toggleShareMember(member.user_id)}
+                              label={member.label}
+                            />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </GlassCard>
+                )}
 
                 {onCreateAudience && (
-                  <div className="calls-name-form__split">
+                  <GlassCard className="calls-plan-card">
+                    <h3 className="calls-plan-card__title">Découpage</h3>
                     <Checkbox
                       checked={splitSessions}
                       onChange={setSplitSessions}
@@ -798,8 +840,8 @@ export function NewSessionView({
                       aria-label="Découper en plusieurs séances"
                     />
                     {splitSessions && (
-                      <>
-                        <div className="calls-fb-row">
+                      <div className="calls-plan-card__fields">
+                        <div className="calls-plan-card__split-fields">
                           <label className="calls-field">
                             <span>Taille cible par séance</span>
                             <input
@@ -834,64 +876,15 @@ export function NewSessionView({
                           {packedGroups.length > 1 ? 's' : ''} · les contacts
                           d&apos;un même compte restent ensemble.
                         </p>
-                      </>
+                      </div>
                     )}
-                  </div>
+                  </GlassCard>
                 )}
-
-                {shareableTeam.length > 0 && (
-                  <div className="calls-name-form__share">
-                    <div className="calls-name-form__share-head">
-                      <span>Partager avec</span>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className={`calls-list-filter-chip${allTeamSelected ? ' calls-list-filter-chip--active' : ''}`}
-                        aria-pressed={allTeamSelected}
-                        onClick={toggleAllTeam}
-                      >
-                        Toute l&apos;équipe
-                      </Button>
-                    </div>
-                    <div
-                      className="calls-name-form__share-chips"
-                      role="group"
-                      aria-label="Collègues"
-                    >
-                      {shareableTeam.map((member) => {
-                        const checked = shareMemberIds.has(member.user_id);
-                        return (
-                          <span
-                            key={member.user_id}
-                            className={`calls-share-chip${checked ? ' calls-share-chip--active' : ''}`}
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onChange={() => toggleShareMember(member.user_id)}
-                              label={member.label}
-                            />
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </GlassCard>
+              </div>
 
               <div className="calls-wizard-nav">
                 <Button variant="secondary" onClick={() => setStep(1)}>
                   ← Précédent : Composer
-                </Button>
-                <Button
-                  onClick={handleCreate}
-                  disabled={loading || !canLaunchSession}
-                >
-                  {loading
-                    ? 'Création…'
-                    : splitSessions
-                      ? `Créer ${packedGroups.length} séance${packedGroups.length > 1 ? 's' : ''}`
-                      : 'Lancer la séance'}
                 </Button>
               </div>
             </div>
@@ -905,6 +898,7 @@ export function NewSessionView({
             matchCount={matchCount}
             matchCountCapped={matchCountCapped}
             matchCountLoading={matchCountLoading}
+            matchCountError={matchCountError}
             previewCount={preview.length}
             selectedCount={selectedContacts.length}
             sessionName={sessionName}
@@ -913,6 +907,9 @@ export function NewSessionView({
             shareMemberCount={shareMemberIds.size}
             splitSessions={splitSessions}
             packedSessionsCount={packedGroups.length}
+            onPrimaryAction={handlePrimaryAction}
+            primaryDisabled={primaryDisabled}
+            loading={loading}
             onStepClick={(targetStep) => {
               if (targetStep === 0) setStep(0);
               else if (targetStep === 1 && canProceedToStep2) setStep(1);
@@ -938,18 +935,8 @@ export function NewSessionView({
         </div>
         <Button
           size="sm"
-          onClick={() => {
-            if (step === 0 && canProceedToStep2) setStep(1);
-            else if (step === 1 && canProceedToStep3) setStep(2);
-            else if (step === 2 && canLaunchSession) handleCreate();
-          }}
-          disabled={
-            step === 0
-              ? !canProceedToStep2
-              : step === 1
-                ? !canProceedToStep3
-                : !canLaunchSession || loading
-          }
+          onClick={handlePrimaryAction}
+          disabled={primaryDisabled}
         >
           {step === 0
             ? 'Composer ▸'

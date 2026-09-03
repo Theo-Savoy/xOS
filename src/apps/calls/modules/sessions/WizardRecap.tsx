@@ -16,6 +16,7 @@ export type WizardRecapProps = {
   matchCount: number | null;
   matchCountCapped: boolean;
   matchCountLoading: boolean;
+  matchCountError: string | null;
   previewCount: number;
   selectedCount: number;
   sessionName: string;
@@ -25,6 +26,9 @@ export type WizardRecapProps = {
   splitSessions: boolean;
   packedSessionsCount: number;
   onStepClick?: (step: WizardStep) => void;
+  onPrimaryAction: () => void;
+  primaryDisabled: boolean;
+  loading?: boolean;
   className?: string;
 };
 
@@ -53,6 +57,7 @@ export function WizardRecap({
   matchCount,
   matchCountCapped,
   matchCountLoading,
+  matchCountError,
   previewCount,
   selectedCount,
   sessionName,
@@ -62,6 +67,9 @@ export function WizardRecap({
   splitSessions,
   packedSessionsCount,
   onStepClick,
+  onPrimaryAction,
+  primaryDisabled,
+  loading = false,
   className = '',
 }: WizardRecapProps) {
   const entrepriseCount = countEntrepriseFilters(filters.entreprise);
@@ -148,14 +156,19 @@ export function WizardRecap({
         <div className="calls-wizard-recap__breakdown">
           <div className="calls-wizard-recap__item">
             <span className="calls-wizard-recap__item-label">Contacts ciblés</span>
-            <span className="calls-wizard-recap__item-value xos-numeric">
+            <span
+              className="calls-wizard-recap__item-value xos-numeric"
+              title={matchCountError ?? undefined}
+            >
               {matchCountLoading
                 ? 'Comptage…'
-                : matchCount !== null
-                  ? `${matchCountCapped ? '≥ ' : ''}${matchCount}`
-                  : previewCount > 0
-                    ? previewCount
-                    : '—'}
+                : matchCountError
+                  ? 'Comptage impossible'
+                  : matchCount !== null
+                    ? `${matchCountCapped ? '≥ ' : ''}${matchCount}`
+                    : previewCount > 0
+                      ? previewCount
+                      : '—'}
             </span>
           </div>
           <div className="calls-wizard-recap__item">
@@ -216,6 +229,24 @@ export function WizardRecap({
           )}
         </div>
       </section>
+
+      <div className="calls-wizard-recap__cta">
+        <Button
+          className="calls-wizard-recap__cta-btn"
+          onClick={onPrimaryAction}
+          disabled={primaryDisabled}
+        >
+          {step === 0
+            ? 'Continuer vers Composer'
+            : step === 1
+              ? 'Continuer vers Planifier'
+              : loading
+                ? 'Création…'
+                : splitSessions
+                  ? `Créer ${packedSessionsCount} séance${packedSessionsCount > 1 ? 's' : ''}`
+                  : 'Lancer la séance'}
+        </Button>
+      </div>
     </GlassCard>
   );
 }
