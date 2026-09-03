@@ -7,9 +7,11 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FilterableMultiSelect } from './FilterableMultiSelect';
 import { AccountSearchView } from './AccountSearchView';
 import { fetchAccountsSearch } from './api';
 import { todayParisIso, tomorrowParisIso } from './formControls.helpers';
@@ -162,12 +164,20 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
-    expect(screen.getAllByText((c) => c.includes('1 compte') && c.includes('1 contact'))[0]).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        (c) => c.includes('1 compte') && c.includes('1 contact'),
+      )[0],
+    ).toBeTruthy();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
     );
-    expect(screen.getAllByText((c) => c.includes('2 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        (c) => c.includes('2 comptes') && c.includes('3 contacts'),
+      )[0],
+    ).toBeTruthy();
 
     expect(screen.getByText('Aperçu : 1 séance')).toBeTruthy();
 
@@ -248,7 +258,9 @@ describe('AccountSearchView', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
     await screen.findByText('Wayne Enterprises');
 
-    const checkbox = screen.getByRole('checkbox', { name: 'Sélectionner Wayne Enterprises' }) as HTMLInputElement;
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Sélectionner Wayne Enterprises',
+    }) as HTMLInputElement;
     expect(checkbox.disabled).toBe(true);
     expect(screen.getByText('0 contact (exclu)')).toBeTruthy();
     expect(
@@ -394,7 +406,9 @@ describe('AccountSearchView', () => {
       screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(screen.getByLabelText('Date de la séance'));
-    const todayBtn = screen.getByRole('button', { name: "Aujourd'hui" }) as HTMLButtonElement;
+    const todayBtn = screen.getByRole('button', {
+      name: "Aujourd'hui",
+    }) as HTMLButtonElement;
     expect(todayBtn.disabled).toBe(true);
   });
 
@@ -508,7 +522,11 @@ describe('AccountSearchView', () => {
       name: 'Tout sélectionner',
     });
     await user.click(selectAllBtn);
-    expect(screen.getAllByText((c) => c.includes('3 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        (c) => c.includes('3 comptes') && c.includes('3 contacts'),
+      )[0],
+    ).toBeTruthy();
 
     // Tout désélectionner
     const deselectAllBtn = screen.getByRole('button', {
@@ -524,7 +542,11 @@ describe('AccountSearchView', () => {
       name: 'Sélectionner uniquement les comptes avec contacts',
     });
     await user.click(withContactsBtn);
-    expect(screen.getAllByText((c) => c.includes('2 comptes') && c.includes('3 contacts'))[0]).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        (c) => c.includes('2 comptes') && c.includes('3 contacts'),
+      )[0],
+    ).toBeTruthy();
   });
 
   it('sorts accounts by contacts count, name, and tier', async () => {
@@ -651,9 +673,7 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     // Sélectionner les 6 comptes (> 5, seuil de confirmation).
-    await user.click(
-      screen.getByRole('button', { name: 'Tout sélectionner' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Tout sélectionner' }));
 
     // Au-dessus du seuil : confirm s'affiche. Annuler préserve la sélection.
     await user.click(
@@ -693,5 +713,210 @@ describe('AccountSearchView', () => {
 
     expect(await screen.findByText('ACME')).toBeTruthy();
     expect(screen.queryByText('Recherche des comptes en cours…')).toBeNull();
+  });
+
+  it('filters by sector using the FilterableMultiSelect popover with search and removes via active chips', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    // Open the sector popover
+    const sectorTrigger = screen.getByRole('button', {
+      name: /Secteurs d'activité/,
+    });
+    await user.click(sectorTrigger);
+
+    // Search within the popover
+    const searchInput = screen.getByPlaceholderText(
+      'Rechercher parmi 50+ secteurs…',
+    );
+    await user.type(searchInput, 'Services informatiques');
+
+    // Click on the checkbox for Services informatiques
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Services informatiques',
+    });
+    await user.click(checkbox);
+
+    // Active chip must appear in the sticky search zone
+    const activeChipsRegion = screen.getByRole('region', {
+      name: 'Filtres actifs',
+    });
+    expect(activeChipsRegion).toBeTruthy();
+    expect(
+      within(activeChipsRegion).getByText('Services informatiques'),
+    ).toBeTruthy();
+    // Run search with the selected sector
+    const searchButton = screen.getByRole('button', { name: 'Rechercher' });
+    await user.click(searchButton);
+
+    await waitFor(() =>
+      expect(fetchAccountsSearch).toHaveBeenCalledWith(
+        'token-123',
+        {
+          q: '',
+          filters: expect.objectContaining({
+            secteurs: ['Services informatiques'],
+          }),
+        },
+        expect.any(Object),
+      ),
+    );
+
+    // Remove via the active chip button
+    const removeChipBtn = screen.getByRole('button', {
+      name: 'Retirer le secteur Services informatiques',
+    });
+    await user.click(removeChipBtn);
+
+    expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
+  });
+
+  it('allows clearing search query with the clear button', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    const input = screen.getByLabelText('Nom du compte') as HTMLInputElement;
+    await user.type(input, 'ACME');
+    expect(input.value).toBe('ACME');
+    const clearBtn = screen.getByRole('button', {
+      name: 'Effacer la recherche',
+    });
+    await user.click(clearBtn);
+
+    expect(input.value).toBe('');
+    expect(
+      screen.queryByRole('button', { name: 'Effacer la recherche' }),
+    ).toBeNull();
+  });
+
+  it('allows clearing all active filters with Tout effacer button in active chips', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    // Add a Tier filter
+    await user.click(screen.getByRole('button', { name: 'A' }));
+    expect(screen.getByRole('region', { name: 'Filtres actifs' })).toBeTruthy();
+    expect(screen.getByText('Tier A')).toBeTruthy();
+
+    // Click "Tout effacer" in the active chips row
+    const clearAllChipsBtn = screen.getByRole('button', {
+      name: 'Tout effacer les filtres',
+    });
+    await user.click(clearAllChipsBtn);
+
+    expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
+  });
+});
+
+describe('FilterableMultiSelect', () => {
+  const sampleOptions = [
+    { value: 'opt1', label: 'Option Alpha' },
+    { value: 'opt2', label: 'Option Beta' },
+    { value: 'opt3', label: 'Option Gamma' },
+  ];
+
+  const sampleGroups = [
+    { id: 'g1', label: 'Groupe Un', values: ['opt1', 'opt2'] },
+    { id: 'g2', label: 'Groupe Deux', values: ['opt3'] },
+  ];
+
+  it('renders trigger, opens popover on click, filters options and toggles individual option', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <FilterableMultiSelect
+        label="Test Select"
+        options={sampleOptions}
+        groups={sampleGroups}
+        value={['opt1']}
+        onChange={onChange}
+      />,
+    );
+
+    // Trigger shows label and selected count badge
+    const trigger = screen.getByRole('button', {
+      name: /Test Select/,
+    });
+    expect(trigger).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
+
+    // Open popover
+    await user.click(trigger);
+    expect(screen.getByRole('dialog', { name: 'Test Select' })).toBeTruthy();
+
+    // Filter via search input
+    const searchInput = screen.getByRole('searchbox', {
+      name: 'Rechercher dans Test Select',
+    });
+    await user.type(searchInput, 'Beta');
+    expect(screen.getByText('Option Beta')).toBeTruthy();
+    expect(screen.queryByText('Option Gamma')).toBeNull();
+
+    // Toggle Option Beta
+    const betaCheckbox = screen.getByRole('checkbox', {
+      name: 'Option Beta',
+    });
+    await user.click(betaCheckbox);
+    expect(onChange).toHaveBeenCalledWith(['opt1', 'opt2']);
+  });
+
+  it('selects and deselects entire family group with group header checkbox', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <FilterableMultiSelect
+        label="Test Select"
+        options={sampleOptions}
+        groups={sampleGroups}
+        value={['opt1']}
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Test Select/ }));
+
+    // Toggle group G1 (contains opt1 and opt2)
+    const g1Checkbox = screen.getByRole('checkbox', {
+      name: 'Sélectionner toute la catégorie Groupe Un',
+    });
+    await user.click(g1Checkbox);
+
+    expect(onChange).toHaveBeenCalledWith(['opt1', 'opt2']);
+  });
+
+  it('clears all selections via header Effacer button and closes on Escape', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <FilterableMultiSelect
+        label="Test Select"
+        options={sampleOptions}
+        value={['opt1', 'opt2']}
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Test Select/ }));
+    expect(screen.getByRole('dialog', { name: 'Test Select' })).toBeTruthy();
+
+    // Clear all
+    const clearBtn = screen.getByRole('button', { name: 'Tout effacer' });
+    await user.click(clearBtn);
+    expect(onChange).toHaveBeenCalledWith([]);
+
+    // Press Escape to close
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Test Select' })).toBeNull();
   });
 });
