@@ -134,7 +134,10 @@ export function CapacitySection({
           </tbody>
         </table>
         <p className="review-section-note">
-          Jérôme (PDG) et le SDR sont hors de cette série. ETP sales :{' '}
+          Jérôme (PDG) et le SDR sont hors de cette série.{' '}
+          {/S[12]$/.test(data.fy)
+            ? 'ETP annuels : '
+            : 'ETP sales : '}
           {fmtNum(productivityOf(data, data.compare)?.fte ?? null, 2)} →{' '}
           {fmtNum(productivityOf(data, data.fy)?.fte ?? null, 2)}.
         </p>
