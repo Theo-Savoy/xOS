@@ -222,6 +222,10 @@ export function RunnerView({
   const today = todayParisIso();
   const [mode, setMode] = useState<RunnerMode>('list');
   const [powerOn, setPowerOn] = useState(false);
+  const [powerConversation, setPowerConversation] = useState(false);
+  const [powerRunning, setPowerRunning] = useState(false);
+  const [powerHangupRetryable, setPowerHangupRetryable] = useState(false);
+  const powerHangupRef = useRef<(() => void) | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [listStatusFilter, setListStatusFilter] =
@@ -1340,9 +1344,12 @@ export function RunnerView({
 
   const called = contacts.filter((c) => c.status === 'called').length;
 
+  const isPowerActive = Boolean(powerAvailable && powerOn);
+  const isPowerConversationActive = Boolean(isPowerActive && powerConversation);
+
   return (
     <div
-      className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}`}
+      className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
     >
       {toast?.kind === 'plain' && (
         <div className="calls-runner-toast" role="status">
@@ -1401,9 +1408,18 @@ export function RunnerView({
             Quitter
           </Button>
           <div className="calls-view__titleblock">
-            <Tag variant="accent">
-              {isRecallQueue ? 'File de rappels' : 'Cockpit'}
-            </Tag>
+            <div className="calls-view__title-tags">
+              <Tag variant="accent">
+                {isRecallQueue ? 'File de rappels' : 'Cockpit'}
+              </Tag>
+              {isPowerActive && (
+                <Tag
+                  className={`calls-power-badge${isPowerConversationActive ? ' calls-power-badge--conversation' : ''}`}
+                >
+                  {isPowerConversationActive ? 'Power · En ligne' : 'Power actif'}
+                </Tag>
+              )}
+            </div>
             <h2>{isRecallQueue ? 'Rappels' : session.name}</h2>
             {!isRecallQueue && (session.members?.length ?? 0) > 0 && (
               <p className="calls-muted calls-share-hint">
@@ -1454,34 +1470,56 @@ export function RunnerView({
             </Button>
           </div>
           {powerAvailable && (
-            <Button
-              type="button"
-              role="switch"
-              variant="ghost"
-              size="sm"
-              className={`calls-power-toggle${powerOn ? ' calls-power-toggle--on' : ''}`}
-              aria-checked={powerOn}
-              onClick={() => {
-                setPowerOn((value) => {
-                  if (!value) {
-                    playComboSound('power-launch', { master: soundsEnabled });
-                  }
-                  return !value;
-                });
-              }}
-              title="Composer plusieurs contacts en parallèle"
-            >
-              <span className="calls-power-toggle__sky" aria-hidden="true">
-                <span className="calls-power-toggle__star calls-power-toggle__star--nw" />
-                <span className="calls-power-toggle__star calls-power-toggle__star--ne" />
-                <span className="calls-power-toggle__star calls-power-toggle__star--sw" />
-                <span className="calls-power-toggle__star calls-power-toggle__star--se" />
-              </span>
-              <span className="calls-power-toggle__track" aria-hidden="true">
-                <span className="calls-power-toggle__thumb" />
-              </span>
-              Power
-            </Button>
+            isPowerActive && (powerRunning || powerConversation || powerHangupRetryable) ? (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                className="calls-power-exit-btn"
+                onClick={() => {
+                  powerHangupRef.current?.();
+                  if (powerHangupRetryable) return;
+                  setPowerOn(false);
+                  setPowerConversation(false);
+                  setPowerRunning(false);
+                }}
+                title={
+                  powerHangupRetryable
+                    ? 'Le raccrochage serveur a échoué — réessayez avant de quitter'
+                    : 'Interrompre la vague en cours et quitter le mode Power'
+                }
+              >
+                {powerHangupRetryable ? 'Réessayer le raccrochage' : 'Raccrocher et quitter'}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                role="switch"
+                variant="ghost"
+                size="sm"
+                className={`calls-power-toggle${powerOn ? ' calls-power-toggle--on' : ''}`}
+                aria-label="Power"
+                aria-checked={powerOn}
+                onClick={() => {
+                  setPowerOn((value) => {
+                    const next = !value;
+                    if (next) {
+                      playComboSound('power-launch', { master: soundsEnabled });
+                    } else {
+                      setPowerConversation(false);
+                      setPowerRunning(false);
+                    }
+                    return next;
+                  });
+                }}
+                title={powerOn ? 'Désactiver le mode Power' : 'Composer plusieurs contacts en parallèle'}
+              >
+                <span className="calls-power-toggle__track" aria-hidden="true">
+                  <span className="calls-power-toggle__thumb" />
+                </span>
+                Power
+              </Button>
+            )
           )}
           <Button
             variant="secondary"
@@ -1698,6 +1736,12 @@ export function RunnerView({
           contacts={contacts}
           currentUserId={currentUserId}
           onFocusContact={onFocusContact}
+          onConversationChange={setPowerConversation}
+          onRunningChange={setPowerRunning}
+          onRegisterHangup={(hangup) => {
+            powerHangupRef.current = hangup;
+          }}
+          onHangupRetryableChange={setPowerHangupRetryable}
         />
       )}
 

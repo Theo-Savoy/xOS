@@ -216,3 +216,81 @@ describe('PowerStrip — numéro sortant et quota', () => {
     expect(screen.queryByRole('button', { name: 'Numéro sortant' })).toBeNull();
   });
 });
+
+describe('PowerStrip — callbacks d’état immersif', () => {
+  it('remonte le signal de conversation quand une ligne est connectée', () => {
+    const onConversationChange = vi.fn();
+    mockUseDialerPool.mockImplementation(() => ({
+      ...poolStub(),
+      state: {
+        ...poolStub().state,
+        lines: [{ slot: 0, phase: 'connected' as const, destination: '+33100000001', error: null }],
+      },
+    }));
+    render(
+      <PowerStrip
+        token="tok"
+        sessionId={7}
+        contacts={[contact({ id: 1, phone: '+33100000001' })]}
+        currentUserId="me"
+        onFocusContact={vi.fn()}
+        onConversationChange={onConversationChange}
+      />,
+    );
+    expect(onConversationChange).toHaveBeenCalledWith(true);
+  });
+
+  it('remonte conversation false quand aucune ligne n’est connectée', () => {
+    const onConversationChange = vi.fn();
+    render(
+      <PowerStrip
+        token="tok"
+        sessionId={7}
+        contacts={[contact({ id: 1, phone: '+33100000001' })]}
+        currentUserId="me"
+        onFocusContact={vi.fn()}
+        onConversationChange={onConversationChange}
+      />,
+    );
+    expect(onConversationChange).toHaveBeenCalledWith(false);
+  });
+
+  it('remonte onRunningChange true pendant une vague active', () => {
+    const onRunningChange = vi.fn();
+    mockUseDialerPool.mockImplementation(() => ({
+      ...poolStub(),
+      isRunning: true,
+    }));
+    render(
+      <PowerStrip
+        token="tok"
+        sessionId={7}
+        contacts={[contact({ id: 1, phone: '+33100000001' })]}
+        currentUserId="me"
+        onFocusContact={vi.fn()}
+        onRunningChange={onRunningChange}
+      />,
+    );
+    expect(onRunningChange).toHaveBeenCalledWith(true);
+  });
+
+  it('enregistre l’action de raccrochage via onRegisterHangup', () => {
+    const onRegisterHangup = vi.fn();
+    const hangupAll = vi.fn();
+    mockUseDialerPool.mockImplementation(() => ({
+      ...poolStub(),
+      hangupAll,
+    }));
+    render(
+      <PowerStrip
+        token="tok"
+        sessionId={7}
+        contacts={[contact({ id: 1, phone: '+33100000001' })]}
+        currentUserId="me"
+        onFocusContact={vi.fn()}
+        onRegisterHangup={onRegisterHangup}
+      />,
+    );
+    expect(onRegisterHangup).toHaveBeenCalledWith(hangupAll);
+  });
+});

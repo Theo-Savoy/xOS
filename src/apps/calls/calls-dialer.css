@@ -255,6 +255,71 @@
   margin-bottom: 0.75rem;
   position: relative;
 }
+/* Halo statique ambre 10-12% sur header et PowerStrip en mode Power */
+.calls-view--power .calls-view__header {
+  box-shadow: 0 0 28px -6px rgba(234, 184, 77, 0.12);
+  transition: box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.calls-view--power .calls-power-strip {
+  border-color: rgba(234, 184, 77, 0.35);
+  box-shadow: 0 0 32px -8px rgba(234, 184, 77, 0.12);
+  transition:
+    border-color 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* En conversation : silence et calme absolu, halos coupés, simple filet ambre */
+.calls-view--power-conversation .calls-view__header {
+  box-shadow: none;
+}
+
+.calls-view--power-conversation .calls-power-strip {
+  border-color: rgba(234, 184, 77, 0.22);
+  box-shadow: none;
+}
+
+/* Badges identitaires sans dépendre uniquement de la couleur */
+.calls-view__title-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.calls-view__title-tags .calls-power-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(234, 184, 77, 0.14);
+  color: var(--combo-power, #EAB84D);
+  border: 1px solid rgba(234, 184, 77, 0.4);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+}
+
+.calls-view__title-tags .calls-power-badge--conversation {
+  background: rgba(234, 184, 77, 0.08);
+  border-color: rgba(234, 184, 77, 0.22);
+  color: var(--combo-power-soft, #FFE4A3);
+}
+
+/* Bouton de sortie d'urgence pendant une vague */
+.calls-power-exit-btn.xos-btn {
+  font-weight: 600;
+  animation: calls-power-exit-pop 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes calls-power-exit-pop {
+  0% { transform: scale(0.92); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 
 .calls-power-strip__bar {
   display: flex;
@@ -368,7 +433,7 @@
 
 /* ── Le côté playful : le lancement doit se sentir ─────────────────────── */
 
-/* Toggle Power du header : piste + pastille, étoiles uniquement à l'ON. */
+/* Toggle Power du header : switch net, flash électrique ambre et halo à l'activation. */
 .calls-view__actions > .calls-power-toggle {
   flex: 0 0 auto;
 }
@@ -382,31 +447,34 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.45rem;
+  gap: 0.5rem;
   margin: 0;
-  padding: 0.22rem 0.4rem 0.22rem 0.22rem;
-  border: none;
+  padding: 0.25rem 0.55rem 0.25rem 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--xos-text-muted);
   font-family: var(--xos-font-display);
   font-size: 0.8rem;
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   line-height: 1;
   cursor: pointer;
   overflow: visible;
   isolation: isolate;
-  backdrop-filter: none;
+  backdrop-filter: blur(8px);
   box-shadow: none;
-  transition: color 220ms ease;
+  transition:
+    color 220ms ease,
+    border-color 280ms ease,
+    background-color 280ms ease,
+    box-shadow 280ms ease;
 }
 
-.calls-power-toggle.xos-btn:not(:disabled):hover,
-.calls-power-toggle.xos-btn:active {
-  background: transparent;
-  border-color: transparent;
-  transform: none;
+.calls-power-toggle.xos-btn:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--xos-text);
 }
 
 .calls-power-toggle:focus {
@@ -414,12 +482,15 @@
 }
 
 .calls-power-toggle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--xos-accent) 65%, white);
+  outline: 2px solid var(--combo-power, #EAB84D);
   outline-offset: 3px;
 }
 
 .calls-power-toggle--on.xos-btn {
-  color: var(--xos-text);
+  color: var(--combo-power-soft, #FFE4A3);
+  background: rgba(234, 184, 77, 0.09);
+  border-color: rgba(234, 184, 77, 0.35);
+  box-shadow: 0 0 16px -4px rgba(234, 184, 77, 0.25);
 }
 
 .calls-power-toggle__track {
@@ -429,9 +500,9 @@
   height: var(--power-track-h);
   flex-shrink: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--xos-border);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   transition:
     background-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -447,166 +518,79 @@
   height: var(--power-thumb);
   border-radius: 50%;
   background: color-mix(in srgb, var(--xos-text) 82%, #8a90a8);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   transition:
     transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 220ms ease;
 }
 
 .calls-power-toggle--on .calls-power-toggle__track {
-  background: color-mix(in srgb, var(--xos-accent) 78%, #1a1040);
-  border-color: color-mix(in srgb, var(--xos-accent) 70%, white);
+  background: color-mix(in srgb, var(--combo-power, #EAB84D) 82%, #201302);
+  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 80%, white);
   box-shadow:
-    0 1px 10px color-mix(in srgb, var(--xos-accent) 42%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 22%, transparent);
-  animation: calls-power-glow 2.2s ease-in-out infinite;
+    0 1px 8px rgba(234, 184, 77, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .calls-power-toggle--on .calls-power-toggle__thumb {
   transform: translateX(var(--power-travel));
-  background: #fff;
+  background: #ffffff;
 }
 
-/* Flash bref au moment de l'activation (relancé à chaque ajout de --on). */
+/* Effet électrique à l'activation : flash ambre radial avec halo */
 .calls-power-toggle::after {
   content: '';
   position: absolute;
   z-index: 0;
-  left: 0.12rem;
+  left: 0.15rem;
   top: 50%;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2.6rem;
+  height: 2.6rem;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, white 78%, var(--xos-accent)) 0%,
-    transparent 68%
+    rgba(234, 184, 77, 0.85) 0%,
+    rgba(234, 184, 77, 0.35) 45%,
+    transparent 72%
   );
   opacity: 0;
-  transform: translateY(-50%) scale(0.4);
+  transform: translateY(-50%) scale(0.3);
   pointer-events: none;
 }
 
 .calls-power-toggle--on::after {
-  animation: calls-power-flash 480ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+  animation: calls-power-electric-flash 460ms cubic-bezier(0.16, 1, 0.3, 1) 1;
 }
 
-/* Constellation : diamants (pseudos) + étoiles clip-path. Invisible à l'OFF. */
-.calls-power-toggle__sky {
-  position: absolute;
-  inset: -0.7rem -0.55rem;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
+/* Bouton CTA de lancement : contraste AA élevé (texte bleu nuit sur ambre) */
+.calls-power-strip .calls-power-strip__launch.xos-btn--primary {
+  background: var(--combo-power, #EAB84D);
+  color: var(--combo-power-contrast, #071326);
+  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 80%, #000);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 0 16px -2px rgba(234, 184, 77, 0.45);
   transition:
-    opacity 180ms ease-out,
-    visibility 180ms linear;
+    background-color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 160ms ease;
 }
 
-.calls-power-toggle--on .calls-power-toggle__sky {
-  opacity: 1;
-  visibility: visible;
-  transition:
-    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear;
+.calls-power-strip .calls-power-strip__launch.xos-btn--primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--combo-power, #EAB84D) 92%, white);
+  color: var(--combo-power-contrast, #071326);
+  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 90%, black);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 22px -2px rgba(234, 184, 77, 0.6);
 }
 
-.calls-power-toggle__sky::before,
-.calls-power-toggle__sky::after {
-  content: '';
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: color-mix(in srgb, var(--xos-accent-highlight) 88%, white);
-  transform: rotate(45deg);
-  pointer-events: none;
+.calls-power-strip .calls-power-strip__launch.xos-btn--primary:disabled {
+  background: rgba(234, 184, 77, 0.18);
+  color: rgba(255, 255, 255, 0.35);
+  border-color: transparent;
+  box-shadow: none;
 }
-
-.calls-power-toggle__sky::before {
-  top: 3px;
-  left: 14%;
-  box-shadow:
-    1.15rem -0.2rem 0 0.4px color-mix(in srgb, var(--xos-accent) 80%, white),
-    2.05rem 0.35rem 0 -0.4px color-mix(in srgb, var(--xos-accent-highlight) 70%, white),
-    0.35rem 1.55rem 0 -0.2px color-mix(in srgb, white 55%, var(--xos-accent)),
-    2.55rem 1.35rem 0 0 color-mix(in srgb, var(--xos-accent-highlight) 90%, white);
-  animation: calls-power-twinkle 1.8s ease-in-out infinite;
-}
-
-.calls-power-toggle__sky::after {
-  bottom: 4px;
-  right: 38%;
-  width: 3px;
-  height: 3px;
-  box-shadow:
-    -1.35rem 0.15rem 0 0.2px color-mix(in srgb, var(--xos-accent-highlight) 75%, white),
-    0.95rem -0.85rem 0 -0.3px color-mix(in srgb, white 70%, var(--xos-accent)),
-    1.7rem 0.55rem 0 0 color-mix(in srgb, var(--xos-accent) 85%, white),
-    -0.55rem -0.95rem 0 -0.4px color-mix(in srgb, var(--xos-accent-highlight) 60%, white);
-  animation: calls-power-twinkle 2.35s ease-in-out 0.35s infinite;
-}
-
-.calls-power-toggle__star {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  background: color-mix(in srgb, var(--xos-accent-highlight) 82%, white);
-  clip-path: polygon(
-    50% 0%,
-    64% 36%,
-    100% 50%,
-    64% 64%,
-    50% 100%,
-    36% 64%,
-    0% 50%,
-    36% 36%
-  );
-  animation: calls-power-star-twinkle 2.1s ease-in-out infinite;
-}
-
-.calls-power-toggle__star--nw {
-  top: 1px;
-  left: 6%;
-  animation-delay: 0.1s;
-}
-
-.calls-power-toggle__star--ne {
-  top: 0;
-  left: 42%;
-  width: 5px;
-  height: 5px;
-  animation-delay: 0.55s;
-  animation-duration: 1.7s;
-}
-
-.calls-power-toggle__star--sw {
-  bottom: 2px;
-  left: 2%;
-  width: 4px;
-  height: 4px;
-  animation-delay: 0.9s;
-  animation-duration: 2.4s;
-}
-
-.calls-power-toggle__star--se {
-  bottom: 0;
-  left: 36%;
-  width: 6px;
-  height: 6px;
-  animation-delay: 0.3s;
-}
-
-.calls-power-toggle--on:hover .calls-power-toggle__sky {
-  filter: brightness(1.45) saturate(1.2);
-}
-
-.calls-power-toggle--on:hover .calls-power-toggle__sky::before,
-.calls-power-toggle--on:hover .calls-power-toggle__sky::after,
-.calls-power-toggle--on:hover .calls-power-toggle__star {
-  animation-duration: 0.85s;
-}
-
+/* Étoiles retirées au profit de l'effet électrique ambre propre */
 /* Lancement : un sweep traverse l'encart, une fois. */
 .calls-power-strip--launching {
   /* Clip réservé à l'animation : sinon le menu du sélecteur serait tronqué. */
@@ -620,7 +604,7 @@
   background: linear-gradient(
     100deg,
     transparent 40%,
-    color-mix(in srgb, var(--xos-accent) 40%, transparent) 50%,
+    color-mix(in srgb, var(--combo-power, #EAB84D) 45%, transparent) 50%,
     transparent 60%
   );
   animation: calls-power-sweep 900ms ease-out 1;
@@ -631,9 +615,10 @@
   animation: calls-power-kick 420ms ease-out 1;
 }
 
-@keyframes calls-power-glow {
-  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 55%, transparent), 0 0 14px color-mix(in srgb, var(--xos-accent) 35%, transparent); }
-  50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--xos-accent) 75%, transparent), 0 0 26px color-mix(in srgb, var(--xos-accent) 60%, transparent); }
+@keyframes calls-power-electric-flash {
+  0% { opacity: 0.95; transform: translateY(-50%) scale(0.4); }
+  40% { opacity: 0.7; transform: translateY(-50%) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-50%) scale(1.8); }
 }
 
 @keyframes calls-power-sweep {
@@ -652,41 +637,25 @@
   50% { opacity: 1; }
 }
 
-@keyframes calls-power-flash {
-  0% { opacity: 0.9; transform: translateY(-50%) scale(0.45); }
-  32% { opacity: 0.65; transform: translateY(-50%) scale(1.12); }
-  100% { opacity: 0; transform: translateY(-50%) scale(1.7); }
-}
-
-@keyframes calls-power-twinkle {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
-@keyframes calls-power-star-twinkle {
-  0%, 100% { opacity: 0.4; transform: scale(0.72); }
-  45% { opacity: 1; transform: scale(1.18); }
-  70% { opacity: 0.55; transform: scale(0.88); }
-}
-
+/* Keyframes épurées (pas de twinkle superflus) */
 /* Accessibilité : rien ne bouge si l'utilisateur l'a demandé. Le son reste
    piloté par le mute global Combo. */
 @media (prefers-reduced-motion: reduce) {
+  .calls-app:has(.calls-view--power),
+  .calls-app:has(.calls-view--power-conversation),
+  .calls-view--power .calls-view__header,
+  .calls-view--power .calls-power-strip,
   .calls-power-toggle__track,
-  .calls-power-toggle__thumb,
-  .calls-power-toggle__sky,
-  .calls-power-toggle--on .calls-power-toggle__sky {
+  .calls-power-toggle__thumb {
     transition: none;
   }
 
   .calls-power-toggle::after,
   .calls-power-toggle--on .calls-power-toggle__track,
-  .calls-power-toggle__sky::before,
-  .calls-power-toggle__sky::after,
-  .calls-power-toggle__star,
   .calls-power-strip--launching::before,
   .calls-power-strip--launching .calls-power-strip__launch,
-  .calls-power-strip__line--ringing .calls-power-strip__line-phase {
+  .calls-power-strip__line--ringing .calls-power-strip__line-phase,
+  .calls-power-exit-btn.xos-btn {
     animation: none;
   }
 }

@@ -59,6 +59,14 @@ export type PowerStripProps = {
   currentUserId: string | null;
   /** Bascule la fiche du runner sur le contact décroché : l'ACW existant suit. */
   onFocusContact: (contactId: number) => void;
+  /** Signal de conversation active (au moins une ligne connected). */
+  onConversationChange?: (inConversation: boolean) => void;
+  /** Signal d'activité du pool (cycle en cours ou lignes en composition/sonnerie/conversation). */
+  onRunningChange?: (running: boolean) => void;
+  /** Enregistre l'action de raccrochage pour la sortie sécurisée « Raccrocher et quitter ». */
+  onRegisterHangup?: (hangup: (() => void) | null) => void;
+  /** Signale un raccrochage serveur en échec (F-05) : la sortie doit rester bloquée. */
+  onHangupRetryableChange?: (retryable: boolean) => void;
 };
 
 /**
@@ -76,6 +84,10 @@ export function PowerStrip({
   contacts,
   currentUserId,
   onFocusContact,
+  onConversationChange,
+  onRunningChange,
+  onRegisterHangup,
+  onHangupRetryableChange,
 }: PowerStripProps) {
   const [parallelism, setParallelism] = useState(3);
   const [callerNumber, setCallerNumber] = useState('');
@@ -141,6 +153,29 @@ export function PowerStrip({
   useEffect(() => () => {
     if (launchTimer.current) clearTimeout(launchTimer.current);
   }, []);
+  const isConnected = pool.state.lines.some((line) => line.phase === 'connected');
+  const isWaveActive = pool.isRunning || pool.state.lines.some((line) =>
+    !['idle', 'ended', 'skipped', 'failed'].includes(line.phase));
+
+  useEffect(() => {
+    onConversationChange?.(isConnected);
+  }, [isConnected, onConversationChange]);
+
+  useEffect(() => {
+    onRunningChange?.(isWaveActive);
+  }, [isWaveActive, onRunningChange]);
+
+  useEffect(() => {
+    onRegisterHangup?.(pool.hangupAll);
+    return () => {
+      onRegisterHangup?.(null);
+    };
+  }, [pool.hangupAll, onRegisterHangup]);
+
+  useEffect(() => {
+    onHangupRetryableChange?.(pool.hangupRetryable);
+  }, [pool.hangupRetryable, onHangupRetryableChange]);
+
 
   const limit = config?.entitlement.calls_day_limit ?? null;
   const used = config?.entitlement.calls_today ?? 0;
