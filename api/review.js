@@ -334,8 +334,6 @@ export default async function handler(request) {
       message: String(err.message || err),
     });
   } finally {
-    console.log(
-      `review ${resource} done in ${Date.now() - startedAt}ms (status ${resource === 'shared' ? 'shared' : 'sf'})`,
-    );
+    console.log(`review ${resource} ${Date.now() - startedAt}ms`);
   }
 }
