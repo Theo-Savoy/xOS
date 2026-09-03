@@ -2023,7 +2023,7 @@ export default function CallManagerApp({
         <AccountSearchView
           token={token}
           team={team}
-          onBack={() => setView('new')}
+          onBack={() => setView('session-type-select')}
           onCreateAudience={(payload) => void handleCreateAudience(payload)}
           creating={audienceCreating}
           createError={audienceError}
