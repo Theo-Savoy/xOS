@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
 import type { ProductPayload, ProductRow, ProductYear } from '../review.types';
@@ -126,14 +125,14 @@ export function ProductCompareSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Catalogue et sur-mesure divergent <ScopeTag scope="new" />
+            Catalogue vs sur-mesure : comparaison d&apos;exercices{' '}
+            <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             CA NEW · {compare}→{data.fy} · fermées, signatures, closing, ticket,
             cycles
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-compare-grid">

@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
@@ -40,7 +39,6 @@ export function ChannelsSection({
             {data.channels.n_total} canaux · lecture complète, sans top-N masqué
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">

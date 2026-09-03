@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtPct1 } from '../review.helpers';
 import type { MarketPayload, ReasonTable } from '../review.types';
@@ -83,7 +82,6 @@ export function ReasonsSection({
             Pertes et gains NEW · {data.fy} · motifs déclarés, pas de causalité
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <ReasonsTable

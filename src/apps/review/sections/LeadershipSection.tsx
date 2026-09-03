@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
@@ -66,15 +65,13 @@ export function LeadershipSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Jérôme — activité PDG, hors classement commercial{' '}
-            <ScopeTag scope="new" />
+            Activité PDG — hors classement commercial <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             CA NEW · {data.compare}→{data.fy} · pas d'objectif, pas de
             comparaison sales
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -84,11 +81,7 @@ export function LeadershipSection({
           scope="new"
           hint={`${curr.signaturesNew} signatures NEW`}
         />
-        <StatCard
-          label="RDV"
-          value={String(curr.rdv)}
-          hint={data.rdv_limit}
-        />
+        <StatCard label="RDV" value={String(curr.rdv)} hint={data.rdv_limit} />
         <StatCard
           label="Closing NEW"
           value={fmtPct1(curr.closing)}

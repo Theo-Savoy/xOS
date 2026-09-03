@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
 import type { ProductPayload, ProductRow } from '../review.types';
@@ -13,7 +12,11 @@ function rowsFor(data: ProductPayload): {
   const out: { fy: string; product: ProductRow }[] = [];
   for (const year of data.series) {
     for (const key of KEYS) {
-      if (key === 'autre' && year.products.autre.amountNew === 0 && year.products.autre.won === 0) {
+      if (
+        key === 'autre' &&
+        year.products.autre.amountNew === 0 &&
+        year.products.autre.won === 0
+      ) {
         continue;
       }
       out.push({ fy: year.fy, product: year.products[key] });
@@ -55,10 +58,10 @@ export function ProductHistorySection({
             Produit × exercice <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Fermées NEW, signatures NEW, closing, CA NEW, cycles — FY22→{data.fy}
+            Fermées NEW, signatures NEW, closing, CA NEW, cycles — FY22→
+            {data.fy}
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <GlassCard className="review-chart-card">

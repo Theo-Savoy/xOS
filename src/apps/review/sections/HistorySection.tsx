@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtPct1 } from '../review.helpers';
 import type { OverviewPayload } from '../review.types';
@@ -38,7 +37,6 @@ export function HistorySection({
             CA total = NEW + RENEW · détections, fermées et signatures NEW
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
       <GlassCard className="review-chart-card">
         <table className="review-data-table review-data-table--wide">

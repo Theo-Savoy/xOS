@@ -17,8 +17,7 @@ export function MarketStudiesSection() {
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Le marché formation confirme le frein budgétaire{' '}
-            <ScopeTag scope="new" />
+            Études externes du marché formation <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             Études externes · constantes, hors Salesforce · mise en regard du

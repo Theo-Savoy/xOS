@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import type { DefinitionsPayload } from '../review.types';
 
@@ -37,7 +36,6 @@ export function DefinitionsSection({
             Neuf règles métier affichables — source de vérité du bilan
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
       {data.items.map((item) => (
         <GlassCard key={item.id} className="review-chart-card">

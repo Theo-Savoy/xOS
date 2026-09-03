@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtNum, fmtPctDelta } from '../review.helpers';
@@ -39,14 +38,12 @@ export function ProductivitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Moins d'ETP, plus de production par personne{' '}
-            <ScopeTag scope="new" />
+            Capacité et productivité sales (ETP) <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             Production sales hors Jérôme, hors SDR · {data.compare}→{data.fy}
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">

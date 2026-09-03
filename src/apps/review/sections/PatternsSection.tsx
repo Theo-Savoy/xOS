@@ -1,5 +1,5 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
+import { InfoHint } from '../components/InfoHint';
 import { PatternCard } from '../components/PatternCard';
 import { ScopeTag } from '../components/ScopeTag';
 import type { SynthesisPayload } from '../review.types';
@@ -32,11 +32,13 @@ export function PatternsSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Quatre lectures stables <ScopeTag scope="total" />
+            Lectures structurantes de l&apos;exercice <ScopeTag scope="total" />{' '}
+            <InfoHint label="Point clé de la synthèse" text={data.key_point} />
           </h3>
-          <p className="review-section-kicker">{data.key_point}</p>
+          <p className="review-section-kicker">
+            Patterns retenus, puis verdict d&apos;ensemble
+          </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
       <div className="review-patterns-grid">
         {data.patterns.map((pattern) => (

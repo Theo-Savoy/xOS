@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtNum, fmtPct1 } from '../review.helpers';
 import type { CommercialPayload, CommercialPerson } from '../review.types';
@@ -66,14 +65,13 @@ export function SalesComparisonSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Paul et Christophe ne vendent pas de la même façon{' '}
+            Comparaison sales : activité, conversion et ticket{' '}
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             CA NEW · {data.fy} · classement sales hors PDG et hors SDR
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <GlassCard className="review-chart-card">
@@ -131,14 +129,16 @@ export function SalesComparisonSection({
 
       <div className="review-compare-grid">
         <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">Paul — ticket et CA</h3>
+          <h3 className="review-card-title">Paul — ticket et CA NEW</h3>
           <p className="review-section-kicker">
             CA NEW plus élevé, ticket plus haut, détection sous le standard{' '}
             {fmtPct1(DETECTION_STANDARD)}.
           </p>
         </GlassCard>
         <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">Christophe — volume</h3>
+          <h3 className="review-card-title">
+            Christophe — volume et détection
+          </h3>
           <p className="review-section-kicker">
             Détection au-dessus du standard {fmtPct1(DETECTION_STANDARD)}, plus
             de signatures NEW. Le bridge Owner cadre d'abord l'écart d'équipe.

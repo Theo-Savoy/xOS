@@ -1,4 +1,5 @@
 import { GlassCard, Tag } from '../../../components/ui';
+import { InfoHint } from '../components/InfoHint';
 import { ScopeTag } from '../components/ScopeTag';
 import type { PeriodSelection } from '../review.period';
 import { comparisonFy, periodTitle } from '../review.period';
@@ -63,8 +64,11 @@ function PageHeader({
           {scopes.map((scope) => (
             <ScopeTag key={scope} scope={scope} />
           ))}
+          <InfoHint
+            label={`Comment lire la page ${title}`}
+            text={description}
+          />
         </h1>
-        <p>{description}</p>
       </div>
       <Tag variant="accent">{periodTitle(period)}</Tag>
     </header>
@@ -106,14 +110,12 @@ export function SummaryPage({
           sélectionnée reste chiffrée, sans extrapoler les ETP ni la cohorte.
         </AnnualOnlyNotice>
       ) : null}
-      <div className="review-page-grid review-page-grid--hero">
-        {!narrativeAvailable ? (
-          <PerformanceSection data={overview.data} loading={overview.loading} />
-        ) : (
-          <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
-        )}
-        <BridgeNewSection data={bridge.data} loading={bridge.loading} />
-      </div>
+      {!narrativeAvailable ? (
+        <PerformanceSection data={overview.data} loading={overview.loading} />
+      ) : (
+        <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
+      )}
+      <BridgeNewSection data={bridge.data} loading={bridge.loading} />
       {narrativeAvailable ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
       ) : null}

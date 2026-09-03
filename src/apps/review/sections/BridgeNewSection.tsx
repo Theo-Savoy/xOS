@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur } from '../review.helpers';
@@ -51,15 +50,12 @@ export function BridgeNewSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Le recul NEW combine moins de signatures et un ticket inférieur{' '}
-            <ScopeTag scope="new" />
+            Bridge NEW : décomposition volume / ticket <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Analyse NEW uniquement · {data.compare}→{data.fy} · décomposition
-            volume / ticket
+            Analyse NEW uniquement · {data.compare}→{data.fy}
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -91,7 +87,11 @@ export function BridgeNewSection({
         <h3 className="review-card-title">
           Waterfall NEW {data.compare} → {data.fy}
         </h3>
-        <WaterfallChart steps={steps} scope="new" source="Salesforce · CA NEW" />
+        <WaterfallChart
+          steps={steps}
+          scope="new"
+          source="Salesforce · CA NEW"
+        />
         <p className="review-section-note">
           Le bridge montre d'où vient l'écart, pas pourquoi il existe.
         </p>

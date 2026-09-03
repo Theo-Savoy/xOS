@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton, Tag } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
@@ -50,14 +49,14 @@ export function PortfolioSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Quatre statuts exclusifs au 30/06 <ScopeTag scope="total" />
+            Portefeuille : quatre statuts exclusifs au 30/06{' '}
+            <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             {data.statuses.n_accounts} comptes · Gagnés et Fidélisés = CA signé
             · Engagés et Perdus = ARR
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -104,7 +103,8 @@ export function PortfolioSection({
         </div>
         <p className="review-section-note">
           Conservations : Gagnés + Fidélisés = CA total FY · Perdus / ARR
-          d&apos;ouverture = part du stock perdu. {data.conservation.ok ? (
+          d&apos;ouverture = part du stock perdu.{' '}
+          {data.conservation.ok ? (
             <Tag variant="success">OK</Tag>
           ) : (
             <Tag variant="alert">écart</Tag>

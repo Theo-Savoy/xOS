@@ -1,8 +1,10 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { ConservationBadge } from '../components/ConservationBadge';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
-import { WaterfallChart, type WaterfallStep } from '../components/WaterfallChart';
+import {
+  WaterfallChart,
+  type WaterfallStep,
+} from '../components/WaterfallChart';
 import { fmtEur, fmtPct1 } from '../review.helpers';
 import type { BridgePayload } from '../review.types';
 
@@ -54,7 +56,7 @@ export function CatalogueBridgeSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Le recul catalogue est d'abord un recul RENEW{' '}
+            Bridge catalogue : RENEW, volume NEW, ticket NEW{' '}
             <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
@@ -62,7 +64,6 @@ export function CatalogueBridgeSection({
             + volume NEW + ticket NEW
           </p>
         </div>
-        <ConservationBadge conservation={data.conservation} />
       </header>
 
       <div className="review-kpi-grid">
@@ -71,16 +72,8 @@ export function CatalogueBridgeSection({
           value={fmtEur(cat.renew)}
           hint={fmtPct1(cat.share_renew)}
         />
-        <StatCard
-          label="Volume NEW"
-          value={fmtEur(cat.volume)}
-          scope="new"
-        />
-        <StatCard
-          label="Ticket NEW"
-          value={fmtEur(cat.ticket)}
-          scope="new"
-        />
+        <StatCard label="Volume NEW" value={fmtEur(cat.volume)} scope="new" />
+        <StatCard label="Ticket NEW" value={fmtEur(cat.ticket)} scope="new" />
         <StatCard label="Total" value={fmtEur(cat.total)} scope="total" />
       </div>
 
