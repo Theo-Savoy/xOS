@@ -46,6 +46,7 @@ export function DatePicker({
   triggerClassName,
   triggerLabel,
   defaultOpen = false,
+  min,
 }: {
   label?: string;
   value: string;
@@ -59,6 +60,8 @@ export function DatePicker({
   triggerLabel?: string;
   /** Ouvre le popover au montage (ex. action « Reporter »). */
   defaultOpen?: boolean;
+  /** Date minimum autorisée (ISO). */
+  min?: string;
 }) {
   const autoId = useId();
   const fieldId = id ?? autoId;
@@ -117,6 +120,7 @@ export function DatePicker({
     .join(' ');
   const displayed =
     triggerLabel ?? (value ? formatDateFr(value) : 'Choisir une date');
+  const isManualInvalid = Boolean(min && value && value < min);
 
   return (
     <div
@@ -136,6 +140,11 @@ export function DatePicker({
       >
         {displayed}
       </button>
+      {isManualInvalid && (
+        <div className="calls-datepicker__error" style={{ color: 'var(--color-destructive, #d32f2f)', fontSize: '0.8rem', marginTop: '4px' }}>
+          La date saisie ne peut pas être antérieure à {min ? formatDateFr(min) : ''}.
+        </div>
+      )}
       {open && (
         <div
           className="calls-datepicker__popover"
@@ -188,10 +197,12 @@ export function DatePicker({
               const iso = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
               const selected = iso === value;
               const isToday = iso === today;
+              const isDisabled = Boolean(min && iso < min);
               return (
                 <button
                   key={iso}
                   type="button"
+                  disabled={isDisabled}
                   className={[
                     'calls-datepicker__day',
                     selected ? 'calls-datepicker__day--selected' : '',
@@ -200,8 +211,10 @@ export function DatePicker({
                     .filter(Boolean)
                     .join(' ')}
                   onClick={() => {
-                    onChange(iso);
-                    setOpen(false);
+                    if (!isDisabled) {
+                      onChange(iso);
+                      setOpen(false);
+                    }
                   }}
                 >
                   {date.getDate()}
@@ -213,9 +226,12 @@ export function DatePicker({
             <button
               type="button"
               className="calls-datepicker__today"
+              disabled={Boolean(min && today < min)}
               onClick={() => {
-                onChange(today);
-                setOpen(false);
+                if (!(min && today < min)) {
+                  onChange(today);
+                  setOpen(false);
+                }
               }}
             >
               Aujourd&apos;hui

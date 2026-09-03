@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, GlassCard, Skeleton, Tag } from '../../components/ui';
+import { Button, GlassCard, Modal, Skeleton, Tag } from '../../components/ui';
 import {
   EFFECTIF_TRANCHES,
-  SECTEUR_FAMILIES,
   SECTEUR_VALUES,
   TIER_VALUES,
   TYPE_CLIENT_VALUES,
@@ -17,10 +16,10 @@ import {
   type AudienceSessionGroup,
 } from './api';
 import { packAccountsIntoSessions } from './audienceBinPacking';
-import { ChipGroup, PicklistMultiSelect } from './filterControls';
+import { ChipGroup } from './filterControls';
 import { asOptions } from './filterControls.helpers';
 import { DatePicker } from './formControls';
-import { todayParisIso } from './formControls.helpers';
+import { tomorrowParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
 
 export type AbmSortOption =
@@ -135,6 +134,88 @@ type AccountSearchViewProps = {
   createError: string | null;
 };
 
+
+function AccountCard({
+  account,
+  checked,
+  onToggle,
+}: {
+  account: AccountSearchHit;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasContacts = account.contacts.length > 0;
+
+  return (
+    <GlassCard
+      className={`calls-preview calls-account-card ${checked ? 'calls-account-card--selected' : ''} ${!hasContacts ? 'calls-account-card--disabled' : ''}`}
+      role="listitem"
+    >
+      <div className="calls-preview__header">
+        <label className="calls-checkbox" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggle}
+            disabled={!hasContacts}
+            aria-label={`Sélectionner ${account.name}`}
+          />
+          <strong>{account.name}</strong>
+        </label>
+        <div className="calls-preview__actions">
+          {account.tier && <Tag>Tier {account.tier}</Tag>}
+          {account.type_client && <Tag>{account.type_client}</Tag>}
+          {account.effectif && <Tag>{account.effectif}</Tag>}
+          {hasContacts ? (
+            <Tag variant={checked ? 'accent' : 'default'}>
+              {account.contacts.length} contact{account.contacts.length > 1 ? 's' : ''}
+            </Tag>
+          ) : (
+            <Tag variant="warning" title="Aucun contact disponible — exclusion automatique">
+              0 contact (exclu)
+            </Tag>
+          )}
+          {hasContacts && (
+            <button
+              type="button"
+              className="calls-expand-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(!expanded);
+              }}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Masquer les contacts' : 'Afficher les contacts'}
+            >
+              {expanded ? '▲' : '▼'}
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="calls-muted calls-fb-hint calls-mt-1">
+        {[account.industry, account.owner_name].filter(Boolean).join(' · ') || '—'}
+      </p>
+      {expanded && hasContacts && (
+        <ul className="calls-account-contacts">
+          {account.contacts.map((contact) => (
+            <li key={contact.sf_contact_id} className="calls-account-contact-item">
+              <div className="calls-account-contact-item__main">
+                <strong>{contact.contact_name}</strong>
+                {contact.title && <span className="calls-muted"> · {contact.title}</span>}
+              </div>
+              <div className="calls-account-contact-item__meta">
+                {contact.decision_level && <Tag>{contact.decision_level}</Tag>}
+                {(contact.phone || contact.mobile_phone) && <span title="Téléphone disponible">📞</span>}
+                {contact.email && <span title="Email disponible">✉️</span>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </GlassCard>
+  );
+}
+
 export function AccountSearchView({
   token,
   team = [],
@@ -147,7 +228,7 @@ export function AccountSearchView({
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
   const [filtersOpen, setFiltersOpen] = useState(
-    initialPrefs.filtersOpen ?? false,
+    initialPrefs.filtersOpen ?? true,
   );
   const [sortBy, setSortBy] = useState<AbmSortOption>(
     initialPrefs.sortBy ?? 'default',
@@ -161,7 +242,6 @@ export function AccountSearchView({
   const [excludedCount, setExcludedCount] = useState(0);
   const [sessionName, setSessionName] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
-  const [dateError, setDateError] = useState<string | null>(null);
   const [targetSize, setTargetSize] = useState(initialPrefs.targetSize ?? 50);
   const [maxSessions, setMaxSessions] = useState(initialPrefs.maxSessions ?? 5);
 
@@ -222,8 +302,6 @@ export function AccountSearchView({
       setExcludedCount(data.excluded_count ?? 0);
       setSelectedIds(new Set());
       setSearched(true);
-      if (data.accounts.length === 0)
-        setError('Aucun compte ne correspond à cette recherche.');
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(errorMessage(err));
@@ -258,7 +336,6 @@ export function AccountSearchView({
     setSelectedIds(new Set());
     setSearched(false);
     setError(null);
-    setDateError(null);
   };
 
   // Live preview: modifier un filtre relance la recherche après 300ms, sans clic "Actualiser" (F.2).
@@ -400,11 +477,9 @@ export function AccountSearchView({
 
   const handleCreateClick = () => {
     if (groups.length === 0) return;
-    if (scheduledFor && scheduledFor <= todayParisIso()) {
-      setDateError('Choisissez une date future pour planifier la séance ABM.');
-      return;
+    if (scheduledFor && scheduledFor < tomorrowParisIso()) {
+      return; // Validation prevented by DatePicker min prop, but safety net
     }
-    setDateError(null);
     onCreateAudience({
       groups: groups.map((group) => ({
         account_ids: group.accountIds,
@@ -416,6 +491,94 @@ export function AccountSearchView({
       excludedCount,
       scheduledFor: scheduledFor || undefined,
     });
+  };
+
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  const renderSidebarContent = () => {
+    const uniqueAccountsCount = new Set(selectedAccounts.map((a) => a.id)).size;
+    return (
+      <div className="calls-abm-sidebar-inner">
+        <div className="calls-abm-sidebar-header">
+          <h3>Sélection</h3>
+          <p>
+            {uniqueAccountsCount} compte{uniqueAccountsCount > 1 ? 's' : ''} ·{' '}
+            {selectedContactsCount} contact{selectedContactsCount > 1 ? 's' : ''}
+          </p>
+        </div>
+
+        <div className="calls-abm-sidebar-section">
+          <h3>Découpe</h3>
+          <label className="calls-field">
+            <span>Nom des séances (préfixe)</span>
+            <input
+              type="text"
+              className="calls-input"
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder="Ex: 'ACME décisionnaires' → #1, #2, ..."
+            />
+          </label>
+          <div className="calls-fb-row">
+            <DatePicker
+              label="Date de la séance"
+              value={scheduledFor}
+              onChange={(next) => setScheduledFor(next)}
+              min={tomorrowParisIso()}
+            />
+          </div>
+          <div className="calls-fb-row">
+            <label className="calls-field">
+              <span>Comptes/séance</span>
+              <input
+                type="number"
+                className="calls-input"
+                min={1}
+                value={targetSize}
+                onChange={(e) => handleTargetSizeChange(Number(e.target.value) || 1)}
+              />
+            </label>
+            <label className="calls-field">
+              <span>Max séances</span>
+              <input
+                type="number"
+                className="calls-input"
+                min={1}
+                value={maxSessions}
+                onChange={(e) => handleMaxSessionsChange(Number(e.target.value) || 1)}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="calls-abm-sidebar-section calls-abm-sidebar-preview">
+          {groups.length > 0 ? (
+            <>
+              <p className="calls-muted calls-fb-hint calls-mt-4">
+                Aperçu : {groups.length} séance{groups.length > 1 ? 's' : ''}
+              </p>
+              <ul className="calls-audience-pack__preview">
+                {groups.map((group, index) => (
+                  <li key={index}>
+                    {group.accountNames.join(' + ')} : {group.totalContacts} contact{group.totalContacts > 1 ? 's' : ''}
+                  </li>
+                ))}
+              </ul>
+              <Button onClick={() => {
+                handleCreateClick();
+                setMobileDrawerOpen(false);
+              }} disabled={creating} className="calls-abm-sidebar-cta">
+                {creating ? 'Création…' : `Créer ${groups.length} séance${groups.length > 1 ? 's' : ''} ABM`}
+              </Button>
+            </>
+          ) : (
+            <p className="calls-muted calls-fb-hint calls-mt-4">
+              Tous les contacts sélectionnés sont déjà en séance active. Aucune séance ne sera créée.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -436,9 +599,11 @@ export function AccountSearchView({
         </div>
       </header>
 
+      <div className="calls-abm-layout">
+        <div className="calls-abm-layout__main">
       <GlassCard className="calls-filterbuilder">
         <div className="calls-fb-row">
-          <label className="calls-field" style={{ flex: 1 }}>
+          <label className="calls-field calls-field--flex">
             <span>Nom du compte</span>
             <input
               type="text"
@@ -490,7 +655,7 @@ export function AccountSearchView({
           <div className="calls-fb-section__body">
             {activeFiltersCount > 0 && (
               <div className="calls-abm-filters-header">
-                <span className="calls-muted" style={{ fontSize: '0.82rem' }}>
+                <span className="calls-muted calls-text-sm">
                   {activeFiltersCount} critère
                   {activeFiltersCount > 1 ? 's' : ''} sélectionné
                   {activeFiltersCount > 1 ? 's' : ''}
@@ -504,17 +669,11 @@ export function AccountSearchView({
                 </Button>
               </div>
             )}
-            <PicklistMultiSelect
+            <ChipGroup
               label="Secteurs d'activité"
               options={asOptions(SECTEUR_VALUES)}
-              groups={SECTEUR_FAMILIES.map((family) => ({
-                id: family.id,
-                label: family.label,
-                values: family.secteurs,
-              }))}
               value={filters.secteurs}
               onChange={(secteurs) => setFilter({ secteurs })}
-              searchPlaceholder="Filtrer les secteurs…"
             />
             <ChipGroup
               label="Effectifs"
@@ -545,13 +704,13 @@ export function AccountSearchView({
         </details>
       </GlassCard>
 
-      {(error || createError || dateError) && (
+      {(error || createError) && (
         <GlassCard className="calls-error">
           <p role="alert" aria-live="assertive">
-            {error || createError || dateError}
+            {error || createError}
           </p>
           {error && canSearch && !loading && (
-            <div style={{ marginTop: '0.25rem' }}>
+            <div className="calls-mt-1">
               <Button variant="secondary" onClick={() => void handleSearch()}>
                 Réessayer la recherche
               </Button>
@@ -592,7 +751,7 @@ export function AccountSearchView({
             <Skeleton height="1rem" width="85%" />
             <Skeleton height="1rem" width="60%" />
           </div>
-          <p className="calls-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+          <p className="calls-muted calls-skeleton-text">
             Recherche des comptes en cours…
           </p>
         </GlassCard>
@@ -627,89 +786,10 @@ export function AccountSearchView({
           <GlassCard className="calls-name-form calls-name-form--sticky">
             <div className="calls-name-form__meta">
               <Tag>
-                {selectedIds.size > 0
-                  ? `${selectedContactsCount} contact${selectedContactsCount > 1 ? 's' : ''} dans ${selectedIds.size} compte${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's' : ''}`
-                  : `${accounts.length} compte${accounts.length > 1 ? 's' : ''} trouvé${accounts.length > 1 ? 's' : ''} · ${totalContactsCount} contact${totalContactsCount > 1 ? 's' : ''} au total`}
+                {accounts.length} compte{accounts.length > 1 ? 's' : ''} trouvé{accounts.length > 1 ? 's' : ''} · {totalContactsCount} contact{totalContactsCount > 1 ? 's' : ''} au total
               </Tag>
             </div>
           </GlassCard>
-
-          {selectedIds.size > 0 && (
-            <GlassCard className="calls-audience-pack">
-              <h3>Découper en plusieurs séances</h3>
-              <label className="calls-field">
-                <span>Nom des séances (préfixe)</span>
-                <input
-                  type="text"
-                  className="calls-input"
-                  value={sessionName}
-                  onChange={(e) => setSessionName(e.target.value)}
-                  placeholder="Ex: 'ACME décisionnaires' → ACME décisionnaires #1, #2, ..."
-                />
-              </label>
-              <div className="calls-fb-row">
-                <DatePicker
-                  label="Date de la séance ABM"
-                  value={scheduledFor}
-                  onChange={(next) => {
-                    setScheduledFor(next);
-                    setDateError(null);
-                  }}
-                />
-                <label className="calls-field">
-                  <span>Taille cible par séance</span>
-                  <input
-                    type="number"
-                    className="calls-input"
-                    min={1}
-                    value={targetSize}
-                    onChange={(e) =>
-                      handleTargetSizeChange(Number(e.target.value) || 1)
-                    }
-                  />
-                </label>
-                <label className="calls-field">
-                  <span>Nombre max de séances</span>
-                  <input
-                    type="number"
-                    className="calls-input"
-                    min={1}
-                    value={maxSessions}
-                    onChange={(e) =>
-                      handleMaxSessionsChange(Number(e.target.value) || 1)
-                    }
-                  />
-                </label>
-              </div>
-
-              {groups.length > 0 ? (
-                <>
-                  <p className="calls-muted calls-fb-hint">
-                    Aperçu : {groups.length} séance
-                    {groups.length > 1 ? 's' : ''}
-                  </p>
-                  <ul className="calls-audience-pack__preview">
-                    {groups.map((group, index) => (
-                      <li key={index}>
-                        {group.accountNames.join(' + ')} : {group.totalContacts}{' '}
-                        contact{group.totalContacts > 1 ? 's' : ''}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button onClick={handleCreateClick} disabled={creating}>
-                    {creating
-                      ? 'Création…'
-                      : `Créer ${groups.length} séance${groups.length > 1 ? 's' : ''} ABM`}
-                  </Button>
-                </>
-              ) : (
-                <p className="calls-muted calls-fb-hint">
-                  Tous les contacts sélectionnés sont déjà en séance active.
-                  Aucune séance ne sera créée.
-                </p>
-              )}
-            </GlassCard>
-          )}
 
           <div className="calls-abm-toolbar">
             <div className="calls-abm-actions">
@@ -769,46 +849,47 @@ export function AccountSearchView({
             {sortedAccounts.map((account) => {
               const checked = selectedIds.has(account.id);
               return (
-                <GlassCard
+                <AccountCard
                   key={account.id}
-                  className={`calls-preview calls-account-card ${checked ? 'calls-account-card--selected' : ''}`}
-                  role="listitem"
-                >
-                  <div className="calls-preview__header">
-                    <label className="calls-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleAccount(account.id)}
-                        aria-label={`Sélectionner ${account.name}`}
-                      />
-                      <strong>{account.name}</strong>
-                    </label>
-                    <div className="calls-preview__actions">
-                      {account.tier && <Tag>Tier {account.tier}</Tag>}
-                      {account.type_client && <Tag>{account.type_client}</Tag>}
-                      {account.effectif && <Tag>{account.effectif}</Tag>}
-                      <Tag
-                        variant={
-                          account.contacts.length > 0 ? 'accent' : 'default'
-                        }
-                      >
-                        {account.contacts.length} contact
-                        {account.contacts.length > 1 ? 's' : ''}
-                      </Tag>
-                    </div>
-                  </div>
-                  <p className="calls-muted calls-fb-hint">
-                    {[account.industry, account.owner_name]
-                      .filter(Boolean)
-                      .join(' · ') || '—'}
-                  </p>
-                </GlassCard>
+                  account={account}
+                  checked={checked}
+                  onToggle={() => toggleAccount(account.id)}
+                />
               );
             })}
           </div>
         </>
       )}
+        </div>
+
+        {selectedIds.size > 0 && !loading && (
+          <>
+            <aside className="calls-abm-sidebar">
+              <GlassCard>
+                {renderSidebarContent()}
+              </GlassCard>
+            </aside>
+
+            <div className="calls-abm-bottom-bar">
+              <div className="calls-abm-bottom-bar-summary">
+                <strong>{new Set(selectedAccounts.map((a) => a.id)).size} comptes</strong> · {selectedContactsCount} contacts
+              </div>
+              <Button onClick={() => setMobileDrawerOpen(true)}>
+                Configurer et créer ▸
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <Modal
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        title="Créer des séances ABM"
+        variant="glass"
+      >
+        {renderSidebarContent()}
+      </Modal>
     </div>
   );
 }
