@@ -85,13 +85,13 @@ export function MarketSignalSection({
           label={`Part marché / client ${seriesLabel(currentShare?.fy ?? '', data.period)}`}
           value={fmtPct1((currentShare?.pct ?? 0) / 100)}
           scope="new"
-          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes (nouv. aff.)`}
+          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes (nouvelles affaires)`}
         />
       </div>
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Répartition des pertes nouv. aff. par offre
+          Répartition des pertes nouvelles affaires par offre
         </h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stacked} layout="vertical" margin={{ left: 24 }}>

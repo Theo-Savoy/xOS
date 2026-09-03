@@ -36,8 +36,8 @@ export function HistorySection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            CA total = nouv. aff. + renouv. · détections, fermées et signatures
-            nouvelles affaires
+            CA total = nouvelles affaires + renouvellements · détections,
+            opportunités fermées et signatures nouvelles affaires
             {data.period?.granularity === 'semester'
               ? ` · chaque ligne est une demi-année ${data.period.semester}`
               : ''}
@@ -50,12 +50,12 @@ export function HistorySection({
             <tr>
               <th>FY</th>
               <th>CA total</th>
-              <th>CA nouv. aff.</th>
-              <th>CA renouv.</th>
-              <th>Détect. nouv. aff.</th>
-              <th>Fermées nouv. aff.</th>
-              <th>Sign. nouv. aff.</th>
-              <th>Closing nouv. aff.</th>
+              <th>CA nouvelles affaires</th>
+              <th>CA renouvellements</th>
+              <th>Détections nouvelles affaires</th>
+              <th>Fermées nouvelles affaires</th>
+              <th>Signatures nouvelles affaires</th>
+              <th>Closing nouvelles affaires</th>
             </tr>
           </thead>
           <tbody>

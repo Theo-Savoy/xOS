@@ -92,7 +92,7 @@ export function ProductHistorySection({
                 <th style={{ textAlign: 'right' }}>Signatures</th>
                 <th style={{ textAlign: 'right' }}>Perdues</th>
                 <th style={{ textAlign: 'right' }}>Closing</th>
-                <th style={{ textAlign: 'right' }}>CA nouv. aff.</th>
+                <th style={{ textAlign: 'right' }}>CA nouvelles affaires</th>
                 <th style={{ textAlign: 'right' }}>Cycle médian</th>
               </tr>
             </thead>

@@ -113,8 +113,8 @@ export function CapacitySection({
           <thead>
             <tr>
               <th>Exercice</th>
-              <th>CA nouv. aff.</th>
-              <th>Signatures nouv. aff.</th>
+              <th>CA nouvelles affaires</th>
+              <th>Signatures nouvelles affaires</th>
               <th>Détections</th>
             </tr>
           </thead>

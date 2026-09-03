@@ -38,12 +38,12 @@ export function BridgeNewSection({
       kind: 'total' as const,
     },
     {
-      name: 'Volume',
+      name: 'Volume nouvelles affaires',
       amount: vt.volume,
       kind: vt.volume >= 0 ? ('up' as const) : ('down' as const),
     },
     {
-      name: 'Ticket',
+      name: 'Ticket nouvelles affaires',
       amount: vt.ticket,
       kind: vt.ticket >= 0 ? ('up' as const) : ('down' as const),
     },
@@ -67,7 +67,7 @@ export function BridgeNewSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA nouv. aff. ${seriesLabel(data.compare, data.period)}`}
+          label={`CA nouvelles affaires ${seriesLabel(data.compare, data.period)}`}
           value={fmtEur(vt.prev.amount)}
           scope="new"
           hint={`${vt.prev.count} signatures`}
@@ -75,15 +75,15 @@ export function BridgeNewSection({
         <StatCard
           label="Effet volume"
           value={fmtEur(vt.volume)}
-          hint={`Δ signatures × ticket ${data.compare}`}
+          hint={`Delta signatures × ticket ${data.compare}`}
         />
         <StatCard
           label="Effet ticket"
           value={fmtEur(vt.ticket)}
-          hint={`Δ ticket × signatures ${data.fy}`}
+          hint={`Delta ticket × signatures ${data.fy}`}
         />
         <StatCard
-          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(vt.curr.amount)}
           scope="new"
           hint={`${vt.curr.count} signatures`}

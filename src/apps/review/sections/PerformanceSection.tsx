@@ -69,15 +69,15 @@ export function PerformanceSection({
           label={`CA total ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.total ?? 0)}
           scope="total"
-          hint={`Nouv. aff. ${fmtEur(current?.new ?? 0)} · Renouv. ${fmtEur(current?.renew ?? 0)}`}
+          hint={`Nouvelles affaires ${fmtEur(current?.new ?? 0)} · Renouvellements ${fmtEur(current?.renew ?? 0)}`}
         />
         <StatCard
-          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.new ?? 0)}
           scope="new"
         />
         <StatCard
-          label={`CA renouv. ${seriesLabel(data.fy, data.period)}`}
+          label={`CA renouvellements ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.renew ?? 0)}
           scope="total"
         />
@@ -85,7 +85,7 @@ export function PerformanceSection({
           <StatCard
             label={current.other.label}
             value={fmtEur(current.other.amount)}
-            hint={`${current.other.count} opp. hors catalogue / sur-mesure / conseil`}
+            hint={`${current.other.count} opportunités hors catalogue / sur-mesure / conseil`}
           />
         ) : null}
       </div>
@@ -100,12 +100,12 @@ export function PerformanceSection({
             <XAxis
               dataKey="fy"
               stroke="var(--xos-border)"
-              tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+              tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
             />
             <YAxis
               stroke="var(--xos-border)"
               tickFormatter={(v: number) => fmtEur(v)}
-              tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+              tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
               width={72}
             />
             <ReviewChartTooltip

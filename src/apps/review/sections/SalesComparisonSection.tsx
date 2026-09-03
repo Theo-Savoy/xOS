@@ -70,7 +70,7 @@ export function SalesComparisonSection({
           </h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            CA nouv. aff. · {seriesLabel(data.fy, data.period)} · classement
+            CA nouvelles affaires · {seriesLabel(data.fy, data.period)} · classement
             sales hors PDG et hors SDR
           </p>
         </div>
@@ -97,27 +97,27 @@ export function SalesComparisonSection({
               <PersonCell person={christophe} field="detectionRate" />
             </tr>
             <tr>
-              <td>Fermées nouv. aff.</td>
+              <td>Fermées nouvelles affaires</td>
               <PersonCell person={paul} field="closedNew" />
               <PersonCell person={christophe} field="closedNew" />
             </tr>
             <tr>
-              <td>Signatures nouv. aff.</td>
+              <td>Signatures nouvelles affaires</td>
               <PersonCell person={paul} field="signaturesNew" />
               <PersonCell person={christophe} field="signaturesNew" />
             </tr>
             <tr>
-              <td>Closing nouv. aff.</td>
+              <td>Closing nouvelles affaires</td>
               <PersonCell person={paul} field="closing" />
               <PersonCell person={christophe} field="closing" />
             </tr>
             <tr>
-              <td>Ticket nouv. aff.</td>
+              <td>Ticket nouvelles affaires</td>
               <PersonCell person={paul} field="ticket" />
               <PersonCell person={christophe} field="ticket" />
             </tr>
             <tr>
-              <td>CA nouv. aff.</td>
+              <td>CA nouvelles affaires</td>
               <PersonCell person={paul} field="amountNew" />
               <PersonCell person={christophe} field="amountNew" />
             </tr>
