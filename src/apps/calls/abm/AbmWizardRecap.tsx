@@ -5,6 +5,7 @@ import type { WizardStep } from '../modules/sessions/WizardStepper';
 
 export type AbmWizardRecapProps = {
   step: WizardStep;
+  composerSubStep?: 'accounts' | 'contacts';
   query: string;
   activeFiltersCount: number;
   secteursCount: number;
@@ -49,6 +50,7 @@ function EditStepIcon(): ReactNode {
 
 export function AbmWizardRecap({
   step,
+  composerSubStep = 'accounts',
   query,
   activeFiltersCount,
   secteursCount,
@@ -75,7 +77,9 @@ export function AbmWizardRecap({
     step === 0
       ? 'Continuer vers Composer →'
       : step === 1
-        ? 'Continuer vers Planifier →'
+        ? composerSubStep === 'accounts'
+          ? 'Continuer vers les contacts →'
+          : 'Continuer vers Planifier →'
         : creating
           ? 'Création en cours…'
           : sessionsCount > 0
