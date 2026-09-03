@@ -532,7 +532,10 @@ export function AccountSearchView({
     [targetList],
   );
 
-  const canProceedToStep2 = targetList.size > 0 && totalRetainedInTarget > 0;
+  const canProceedToStep2 =
+    query.trim().length >= 2 ||
+    hasAnyFilter(filters) ||
+    targetList.size > 0;
   const canProceedToStep3 = targetList.size > 0 && totalRetainedInTarget > 0;
   const canLaunchSession =
     groups.length > 0 && (!scheduledFor || scheduledFor >= tomorrowParisIso());
@@ -558,7 +561,12 @@ export function AccountSearchView({
       return;
     }
     if (next === 1 && canProceedToStep2) {
+      if (canSearch && !searched) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        void runSearch(query, filters);
+      }
       setStep(1);
+      setComposerSubStep('accounts');
       return;
     }
     if (next === 2 && canProceedToStep2 && canProceedToStep3) {
@@ -567,9 +575,24 @@ export function AccountSearchView({
   };
 
   const handleNext = () => {
-    if (step === 0 && canProceedToStep2) setStep(1);
-    else if (step === 1 && canProceedToStep3) setStep(2);
-    else if (step === 2 && canLaunchSession) handleCreateClick();
+    if (step === 0 && canProceedToStep2) {
+      if (canSearch && !searched) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        void runSearch(query, filters);
+      }
+      setStep(1);
+      setComposerSubStep('accounts');
+    } else if (step === 1) {
+      if (composerSubStep === 'accounts') {
+        if (canProceedToStep3) {
+          setComposerSubStep('contacts');
+        }
+      } else if (canProceedToStep3) {
+        setStep(2);
+      }
+    } else if (step === 2 && canLaunchSession) {
+      handleCreateClick();
+    }
   };
 
   return (
