@@ -93,21 +93,48 @@ describe('PowerStrip — file de séance', () => {
       contact({ id: 1, phone: '+33100000001' }),
       contact({ id: 2, phone: '+33100000002', status: 'called' }),
       contact({ id: 3, phone: '+33100000001' }), // même standard que le 1
-      contact({ id: 4, phone: '01 00 00 00 04' }), // pas E.164 → le pool refuserait tout le lot
+      contact({ id: 4, phone: '01 00 00 00 04' }), // national FR → normalisé en +33, composable
       contact({ id: 5, phone: null }),
       contact({ id: 6, phone: '+33100000006', claim_active: true, claimed_by: 'someone-else' }),
       contact({ id: 7, phone: '+33100000007' }),
     ]);
-    expect(setQueue).toHaveBeenLastCalledWith(['+33100000001', '+33100000007'], [1, 7]);
+    expect(setQueue).toHaveBeenLastCalledWith(['+33100000001', '+33100000004', '+33100000007'], [1, 4, 7]);
   });
 
-  it('annonce les contacts sans numéro composable', () => {
+  it('normalise les +33 avec séparateurs (espaces, tirets, parenthèses, points) en E.164', () => {
+    renderStrip([
+      contact({ id: 1, phone: '+33 1 00 00 00 01' }), // espaces
+      contact({ id: 2, phone: '+33-1-00-00-00-02' }), // tirets
+      contact({ id: 3, phone: '+33 (0)1 00 00 00 03' }), // parenthèses + (0)
+      contact({ id: 4, phone: '+33.1.00.00.00.04' }), // points
+    ]);
+    expect(setQueue).toHaveBeenLastCalledWith(
+      ['+33100000001', '+33100000002', '+33100000003', '+33100000004'],
+      [1, 2, 3, 4],
+    );
+  });
+
+  it('convertit les numéros nationaux FR (0X XX XX XX XX) en +33', () => {
+    renderStrip([
+      contact({ id: 1, phone: '01 00 00 00 01' }),
+      contact({ id: 2, phone: '06 00 00 00 06' }),
+      contact({ id: 3, phone: '0712345678' }),
+    ]);
+    expect(setQueue).toHaveBeenLastCalledWith(
+      ['+33100000001', '+33600000006', '+33712345678'],
+      [1, 2, 3],
+    );
+  });
+
+  it('ignore les numéros absurdes (lettres, trop courts)', () => {
     renderStrip([
       contact({ id: 1, phone: '+33100000001' }),
-      contact({ id: 2, phone: '01 00 00 00 02' }),
-      contact({ id: 3, phone: null }),
+      contact({ id: 2, phone: 'abc' }),
+      contact({ id: 3, phone: '+33' }),
+      contact({ id: 4, phone: '123' }),
     ]);
-    expect(screen.getByText(/2 sans numéro composable/)).toBeTruthy();
+    expect(setQueue).toHaveBeenLastCalledWith(['+33100000001'], [1]);
+    expect(screen.getByText(/3 sans numéro composable/)).toBeTruthy();
   });
 
   it('focalise la fiche du contact décroché', () => {
