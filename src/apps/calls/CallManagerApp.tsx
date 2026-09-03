@@ -2001,7 +2001,7 @@ export default function CallManagerApp({
           savingPreset={savingPreset}
           currentUserId={session.user.id}
           team={team}
-          onBack={goToSessions}
+          onBack={() => setView('session-type-select')}
           onOpenAccountSearch={() => setView('account-search')}
           onLoadPreset={handleLoadPreset}
           onSavePreset={(name, shared) => void handleSavePreset(name, shared)}

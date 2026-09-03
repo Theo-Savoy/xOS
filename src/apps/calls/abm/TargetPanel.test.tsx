@@ -255,4 +255,69 @@ describe('TargetPanel — filtres de contacts', () => {
       within(panel()).getByText(/1 compte · 3 contacts retenus/),
     ).toBeTruthy();
   });
+
+  it('renders the composer as a plan card with classic contact sections', () => {
+    const { container } = render(
+      <Harness initial={makeTargetList([marie, jean, alice])} />,
+    );
+
+    expect(container.querySelector('.calls-plan-card')).toBeTruthy();
+    expect(container.querySelector('.calls-fb-section')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Comptes ciblés' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Vider le panier' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Retirer ACME de la cible' }),
+    ).toBeTruthy();
+  });
+
+  it('filters contacts by fonction preset without deselecting them', async () => {
+    const user = userEvent.setup();
+    const onToggleContact = vi.fn();
+    const initial = makeTargetList([marie, jean, alice], [
+      marie.sf_contact_id,
+      jean.sf_contact_id,
+      alice.sf_contact_id,
+    ]);
+
+    render(<Harness initial={initial} onToggleContact={onToggleContact} />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Responsable formation' }),
+    );
+
+    expect(onToggleContact).not.toHaveBeenCalled();
+    expect(screen.getByTestId('selection-dump').textContent).toBe(
+      JSON.stringify(serializeTarget(initial)),
+    );
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.queryByText('Jean Petit')).toBeNull();
+    expect(screen.queryByText('Alice Martin')).toBeNull();
+    expect(
+      within(panel()).getByText(/1 compte · 3 contacts retenus/),
+    ).toBeTruthy();
+    expect(screen.getByText('2 contacts masqués par le filtre')).toBeTruthy();
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Retenir Marie Dupont',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Chargé de formation' }),
+    );
+
+    expect(onToggleContact).not.toHaveBeenCalled();
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(screen.queryByText('Jean Petit')).toBeNull();
+    expect(screen.getByText('1 contact masqué par le filtre')).toBeTruthy();
+  });
 });
