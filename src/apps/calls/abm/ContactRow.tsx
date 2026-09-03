@@ -1,4 +1,4 @@
-import { Checkbox, Tag } from '../../../components/ui';
+import { Checkbox } from '../../../components/ui';
 import type { AccountSearchContact } from '../types';
 import { MailIcon, PhoneIcon } from './icons';
 
@@ -11,19 +11,6 @@ export type ContactRowProps = {
 export function ContactRow({ contact, selected, onToggle }: ContactRowProps) {
   const hasPhone = Boolean(contact.phone || contact.mobile_phone);
   const hasEmail = Boolean(contact.email);
-
-  const decisionBadge = (() => {
-    switch (contact.decision_level) {
-      case '+':
-        return <Tag variant="accent">Décideur</Tag>;
-      case '=':
-        return <Tag variant="warning">Influenceur</Tag>;
-      case '-':
-        return <Tag variant="muted">Non décideur</Tag>;
-      default:
-        return null;
-    }
-  })();
 
   return (
     <div
@@ -47,7 +34,6 @@ export function ContactRow({ contact, selected, onToggle }: ContactRowProps) {
           <span className="calls-abm-contact-row__name">
             {contact.contact_name}
           </span>
-          {decisionBadge}
         </div>
 
         <div className="calls-abm-contact-row__bottom">
