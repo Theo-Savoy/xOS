@@ -45,14 +45,16 @@ describe('packAccountsIntoSessions', () => {
     expect(totalPacked).toBe(40 + 25 + 38 + 22);
   });
 
-  it('caps at maxSessions and drops accounts that no longer fit', () => {
+  it('caps at maxSessions and records dropped accounts in .dropped', () => {
     const accounts = [
       account('a1', 'One', 60),
       account('a2', 'Two', 60),
       account('a3', 'Three', 60),
     ];
-    const groups = packAccountsIntoSessions(accounts, 50, 2);
-    expect(groups.length).toBeLessThanOrEqual(2);
+    const result = packAccountsIntoSessions(accounts, 50, 2);
+    expect(result.length).toBeLessThanOrEqual(2);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.dropped[0].name).toBe('Three');
   });
 
   it('ignores accounts with zero contacts and returns no groups when nothing is eligible', () => {
