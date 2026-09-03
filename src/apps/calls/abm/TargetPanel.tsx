@@ -101,7 +101,9 @@ export function TargetPanel({
               role="listitem"
             >
               <div className="calls-abm-target-account__header">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   className="calls-abm-target-account__toggle"
                   onClick={() => toggleExpand(account.id)}
@@ -114,7 +116,7 @@ export function TargetPanel({
                   <span className="calls-abm-target-account__name">
                     {account.name}
                   </span>
-                </button>
+                </Button>
                 <Button
                   variant="icon"
                   size="sm"

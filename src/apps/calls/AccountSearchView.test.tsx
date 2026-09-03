@@ -215,7 +215,7 @@ describe('AccountSearchView', () => {
     expect(searchButton.disabled).toBe(true);
 
     await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('button', { name: 'A' }));
+    await user.click(screen.getByRole('checkbox', { name: 'A' }));
 
     expect(searchButton.disabled).toBe(false);
     await user.click(searchButton);
@@ -292,7 +292,7 @@ describe('AccountSearchView', () => {
     renderView();
 
     await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('button', { name: 'Paul Martin' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Paul Martin' }));
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
@@ -421,8 +421,8 @@ describe('AccountSearchView', () => {
       renderView();
 
       fireEvent.click(screen.getByText('Filtres entreprise'));
-      fireEvent.click(screen.getByRole('button', { name: 'A' }));
-      fireEvent.click(screen.getByRole('button', { name: 'B' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'A' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'B' }));
 
       // Still within the 300ms window: no request fired yet.
       act(() => {
@@ -464,7 +464,7 @@ describe('AccountSearchView', () => {
       renderView();
 
       fireEvent.click(screen.getByText('Filtres entreprise'));
-      fireEvent.click(screen.getByRole('button', { name: 'A' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'A' }));
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
@@ -472,7 +472,7 @@ describe('AccountSearchView', () => {
       const firstSignal =
         vi.mocked(fetchAccountsSearch).mock.calls[0][2]?.signal;
 
-      fireEvent.click(screen.getByRole('button', { name: 'B' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'B' }));
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
@@ -680,7 +680,7 @@ describe('AccountSearchView', () => {
     );
     expect(screen.getByText(/Réinitialiser la recherche effacera/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Annuler' }));
-    expect(screen.getByText('ACME')).toBeTruthy();
+    expect(screen.getAllByText('ACME').length).toBeGreaterThanOrEqual(1);
 
     // Confirmer cette fois : reset effectif.
     await user.click(
@@ -791,8 +791,8 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    // Add a Tier filter
-    await user.click(screen.getByRole('button', { name: 'A' }));
+    await user.click(screen.getByText('Filtres entreprise'));
+    await user.click(screen.getByRole('checkbox', { name: 'A' }));
     expect(screen.getByRole('region', { name: 'Filtres actifs' })).toBeTruthy();
     expect(screen.getByText('Tier A')).toBeTruthy();
 
@@ -803,5 +803,132 @@ describe('AccountSearchView', () => {
     await user.click(clearAllChipsBtn);
 
     expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
+  });
+  it('(1) selection survives filter changes', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValueOnce({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Add ACME to target
+    await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    expect(
+      screen.getAllByText(/1 compte · 1 contact retenu/).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Now change a filter
+    vi.mocked(fetchAccountsSearch).mockResolvedValueOnce({
+      accounts: [acmeSubsidiary],
+      truncated: false,
+    });
+    await user.click(screen.getByText('Filtres entreprise'));
+    await user.click(screen.getByRole('checkbox', { name: 'B' }));
+
+    // Target remains completely intact!
+    expect(
+      screen.getAllByText(/1 compte · 1 contact retenu/).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByRole('button', { name: 'Retirer ACME de la cible' })
+        .length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it('(2) contact sub-selection propagates to onCreateAudience payload', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acmeSubsidiary],
+      truncated: false,
+    });
+    const { onCreateAudience } = renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME Europe');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME Europe');
+
+    // Select ACME Europe (initially 2 contacts)
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
+    );
+    expect(
+      screen.getAllByText(/1 compte · 2 contacts retenus/).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // In TargetPanel, uncheck Alice Martin
+    const aliceCheckbox = screen.getByRole('checkbox', {
+      name: 'Retenir Alice Martin',
+    });
+    await user.click(aliceCheckbox);
+
+    // Summary updates to 1 contact
+    expect(
+      screen.getAllByText(/1 compte · 1 contact retenu/).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Create session
+    await user.click(screen.getByRole('button', { name: 'Créer 1 séance ABM' }));
+
+    // Verify payload only contains Jean Petit, NOT Alice Martin
+    expect(onCreateAudience).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groups: [
+          expect.objectContaining({
+            account_ids: ['001000000000002AAA'],
+            contacts: [
+              expect.objectContaining({
+                contact_name: 'Jean Petit',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    const sentContacts =
+      vi.mocked(onCreateAudience).mock.calls[0][0].groups[0].contacts;
+    expect(sentContacts).toHaveLength(1);
+    expect(sentContacts[0].contact_name).toBe('Jean Petit');
+  });
+
+  it('(3) asks for confirmation before clearing target with Vider la cible', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme],
+      truncated: false,
+    });
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Select ACME
+    await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    expect(
+      screen.getAllByText(/1 compte · 1 contact retenu/).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Click "Vider" in TargetPanel
+    await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
+    expect(
+      screen.getByText(/Êtes-vous sûr de vouloir vider la cible/),
+    ).toBeTruthy();
+
+    // Cancel: target intact
+    await user.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(
+      screen.getAllByText(/1 compte · 1 contact retenu/).length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Confirm: target cleared
+    await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
+    const confirmBtns = screen.getAllByRole('button', { name: 'Vider la cible' });
+    await user.click(confirmBtns[confirmBtns.length - 1]);
+    expect(screen.queryAllByText(/1 compte · 1 contact retenu/)).toHaveLength(0);
   });
 });

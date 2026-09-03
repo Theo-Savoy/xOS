@@ -1,4 +1,4 @@
-import { Button, Tag } from '../../../components/ui';
+import { Button, Checkbox, Tag } from '../../../components/ui';
 import type { AccountSearchHit } from '../types';
 import { CheckIcon, PlusIcon } from './icons';
 
@@ -29,6 +29,18 @@ export function AccountRow({
       className={`calls-abm-account-row ${inTarget ? 'calls-abm-account-row--in-target' : ''} ${!hasContacts ? 'calls-abm-account-row--disabled' : ''}`}
       role="listitem"
     >
+      <div
+        className="calls-abm-account-row__check"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={inTarget}
+          disabled={!hasContacts}
+          onChange={() => onToggleTarget(account)}
+          aria-label={`Sélectionner ${account.name}`}
+        />
+      </div>
+
       <div className="calls-abm-account-row__content">
         <div className="calls-abm-account-row__header">
           <strong className="calls-abm-account-row__name">{account.name}</strong>
@@ -38,7 +50,7 @@ export function AccountRow({
             </Tag>
           )}
           <span className="calls-abm-account-row__contacts xos-numeric">
-            {contactsText}
+            {hasContacts ? contactsText : '0 contact (exclu)'}
           </span>
         </div>
 
