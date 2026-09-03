@@ -380,7 +380,7 @@ export type PortfolioPayload = {
       actual: number;
       expected: number;
     };
-    lost_share?: { ok: boolean; ratio: number; expected: number };
+    lost_share?: { ratio: number };
   };
   statuses: {
     gagnes: PortfolioStatus;

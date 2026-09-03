@@ -199,6 +199,7 @@ export function computePortfolio(window, arrCohort = [], fy = 'FY26') {
   const nCohort = (arrCohort || []).length;
   const signedAmount = gagnes.amount + fidelises.amount;
   const lostShare = cohortArr > 0 ? perdus.amount / cohortArr : 0;
+  const signedOk = Math.abs(signedAmount - split.total.amount) <= 1_000;
 
   return {
     fy,
@@ -223,19 +224,14 @@ export function computePortfolio(window, arrCohort = [], fy = 'FY26') {
     },
     conservation: {
       signed: {
-        ok: Math.abs(signedAmount - split.total.amount) <= 1_000,
+        ok: signedOk,
         delta_amount: signedAmount - split.total.amount,
         actual: signedAmount,
         expected: split.total.amount,
       },
-      lost_share: {
-        ok: Math.abs(lostShare - 0.334) <= 0.002,
-        ratio: lostShare,
-        expected: 0.334,
-      },
-      ok:
-        Math.abs(signedAmount - split.total.amount) <= 1_000 &&
-        (nCohort === 0 || Math.abs(lostShare - 0.334) <= 0.002),
+      // Part du stock ARR perdue : indicateur informatif, pas un seuil calibré.
+      lost_share: { ratio: lostShare },
+      ok: signedOk,
       delta_count: 0,
       delta_amount: signedAmount - split.total.amount,
     },

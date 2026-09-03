@@ -41,7 +41,7 @@ describe('computeSynthesis', () => {
     ]);
     expect(synthesis.cards.map((card) => card.display)).toEqual([
       '−13,7 %',
-      '53,8 % nouv. aff.',
+      '53,8 % new',
       '30,1 %',
       '22 j',
     ]);
@@ -109,7 +109,7 @@ describe('computeSynthesis', () => {
 
     expect(synthesis.cards.map((card) => card.display)).toEqual([
       '−25,0 %',
-      '33,3 % nouv. aff.',
+      '33,3 % new',
       '25,0 %',
       '45 j',
     ]);

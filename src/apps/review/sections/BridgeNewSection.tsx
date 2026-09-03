@@ -38,12 +38,12 @@ export function BridgeNewSection({
       kind: 'total' as const,
     },
     {
-      name: 'Volume nouvelles affaires',
+      name: 'Volume new',
       amount: vt.volume,
       kind: vt.volume >= 0 ? ('up' as const) : ('down' as const),
     },
     {
-      name: 'Ticket nouvelles affaires',
+      name: 'Ticket new',
       amount: vt.ticket,
       kind: vt.ticket >= 0 ? ('up' as const) : ('down' as const),
     },

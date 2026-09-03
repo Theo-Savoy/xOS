@@ -170,15 +170,15 @@ export function computeSynthesisCards({
     ),
     card(
       'mix-new',
-      'Mix nouv. aff. / renouv.',
-      mixNew === null ? '—' : `${fmtFr(mixNew * 100, 1)} % nouv. aff.`,
+      'Mix new / renew',
+      mixNew === null ? '—' : `${fmtFr(mixNew * 100, 1)} % new`,
       mixNew ?? 0,
       'new',
       `Part des nouvelles affaires dans le CA signé ${periodLabel}`,
     ),
     card(
       'closing',
-      'Closing nouv. aff.',
+      'Closing new',
       closing === null ? '—' : `${fmtFr(closing * 100, 1)} %`,
       closing ?? 0,
       'signatures-new',
@@ -186,7 +186,7 @@ export function computeSynthesisCards({
     ),
     card(
       'cycle',
-      'Cycle nouv. aff.',
+      'Cycle new',
       cycle.median === null ? '—' : `${fmtFr(cycle.median, 0)} j`,
       cycle.median ?? 0,
       'signatures-new',

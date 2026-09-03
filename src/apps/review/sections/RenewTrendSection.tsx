@@ -1,5 +1,6 @@
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -13,7 +14,11 @@ import { fmtEur } from '../review.helpers';
 import { FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
-/** Évolution du CA renouvellements exercice par exercice. */
+function fmtPct(value: number): string {
+  return `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+}
+
+/** Renouvellements exercice par exercice : montant et part du CA total. */
 export function RenewTrendSection({
   data,
   loading,
@@ -39,7 +44,8 @@ export function RenewTrendSection({
 
   const chartData = data.series.map((row) => ({
     fy: seriesLabel(row.fy, data.period),
-    Renouvellements: row.renew,
+    renew: row.renew,
+    part: row.total > 0 ? (row.renew / row.total) * 100 : 0,
   }));
 
   return (
@@ -61,7 +67,7 @@ export function RenewTrendSection({
             data.period,
           )}
         </h4>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
             <XAxis
@@ -70,26 +76,55 @@ export function RenewTrendSection({
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
             />
             <YAxis
+              yAxisId="montant"
               stroke="var(--xos-border)"
               tickFormatter={(v: number) => fmtEur(v)}
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
               width={72}
             />
-            <ReviewChartTooltip
-              content={<ChartTooltip valueFormatter={fmtEur} />}
+            <YAxis
+              yAxisId="part"
+              orientation="right"
+              stroke="var(--xos-border)"
+              domain={[0, 100]}
+              unit=" %"
+              tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+              width={56}
             />
+            <ReviewChartTooltip
+              content={
+                <ChartTooltip
+                  valueFormatter={(value, dataKey) =>
+                    dataKey === 'part' ? fmtPct(value) : fmtEur(value)
+                  }
+                />
+              }
+            />
+            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Line
+              yAxisId="montant"
               type="monotone"
-              dataKey="Renouvellements"
+              dataKey="renew"
+              name="Renouvellements"
               stroke="#5b8def"
               strokeWidth={2}
+              dot={{ r: 3 }}
+            />
+            <Line
+              yAxisId="part"
+              type="monotone"
+              dataKey="part"
+              name="Part du CA total"
+              stroke="var(--xos-accent-success)"
+              strokeWidth={2}
+              strokeDasharray="4 3"
               dot={{ r: 3 }}
             />
           </LineChart>
         </ResponsiveContainer>
         <p className="review-section-note">
-          CA resigné sur les clients existants, exercice par exercice. Stock et
-          flux restent deux lectures distinctes.
+          CA resigné sur les clients existants (axe gauche) et sa part dans le
+          CA total de l&apos;exercice (axe droit).
         </p>
       </GlassCard>
     </div>
