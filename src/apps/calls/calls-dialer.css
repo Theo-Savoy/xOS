@@ -336,83 +336,202 @@
   color: var(--xos-border-subtle, rgba(255, 255, 255, 0.2));
 }
 
-/* File d'appel repliée en mode Power */
-.calls-power-queue-summary {
+/* ── File d'appel en mode Power (vue tableau toujours visible) ───────────── */
+.calls-cockpit-list-wrap--power {
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.calls-cockpit-list--power {
+  padding: 0;
+  border: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+  background: rgba(4, 8, 24, 0.55);
+  border-radius: var(--xos-radius-md, 0.5rem);
+  overflow: hidden;
+}
+
+.calls-cockpit-list__toolbar--power {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.65rem 1rem;
-  font-size: 0.85rem;
-  color: var(--xos-text-muted);
-}
-
-.calls-power-queue-summary--expanded {
   border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 0;
-  padding: 0.6rem 0.85rem;
+  background: rgba(0, 0, 0, 0.14);
+  flex-wrap: wrap;
 }
 
-.calls-power-queue-summary__text strong {
+.calls-cockpit-list__toolbar--power .calls-power-queue-summary__text {
+  font-size: 0.84rem;
+  color: var(--xos-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.calls-cockpit-list__toolbar--power .calls-power-queue-summary__text strong {
   color: var(--xos-text);
   font-weight: 600;
 }
 
-.calls-power-queue-summary__toggle.xos-btn {
-  color: var(--combo-power, #eab84d);
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.2rem 0.6rem;
-}
-
-.calls-power-queue-summary__toggle.xos-btn:hover {
-  background: rgba(234, 184, 77, 0.1);
-  color: var(--combo-power-soft, #ffe4a3);
-}
-
-/* Grille épurée 3 colonnes pour la file d'appel développée en Power */
-.calls-cockpit-list--power {
-  padding: 0;
-}
-
 .calls-cockpit-list__filters--power {
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+  padding: 0;
+  border: none;
+  margin: 0;
+  min-width: 13rem;
+  flex: 0 1 18rem;
+}
+
+.calls-cockpit-list__filters--power .calls-cockpit-list__search {
+  width: 100%;
+  height: 2.1rem;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: var(--xos-radius-sm, 0.35rem);
+}
+
+.calls-cockpit-list__filters--power .calls-cockpit-list__search:focus {
+  border-color: var(--combo-power, #eab84d);
+  outline: none;
+}
+
+/* Grille 4 colonnes lisible et proportionnée */
+.calls-cockpit-list--power .calls-cockpit-list__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .calls-cockpit-list__rows--power {
   list-style: none;
   margin: 0;
   padding: 0;
+  min-width: 44rem;
 }
 
 .calls-cockpit-list__rows--power li {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(11rem, 1.4fr) minmax(9rem, 1.1fr) minmax(13rem, 1.5fr) minmax(8.5rem, 0.9fr);
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.85rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+  border-left: 2px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .calls-cockpit-list__rows--power li:not(.calls-cockpit-list__header):hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.calls-cockpit-list__rows--power li.calls-cockpit-list__row--selected {
+  background: color-mix(in srgb, var(--combo-power, #eab84d) 8%, rgba(255, 255, 255, 0.02));
+  border-left-color: var(--combo-power, #eab84d);
+}
+
+.calls-cockpit-list__rows--power li.calls-cockpit-list__row--done {
+  opacity: 0.62;
 }
 
 .calls-cockpit-list__header--power {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--xos-text-muted);
-  padding-bottom: 0.45rem;
+  background: rgba(0, 0, 0, 0.18);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  user-select: none;
+  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__name {
+  display: grid;
+  gap: 0.12rem;
+  text-align: left;
+  padding: 0;
+  justify-content: start;
+  min-width: 0;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__name strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--xos-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__name:hover strong {
+  color: var(--combo-power, #eab84d);
 }
 
 .calls-cockpit-list__subtitle {
   display: block;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--xos-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xos-text-muted);
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__cell--email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__email {
+  color: var(--xos-text-muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  transition: color 0.12s ease;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__email:hover {
+  color: var(--combo-power, #eab84d);
+  text-decoration: underline;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__empty-field {
+  color: var(--xos-text-muted);
+  opacity: 0.6;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.calls-cockpit-list__rows--power .calls-cockpit-list__attempt {
+  font-size: 0.72rem;
+  color: var(--xos-text-muted);
   white-space: nowrap;
 }
 /* Bouton de sortie d'urgence pendant une vague */
@@ -788,7 +907,10 @@
   .calls-view--power .calls-view__header,
   .calls-view--power .calls-power-strip,
   .calls-power-toggle__track,
-  .calls-power-toggle__thumb {
+  .calls-power-toggle__thumb,
+  .calls-cockpit-list__rows--power li,
+  .calls-cockpit-list__rows--power .calls-cockpit-list__name strong,
+  .calls-cockpit-list__rows--power .calls-cockpit-list__email {
     transition: none;
   }
 
