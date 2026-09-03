@@ -1,6 +1,6 @@
 import { verifyJWT, respond } from '../_auth.js';
 import { getServiceClient } from '../_calls/http.js';
-import { fetchSFToken } from '../_crm/salesforce.js';
+import { fetchSFToken } from './salesforce.js';
 
 const FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]*__c$/;
 const CACHE_TTL_MS = 60 * 60 * 1000;

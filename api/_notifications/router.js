@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { respond, verifyJWT } from './_auth.js';
+import { respond, verifyJWT } from '../_auth.js';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;

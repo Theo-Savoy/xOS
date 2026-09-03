@@ -55,7 +55,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mockFrom }),
 }));
 
-import { GET, POST } from './status.js';
+import { GET, POST } from './_status/router.js';
 import { DEFAULT_CLEANER_SETTINGS } from './_cleaner/core/settings.js';
 
 function request(method, body) {

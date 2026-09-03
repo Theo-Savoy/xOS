@@ -1,5 +1,5 @@
 import { nextContinuationName } from './sessionNaming.js';
-import { insertUserNotification } from '../notifications.js';
+import { insertUserNotification } from '../_notifications/router.js';
 import {
   newlyAddedSessionMemberIds,
   sessionShareNotification,

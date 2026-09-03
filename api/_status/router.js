@@ -1,13 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import { respond, verifyJWT } from './_auth.js';
-import { getProfile, invalidateProfileCache } from './_calls/profileCache.js';
-import { canManageRoles, canManageSettings, ROLES } from './_config/access.js';
-import { fetchSFToken } from './_crm/salesforce.js';
+import { respond, verifyJWT } from '../_auth.js';
+import { getProfile, invalidateProfileCache } from '../_calls/profileCache.js';
+import { canManageRoles, canManageSettings, ROLES } from '../_config/access.js';
+import { fetchSFToken } from '../_crm/salesforce.js';
 import {
   CLEANER_SETTINGS_KEY,
   DEFAULT_CLEANER_SETTINGS,
   normalizeCleanerSettings,
-} from './_cleaner/core/settings.js';
+} from '../_cleaner/core/settings.js';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;

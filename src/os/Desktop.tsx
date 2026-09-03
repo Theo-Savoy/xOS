@@ -4,7 +4,12 @@ import { Button } from '../components/ui';
 import { apiFetch } from '../lib/apiClient';
 import { supabase } from '../lib/supabase';
 import { Dock } from './Dock';
-import { appRegistry, type AppManifest, type AppRole } from './registry';
+import {
+  appRegistry,
+  getAppManifest,
+  type AppManifest,
+  type AppRole,
+} from './registry';
 import { WindowManager } from './WindowManager';
 import {
   hydrateWindowState,
@@ -166,6 +171,29 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
     const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
     window.history.replaceState({}, '', next);
   }, [refreshSfStatus]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const openId = params.get('open');
+    if (!openId) return;
+    const app = getAppManifest(openId);
+    if (!app) return;
+    const appParams: Record<string, string> = {};
+    for (const [key, value] of params.entries()) {
+      if (key === 'open') continue;
+      appParams[key] = value;
+    }
+    dispatch({
+      type: 'open',
+      appId: app.id,
+      defaultSize: app.defaultSize,
+      params: Object.keys(appParams).length ? appParams : undefined,
+    });
+    params.delete('open');
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', next);
+  }, []);
 
   const visibleApps = appRegistry.filter(
     (app) => !app.roles || app.roles.includes(role),
