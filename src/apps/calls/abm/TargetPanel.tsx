@@ -1,9 +1,39 @@
 import { useState } from 'react';
-import { Button } from '../../../components/ui';
+import { Button, SegmentedControl } from '../../../components/ui';
 import { ConfirmDialog } from '../ConfirmDialog';
-import type { AccountSearchHit } from '../types';
+import type { AccountSearchContact, AccountSearchHit } from '../types';
 import { ContactRow } from './ContactRow';
 import { ChevronIcon } from './icons';
+
+const CHANNEL_FILTER_OPTIONS = [
+  { value: 'all', label: 'Tous' },
+  { value: 'phone', label: 'A téléphone' },
+  { value: 'email', label: 'A email' },
+] as const;
+
+type ContactChannelFilter = (typeof CHANNEL_FILTER_OPTIONS)[number]['value'];
+
+function contactHasPhone(contact: AccountSearchContact): boolean {
+  return Boolean(contact.phone || contact.mobile_phone);
+}
+
+function contactHasEmail(contact: AccountSearchContact): boolean {
+  return Boolean(contact.email);
+}
+
+function matchesContactView(
+  contact: AccountSearchContact,
+  channel: ContactChannelFilter,
+  search: string,
+): boolean {
+  if (channel === 'phone' && !contactHasPhone(contact)) return false;
+  if (channel === 'email' && !contactHasEmail(contact)) return false;
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  const name = contact.contact_name.toLowerCase();
+  const title = (contact.title ?? '').toLowerCase();
+  return name.includes(query) || title.includes(query);
+}
 
 export type TargetEntry = {
   account: AccountSearchHit;
@@ -33,6 +63,9 @@ export function TargetPanel({
     return firstKey ? new Set([firstKey]) : new Set();
   });
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [contactFilter, setContactFilter] =
+    useState<ContactChannelFilter>('all');
+  const [contactSearch, setContactSearch] = useState('');
 
   const toggleExpand = (accountId: string) => {
     setExpandedIds((prev) => {
@@ -49,6 +82,26 @@ export function TargetPanel({
     (sum, entry) => sum + entry.contactIds.size,
     0,
   );
+  const hiddenRetainedCount = entries.reduce((sum, { account, contactIds }) => {
+    let hidden = 0;
+    for (const contact of account.contacts) {
+      if (
+        contactIds.has(contact.sf_contact_id) &&
+        !matchesContactView(contact, contactFilter, contactSearch)
+      ) {
+        hidden += 1;
+      }
+    }
+    return sum + hidden;
+  }, 0);
+
+  const handleChannelChange = (next: ContactChannelFilter[]) => {
+    const selected =
+      next.find((value) => value !== contactFilter) ??
+      next[0] ??
+      contactFilter;
+    setContactFilter(selected);
+  };
 
   const handleConfirmClear = () => {
     onClearTarget();
@@ -88,11 +141,38 @@ export function TargetPanel({
         </div>
       </div>
 
+      <div className="calls-abm-target-filters">
+        <SegmentedControl
+          label="Avec canal"
+          options={CHANNEL_FILTER_OPTIONS}
+          value={[contactFilter]}
+          onChange={handleChannelChange}
+        />
+        <input
+          type="text"
+          className="calls-input"
+          placeholder="Rechercher un contact…"
+          value={contactSearch}
+          onChange={(event) => setContactSearch(event.target.value)}
+          aria-label="Rechercher un contact"
+        />
+        {hiddenRetainedCount > 0 && (
+          <p className="calls-abm-target-filters__hidden">
+            {hiddenRetainedCount} contact
+            {hiddenRetainedCount > 1 ? 's' : ''} masqué
+            {hiddenRetainedCount > 1 ? 's' : ''} par le filtre
+          </p>
+        )}
+      </div>
+
       <div className="calls-abm-target-panel__list" role="list">
         {entries.map(({ account, contactIds }) => {
           const isExpanded = expandedIds.has(account.id);
           const retainedCount = contactIds.size;
           const totalCount = account.contacts.length;
+          const visibleContacts = account.contacts.filter((contact) =>
+            matchesContactView(contact, contactFilter, contactSearch),
+          );
 
           return (
             <div
@@ -140,7 +220,7 @@ export function TargetPanel({
                   role="list"
                   aria-label={`Contacts de ${account.name}`}
                 >
-                  {account.contacts.map((contact) => (
+                  {visibleContacts.map((contact) => (
                     <ContactRow
                       key={contact.sf_contact_id}
                       contact={contact}
