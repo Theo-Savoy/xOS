@@ -287,28 +287,134 @@
   flex-wrap: wrap;
 }
 
-.calls-view__title-tags .calls-power-badge {
+/* Point ambre discret + libellé textuel Power près du titre (remplace les anciens badges) */
+.calls-power-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  background: rgba(234, 184, 77, 0.14);
-  color: var(--combo-power, #EAB84D);
-  border: 1px solid rgba(234, 184, 77, 0.4);
+  gap: 0.45rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  color: var(--combo-power, #eab84d);
+  margin-left: 0.75rem;
+  vertical-align: middle;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.calls-power-indicator__dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background-color: var(--combo-power, #eab84d);
+  box-shadow: 0 0 6px rgba(234, 184, 77, 0.6);
+}
+
+.calls-view--power-conversation .calls-power-indicator__dot {
+  box-shadow: 0 0 3px rgba(234, 184, 77, 0.35);
+}
+
+/* Ligne condensée des métriques en mode Power (remplace les 5 cartes) */
+.calls-power-kpis-condensed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--xos-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.calls-power-kpis-condensed strong,
+.calls-power-kpis-condensed .xos-numeric {
+  color: var(--xos-text);
+  font-weight: 600;
+}
+
+.calls-power-kpis-condensed__sep {
+  color: var(--xos-border-subtle, rgba(255, 255, 255, 0.2));
+}
+
+/* File d'appel repliée en mode Power */
+.calls-power-queue-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-power-queue-summary--expanded {
+  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 0;
+  padding: 0.6rem 0.85rem;
+}
+
+.calls-power-queue-summary__text strong {
+  color: var(--xos-text);
+  font-weight: 600;
+}
+
+.calls-power-queue-summary__toggle.xos-btn {
+  color: var(--combo-power, #eab84d);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+}
+
+.calls-power-queue-summary__toggle.xos-btn:hover {
+  background: rgba(234, 184, 77, 0.1);
+  color: var(--combo-power-soft, #ffe4a3);
+}
+
+/* Grille épurée 3 colonnes pour la file d'appel développée en Power */
+.calls-cockpit-list--power {
+  padding: 0;
+}
+
+.calls-cockpit-list__filters--power {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--xos-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.calls-cockpit-list__rows--power {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calls-cockpit-list__rows--power li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.85rem;
+}
+
+.calls-cockpit-list__rows--power li:not(.calls-cockpit-list__header):hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.calls-cockpit-list__header--power {
   font-size: 0.72rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--xos-text-muted);
+  padding-bottom: 0.45rem;
 }
 
-.calls-view__title-tags .calls-power-badge--conversation {
-  background: rgba(234, 184, 77, 0.08);
-  border-color: rgba(234, 184, 77, 0.22);
-  color: var(--combo-power-soft, #FFE4A3);
+.calls-cockpit-list__subtitle {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--xos-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
 /* Bouton de sortie d'urgence pendant une vague */
 .calls-power-exit-btn.xos-btn {
   font-weight: 600;
@@ -316,10 +422,15 @@
 }
 
 @keyframes calls-power-exit-pop {
-  0% { transform: scale(0.92); opacity: 0.6; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.92);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
-
 
 .calls-power-strip__bar {
   display: flex;
@@ -482,12 +593,12 @@
 }
 
 .calls-power-toggle:focus-visible {
-  outline: 2px solid var(--combo-power, #EAB84D);
+  outline: 2px solid var(--combo-power, #eab84d);
   outline-offset: 3px;
 }
 
 .calls-power-toggle--on.xos-btn {
-  color: var(--combo-power-soft, #FFE4A3);
+  color: var(--combo-power-soft, #ffe4a3);
   background: rgba(234, 184, 77, 0.09);
   border-color: rgba(234, 184, 77, 0.35);
   box-shadow: 0 0 16px -4px rgba(234, 184, 77, 0.25);
@@ -525,8 +636,8 @@
 }
 
 .calls-power-toggle--on .calls-power-toggle__track {
-  background: color-mix(in srgb, var(--combo-power, #EAB84D) 82%, #201302);
-  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 80%, white);
+  background: color-mix(in srgb, var(--combo-power, #eab84d) 82%, #201302);
+  border-color: color-mix(in srgb, var(--combo-power, #eab84d) 80%, white);
   box-shadow:
     0 1px 8px rgba(234, 184, 77, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
@@ -564,12 +675,14 @@
 
 /* Bouton CTA de lancement : contraste AA élevé (texte bleu nuit sur ambre) */
 .calls-power-strip .calls-power-strip__launch.xos-btn--primary {
-  background: var(--combo-power, #EAB84D);
+  background: var(--combo-power, #eab84d);
   color: var(--combo-power-contrast, #071326);
-  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 80%, #000);
+  border-color: color-mix(in srgb, var(--combo-power, #eab84d) 80%, #000);
   font-weight: 700;
   letter-spacing: -0.01em;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 0 16px -2px rgba(234, 184, 77, 0.45);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.25),
+    0 0 16px -2px rgba(234, 184, 77, 0.45);
   transition:
     background-color 200ms ease,
     border-color 200ms ease,
@@ -577,11 +690,14 @@
     transform 160ms ease;
 }
 
-.calls-power-strip .calls-power-strip__launch.xos-btn--primary:not(:disabled):hover {
-  background: color-mix(in srgb, var(--combo-power, #EAB84D) 92%, white);
+.calls-power-strip
+  .calls-power-strip__launch.xos-btn--primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--combo-power, #eab84d) 92%, white);
   color: var(--combo-power-contrast, #071326);
-  border-color: color-mix(in srgb, var(--combo-power, #EAB84D) 90%, black);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 22px -2px rgba(234, 184, 77, 0.6);
+  border-color: color-mix(in srgb, var(--combo-power, #eab84d) 90%, black);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 22px -2px rgba(234, 184, 77, 0.6);
 }
 
 .calls-power-strip .calls-power-strip__launch.xos-btn--primary:disabled {
@@ -604,7 +720,7 @@
   background: linear-gradient(
     100deg,
     transparent 40%,
-    color-mix(in srgb, var(--combo-power, #EAB84D) 45%, transparent) 50%,
+    color-mix(in srgb, var(--combo-power, #eab84d) 45%, transparent) 50%,
     transparent 60%
   );
   animation: calls-power-sweep 900ms ease-out 1;
@@ -616,25 +732,51 @@
 }
 
 @keyframes calls-power-electric-flash {
-  0% { opacity: 0.95; transform: translateY(-50%) scale(0.4); }
-  40% { opacity: 0.7; transform: translateY(-50%) scale(1.2); }
-  100% { opacity: 0; transform: translateY(-50%) scale(1.8); }
+  0% {
+    opacity: 0.95;
+    transform: translateY(-50%) scale(0.4);
+  }
+  40% {
+    opacity: 0.7;
+    transform: translateY(-50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(1.8);
+  }
 }
 
 @keyframes calls-power-sweep {
-  from { transform: translateX(-60%); opacity: 0.9; }
-  to { transform: translateX(60%); opacity: 0; }
+  from {
+    transform: translateX(-60%);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateX(60%);
+    opacity: 0;
+  }
 }
 
 @keyframes calls-power-kick {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.06); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes calls-power-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Keyframes épurées (pas de twinkle superflus) */
