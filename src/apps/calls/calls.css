@@ -6503,3 +6503,73 @@ a.calls-contact-card__peer:hover {
 .calls-fb-advanced {
   border-style: dashed;
 }
+
+/* Carte preset : wrapper relatif pour le bouton supprimer en coin */
+.calls-fb-starter-card-wrap {
+  position: relative;
+}
+
+.calls-fb-starter-card__remove {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--xos-border);
+  background: var(--xos-surface-2);
+  color: var(--xos-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.calls-fb-starter-card__remove:hover {
+  color: var(--xos-danger, #e5484d);
+  border-color: var(--xos-danger, #e5484d);
+}
+
+/* Carte "Enregistrer cette recherche" : details/summary stylé comme une starter card */
+.calls-fb-save-card {
+  border-radius: var(--xos-radius, 8px);
+}
+
+.calls-fb-save-card > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.calls-fb-save-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.calls-fb-save-card[open] > summary {
+  background: color-mix(in srgb, var(--xos-surface) 90%, transparent);
+  border-color: var(--xos-accent);
+}
+
+.calls-fb-save-card .calls-fb-save {
+  margin-left: 0;
+  padding: 0.7rem 0.75rem;
+  border-top: 1px solid var(--xos-border);
+}
+
+/* Preview : rang des limites (Contacts max / Max par entreprise) — étape Composer */
+.calls-preview__limits {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0 0;
+  border-top: 1px solid var(--xos-border);
+  margin-top: 0.75rem;
+}
+
+.calls-preview__limits .calls-select {
+  min-width: 12rem;
+}
