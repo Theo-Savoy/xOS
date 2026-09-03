@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Button,
   DatePicker,
@@ -152,6 +152,43 @@ type AccountSearchViewProps = {
   initialStep?: WizardStep;
 };
 
+function SearchModeIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3-3" />
+    </svg>
+  );
+}
+
+function FiltersModeIcon(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
 export function AccountSearchView({
   token,
   team = [],
@@ -165,6 +202,9 @@ export function AccountSearchView({
   const initialPrefs = useRef(readPrefs()).current;
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
+  const [searchMode, setSearchMode] = useState<'name' | 'filters' | null>(
+    null,
+  );
   const [sortBy, setSortBy] = useState<AbmSortOption>(
     initialPrefs.sortBy ?? 'default',
   );
@@ -287,6 +327,7 @@ export function AccountSearchView({
     abortRef.current?.abort();
     setQuery('');
     setFilters(emptyAbmFilters());
+    setSearchMode(null);
     setAccounts([]);
     setTargetList(new Map());
     setSearched(false);
@@ -512,42 +553,101 @@ export function AccountSearchView({
           {/* Étape 0 : CIBLER */}
           {step === 0 && (
             <div className="calls-wizard-step-pane" data-step="cibler">
-              <GlassCard className="calls-filterbuilder">
-                <label className="calls-field">
-                  <span>Nom du compte</span>
-                  <input
-                    type="text"
-                    className="calls-input"
-                    placeholder="Rechercher une entreprise par son nom…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === 'Enter' &&
-                      canSearch &&
-                      !loading &&
-                      void handleSearch()
-                    }
-                    aria-label="Nom du compte"
-                  />
-                </label>
-                <div className="calls-fb-actions">
-                  <Button
-                    onClick={() => void handleSearch()}
-                    disabled={!canSearch || loading}
-                  >
-                    {loading ? 'Recherche…' : 'Rechercher'}
-                  </Button>
-                  {(query.trim() || hasAnyFilter(filters)) && (
+              {searchMode === null && (
+                <div
+                  className="calls-fb-starter-cards"
+                  role="region"
+                  aria-label="Mode de recherche"
+                >
+                  <div className="calls-fb-starter-cards__grid">
                     <Button
                       variant="secondary"
-                      onClick={handleResetAll}
-                      disabled={loading}
-                      aria-label="Réinitialiser la recherche"
+                      size="sm"
+                      className="calls-fb-starter-card"
+                      onClick={() => setSearchMode('name')}
                     >
-                      Réinitialiser
+                      <span className="calls-fb-starter-card__icon">
+                        <SearchModeIcon />
+                      </span>
+                      <span className="calls-fb-starter-card__body">
+                        <strong>Rechercher par nom</strong>
+                        <small>Saisissez le nom d&apos;une entreprise</small>
+                      </span>
                     </Button>
-                  )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="calls-fb-starter-card"
+                      onClick={() => setSearchMode('filters')}
+                    >
+                      <span className="calls-fb-starter-card__icon">
+                        <FiltersModeIcon />
+                      </span>
+                      <span className="calls-fb-starter-card__body">
+                        <strong>Rechercher par filtres</strong>
+                        <small>Secteurs, effectifs, tier, propriétaires</small>
+                      </span>
+                    </Button>
+                  </div>
                 </div>
+              )}
+
+              {searchMode !== null && (
+              <GlassCard className="calls-filterbuilder">
+                <div className="calls-abm-mode-switch">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setSearchMode(
+                        searchMode === 'name' ? 'filters' : 'name',
+                      )
+                    }
+                  >
+                    {searchMode === 'name'
+                      ? 'Rechercher par filtres'
+                      : 'Rechercher par nom'}
+                  </Button>
+                </div>
+                {searchMode === 'name' && (
+                  <>
+                    <label className="calls-field">
+                      <span>Nom du compte</span>
+                      <input
+                        type="text"
+                        className="calls-input"
+                        placeholder="Rechercher une entreprise par son nom…"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === 'Enter' &&
+                          canSearch &&
+                          !loading &&
+                          void handleSearch()
+                        }
+                        aria-label="Nom du compte"
+                      />
+                    </label>
+                    <div className="calls-fb-actions">
+                      <Button
+                        onClick={() => void handleSearch()}
+                        disabled={!canSearch || loading}
+                      >
+                        {loading ? 'Recherche…' : 'Rechercher'}
+                      </Button>
+                      {(query.trim() || hasAnyFilter(filters)) && (
+                        <Button
+                          variant="secondary"
+                          onClick={handleResetAll}
+                          disabled={loading}
+                          aria-label="Réinitialiser la recherche"
+                        >
+                          Réinitialiser
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {activeChips.length > 0 && (
                   <div
@@ -584,61 +684,80 @@ export function AccountSearchView({
                   </div>
                 )}
 
-                <details className="calls-fb-section">
-                  <summary>
-                    <span className="calls-fb-section__title">
-                      Entreprise
-                      {activeFiltersCount > 0 && (
-                        <span
-                          className="calls-fb-section__badge"
-                          aria-label={`${activeFiltersCount} filtres actifs`}
-                        >
-                          {activeFiltersCount}
+                {searchMode === 'filters' && (
+                  <>
+                    <details className="calls-fb-section" open>
+                      <summary>
+                        <span className="calls-fb-section__title">
+                          Entreprise
+                          {activeFiltersCount > 0 && (
+                            <span
+                              className="calls-fb-section__badge"
+                              aria-label={`${activeFiltersCount} filtres actifs`}
+                            >
+                              {activeFiltersCount}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                  </summary>
-                  <div className="calls-fb-section__body">
-                    <PicklistMultiSelect
-                      label="Secteurs d'activité"
-                      options={asOptions(SECTEUR_VALUES)}
-                      groups={secteurGroups}
-                      value={filters.secteurs}
-                      onChange={(secteurs) => setFilter({ secteurs })}
-                      searchPlaceholder="Filtrer les secteurs…"
-                    />
-                    <ChipGroup
-                      label="Effectifs"
-                      options={asOptions(EFFECTIF_TRANCHES)}
-                      value={filters.effectifs}
-                      onChange={(effectifs) => setFilter({ effectifs })}
-                    />
-                    <ChipGroup
-                      label="Type de client"
-                      options={asOptions(TYPE_CLIENT_VALUES)}
-                      value={filters.type_client}
-                      onChange={(type_client) => setFilter({ type_client })}
-                    />
-                    <ChipGroup
-                      label="Tier"
-                      options={asOptions(TIER_VALUES)}
-                      value={filters.tiers}
-                      onChange={(tiers) => setFilter({ tiers })}
-                    />
-                    {ownerOptions.length > 0 && (
-                      <ChipGroup
-                        label="Propriétaire du compte"
-                        hint="Commercial propriétaire du compte Salesforce"
-                        options={ownerOptions}
-                        value={filters.proprietaires}
-                        onChange={(proprietaires) =>
-                          setFilter({ proprietaires })
-                        }
-                      />
+                      </summary>
+                      <div className="calls-fb-section__body">
+                        <PicklistMultiSelect
+                          label="Secteurs d'activité"
+                          options={asOptions(SECTEUR_VALUES)}
+                          groups={secteurGroups}
+                          value={filters.secteurs}
+                          onChange={(secteurs) => setFilter({ secteurs })}
+                          searchPlaceholder="Filtrer les secteurs…"
+                        />
+                        <ChipGroup
+                          label="Effectifs"
+                          options={asOptions(EFFECTIF_TRANCHES)}
+                          value={filters.effectifs}
+                          onChange={(effectifs) => setFilter({ effectifs })}
+                        />
+                        <ChipGroup
+                          label="Type de client"
+                          options={asOptions(TYPE_CLIENT_VALUES)}
+                          value={filters.type_client}
+                          onChange={(type_client) =>
+                            setFilter({ type_client })
+                          }
+                        />
+                        <ChipGroup
+                          label="Tier"
+                          options={asOptions(TIER_VALUES)}
+                          value={filters.tiers}
+                          onChange={(tiers) => setFilter({ tiers })}
+                        />
+                        {ownerOptions.length > 0 && (
+                          <ChipGroup
+                            label="Propriétaire du compte"
+                            hint="Commercial propriétaire du compte Salesforce"
+                            options={ownerOptions}
+                            value={filters.proprietaires}
+                            onChange={(proprietaires) =>
+                              setFilter({ proprietaires })
+                            }
+                          />
+                        )}
+                      </div>
+                    </details>
+                    {(query.trim() || hasAnyFilter(filters)) && (
+                      <div className="calls-fb-actions">
+                        <Button
+                          variant="secondary"
+                          onClick={handleResetAll}
+                          disabled={loading}
+                          aria-label="Réinitialiser la recherche"
+                        >
+                          Réinitialiser
+                        </Button>
+                      </div>
                     )}
-                  </div>
-                </details>
+                  </>
+                )}
               </GlassCard>
+              )}
 
               {truncated && (
                 <GlassCard className="calls-truncated-banner" role="status">
@@ -676,7 +795,11 @@ export function AccountSearchView({
                 </div>
               )}
 
-              {!loading && !searched && accounts.length === 0 && !error && (
+              {!loading &&
+                !searched &&
+                searchMode !== null &&
+                accounts.length === 0 &&
+                !error && (
                 <EmptyState title="Commencez votre recherche" />
               )}
 

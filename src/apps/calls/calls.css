@@ -132,6 +132,11 @@
   min-width: 0;
 }
 
+.calls-abm-mode-switch {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Toolbar */
 .calls-abm-toolbar {
   display: flex;

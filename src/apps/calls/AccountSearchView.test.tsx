@@ -135,10 +135,36 @@ function renderView(
   return { ...utils, onCreateAudience, onBack };
 }
 
+async function chooseNameSearch(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  if (screen.queryByLabelText('Nom du compte')) return;
+  await user.click(
+    screen.getByRole('button', { name: /Rechercher par nom/ }),
+  );
+}
+
+async function chooseFiltersSearch(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  if (screen.queryByPlaceholderText('Filtrer les secteurs…')) return;
+  await user.click(
+    screen.getByRole('button', { name: /Rechercher par filtres/ }),
+  );
+}
+
+function chooseFiltersSearchSync() {
+  if (screen.queryByPlaceholderText('Filtrer les secteurs…')) return;
+  fireEvent.click(
+    screen.getByRole('button', { name: /Rechercher par filtres/ }),
+  );
+}
+
 async function searchQuery(
   user: ReturnType<typeof userEvent.setup>,
   query: string,
 ) {
+  await chooseNameSearch(user);
   await user.type(screen.getByLabelText('Nom du compte'), query);
   await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 }
@@ -225,16 +251,12 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    const searchButton = screen.getByRole('button', {
-      name: 'Rechercher',
-    }) as HTMLButtonElement;
-    expect(searchButton.disabled).toBe(true);
+    expect(
+      screen.queryByRole('button', { name: 'Rechercher' }),
+    ).toBeNull();
 
-    await user.click(screen.getByText('Entreprise'));
+    await chooseFiltersSearch(user);
     await user.click(screen.getByRole('button', { name: 'A' }));
-
-    expect(searchButton.disabled).toBe(false);
-    await user.click(searchButton);
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
@@ -254,8 +276,7 @@ describe('AccountSearchView', () => {
 
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'INCONNU');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'INCONNU');
 
     expect(await screen.findByText('Aucun compte trouvé')).toBeTruthy();
   });
@@ -269,8 +290,7 @@ describe('AccountSearchView', () => {
 
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'Wayne');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'Wayne');
     await screen.findByText('Wayne Enterprises');
 
     const checkbox = screen.getByRole('checkbox', {
@@ -292,8 +312,7 @@ describe('AccountSearchView', () => {
 
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     expect(screen.queryByText('Découpage en séances')).toBeNull();
@@ -310,10 +329,9 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.click(screen.getByText('Entreprise'));
+    await chooseFiltersSearch(user);
     await user.click(screen.getByRole('button', { name: 'Paul Martin' }));
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
@@ -338,8 +356,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     expect(
@@ -442,7 +459,7 @@ describe('AccountSearchView', () => {
       });
       renderView();
 
-      fireEvent.click(screen.getByText('Entreprise'));
+      chooseFiltersSearchSync();
       fireEvent.click(screen.getByRole('button', { name: 'A' }));
       fireEvent.click(screen.getByRole('button', { name: 'B' }));
 
@@ -485,7 +502,7 @@ describe('AccountSearchView', () => {
 
       renderView();
 
-      fireEvent.click(screen.getByText('Entreprise'));
+      chooseFiltersSearchSync();
       fireEvent.click(screen.getByRole('button', { name: 'A' }));
       await act(async () => {
         vi.advanceTimersByTime(300);
@@ -529,8 +546,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     // Initialement rien de sélectionné
@@ -579,8 +595,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     const selectSortOption = async (label: string) => {
@@ -621,8 +636,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     // Modifier le tri doit sauvegarder dans localStorage
@@ -646,7 +660,16 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    // État vide initial avant recherche
+    expect(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Rechercher par filtres/ }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Nom du compte')).toBeNull();
+    expect(screen.queryByText('Commencez votre recherche')).toBeNull();
+
+    await chooseNameSearch(user);
     expect(screen.getByText('Commencez votre recherche')).toBeTruthy();
     expect(screen.queryByText('Cibler des comptes spécifiques')).toBeNull();
     expect(
@@ -660,8 +683,7 @@ describe('AccountSearchView', () => {
       screen.queryByRole('button', { name: 'Tier A & B' }),
     ).toBeNull();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
     expect(screen.queryByText('Cibler des comptes spécifiques')).toBeNull();
 
@@ -669,11 +691,12 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
     );
-    expect(screen.getByText('Commencez votre recherche')).toBeTruthy();
-    expect(screen.queryByText('ACME')).toBeNull();
     expect(
-      (screen.getByLabelText('Nom du compte') as HTMLInputElement).value,
-    ).toBe('');
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    ).toBeTruthy();
+    expect(screen.queryByText('ACME')).toBeNull();
+    expect(screen.queryByLabelText('Nom du compte')).toBeNull();
+    expect(screen.queryByText('Commencez votre recherche')).toBeNull();
   });
 
   it('asks for confirmation before resetting when more than 5 accounts are selected', async () => {
@@ -693,8 +716,7 @@ describe('AccountSearchView', () => {
 
     renderView();
 
-    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
 
     // Sélectionner les 6 comptes (> 5, seuil de confirmation).
@@ -723,6 +745,9 @@ describe('AccountSearchView', () => {
     vi.mocked(fetchAccountsSearch).mockReturnValue(promise as never);
     renderView();
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    );
     fireEvent.change(screen.getByLabelText('Nom du compte'), {
       target: { value: 'ACME' },
     });
@@ -747,6 +772,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
+    await chooseFiltersSearch(user);
     // Search within PicklistMultiSelect
     const searchInput = screen.getByPlaceholderText('Filtrer les secteurs…');
     await user.type(searchInput, 'Services informatiques');
@@ -765,9 +791,6 @@ describe('AccountSearchView', () => {
     expect(
       within(activeChipsRegion).getByText('Services informatiques'),
     ).toBeTruthy();
-    // Run search with the selected sector
-    const searchButton = screen.getByRole('button', { name: 'Rechercher' });
-    await user.click(searchButton);
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
@@ -791,17 +814,50 @@ describe('AccountSearchView', () => {
     expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
   });
 
-  it('uses the classic FilterBuilder visual patterns on step 1', () => {
+  it('uses the classic FilterBuilder visual patterns on step 1', async () => {
+    const user = userEvent.setup();
     const { container } = renderView();
     expect(container.querySelector('.calls-abm-search-box')).toBeNull();
-    expect(container.querySelector('.calls-filterbuilder')).toBeTruthy();
-    expect(container.querySelector('.calls-fb-section')).toBeTruthy();
     expect(screen.queryByText('Replier')).toBeNull();
     expect(screen.queryByText('Déplier')).toBeNull();
-    expect(screen.getByLabelText('Nom du compte')).toBeTruthy();
+
+    await chooseFiltersSearch(user);
+    expect(container.querySelector('.calls-filterbuilder')).toBeTruthy();
+    expect(container.querySelector('.calls-fb-section')).toBeTruthy();
     expect(screen.getByPlaceholderText('Filtrer les secteurs…')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'A' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Paul Martin' })).toBeTruthy();
+  });
+
+  it('starts with two search-mode cards and toggles without showing both forms', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    expect(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Rechercher par filtres/ }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Nom du compte')).toBeNull();
+    expect(screen.queryByPlaceholderText('Filtrer les secteurs…')).toBeNull();
+    expect(screen.queryByText('Replier')).toBeNull();
+    expect(screen.queryByText('Déplier')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    );
+    expect(screen.getByLabelText('Nom du compte')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('Filtrer les secteurs…')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: /Rechercher par filtres/ }),
+    );
+    expect(screen.queryByLabelText('Nom du compte')).toBeNull();
+    expect(screen.getByPlaceholderText('Filtrer les secteurs…')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    ).toBeTruthy();
   });
 
   it('allows clearing all active filters with Tout effacer button in active chips', async () => {
@@ -812,7 +868,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.click(screen.getByText('Entreprise'));
+    await chooseFiltersSearch(user);
     await user.click(screen.getByRole('button', { name: 'A' }));
     expect(screen.getByRole('region', { name: 'Filtres actifs' })).toBeTruthy();
     expect(screen.getByText('Tier A')).toBeTruthy();
@@ -844,7 +900,7 @@ describe('AccountSearchView', () => {
       accounts: [acmeSubsidiary],
       truncated: false,
     });
-    await user.click(screen.getByText('Entreprise'));
+    await chooseFiltersSearch(user);
     await user.click(screen.getByRole('button', { name: 'B' }));
 
     // Target remains completely intact (découplée de la recherche)
