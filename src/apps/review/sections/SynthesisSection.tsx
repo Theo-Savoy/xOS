@@ -32,12 +32,10 @@ export function SynthesisSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Cadrage de l&apos;exercice <ScopeTag scope="total" />{' '}
+            Cadrage{' '}
             <InfoHint label="Point clé du cadrage" text={data.key_point} />
           </h3>
-          <p className="review-section-kicker">
-            Quatre indicateurs : performance, offres, capacité, marché
-          </p>
+          <ScopeTag scope="total" />
         </div>
       </header>
       <div className="review-kpi-grid review-kpi-grid--quad">

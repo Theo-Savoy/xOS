@@ -58,20 +58,29 @@ describe('période du bilan', () => {
     expect(comparisonFy('FY22')).toBe('FY21');
   });
 
-  it('n’envoie le semestre que dans ce mode', () => {
+  it('n’envoie le semestre que dans ce mode et respecte compare', () => {
     expect(periodQuery({ mode: 'fy', fy: 'FY26', semester: 'S1' })).toEqual({
       fy: 'FY26',
       compare: 'FY25',
+    });
+    expect(
+      periodQuery({ mode: 'fy', fy: 'FY26', semester: 'S1', compare: 'FY23' }),
+    ).toEqual({
+      fy: 'FY26',
+      compare: 'FY23',
     });
     expect(
       periodQuery({ mode: 'semester', fy: 'FY26', semester: 'S2' }),
     ).toEqual({ fy: 'FY26', compare: 'FY25', semester: 'S2' });
   });
 
-  it('rend le comparatif explicite', () => {
+  it('rend le comparatif explicite avec compare personnalisé', () => {
     expect(periodTitle({ mode: 'fy', fy: 'FY26', semester: 'S1' })).toBe(
       'FY25 → FY26',
     );
+    expect(
+      periodTitle({ mode: 'fy', fy: 'FY26', semester: 'S1', compare: 'FY24' }),
+    ).toBe('FY24 → FY26');
     expect(periodTitle({ mode: 'semester', fy: 'FY26', semester: 'S1' })).toBe(
       'FY25 S1 → FY26 S1',
     );

@@ -327,6 +327,7 @@ export type MarketPayload = {
     global: MarketMixRow;
     catalogue: MarketMixRow;
     sur_mesure: MarketMixRow;
+    conseil: MarketMixRow;
   };
   test: MarketTest;
   loss_reasons: ReasonTable;
@@ -334,6 +335,12 @@ export type MarketPayload = {
   win_by_offer: {
     catalogue: ReasonTable;
     sur_mesure: ReasonTable;
+    conseil: ReasonTable;
+  };
+  loss_by_offer: {
+    catalogue: ReasonTable;
+    sur_mesure: ReasonTable;
+    conseil: ReasonTable;
   };
   period?: ReviewPayloadPeriod;
 };

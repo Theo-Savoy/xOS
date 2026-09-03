@@ -9,7 +9,6 @@ export function InfoHint({ label, text }: { label: string; text: string }) {
       size="sm"
       className="review-hint"
       aria-label={label}
-      title={text}
     >
       i
       <span className="review-hint__bubble" role="tooltip">

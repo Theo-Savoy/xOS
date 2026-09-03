@@ -1,7 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
-import { seriesLabel, seriesSpanLabel } from '../review.period';
+import { seriesLabel } from '../review.period';
 import type { ProductPayload, ProductRow } from '../review.types';
 
 const KEYS = ['catalogue', 'sur_mesure', 'conseil', 'autre'] as const;
@@ -56,12 +56,9 @@ export function ProductHistorySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Produit × exercice <ScopeTag scope="new" />
+            Historique produit
           </h3>
-          <p className="review-section-kicker">
-            Fermées NEW, signatures NEW, closing, CA NEW, cycles —{' '}
-            {seriesSpanLabel('FY22', data.fy, data.period)}
-          </p>
+          <ScopeTag scope="new" />
         </div>
       </header>
 
@@ -72,6 +69,7 @@ export function ProductHistorySection({
               <th>Produit · FY</th>
               <th>Fermées NEW</th>
               <th>Sign. NEW</th>
+              <th>Perdues</th>
               <th>Closing</th>
               <th>CA NEW</th>
               <th>Cycle méd.</th>
@@ -87,6 +85,7 @@ export function ProductHistorySection({
                 </td>
                 <td>{product.closed}</td>
                 <td>{product.won}</td>
+                <td>{product.closed - product.won}</td>
                 <td>{fmtPct1(product.closing)}</td>
                 <td>{fmtEur(product.amountNew)}</td>
                 <td>{fmtDays(product.median)}</td>

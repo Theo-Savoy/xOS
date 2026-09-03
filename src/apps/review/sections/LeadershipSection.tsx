@@ -66,8 +66,9 @@ export function LeadershipSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Activité PDG — hors classement commercial <ScopeTag scope="new" />
+            PDG
           </h3>
+          <ScopeTag scope="new" />
           <p className="review-section-kicker">
             CA NEW · {seriesLabel(data.compare, data.period)}→
             {seriesLabel(data.fy, data.period)} · pas d'objectif, pas de

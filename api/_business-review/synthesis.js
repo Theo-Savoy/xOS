@@ -120,7 +120,7 @@ export function computeSynthesisCards({
         : `${growth > 0 ? '+' : '−'}${fmtFr(Math.abs(growth * 100), 1)} %`,
       growth ?? 0,
       'total',
-      `CA total ${prevLabel} → ${periodLabel} (même période N-1)`,
+      `CA total ${prevLabel} → ${periodLabel}`,
     ),
     card(
       'mix-new',

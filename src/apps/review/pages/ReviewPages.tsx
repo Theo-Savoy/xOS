@@ -1,6 +1,5 @@
 import { GlassCard, Tag } from '../../../components/ui';
 import { InfoHint } from '../components/InfoHint';
-import { ScopeTag } from '../components/ScopeTag';
 import type { PeriodSelection } from '../review.period';
 import { comparisonFy, periodTitle } from '../review.period';
 import type { ScopeKind } from '../review.types';
@@ -23,14 +22,12 @@ import { BridgeNewSection } from '../sections/BridgeNewSection';
 import { CapacitySection } from '../sections/CapacitySection';
 import { CatalogueBridgeSection } from '../sections/CatalogueBridgeSection';
 import { ChannelsSection } from '../sections/ChannelsSection';
-import { ConseilSection } from '../sections/ConseilSection';
 import { CycleSection } from '../sections/CycleSection';
 import { DefinitionsSection } from '../sections/DefinitionsSection';
 import { DiagnosisSection } from '../sections/DiagnosisSection';
 import { HistorySection } from '../sections/HistorySection';
 import { LeadershipSection } from '../sections/LeadershipSection';
 import { MarketSignalSection } from '../sections/MarketSignalSection';
-import { MarketStudiesSection } from '../sections/MarketStudiesSection';
 import { PatternsSection } from '../sections/PatternsSection';
 import { PerformanceSection } from '../sections/PerformanceSection';
 import { PortfolioSection } from '../sections/PortfolioSection';
@@ -38,7 +35,6 @@ import { ProductCompareSection } from '../sections/ProductCompareSection';
 import { ProductHistorySection } from '../sections/ProductHistorySection';
 import { ProductivitySection } from '../sections/ProductivitySection';
 import { QualitySection } from '../sections/QualitySection';
-import { ReasonsSection } from '../sections/ReasonsSection';
 import { SalesComparisonSection } from '../sections/SalesComparisonSection';
 import { SynthesisSection } from '../sections/SynthesisSection';
 import { WinReasonsSection } from '../sections/WinReasonsSection';
@@ -49,21 +45,17 @@ function PageHeader({
   title,
   description,
   period,
-  scopes,
 }: {
   title: string;
   description: string;
   period: PeriodSelection;
-  scopes: ScopeKind[];
+  scopes?: ScopeKind[];
 }) {
   return (
     <header className="review-page-heading">
       <div>
         <h1>
           {title}
-          {scopes.map((scope) => (
-            <ScopeTag key={scope} scope={scope} />
-          ))}
           <InfoHint
             label={`Comment lire la page ${title}`}
             text={description}
@@ -212,12 +204,11 @@ export function ProductPage({
         <ProductCompareSection
           data={product.data}
           loading={product.loading}
-          compare={comparisonFy(period.fy)}
+          compare={period.compare || comparisonFy(period.fy)}
         />
         <CatalogueBridgeSection data={bridge.data} loading={bridge.loading} />
       </div>
       <CycleSection data={cycles.data} loading={cycles.loading} />
-      <ConseilSection data={product.data} loading={product.loading} />
       <ProductHistorySection data={product.data} loading={product.loading} />
     </div>
   );
@@ -235,17 +226,13 @@ export function MarketPage({
   return (
     <div className="review-page">
       <PageHeader
-        title="Marché & acquisition"
-        description="Motifs déclarés, références externes et canaux : des signaux, jamais une causalité."
+        title="Marché"
+        description="Motifs déclarés et canaux : des signaux, jamais une causalité."
         period={period}
         scopes={['new']}
       />
       <MarketSignalSection data={market.data} loading={market.loading} />
-      <div className="review-page-grid review-page-grid--balanced">
-        <WinReasonsSection data={market.data} loading={market.loading} />
-        <MarketStudiesSection />
-      </div>
-      <ReasonsSection data={market.data} loading={market.loading} />
+      <WinReasonsSection data={market.data} loading={market.loading} />
       <ChannelsSection data={channels.data} loading={channels.loading} />
     </div>
   );

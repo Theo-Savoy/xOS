@@ -30,8 +30,9 @@ export function DefinitionsSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Contrats de calcul <ScopeTag scope="total" />
+            Définitions
           </h3>
+          <ScopeTag scope="total" />
           <p className="review-section-kicker">
             Neuf règles métier affichables — source de vérité du bilan
           </p>

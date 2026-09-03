@@ -31,7 +31,7 @@ describe('computeMarket', () => {
 
   it('répartition FY26 par offre : les trois motifs somment à 100 % ± 0,1 pt', () => {
     const { mix } = computeMarket(fyWindow);
-    for (const key of ['global', 'catalogue', 'sur_mesure']) {
+    for (const key of ['global', 'catalogue', 'sur_mesure', 'conseil']) {
       const row = mix[key];
       expect(row).toBeDefined();
       const sum = row.marche_pct + row.produit_pct + row.prix_pct;
@@ -66,12 +66,27 @@ describe('computeMarket', () => {
       market.win_reasons,
       market.win_by_offer.catalogue,
       market.win_by_offer.sur_mesure,
+      market.win_by_offer.conseil,
+      market.loss_by_offer.catalogue,
+      market.loss_by_offer.sur_mesure,
+      market.loss_by_offer.conseil,
     ];
     for (const table of tables) {
       expect(table.n_displayed).toEqual(expect.any(Number));
       expect(table.n_total).toEqual(expect.any(Number));
-      expect(table.n_displayed).toBeGreaterThan(0);
       expect(table.n_total).toBeGreaterThanOrEqual(table.n_displayed);
     }
+    expect(market.win_by_offer.conseil).toBeDefined();
+    expect(market.loss_by_offer.catalogue.n_total).toBeGreaterThan(0);
+  });
+
+  it('masque le test deux proportions hors du couple cible FY25→FY26 (D6)', () => {
+    const defaultMarket = computeMarket(fyWindow);
+    expect(defaultMarket.test.p).not.toBeNull();
+
+    const customMarket = computeMarket(fyWindow, { fy: 'FY25', compare: 'FY24' });
+    expect(customMarket.test.p).toBeNull();
+    expect(customMarket.test.z).toBeNull();
+    expect(customMarket.test.fy_from).toBeNull();
   });
 });

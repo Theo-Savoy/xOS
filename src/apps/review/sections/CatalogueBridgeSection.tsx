@@ -28,7 +28,7 @@ export function CatalogueBridgeSection({
     return (
       <EmptyState
         title="Aucun bridge catalogue"
-        description="Sélectionnez deux exercices pour décomposer le recul catalogue."
+        description="Pas de comparaison sur cette fenêtre."
       />
     );
   }
@@ -65,14 +65,9 @@ export function CatalogueBridgeSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Bridge catalogue : RENEW, volume NEW, ticket NEW{' '}
-            <ScopeTag scope="total" />
+            Écart catalogue
           </h3>
-          <p className="review-section-kicker">
-            CA total catalogue · {seriesLabel(data.compare, data.period)}→
-            {seriesLabel(data.fy, data.period)} · décomposition RENEW + volume
-            NEW + ticket NEW
-          </p>
+          <ScopeTag scope="total" />
         </div>
       </header>
 
@@ -112,8 +107,7 @@ export function CatalogueBridgeSection({
           <span>{fmtPct1(cat.share_new)} NEW</span>
         </p>
         <p className="review-section-note">
-          Le bridge montre d'où vient l'écart, pas pourquoi il existe. Stock ARR
-          et flux signé ne s'additionnent pas.
+          Stock ARR et flux signé ne s'additionnent pas.
         </p>
       </GlassCard>
     </div>

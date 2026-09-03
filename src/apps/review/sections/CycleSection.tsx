@@ -71,12 +71,9 @@ export function CycleSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Cycles de vente NEW : médiane, moyenne et exclusions{' '}
-            <ScopeTag scope="signatures-new" />
+            Cycles NEW
           </h3>
-          <p className="review-section-kicker">
-            Signatures NEW · n valide affiché avec chaque agrégat
-          </p>
+          <ScopeTag scope="signatures-new" />
         </div>
       </header>
 
@@ -116,16 +113,7 @@ export function CycleSection({
             />
             <ReviewChartTooltip
               content={
-                <ChartTooltip
-                  scope="signatures-new"
-                  source="Salesforce · cycles NEW exploitables"
-                  compareLabel="période comparable"
-                  deltaKeys={{ Médiane: 'medianDelta', Moyenne: 'meanDelta' }}
-                  valueFormatter={(value) => fmtDays(value)}
-                  deltaFormatter={(value) =>
-                    `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(Math.round(value))} j`
-                  }
-                />
+                <ChartTooltip valueFormatter={(value) => fmtDays(value)} />
               }
             />
             <Legend />

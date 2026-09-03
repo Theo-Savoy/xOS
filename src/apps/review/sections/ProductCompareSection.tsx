@@ -126,14 +126,9 @@ export function ProductCompareSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Catalogue vs sur-mesure : comparaison d&apos;exercices{' '}
-            <ScopeTag scope="new" />
+            Comparaison des produits
           </h3>
-          <p className="review-section-kicker">
-            CA NEW · {seriesLabel(compare, data.period)}→
-            {seriesLabel(data.fy, data.period)} · fermées, signatures, closing,
-            ticket, cycles
-          </p>
+          <ScopeTag scope="new" />
         </div>
       </header>
 
@@ -149,6 +144,13 @@ export function ProductCompareSection({
           title="Sur-mesure"
           prev={prev?.products.sur_mesure}
           curr={curr?.products.sur_mesure}
+          prevFy={seriesLabel(compare, data.period)}
+          currFy={seriesLabel(data.fy, data.period)}
+        />
+        <ProductColumn
+          title="Conseil"
+          prev={prev?.products.conseil}
+          curr={curr?.products.conseil}
           prevFy={seriesLabel(compare, data.period)}
           currFy={seriesLabel(data.fy, data.period)}
         />

@@ -58,8 +58,6 @@ const FILL: Record<WaterfallStep['kind'], string> = {
 
 export function WaterfallChart({
   steps,
-  scope,
-  source,
 }: {
   steps: WaterfallStep[];
   scope: ScopeKind;
@@ -96,8 +94,6 @@ export function WaterfallChart({
                 active={props.active}
                 label={props.label}
                 payload={visible}
-                scope={scope}
-                source={source}
                 valueFormatter={fmtEur}
               />
             );

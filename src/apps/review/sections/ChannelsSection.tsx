@@ -33,8 +33,9 @@ export function ChannelsSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Acquisition et concentration <ScopeTag scope="new" />
+            Canaux
           </h3>
+          <ScopeTag scope="new" />
           <p className="review-section-kicker">
             {data.channels.n_total} canaux · lecture complète, sans top-N masqué
           </p>
@@ -58,9 +59,7 @@ export function ChannelsSection({
 
       <div className="review-page-grid review-page-grid--balanced">
         <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">
-            Canaux NEW <ScopeTag scope="new" />
-          </h3>
+          <h3 className="review-card-title">Canaux NEW</h3>
           <div className="review-table-wrap">
             <table className="review-data-table">
               <thead>
@@ -88,9 +87,7 @@ export function ChannelsSection({
         </GlassCard>
 
         <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">
-            Concentration clients <ScopeTag scope="total" />
-          </h3>
+          <h3 className="review-card-title">Concentration clients</h3>
           <p className="review-section-kicker">
             Top {data.concentration.n_displayed} sur{' '}
             {data.concentration.n_total} comptes · CA total, RENEW inclus

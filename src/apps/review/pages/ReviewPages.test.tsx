@@ -24,29 +24,26 @@ const period: PeriodSelection = {
 const idle = { data: null, loading: false };
 
 describe('pages du bilan', () => {
-  it('porte le périmètre dans le titre de chaque page', () => {
+  it('affiche un titre sobre sans badge de périmètre dans chaque page (D7)', () => {
     const { unmount: unmountSummary } = render(
       <SummaryPage period={period} synthesis={idle} bridge={idle} />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA total/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Synthèse');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA total/);
     unmountSummary();
 
     const { unmount: unmountTrajectory } = render(
       <TrajectoryPage period={period} overview={idle} portfolio={idle} />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA total/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Trajectoire');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA total/);
     unmountTrajectory();
 
     const { unmount: unmountCommercial } = render(
       <CommercialPage period={period} commercial={idle} />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA NEW/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Commercial');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA NEW/);
     unmountCommercial();
 
     const { unmount: unmountProduct } = render(
@@ -57,17 +54,15 @@ describe('pages du bilan', () => {
         cycles={idle}
       />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA NEW/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Produit');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA NEW/);
     unmountProduct();
 
     const { unmount: unmountMarket } = render(
       <MarketPage period={period} market={idle} channels={idle} />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA NEW/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Marché/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA NEW/);
     unmountMarket();
 
     render(
@@ -78,9 +73,8 @@ describe('pages du bilan', () => {
         definitions={idle}
       />,
     );
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
-      /CA total/,
-    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Diagnostic');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA total/);
   });
 
   it('intègre les anciennes annexes dans les pages d’analyse', () => {
@@ -181,7 +175,7 @@ describe('pages du bilan', () => {
     );
     expect(sections.length).toBeGreaterThanOrEqual(3);
     expect(container.textContent).toMatch(
-      /Cadrage de l’exercice|Cadrage de l'exercice/,
+      /Cadrage/,
     );
     expect(container.textContent).toMatch(/Waterfall NEW/);
     expect(container.querySelector('.review-kpi-grid--quad')).toBeTruthy();
@@ -242,7 +236,7 @@ describe('pages du bilan', () => {
     const titles = [...container.querySelectorAll('.review-card-title')].map(
       (node) => node.textContent?.trim() ?? '',
     );
-    expect(titles.some((title) => title.startsWith('Cadrage de l'))).toBe(true);
+    expect(titles.some((title) => title.startsWith('Cadrage'))).toBe(true);
 
     // (c) le contexte éditorial passe par une icône « i » focusable.
     const hints = container.querySelectorAll('button.review-hint');
@@ -290,7 +284,7 @@ describe('pages du bilan', () => {
     );
 
     expect(container.textContent).toMatch(
-      /Cadrage de l’exercice|Cadrage de l'exercice/,
+      /Cadrage/,
     );
     expect(container.textContent).toMatch(
       /Le narratif \(patterns et verdict\) reste calibré sur l'exercice FY26 complet/,

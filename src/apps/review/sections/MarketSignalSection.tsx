@@ -32,13 +32,6 @@ function mixRow(label: string, row: MarketMixRow | undefined) {
   };
 }
 
-function fmtP(p: number | null | undefined): string {
-  if (p === null || p === undefined) return '—';
-  return p.toLocaleString('fr-FR', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  });
-}
 
 export function MarketSignalSection({
   data,
@@ -82,12 +75,9 @@ export function MarketSignalSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Signal marché : part des pertes « marché / client »{' '}
-            <ScopeTag scope="new" />
+            Pertes marché / client
           </h3>
-          <p className="review-section-kicker">
-            {data.conclusion} · motifs déclarés, pas de causalité
-          </p>
+          <ScopeTag scope="new" />
         </div>
       </header>
 
@@ -97,15 +87,6 @@ export function MarketSignalSection({
           value={fmtPct1((currentShare?.pct ?? 0) / 100)}
           scope="new"
           hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes NEW`}
-        />
-        <StatCard
-          label={`Test ${seriesLabel(data.test.fy_from ?? '', data.period)}→${seriesLabel(data.test.fy_to ?? '', data.period)}`}
-          value={`p = ${fmtP(data.test.p)}`}
-          hint={
-            data.test.z === null
-              ? 'deux proportions, bilatéral'
-              : `z = ${data.test.z.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} · exploratoire`
-          }
         />
       </div>
 
@@ -131,8 +112,6 @@ export function MarketSignalSection({
             <ReviewChartTooltip
               content={
                 <ChartTooltip
-                  scope="new"
-                  source="Salesforce · motifs de perte NEW"
                   valueFormatter={(value) =>
                     `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
                   }
@@ -179,15 +158,8 @@ export function MarketSignalSection({
             <ReviewChartTooltip
               content={
                 <ChartTooltip
-                  scope="new"
-                  source="Salesforce · pertes NEW marché / client"
-                  compareLabel="période comparable"
-                  deltaKeys={{ pct: 'pctDelta' }}
                   valueFormatter={(value) =>
                     `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
-                  }
-                  deltaFormatter={(value) =>
-                    `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} pt`
                   }
                 />
               }
@@ -202,11 +174,13 @@ export function MarketSignalSection({
             />
           </LineChart>
         </ResponsiveContainer>
-        <p className="review-section-note">
-          Le test {seriesLabel(data.test.fy_from ?? 'N-1', data.period)}→
-          {seriesLabel(data.test.fy_to ?? 'N', data.period)} ne prouve pas
-          l'aggravation : le signal domine, p reste au-dessus de 0,05.
-        </p>
+        {data.test.p !== null ? (
+          <p className="review-section-note">
+            Le test {seriesLabel(data.test.fy_from ?? 'N-1', data.period)}→
+            {seriesLabel(data.test.fy_to ?? 'N', data.period)} ne prouve pas
+            l'aggravation : le signal domine, p reste au-dessus de 0,05.
+          </p>
+        ) : null}
       </GlassCard>
     </div>
   );

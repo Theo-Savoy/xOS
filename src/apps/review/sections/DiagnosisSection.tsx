@@ -32,17 +32,13 @@ export function DiagnosisSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Matrice de diagnostic : mesure et attribution{' '}
-            <ScopeTag scope="total" />{' '}
+            Facteurs{' '}
             <InfoHint
               label="Limite d’attribution"
               text={data.attribution_limit}
             />
           </h3>
-          <p className="review-section-kicker">
-            Impact, fiabilité de mesure, fiabilité d&apos;attribution, données
-            manquantes
-          </p>
+          <ScopeTag scope="total" />
         </div>
       </header>
       <FactorMatrix factors={data.factors} />
