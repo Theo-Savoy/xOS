@@ -44,8 +44,145 @@
 }
 
 /* ── Mode Power immersif (Sol) ──────────────────────────────────────────────
+
    Palette ambre dédiée : identité forte, contraste AA garanti avec bleu nuit.
    Teinte radiale 5-8% superposée au fond sombre sans l'écraser. */
+
+/* Account Card Contacts */
+.calls-account-contacts {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.5rem;
+}
+
+.calls-account-contact-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.calls-account-contact-item__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.calls-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  margin-left: 0.5rem;
+  color: var(--color-fg-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calls-expand-btn:hover {
+  color: var(--color-fg);
+}
+
+
+/* Utilities for ABM refactor */
+.calls-mt-1 { margin-top: 0.25rem; }
+.calls-mt-4 { margin-top: 1rem; }
+.calls-field--flex { flex: 1; }
+.calls-text-sm { font-size: 0.82rem; }
+.calls-skeleton-wrapper {
+  width: 100%;
+  max-width: 30rem;
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.calls-skeleton-text {
+  margin: 0;
+  font-size: 0.85rem;
+}
+\n/* ABM Layout */
+.calls-abm-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.calls-abm-layout__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.calls-abm-sidebar {
+  display: none;
+}
+
+.calls-abm-sidebar-header h3,
+.calls-abm-sidebar-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.calls-abm-sidebar-header p {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: 0.85rem;
+}
+
+.calls-abm-sidebar-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.calls-abm-sidebar-cta {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.calls-abm-bottom-bar {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.calls-abm-bottom-bar-summary {
+  font-size: 0.85rem;
+}
+
+@container calls-app (min-width: 900px) {
+  .calls-abm-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .calls-abm-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1rem;
+  }
+  .calls-abm-bottom-bar {
+    display: none;
+  }
+}
 :root {
   --combo-power: #eab84d;
   --combo-power-soft: #ffe4a3;
@@ -5380,4 +5517,11 @@ a.calls-contact-card__peer:hover {
   .calls-session-type-card--wide {
     grid-column: span 1;
   }
+}
+
+.calls-account-card--disabled .calls-preview__header {
+  cursor: default;
+}
+.calls-account-card:not(.calls-account-card--disabled) .calls-preview__header {
+  cursor: pointer;
 }

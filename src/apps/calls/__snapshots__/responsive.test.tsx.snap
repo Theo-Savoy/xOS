@@ -1,5 +1,33 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`AccountSearchView at 320px > renders ABM layout and exposes responsive CSS rules 1`] = `
+{
+  "layout": "calls-abm-layout",
+  "width": 320,
+}
+`;
+
+exports[`AccountSearchView at 500px > renders ABM layout and exposes responsive CSS rules 1`] = `
+{
+  "layout": "calls-abm-layout",
+  "width": 500,
+}
+`;
+
+exports[`AccountSearchView at 800px > renders ABM layout and exposes responsive CSS rules 1`] = `
+{
+  "layout": "calls-abm-layout",
+  "width": 800,
+}
+`;
+
+exports[`AccountSearchView at 1200px > renders ABM layout and exposes responsive CSS rules 1`] = `
+{
+  "layout": "calls-abm-layout",
+  "width": 1200,
+}
+`;
+
 exports[`Combo at 500px > keeps the sessions surface bounded and exposes responsive CSS 1`] = `
 {
   "layout": "compact",
