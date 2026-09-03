@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { MarketPayload, ReasonTable } from '../review.types';
 
 function ReasonsTable({
@@ -79,7 +80,8 @@ export function ReasonsSection({
             Motifs déclaratifs <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Pertes et gains NEW · {data.fy} · motifs déclarés, pas de causalité
+            Pertes et gains NEW · {seriesLabel(data.fy, data.period)} · motifs
+            déclarés, pas de causalité
           </p>
         </div>
       </header>

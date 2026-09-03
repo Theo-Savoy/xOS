@@ -30,10 +30,7 @@ import type {
   QualityPayload,
   SynthesisPayload,
 } from './review.types';
-import {
-  SharedSection,
-  type SharedAnalysis,
-} from './sections/SharedSection';
+import { SharedSection, type SharedAnalysis } from './sections/SharedSection';
 import { useBusinessReview } from './useBusinessReview';
 import './review.css';
 
@@ -101,10 +98,7 @@ export default function ReviewApp({
   const referenceFy = !semester && period.fy === 'FY26';
   const overview = useBusinessReview<OverviewPayload>(
     token,
-    canFetch &&
-      (nav === 'trajectory' || (nav === 'summary' && !referenceFy))
-      ? 'overview'
-      : null,
+    canFetch && nav === 'trajectory' ? 'overview' : null,
     period,
   );
   const bridge = useBusinessReview<BridgePayload>(
@@ -149,7 +143,7 @@ export default function ReviewApp({
   );
   const synthesis = useBusinessReview<SynthesisPayload>(
     token,
-    canFetch && nav === 'summary' && referenceFy ? 'synthesis' : null,
+    canFetch && nav === 'summary' ? 'synthesis' : null,
     period,
   );
   const portfolio = useBusinessReview<PortfolioPayload>(
@@ -296,7 +290,11 @@ export default function ReviewApp({
             onClick={handleRefresh}
             disabled={refreshing}
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true" className="review-refresh-icon">
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+              className="review-refresh-icon"
+            >
               <path d="M15.6 6.1A6.5 6.5 0 1 0 16.5 12" />
               <path d="M15.6 2.8v3.7h-3.7" />
             </svg>
@@ -336,13 +334,14 @@ export default function ReviewApp({
         </nav>
 
         <div className="review-main">
-          {sectionError ? <div className="review-error">{sectionError}</div> : null}
+          {sectionError ? (
+            <div className="review-error">{sectionError}</div>
+          ) : null}
           <main className="review-content">
             {nav === 'summary' ? (
               <SummaryPage
                 period={period}
                 synthesis={synthesis}
-                overview={overview}
                 bridge={bridge}
               />
             ) : null}

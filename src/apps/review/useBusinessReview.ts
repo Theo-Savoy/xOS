@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../lib/apiClient';
-import {
-  businessReviewPath,
-  type PeriodSelection,
-} from './review.period';
+import { businessReviewPath, type PeriodSelection } from './review.period';
 
 type ReviewState<T> = {
   data: T | null;

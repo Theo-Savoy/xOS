@@ -2,6 +2,7 @@ import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtNum, fmtPctDelta } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import { productivityOf, type CommercialPayload } from '../review.types';
 
 export function ProductivitySection({
@@ -41,7 +42,9 @@ export function ProductivitySection({
             Capacité et productivité sales (ETP) <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Production sales hors Jérôme, hors SDR · {data.compare}→{data.fy}
+            Production sales hors Jérôme, hors SDR ·{' '}
+            {seriesLabel(data.compare, data.period)}→
+            {seriesLabel(data.fy, data.period)}
           </p>
         </div>
       </header>
@@ -89,7 +92,7 @@ export function ProductivitySection({
                   row.fy === data.fy ? 'review-data-table__current' : undefined
                 }
               >
-                <td>{row.fy}</td>
+                <td>{seriesLabel(row.fy, data.period)}</td>
                 <td>{fmtNum(row.fte, 2)}</td>
                 <td>{fmtEur(row.amountNew)}</td>
                 <td>{row.signatures}</td>

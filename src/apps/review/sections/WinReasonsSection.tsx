@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { MarketPayload, ReasonTable } from '../review.types';
 
 function ReasonBars({
@@ -74,7 +75,8 @@ export function WinReasonsSection({
             <ScopeTag scope="signatures-new" />
           </h3>
           <p className="review-section-kicker">
-            Signatures NEW · motifs déclarés, pas de causalité · {data.fy}
+            Signatures NEW · motifs déclarés, pas de causalité ·{' '}
+            {seriesLabel(data.fy, data.period)}
           </p>
         </div>
       </header>

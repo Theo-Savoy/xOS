@@ -6,6 +6,7 @@ import {
   type WaterfallStep,
 } from '../components/WaterfallChart';
 import { fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { BridgePayload } from '../review.types';
 
 export function CatalogueBridgeSection({
@@ -36,7 +37,11 @@ export function CatalogueBridgeSection({
   const prevTotal = cat.prev.new.amount + cat.prev.renew.amount;
   const currTotal = cat.curr.new.amount + cat.curr.renew.amount;
   const steps: WaterfallStep[] = [
-    { name: data.compare, amount: prevTotal, kind: 'total' },
+    {
+      name: seriesLabel(data.compare, data.period),
+      amount: prevTotal,
+      kind: 'total',
+    },
     { name: 'RENEW', amount: cat.renew, kind: cat.renew >= 0 ? 'up' : 'down' },
     {
       name: 'Volume NEW',
@@ -48,7 +53,11 @@ export function CatalogueBridgeSection({
       amount: cat.ticket,
       kind: cat.ticket >= 0 ? 'up' : 'down',
     },
-    { name: data.fy, amount: currTotal, kind: 'total' },
+    {
+      name: seriesLabel(data.fy, data.period),
+      amount: currTotal,
+      kind: 'total',
+    },
   ];
 
   return (
@@ -60,8 +69,9 @@ export function CatalogueBridgeSection({
             <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
-            CA total catalogue · {data.compare}→{data.fy} · décomposition RENEW
-            + volume NEW + ticket NEW
+            CA total catalogue · {seriesLabel(data.compare, data.period)}→
+            {seriesLabel(data.fy, data.period)} · décomposition RENEW + volume
+            NEW + ticket NEW
           </p>
         </div>
       </header>
@@ -79,7 +89,8 @@ export function CatalogueBridgeSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Waterfall catalogue {data.compare} → {data.fy}
+          Waterfall catalogue {seriesLabel(data.compare, data.period)} →{' '}
+          {seriesLabel(data.fy, data.period)}
         </h3>
         <WaterfallChart
           steps={steps}

@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function HistorySection({
@@ -21,7 +22,7 @@ export function HistorySection({
     return (
       <EmptyState
         title="Historique indisponible"
-        description="Pas de série FY22→FY26."
+        description={`Pas de série ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
       />
     );
   }
@@ -31,10 +32,16 @@ export function HistorySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Historique FY22→{data.fy} <ScopeTag scope="total" />
+            {data.period?.granularity === 'semester'
+              ? `Historique · ${seriesSpanLabel('FY22', data.fy, data.period)}`
+              : `Historique FY22→${data.fy}`}{' '}
+            <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
             CA total = NEW + RENEW · détections, fermées et signatures NEW
+            {data.period?.granularity === 'semester'
+              ? ` · chaque ligne est une demi-année ${data.period.semester}`
+              : ''}
           </p>
         </div>
       </header>
@@ -60,7 +67,7 @@ export function HistorySection({
                   row.fy === data.fy ? 'review-data-table__current' : undefined
                 }
               >
-                <td>{row.fy}</td>
+                <td>{seriesLabel(row.fy, data.period)}</td>
                 <td>{fmtEur(row.total)}</td>
                 <td>{fmtEur(row.new)}</td>
                 <td>{fmtEur(row.renew)}</td>

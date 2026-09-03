@@ -12,6 +12,7 @@ import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur } from '../review.helpers';
+import { seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function PerformanceSection({
@@ -33,7 +34,7 @@ export function PerformanceSection({
     return (
       <EmptyState
         title="Aucune série"
-        description="Pas de CA NEW / RENEW sur la fenêtre FY22→FY26."
+        description={`Pas de CA NEW / RENEW sur la fenêtre ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
       />
     );
   }
@@ -43,7 +44,7 @@ export function PerformanceSection({
   const chartData = data.series.map((row, index) => {
     const previous = data.series[index - 1];
     return {
-      fy: row.fy,
+      fy: seriesLabel(row.fy, data.period),
       NEW: row.new,
       RENEW: row.renew,
       NEWDelta: previous ? row.new - previous.new : null,
@@ -59,25 +60,26 @@ export function PerformanceSection({
             Trajectoire NEW / RENEW <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
-            CA total · FY22→{data.fy} · le stock ARR catalogue n'est pas un flux
+            CA total · {seriesSpanLabel('FY22', data.fy, data.period)} · le
+            stock ARR catalogue n'est pas un flux
           </p>
         </div>
       </header>
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA total ${data.fy}`}
+          label={`CA total ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.total ?? 0)}
           scope="total"
           hint={`NEW ${fmtEur(current?.new ?? 0)} · RENEW ${fmtEur(current?.renew ?? 0)}`}
         />
         <StatCard
-          label={`CA NEW ${data.fy}`}
+          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.new ?? 0)}
           scope="new"
         />
         <StatCard
-          label={`CA RENEW ${data.fy}`}
+          label={`CA RENEW ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.renew ?? 0)}
           scope="total"
         />
@@ -91,7 +93,11 @@ export function PerformanceSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Série empilée FY22→{data.fy}</h3>
+        <h3 className="review-card-title">
+          {data.period?.granularity === 'semester'
+            ? seriesSpanLabel('FY22', data.fy, data.period)
+            : `Série empilée FY22→${data.fy}`}
+        </h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />

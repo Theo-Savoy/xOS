@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtNum, fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { CommercialPayload, CommercialPerson } from '../review.types';
 
 const DETECTION_STANDARD = 0.5;
@@ -69,7 +70,8 @@ export function SalesComparisonSection({
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            CA NEW · {data.fy} · classement sales hors PDG et hors SDR
+            CA NEW · {seriesLabel(data.fy, data.period)} · classement sales hors
+            PDG et hors SDR
           </p>
         </div>
       </header>

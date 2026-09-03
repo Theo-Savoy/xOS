@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel, seriesSpanLabel } from '../review.period';
 import type { ProductPayload, ProductRow } from '../review.types';
 
 const KEYS = ['catalogue', 'sur_mesure', 'conseil', 'autre'] as const;
@@ -58,8 +59,8 @@ export function ProductHistorySection({
             Produit × exercice <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Fermées NEW, signatures NEW, closing, CA NEW, cycles — FY22→
-            {data.fy}
+            Fermées NEW, signatures NEW, closing, CA NEW, cycles —{' '}
+            {seriesSpanLabel('FY22', data.fy, data.period)}
           </p>
         </div>
       </header>
@@ -82,7 +83,7 @@ export function ProductHistorySection({
             {rows.map(({ fy, product }) => (
               <tr key={`${product.key}-${fy}`}>
                 <td>
-                  {product.label} · {fy}
+                  {product.label} · {seriesLabel(fy, data.period)}
                 </td>
                 <td>{product.closed}</td>
                 <td>{product.won}</td>

@@ -12,6 +12,7 @@ import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtDays } from '../review.helpers';
+import { seriesLabel, seriesSpanLabel } from '../review.period';
 import type { CyclesPayload } from '../review.types';
 
 const PRODUCT_ORDER = ['catalogue', 'sur_mesure', 'conseil', 'autre'] as const;
@@ -41,7 +42,7 @@ export function CycleSection({
     return (
       <EmptyState
         title="Aucun cycle"
-        description="Pas de dates exploitables sur la fenêtre FY22→FY26."
+        description={`Pas de dates exploitables sur la fenêtre ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
       />
     );
   }
@@ -51,7 +52,7 @@ export function CycleSection({
   const chartData = data.series.map((row, index) => {
     const previous = data.series[index - 1];
     return {
-      fy: row.fy,
+      fy: seriesLabel(row.fy, data.period),
       Médiane: row.median,
       Moyenne: row.mean,
       medianDelta:
@@ -81,7 +82,7 @@ export function CycleSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`Médiane ${current?.fy ?? ''}`}
+          label={`Médiane ${seriesLabel(current?.fy ?? '', data.period)}`}
           value={fmtDays(current?.median)}
           scope="signatures-new"
           hint={`${current?.n_valid ?? 0} cycles valides`}
@@ -99,7 +100,9 @@ export function CycleSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Médiane et moyenne FY22→{data.fy}</h3>
+        <h3 className="review-card-title">
+          Médiane et moyenne {seriesSpanLabel('FY22', data.fy, data.period)}
+        </h3>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
@@ -145,7 +148,9 @@ export function CycleSection({
       </GlassCard>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Cycles par produit {current?.fy}</h3>
+        <h3 className="review-card-title">
+          Cycles par produit {seriesLabel(current?.fy ?? '', data.period)}
+        </h3>
         <table className="review-data-table">
           <thead>
             <tr>

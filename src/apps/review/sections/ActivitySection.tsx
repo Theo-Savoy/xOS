@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtNum, fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { CommercialPayload, CommercialPerson } from '../review.types';
 
 function roleLabel(mode: string): string {
@@ -45,8 +46,8 @@ export function ActivitySection({
             Activité par personne <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            CA NEW · {data.fy} · les totaux entreprise ne se somment pas avec
-            les lignes
+            CA NEW · {seriesLabel(data.fy, data.period)} · les totaux entreprise
+            ne se somment pas avec les lignes
           </p>
         </div>
       </header>

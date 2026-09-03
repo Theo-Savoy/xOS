@@ -103,3 +103,37 @@ export function businessReviewPath(
   if (query.semester) params.set('semester', query.semester);
   return `/api/review?${params.toString()}`;
 }
+
+type SeriesPeriod = {
+  granularity?: 'year' | 'semester';
+  mode?: ReviewPeriodMode;
+  semester?: ReviewSemester | null;
+} | null;
+
+function periodSemester(period?: SeriesPeriod): ReviewSemester | null {
+  if (!period) return null;
+  const isSemester =
+    period.granularity === 'semester' || period.mode === 'semester';
+  if (!isSemester) return null;
+  return period.semester === 'S1' || period.semester === 'S2'
+    ? period.semester
+    : null;
+}
+
+/** FY26 en mode exercice, « FY26 · S1 » en mode semestre. */
+export function seriesLabel(fy: string, period?: SeriesPeriod): string {
+  if (!fy) return fy;
+  const semester = periodSemester(period);
+  return semester ? `${fy} · ${semester}` : fy;
+}
+
+/** FY22→FY26 en exercice, « Série semestrielle S1 · FY22→FY26 » en semestre. */
+export function seriesSpanLabel(
+  fromFy: string,
+  toFy: string,
+  period?: SeriesPeriod,
+): string {
+  const span = `${fromFy}→${toFy}`;
+  const semester = periodSemester(period);
+  return semester ? `Série semestrielle ${semester} · ${span}` : span;
+}

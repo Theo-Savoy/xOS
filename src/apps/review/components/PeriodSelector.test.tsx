@@ -7,7 +7,11 @@ import { PeriodSelector, type PeriodSelection } from './PeriodSelector';
 
 afterEach(cleanup);
 
-function Harness({ onChange = vi.fn() }: { onChange?: (value: PeriodSelection) => void }) {
+function Harness({
+  onChange = vi.fn(),
+}: {
+  onChange?: (value: PeriodSelection) => void;
+}) {
   const [value, setValue] = useState<PeriodSelection>({
     mode: 'fy',
     fy: 'FY26',

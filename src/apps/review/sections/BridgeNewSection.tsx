@@ -2,6 +2,7 @@ import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import { WaterfallChart } from '../components/WaterfallChart';
 import type { BridgePayload } from '../review.types';
 
@@ -31,7 +32,11 @@ export function BridgeNewSection({
 
   const vt = data.volume_ticket;
   const steps = [
-    { name: data.compare, amount: vt.prev.amount, kind: 'total' as const },
+    {
+      name: seriesLabel(data.compare, data.period),
+      amount: vt.prev.amount,
+      kind: 'total' as const,
+    },
     {
       name: 'Volume',
       amount: vt.volume,
@@ -42,7 +47,11 @@ export function BridgeNewSection({
       amount: vt.ticket,
       kind: vt.ticket >= 0 ? ('up' as const) : ('down' as const),
     },
-    { name: data.fy, amount: vt.curr.amount, kind: 'total' as const },
+    {
+      name: seriesLabel(data.fy, data.period),
+      amount: vt.curr.amount,
+      kind: 'total' as const,
+    },
   ];
 
   return (
@@ -53,14 +62,15 @@ export function BridgeNewSection({
             Bridge NEW : décomposition volume / ticket <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Analyse NEW uniquement · {data.compare}→{data.fy}
+            Analyse NEW uniquement · {seriesLabel(data.compare, data.period)}→
+            {seriesLabel(data.fy, data.period)}
           </p>
         </div>
       </header>
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA NEW ${data.compare}`}
+          label={`CA NEW ${seriesLabel(data.compare, data.period)}`}
           value={fmtEur(vt.prev.amount)}
           scope="new"
           hint={`${vt.prev.count} signatures`}
@@ -76,7 +86,7 @@ export function BridgeNewSection({
           hint="Δ ticket × signatures N"
         />
         <StatCard
-          label={`CA NEW ${data.fy}`}
+          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(vt.curr.amount)}
           scope="new"
           hint={`${vt.curr.count} signatures`}
@@ -85,7 +95,8 @@ export function BridgeNewSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Waterfall NEW {data.compare} → {data.fy}
+          Waterfall NEW {seriesLabel(data.compare, data.period)} →{' '}
+          {seriesLabel(data.fy, data.period)}
         </h3>
         <WaterfallChart
           steps={steps}

@@ -2,6 +2,7 @@ import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel, seriesSpanLabel } from '../review.period';
 import type { ProductPayload } from '../review.types';
 
 export function ConseilSection({
@@ -23,7 +24,7 @@ export function ConseilSection({
     return (
       <EmptyState
         title="Aucun conseil"
-        description="Pas de ventes Conseil sur la fenêtre FY22→FY26."
+        description={`Pas de ventes Conseil sur la fenêtre ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
       />
     );
   }
@@ -40,7 +41,7 @@ export function ConseilSection({
             Conseil : volumes et CA par exercice <ScopeTag scope="total" />
           </h3>
           <p className="review-section-kicker">
-            CA total Conseil · NEW + RENEW · {data.fy}
+            CA total Conseil · NEW + RENEW · {seriesLabel(data.fy, data.period)}
           </p>
         </div>
       </header>
@@ -71,7 +72,9 @@ export function ConseilSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Conseil FY22→{data.fy}</h3>
+        <h3 className="review-card-title">
+          Conseil {seriesSpanLabel('FY22', data.fy, data.period)}
+        </h3>
         <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
@@ -94,7 +97,7 @@ export function ConseilSection({
                     row.fy === data.fy ? 'review-data-table__current' : ''
                   }
                 >
-                  <td>{row.fy}</td>
+                  <td>{seriesLabel(row.fy, data.period)}</td>
                   <td>{fmtEur(c.amount_total)}</td>
                   <td>{fmtEur(c.amountNew)}</td>
                   <td>{fmtEur(c.amountRenew)}</td>
@@ -107,9 +110,9 @@ export function ConseilSection({
           </tbody>
         </table>
         <p className="review-section-note">
-          {data.fy} = {conseil?.total_signatures ?? 0} ventes ·{' '}
-          {conseil?.new ?? 0} NEW · {conseil?.renew ?? 0} RENEW. Ne jamais lire
-          « {conseil?.new ?? 0} signatures » sans qualifier NEW.
+          {seriesLabel(data.fy, data.period)} = {conseil?.total_signatures ?? 0}{' '}
+          ventes · {conseil?.new ?? 0} NEW · {conseil?.renew ?? 0} RENEW. Ne
+          jamais lire « {conseil?.new ?? 0} signatures » sans qualifier NEW.
         </p>
       </GlassCard>
     </div>

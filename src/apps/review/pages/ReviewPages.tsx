@@ -87,12 +87,10 @@ function AnnualOnlyNotice({ children }: { children: string }) {
 export function SummaryPage({
   period,
   synthesis,
-  overview,
   bridge,
 }: {
   period: PeriodSelection;
   synthesis: Loadable<SynthesisPayload>;
-  overview: Loadable<OverviewPayload>;
   bridge: Loadable<BridgePayload>;
 }) {
   const narrativeAvailable = period.mode === 'fy' && period.fy === 'FY26';
@@ -104,21 +102,17 @@ export function SummaryPage({
         period={period}
         scopes={['total']}
       />
-      {!narrativeAvailable ? (
-        <AnnualOnlyNotice>
-          La synthèse narrative et le verdict sont calibrés sur FY26 : la vue
-          sélectionnée reste chiffrée, sans extrapoler les ETP ni la cohorte.
-        </AnnualOnlyNotice>
-      ) : null}
-      {!narrativeAvailable ? (
-        <PerformanceSection data={overview.data} loading={overview.loading} />
-      ) : (
-        <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
-      )}
+      <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
       <BridgeNewSection data={bridge.data} loading={bridge.loading} />
       {narrativeAvailable ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
-      ) : null}
+      ) : (
+        <AnnualOnlyNotice>
+          {period.mode === 'semester'
+            ? "Le narratif (patterns et verdict) reste calibré sur l'exercice FY26 complet : les ETP et la cohorte ne sont pas extrapolés au semestre."
+            : 'La synthèse narrative et le verdict sont calibrés sur FY26 : la vue sélectionnée reste chiffrée, sans extrapoler les ETP ni la cohorte.'}
+        </AnnualOnlyNotice>
+      )}
     </div>
   );
 }

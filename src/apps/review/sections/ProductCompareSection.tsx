@@ -1,6 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { ProductPayload, ProductRow, ProductYear } from '../review.types';
 
 function ticketLabel(row: ProductRow): string {
@@ -129,8 +130,9 @@ export function ProductCompareSection({
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            CA NEW · {compare}→{data.fy} · fermées, signatures, closing, ticket,
-            cycles
+            CA NEW · {seriesLabel(compare, data.period)}→
+            {seriesLabel(data.fy, data.period)} · fermées, signatures, closing,
+            ticket, cycles
           </p>
         </div>
       </header>
@@ -140,15 +142,15 @@ export function ProductCompareSection({
           title="Catalogue"
           prev={prev?.products.catalogue}
           curr={curr?.products.catalogue}
-          prevFy={compare}
-          currFy={data.fy}
+          prevFy={seriesLabel(compare, data.period)}
+          currFy={seriesLabel(data.fy, data.period)}
         />
         <ProductColumn
           title="Sur-mesure"
           prev={prev?.products.sur_mesure}
           curr={curr?.products.sur_mesure}
-          prevFy={compare}
-          currFy={data.fy}
+          prevFy={seriesLabel(compare, data.period)}
+          currFy={seriesLabel(data.fy, data.period)}
         />
       </div>
 

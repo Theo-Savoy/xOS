@@ -2,6 +2,7 @@ import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { CommercialPayload, DgYear } from '../review.types';
 
 function Metric({
@@ -68,7 +69,8 @@ export function LeadershipSection({
             Activité PDG — hors classement commercial <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            CA NEW · {data.compare}→{data.fy} · pas d'objectif, pas de
+            CA NEW · {seriesLabel(data.compare, data.period)}→
+            {seriesLabel(data.fy, data.period)} · pas d'objectif, pas de
             comparaison sales
           </p>
         </div>
@@ -76,7 +78,7 @@ export function LeadershipSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA NEW ${data.fy}`}
+          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(curr.amountNew)}
           scope="new"
           hint={`${curr.signaturesNew} signatures NEW`}
@@ -92,8 +94,8 @@ export function LeadershipSection({
       <GlassCard className="review-chart-card">
         <div className="review-compare-head">
           <span />
-          <span>{data.compare}</span>
-          <span>{data.fy}</span>
+          <span>{seriesLabel(data.compare, data.period)}</span>
+          <span>{seriesLabel(data.fy, data.period)}</span>
         </div>
         <Metric
           label="Détections"
