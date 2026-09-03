@@ -3,7 +3,7 @@ import './ui.css';
 
 type EmptyStateProps = {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 };
 
@@ -69,7 +69,7 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         />
       </svg>
       <h3>{title}</h3>
-      <p>{description}</p>
+      {description ? <p>{description}</p> : null}
       {action}
     </div>
   );

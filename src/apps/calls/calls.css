@@ -132,20 +132,6 @@
   min-width: 0;
 }
 
-/* Initial Prompts */
-.calls-abm-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-  margin-top: 1rem;
-}
-
-.calls-abm-prompts__label {
-  font-size: 0.85rem;
-  color: var(--xos-text-muted);
-}
-
 /* Toolbar */
 .calls-abm-toolbar {
   display: flex;

@@ -647,7 +647,18 @@ describe('AccountSearchView', () => {
     renderView();
 
     // État vide initial avant recherche
-    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+    expect(screen.getByText('Commencez votre recherche')).toBeTruthy();
+    expect(screen.queryByText('Cibler des comptes spécifiques')).toBeNull();
+    expect(
+      screen.queryByText(/Recherchez une entreprise par son nom/),
+    ).toBeNull();
+    expect(screen.queryByText(/Ou démarrez directement avec/)).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Mes comptes' }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Tier A & B' }),
+    ).toBeNull();
 
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
@@ -658,7 +669,7 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
     );
-    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+    expect(screen.getByText('Commencez votre recherche')).toBeTruthy();
     expect(screen.queryByText('ACME')).toBeNull();
     expect(
       (screen.getByLabelText('Nom du compte') as HTMLInputElement).value,

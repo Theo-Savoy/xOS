@@ -677,37 +677,7 @@ export function AccountSearchView({
               )}
 
               {!loading && !searched && accounts.length === 0 && !error && (
-                <EmptyState
-                  title="Cibler des comptes spécifiques"
-                  description="Recherchez une entreprise par son nom ou combinez les filtres d'entreprise pour composer votre cible."
-                  action={
-                    <div className="calls-abm-prompts">
-                      <span className="calls-abm-prompts__label">
-                        Ou démarrez directement avec :
-                      </span>
-                      {ownerOptions.length > 0 && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            setFilter({
-                              proprietaires: [ownerOptions[0].value],
-                            })
-                          }
-                        >
-                          Mes comptes
-                        </Button>
-                      )}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setFilter({ tiers: ['A', 'B'] })}
-                      >
-                        Tier A & B
-                      </Button>
-                    </div>
-                  }
-                />
+                <EmptyState title="Commencez votre recherche" />
               )}
 
               {!loading && searched && accounts.length === 0 && !error && (
