@@ -50,7 +50,7 @@ export function QualitySection({
         <StatCard
           label="Cycles négatifs"
           value={String(data.negative_cycles)}
-          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures NEW`}
+          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures nouv. aff.`}
         />
         <StatCard
           label="Cycles > 365 j"

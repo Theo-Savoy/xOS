@@ -47,8 +47,8 @@ export function ActivitySection({
           </h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            CA NEW · {seriesLabel(data.fy, data.period)} · les totaux entreprise
-            ne se somment pas avec les lignes
+            CA nouv. aff. · {seriesLabel(data.fy, data.period)} · les totaux
+            entreprise ne se somment pas avec les lignes
           </p>
         </div>
       </header>
@@ -64,10 +64,10 @@ export function ActivitySection({
               <th>RDV/sem</th>
               <th>Détections</th>
               <th>Taux dét.</th>
-              <th>Fermées NEW</th>
-              <th>Sign. NEW</th>
+              <th>Fermées nouv. aff.</th>
+              <th>Sign. nouv. aff.</th>
               <th>Closing</th>
-              <th>CA NEW</th>
+              <th>CA nouv. aff.</th>
             </tr>
           </thead>
           <tbody>

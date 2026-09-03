@@ -177,7 +177,7 @@ describe('pages du bilan', () => {
     expect(container.textContent).toMatch(
       /Cadrage/,
     );
-    expect(container.textContent).toMatch(/Waterfall NEW/);
+    expect(container.textContent).toMatch(/Waterfall nouvelles affaires/);
     expect(container.querySelector('.review-kpi-grid--quad')).toBeTruthy();
 
     const patterns = container.querySelector('.review-patterns-grid');
@@ -287,7 +287,7 @@ describe('pages du bilan', () => {
       /Cadrage/,
     );
     expect(container.textContent).toMatch(
-      /Le narratif reste calibré sur FY26 complet\./,
+      /Le narratif n'est disponible que sur l'exercice FY26 complet\./,
     );
     expect(container.querySelector('.review-patterns-grid')).toBeNull();
     expect(screen.queryByText('Pattern 1')).toBeNull();

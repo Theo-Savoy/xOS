@@ -27,7 +27,12 @@ describe('computeChannels', () => {
   it('concentration Top 1 = 19,7 % et Top 5 = 40,7 % (±0,1 pt), CA total RENEW inclus', () => {
     within(channels.concentration.top1_pct, 19.7, 0.1);
     within(channels.concentration.top5_pct, 40.7, 0.1);
-    expect(channels.concentration.n_displayed).toEqual(expect.any(Number));
+    expect(channels.concentration.n_displayed).toEqual(
+      Math.min(15, channels.concentration.n_total),
+    );
+    expect(channels.concentration.topN_pct).toBeGreaterThanOrEqual(
+      channels.concentration.top5_pct,
+    );
     expect(channels.concentration.n_total).toEqual(expect.any(Number));
     expect(channels.concentration.n_total).toBeGreaterThanOrEqual(
       channels.concentration.n_displayed,

@@ -60,7 +60,7 @@ export function ProductivitySection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label="CA NEW / ETP"
+          label="CA nouv. aff. / ETP"
           value={fmtEur(current.caPerFte || 0)}
           scope="new"
           delta={fmtPctDelta(evo.caPerFte)}
@@ -85,8 +85,8 @@ export function ProductivitySection({
             <tr>
               <th>Exercice</th>
               <th>ETP sales</th>
-              <th>CA NEW sales</th>
-              <th>Signatures NEW</th>
+              <th>CA nouv. aff. sales</th>
+              <th>Signatures nouv. aff.</th>
               <th>Détections</th>
               <th>CA / ETP</th>
               <th>Sign. / ETP</th>

@@ -12,15 +12,20 @@ export function computeDiagnosis({
   market,
   cycles,
   fte,
+  fy,
+  compare,
 } = {}) {
+  const fteYears = Object.keys(fte || {}).sort();
+  const currentFy = fy || fteYears.at(-1);
+  const prevFy = compare || fteYears.at(-2);
   const lostShare = portfolio?.conservation?.lost_share?.ratio;
   const top1 = channels?.concentration?.top1_pct;
-  const marche = market?.share?.find((row) => row.fy === 'FY26')?.pct;
+  const marche = market?.share?.find((row) => row.fy === currentFy)?.pct;
   const pValue = market?.test?.p;
-  const fy26Cycles = cycles?.series?.find((row) => row.fy === 'FY26');
-  const fte25 = Number(fte?.FY25?.sales) || 0;
-  const fte26 = Number(fte?.FY26?.sales) || 0;
-  const capacite = fte25 ? (fte26 - fte25) / fte25 : 0;
+  const currentCycles = cycles?.series?.find((row) => row.fy === currentFy);
+  const ftePrev = Number(fte?.[prevFy]?.sales) || 0;
+  const fteCurr = Number(fte?.[currentFy]?.sales) || 0;
+  const capacite = ftePrev ? (fteCurr - ftePrev) / ftePrev : 0;
 
   const factors = [
     {
@@ -42,7 +47,7 @@ export function computeDiagnosis({
     {
       id: 'marche',
       facteur: 'Signal marché / client',
-      impact: `Fort (${marche ?? '78,5'} % des pertes NEW)`,
+      impact: `Fort (${marche ?? '78,5'} % des pertes nouvelles affaires)`,
       fiabilite_mesure: 'Moyenne — motifs déclaratifs, pas de causalité',
       fiabilite_attribution: `Faible — p = ${pValue == null ? '—' : pValue.toFixed(3)} (exploratoire)`,
       manque: 'Motifs non déclarés, n réel au-delà du top-N (P6)',
@@ -61,13 +66,13 @@ export function computeDiagnosis({
       impact: `Moyen — Top 1 = ${top1 ?? 19.7} % du CA total`,
       fiabilite_mesure: 'Haute pour les campagnes renseignées',
       fiabilite_attribution: 'Nulle pour le SDR — aucune clé RDV → Opportunity',
-      manque: 'Lien Event / Opportunity ; RENEW exclus des canaux (R2)',
+      manque: 'Lien Event / Opportunity ; renouvellements exclus des canaux (R2)',
     },
     {
       id: 'cycles',
       facteur: 'Cycles de vente',
       impact: 'Secondaire',
-      fiabilite_mesure: `Haute sur n valide (${fy26Cycles?.n_valid ?? 43}) — ${fy26Cycles?.n_excluded ?? 13} exclus`,
+      fiabilite_mesure: `Haute sur n valide (${currentCycles?.n_valid ?? 43}) — ${currentCycles?.n_excluded ?? 13} exclus`,
       fiabilite_attribution: 'Moyenne — dates CreatedDate / CloseDate brutes',
       manque: 'Correction des 13 cycles négatifs à la source (P10)',
     },

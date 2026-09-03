@@ -1,13 +1,14 @@
 /**
- * api/_business-review/synthesis.js — Cartes de cadrage + narratif FY26.
+ * api/_business-review/synthesis.js — Cartes de cadrage + slot narratif.
  *
  * KPIs : 4 lectures structurantes calculées sur la période sélectionnée
  * (FY complet ou semestre S1/S2), comparées à la même période N-1 :
  *   1. croissance    — Δ% CA total vs même période N-1
- *   2. mix new/renew — part du NEW dans le CA signé de la période
- *   3. closing NEW   — signatures NEW / opportunités NEW fermées
- *   4. cycle NEW     — médiane création → signature des NEW gagnés
- * Le narratif (patterns, verdict) reste calibré sur l'exercice FY26 complet.
+ *   2. mix           — part des nouvelles affaires dans le CA signé
+ *   3. closing       — signatures / opportunités fermées (nouv. aff.)
+ *   4. cycle         — médiane création → signature des nouvelles affaires gagnées
+ * Le narratif (patterns, verdict) est neutralisé : payload vide tant que
+ * l'IA n'est pas branchée (voir frozenNarrative + analysis.status = 'none').
  */
 import mapping from '../_crm/mapping.js';
 import { isRenew, splitNewRenew } from './classify.js';
@@ -25,23 +26,23 @@ export const PATTERN_IDS = [
 export const DEFINITIONS = [
   {
     id: 'R1',
-    title: 'Classification RENEW',
+    title: 'Classification renouvellements',
     body: 'Une opportunité est RENEW si Opportunity.Name contient « renew » ou « tacite », sans tenir compte de la casse. Sinon elle est NEW. Fonction unique isRenew, jamais réimplémentée.',
   },
   {
     id: 'R2',
     title: 'Signatures et CA totaux',
-    body: 'Le CA total et les signatures totaux = NEW + RENEW. Toute métrique d’activité (détections, fermées, closing, cycle, motifs, canaux) exclut les RENEW.',
+    body: 'Le CA total et les signatures totaux = nouvelles affaires + renouvellements. Toute métrique d’activité (détections, fermées, closing, cycle, motifs, canaux) exclut les renouvellements.',
   },
   {
     id: 'R3',
-    title: 'Conservation NEW + RENEW',
+    title: 'Conservation nouv. aff. + renouv.',
     body: 'Pour toute période : total.count = new.count + renew.count et |total.amount − (new.amount + renew.amount)| ≤ 0,01. Un écart non nul est un signal produit.',
   },
   {
     id: 'R4',
     title: 'Exercice fiscal',
-    body: 'FY = juillet → juin. FY26 = 01/07/2025 → 30/06/2026. La logique de api/_review/period.js n’est pas réécrite.',
+    body: 'FY = juillet → juin. Un FYNN va du 01/07/(2000+NN−1) au 30/06/(2000+NN). La logique de api/_review/period.js n’est pas réécrite.',
   },
   {
     id: 'R6',
@@ -51,7 +52,7 @@ export const DEFINITIONS = [
   {
     id: 'R9',
     title: 'Bridge volume / ticket',
-    body: 'Bridge NEW = volume + ticket, formule séquentielle (pas « symétrique »). Bridge catalogue = delta RENEW + volume NEW + ticket NEW. Somme des barres = delta à ±0,1 k€.',
+    body: 'Bridge nouvelles affaires = volume + ticket, formule séquentielle (pas « symétrique »). Bridge catalogue = delta renouvellements + volume + ticket nouvelles affaires. Somme des barres = delta à ±0,1 k€.',
   },
   {
     id: 'R12',
@@ -61,12 +62,12 @@ export const DEFINITIONS = [
   {
     id: 'R13',
     title: 'ETP fournis par la direction',
-    body: 'FY25 = 4,17 ETP sales, FY26 = 2,00 (+1 SDR séparé). Valeurs de configuration, jamais dérivées de Salesforce.',
+    body: 'ETP sales et SDR par exercice, lus dans la configuration. Valeurs de configuration, jamais dérivées de Salesforce.',
   },
   {
     id: 'R14',
     title: 'Test statistique marché',
-    body: 'Deux proportions, bilatéral. Part 67,2 % (FY24) → 78,5 % (FY26). Conclusion figée : « le signal domine sans prouver l’aggravation ».',
+    body: 'Deux proportions, bilatéral. La p-value est exploratoire : un signal n’est pas une causalité.',
   },
 ];
 
@@ -82,6 +83,51 @@ function wonNewOf(window, fy) {
   return (window[fy]?.won || []).filter(
     (record) => !isRenew(record?.[opp.fields.name]),
   );
+}
+
+/**
+ * Narratif calibré sur un couple annuel précis — conservé hors payload
+ * (P2-5 / P2-9 / P2-10). Non servi tant que analysis.status === 'none'.
+ */
+export function frozenNarrative({
+  window,
+  fy,
+  catalogue,
+  market,
+  portfolio,
+} = {}) {
+  const total = splitNewRenew(window?.[fy]?.won || []).total.amount;
+  const fidelises = Number(portfolio?.statuses?.fidelises?.amount) || 0;
+  const fidelisesShare = total ? fidelises / total : 0;
+  const shareRenew = Number(catalogue?.share_renew) || 0;
+  return {
+    patterns: [
+      {
+        id: PATTERN_IDS[0],
+        title: 'Nouvelles affaires et renouvellements reculent ensemble',
+        body: 'Le recul n’est pas un simple trou de prospection : le stock renouvellements baisse avec le flux nouvelles affaires.',
+      },
+      {
+        id: PATTERN_IDS[1],
+        title: `${fmtFr(fidelisesShare * 100, 1)} % du CA signé vient des clients existants`,
+        body: 'Fidélisés portent l’essentiel du CA. Les nouveaux logos (Gagnés) ne compensent pas le stock perdu.',
+      },
+      {
+        id: PATTERN_IDS[2],
+        title: 'Le recul catalogue est d’abord un recul des renouvellements',
+        body: `${fmtFr(shareRenew * 100, 1)} % du recul catalogue vient des renouvellements, le reste du volume et du ticket nouvelles affaires.`,
+      },
+      {
+        id: PATTERN_IDS[3],
+        title: 'Le signal marché pèse sans prouver une aggravation',
+        body:
+          market?.conclusion ||
+          "le signal domine sans prouver l'aggravation",
+      },
+    ],
+    verdict:
+      'Le recul est d’abord un recul de capacité et de catalogue, dans un marché qui pèse sans s’aggraver statistiquement.',
+  };
 }
 
 /**
@@ -124,15 +170,15 @@ export function computeSynthesisCards({
     ),
     card(
       'mix-new',
-      'Mix NEW / RENEW',
-      mixNew === null ? '—' : `${fmtFr(mixNew * 100, 1)} % NEW`,
+      'Mix nouv. aff. / renouv.',
+      mixNew === null ? '—' : `${fmtFr(mixNew * 100, 1)} % nouv. aff.`,
       mixNew ?? 0,
       'new',
-      `Part du NEW dans le CA signé ${periodLabel}`,
+      `Part des nouvelles affaires dans le CA signé ${periodLabel}`,
     ),
     card(
       'closing',
-      'Closing NEW',
+      'Closing nouv. aff.',
       closing === null ? '—' : `${fmtFr(closing * 100, 1)} %`,
       closing ?? 0,
       'signatures-new',
@@ -140,7 +186,7 @@ export function computeSynthesisCards({
     ),
     card(
       'cycle',
-      'Cycle NEW',
+      'Cycle nouv. aff.',
       cycle.median === null ? '—' : `${fmtFr(cycle.median, 0)} j`,
       cycle.median ?? 0,
       'signatures-new',
@@ -154,42 +200,11 @@ export function computeSynthesis({
   fy,
   compare,
   semester = null,
-  catalogue,
-  market,
-  portfolio,
 } = {}) {
-  const total = splitNewRenew(window?.[fy]?.won || []).total.amount;
-  const fidelises = Number(portfolio?.statuses?.fidelises?.amount) || 0;
-  const fidelisesShare = total ? fidelises / total : 0;
-  const shareRenew = Number(catalogue?.share_renew) || 0;
-
   return {
     cards: computeSynthesisCards({ window, fy, compare, semester }),
-    patterns: [
-      {
-        id: PATTERN_IDS[0],
-        title: 'NEW et RENEW reculent ensemble',
-        body: 'Le recul FY26 n’est pas un simple trou de prospection : le stock RENEW baisse avec le flux NEW.',
-      },
-      {
-        id: PATTERN_IDS[1],
-        title: `${fmtFr(fidelisesShare * 100, 1)} % du CA signé vient des clients existants`,
-        body: 'Fidélisés portent l’essentiel du CA. Les nouveaux logos (Gagnés) ne compensent pas le stock perdu.',
-      },
-      {
-        id: PATTERN_IDS[2],
-        title: 'Le recul catalogue est d’abord un recul RENEW',
-        body: `${fmtFr(shareRenew * 100, 1)} % du recul catalogue vient des RENEW, le reste du volume et du ticket NEW.`,
-      },
-      {
-        id: PATTERN_IDS[3],
-        title: 'Le signal marché domine sans prouver l’aggravation',
-        body:
-          market?.conclusion || "le signal domine sans prouver l'aggravation",
-      },
-    ],
-    verdict:
-      'Le recul FY26 est d’abord un recul de capacité et de catalogue, dans un marché qui pèse sans s’aggraver statistiquement.',
+    patterns: [],
+    verdict: null,
     key_point:
       'Lire dans cet ordre : performance globale, offres, capacité, puis marché — jamais un diagnostic d’équipe sans le cadrage Owner.',
     conservation: {

@@ -40,6 +40,7 @@ import { arrCatalogueOpps, fyRange } from './_business-review/soql.js';
 import { fetchEventsWindow, fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
 import {
+  bridgeByProduct,
   catalogueBridge,
   ownerBridge,
   volumeTicketBridge,
@@ -63,6 +64,7 @@ import { computeQuality } from './_business-review/quality.js';
 import { loadFte, saveFte } from './_business-review/fte-config.js';
 
 const CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=600';
+const ANALYSIS_NONE = { status: 'none' };
 
 const BUSINESS_RESOURCES = [
   'overview',
@@ -95,6 +97,11 @@ function json(status, body, extraHeaders = {}) {
       ...extraHeaders,
     },
   });
+}
+
+/** Payload de section : slot IA/commentaires désactivé (P2-10). */
+function sectionJson(body) {
+  return json(200, { ...body, analysis: body.analysis ?? ANALYSIS_NONE });
 }
 
 function withSemester(fetched, semester) {
@@ -236,7 +243,7 @@ async function reviewHandler(request) {
       return json(403, { error: 'manager_required' });
     }
     if (method !== 'GET') return json(405, { error: 'method_not_allowed' });
-    return json(200, {
+    return sectionJson({
       resource: 'definitions',
       conservation: { ok: true, delta_count: 0, delta_amount: 0 },
       ...computeDefinitions(),
@@ -300,7 +307,7 @@ async function reviewHandler(request) {
           semester,
         );
         const overview = computeOverview(fetched.window);
-        return json(200, {
+        return sectionJson({
           resource: 'overview',
           period,
           fy: fyParsed.label,
@@ -323,19 +330,22 @@ async function reviewHandler(request) {
         const currNew = splitNewRenew(currWon).new;
         const volumeTicket = volumeTicketBridge(prevNew, currNew);
         const owner = ownerBridge(prevWon, currWon);
-        const catalogue = catalogueBridge(prevWon, currWon);
+        const byProduct = bridgeByProduct(prevWon, currWon);
+        const catalogue = byProduct.catalogue;
         const conservation = {
           ok:
             volumeTicket.conservation.ok &&
             owner.conservation.ok &&
-            catalogue.conservation.ok,
+            byProduct.catalogue.conservation.ok &&
+            byProduct.sur_mesure.conservation.ok &&
+            byProduct.conseil.conservation.ok,
           delta_count: 0,
           delta_amount:
             (volumeTicket.conservation.delta_amount || 0) +
             (owner.conservation.delta_amount || 0) +
             (catalogue.conservation.delta_amount || 0),
         };
-        return json(200, {
+        return sectionJson({
           resource: 'bridge',
           period,
           fy: fyParsed.label,
@@ -346,6 +356,7 @@ async function reviewHandler(request) {
           volume_ticket: volumeTicket,
           owner,
           catalogue,
+          by_product: byProduct,
         });
       }
 
@@ -356,7 +367,7 @@ async function reviewHandler(request) {
           semester,
         );
         const product = computeProduct(fetched.window);
-        return json(200, {
+        return sectionJson({
           resource: 'product',
           period,
           fy: fyParsed.label,
@@ -374,7 +385,7 @@ async function reviewHandler(request) {
           semester,
         );
         const cycles = computeCycles(fetched.window);
-        return json(200, {
+        return sectionJson({
           resource: 'cycles',
           period,
           fy: fyParsed.label,
@@ -413,7 +424,7 @@ async function reviewHandler(request) {
             ...(events.truncated_fys || []),
           ]),
         ];
-        return json(200, {
+        return sectionJson({
           resource: 'commercial',
           period,
           fy: fyParsed.label,
@@ -434,7 +445,7 @@ async function reviewHandler(request) {
           fy: fyParsed.label,
           compare: compareParsed.label,
         });
-        return json(200, {
+        return sectionJson({
           resource: 'market',
           period,
           fy: fyParsed.label,
@@ -469,7 +480,7 @@ async function reviewHandler(request) {
           cohort,
           fyParsed.label,
         );
-        return json(200, {
+        return sectionJson({
           resource: 'portfolio',
           period,
           fy: fyParsed.label,
@@ -488,7 +499,7 @@ async function reviewHandler(request) {
           semester,
         );
         const channels = computeChannels(fetched.window, fyParsed.label);
-        return json(200, {
+        return sectionJson({
           resource: 'channels',
           period,
           fy: fyParsed.label,
@@ -508,7 +519,7 @@ async function reviewHandler(request) {
           semester,
         );
         const quality = computeQuality(fetched.window, fyParsed.label);
-        return json(200, {
+        return sectionJson({
           resource: 'quality',
           period,
           fy: fyParsed.label,
@@ -547,7 +558,10 @@ async function reviewHandler(request) {
           fyParsed.label,
         );
         const channels = computeChannels(fetched.window, fyParsed.label);
-        const market = computeMarket(fetched.window);
+        const market = computeMarket(fetched.window, {
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+        });
         const cycles = computeCycles(fetched.window);
         if (resource === 'diagnosis') {
           const diagnosis = computeDiagnosis({
@@ -556,8 +570,10 @@ async function reviewHandler(request) {
             market,
             cycles,
             fte,
+            fy: fyParsed.label,
+            compare: compareParsed.label,
           });
-          return json(200, {
+          return sectionJson({
             resource: 'diagnosis',
             period,
             fy: fyParsed.label,
@@ -579,7 +595,7 @@ async function reviewHandler(request) {
           market,
           portfolio,
         });
-        return json(200, {
+        return sectionJson({
           resource: 'synthesis',
           period,
           fy: fyParsed.label,

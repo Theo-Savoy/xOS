@@ -4,7 +4,7 @@ import { catalogueBridge } from './bridge.js';
 import { computeMarket } from './market.js';
 import { computePortfolio } from './portfolio.js';
 import { computeQuality } from './quality.js';
-import { PATTERN_IDS, computeSynthesis } from './synthesis.js';
+import { PATTERN_IDS, computeSynthesis, frozenNarrative } from './synthesis.js';
 
 describe('computeQuality', () => {
   it('reproduit les compteurs A8 FY26', () => {
@@ -41,12 +41,21 @@ describe('computeSynthesis', () => {
     ]);
     expect(synthesis.cards.map((card) => card.display)).toEqual([
       '−13,7 %',
-      '53,8 % NEW',
+      '53,8 % nouv. aff.',
       '30,1 %',
       '22 j',
     ]);
-    expect(synthesis.patterns).toHaveLength(4);
-    expect(synthesis.patterns.map((row) => row.id)).toEqual(PATTERN_IDS);
+    expect(synthesis.patterns).toHaveLength(0);
+    expect(synthesis.verdict).toBeNull();
+    const frozen = frozenNarrative({
+      window: fyWindow,
+      fy: 'FY26',
+      catalogue,
+      market,
+      portfolio,
+    });
+    expect(frozen.patterns).toHaveLength(4);
+    expect(frozen.patterns.map((row) => row.id)).toEqual(PATTERN_IDS);
     expect(PATTERN_IDS).toEqual([
       'new-renew',
       'clients-existants',
@@ -100,11 +109,30 @@ describe('computeSynthesis', () => {
 
     expect(synthesis.cards.map((card) => card.display)).toEqual([
       '−25,0 %',
-      '33,3 % NEW',
+      '33,3 % nouv. aff.',
       '25,0 %',
       '45 j',
     ]);
     expect(synthesis.cards[0].hint).toContain('FY25 · S1');
     expect(synthesis.cards[0].hint).toContain('FY26 · S1');
+    expect(synthesis.patterns).toHaveLength(0);
+    expect(synthesis.verdict).toBeNull();
+  });
+
+  it('conserve le narratif figé hors payload (slot IA)', () => {
+    const frozen = frozenNarrative({ window: fyWindow, fy: 'FY26' });
+    expect(frozen.verdict).toBeTruthy();
+    expect(frozen.patterns.map((row) => row.id)).toEqual(PATTERN_IDS);
+  });
+
+  it('neutralise patterns et verdict hors du couple cible FY25→FY26 annuel', () => {
+    const synthesis = computeSynthesis({
+      window: fyWindow,
+      fy: 'FY25',
+      compare: 'FY24',
+      semester: null,
+    });
+    expect(synthesis.patterns).toHaveLength(0);
+    expect(synthesis.verdict).toBeNull();
   });
 });

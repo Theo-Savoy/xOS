@@ -16,6 +16,13 @@ export const FY_OPTIONS = [
   { value: 'FY26', label: 'FY26' },
 ] as const;
 
+/** Exercice de référence des lectures annuelles (portefeuille, diagnostic, narratif). */
+export const ANNUAL_ONLY_FY = 'FY26';
+
+export function isAnnualOnlySelection(selection: PeriodSelection): boolean {
+  return selection.mode === 'fy' && selection.fy === ANNUAL_ONLY_FY;
+}
+
 export function fyIntFromLabel(fy: string): number {
   const match = fy.match(/^FY(\d{2})$/);
   if (!match) throw new Error(`invalid_fy:${fy}`);
@@ -66,6 +73,11 @@ function inclusiveEnd(toExclusive: string): string {
 export function periodRangeLabel(selection: PeriodSelection): string {
   const { from, toExclusive } = periodRange(selection);
   return `${formatDay(from)} → ${formatDay(inclusiveEnd(toExclusive))}`;
+}
+
+/** Dernier jour inclus de l'exercice (ex. FY26 → 30/06/2026). */
+export function fyEndLabel(fy: string): string {
+  return formatDay(inclusiveEnd(fyBounds(fy).toExclusive));
 }
 
 export function comparisonFy(fy: string): string {

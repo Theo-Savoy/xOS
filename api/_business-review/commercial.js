@@ -245,8 +245,8 @@ export function computeCommercial(
   options = {},
 ) {
   const fys = Object.keys(window || {}).sort();
-  const fy = options.fy || fys.at(-1) || 'FY26';
-  const compare = options.compare || fys.at(-2) || 'FY25';
+  const fy = options.fy || fys.at(-1);
+  const compare = options.compare || fys.at(-2);
 
   const peopleByFy = Object.fromEntries(
     fys.map((year) => [

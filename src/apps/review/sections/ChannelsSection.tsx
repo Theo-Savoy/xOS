@@ -1,8 +1,47 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { Button, EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtEur, fmtPct1 } from '../review.helpers';
 import type { ChannelsPayload } from '../review.types';
+
+type ChannelMetric = 'amount' | 'won' | 'closing';
+
+const METRICS: { key: ChannelMetric; label: string; title: string }[] = [
+  { key: 'amount', label: 'CA', title: 'Canaux par CA' },
+  { key: 'won', label: 'Signatures', title: 'Canaux par signatures' },
+  { key: 'closing', label: 'Closing', title: 'Canaux par closing' },
+];
+
+function channelValue(row: {
+  amount: number;
+  won: number;
+  closing: number | null;
+  closing_pct: number;
+}, metric: ChannelMetric): number {
+  if (metric === 'amount') return row.amount;
+  if (metric === 'won') return row.won;
+  return row.closing_pct;
+}
+
+function formatChannelValue(value: number, metric: ChannelMetric): string {
+  if (metric === 'amount') return fmtEur(value);
+  if (metric === 'won') return String(Math.round(value));
+  return `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+}
+
+function shortLabel(label: string): string {
+  return label.length > 22 ? `${label.slice(0, 20)}…` : label;
+}
 
 export function ChannelsSection({
   data,
@@ -11,6 +50,8 @@ export function ChannelsSection({
   data: ChannelsPayload | null;
   loading: boolean;
 }) {
+  const [metric, setMetric] = useState<ChannelMetric>('amount');
+
   if (loading && !data) {
     return (
       <div className="review-section">
@@ -23,18 +64,26 @@ export function ChannelsSection({
     return (
       <EmptyState
         title="Aucun canal"
-        description="Pas de campagnes NEW sur cette fenêtre."
+        description="Pas de campagnes nouvelles affaires sur cette fenêtre."
       />
     );
   }
+
+  const topN = data.concentration.n_displayed;
+  const topNPct =
+    data.concentration.topN_pct ?? data.concentration.top5_pct;
+  const chartData = data.channels.items.map((row) => ({
+    canal: row.label,
+    valeur: channelValue(row, metric),
+  }));
+  const chartHeight = Math.max(220, data.channels.items.length * 28);
+  const metricMeta = METRICS.find((item) => item.key === metric) || METRICS[0];
 
   return (
     <div className="review-section">
       <header className="review-section-heading">
         <div>
-          <h3 className="review-card-title">
-            Canaux
-          </h3>
+          <h3 className="review-card-title">Canaux</h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
             {data.channels.n_total} canaux · lecture complète, sans top-N masqué
@@ -47,28 +96,108 @@ export function ChannelsSection({
           label="Top 1"
           value={fmtPct1(data.concentration.top1_pct / 100)}
           scope="total"
-          hint="CA total, RENEW inclus"
+          hint="CA total, renouvellements inclus"
         />
         <StatCard
-          label="Top 5"
-          value={fmtPct1(data.concentration.top5_pct / 100)}
+          label={`Top ${topN}`}
+          value={fmtPct1(topNPct / 100)}
           scope="total"
-          hint={`${data.concentration.n_displayed} / ${data.concentration.n_total} comptes`}
+          hint={`${topN} / ${data.concentration.n_total} comptes`}
         />
       </div>
 
+      <GlassCard className="review-chart-card">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 'var(--xos-space-2)',
+            marginBottom: 'var(--xos-space-3)',
+          }}
+        >
+          <h3 className="review-card-title">{metricMeta.title}</h3>
+          <div
+            className="review-period-selector"
+            role="tablist"
+            aria-label="Métrique des canaux"
+          >
+            {METRICS.map((item) => (
+              <Button
+                key={item.key}
+                type="button"
+                variant="ghost"
+                size="sm"
+                role="tab"
+                aria-selected={metric === item.key}
+                className={
+                  metric === item.key ? 'review-period-button--active' : ''
+                }
+                onClick={() => setMetric(item.key)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        {chartData.length ? (
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--xos-border)"
+              />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+                stroke="var(--xos-border)"
+                tickFormatter={(value: number) =>
+                  formatChannelValue(value, metric)
+                }
+              />
+              <YAxis
+                type="category"
+                dataKey="canal"
+                tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
+                stroke="var(--xos-border)"
+                width={140}
+                tickFormatter={shortLabel}
+              />
+              <ReviewChartTooltip
+                content={
+                  <ChartTooltip
+                    valueFormatter={(value) =>
+                      formatChannelValue(value, metric)
+                    }
+                  />
+                }
+              />
+              <Bar
+                dataKey="valeur"
+                name={metricMeta.label}
+                fill="var(--xos-accent)"
+                radius={[0, 4, 4, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="review-section-note">Aucun canal renseigné.</p>
+        )}
+      </GlassCard>
+
       <div className="review-page-grid review-page-grid--balanced">
         <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">Canaux NEW</h3>
+          <h3 className="review-card-title">Détail des canaux</h3>
           <div className="review-table-wrap">
             <table className="review-data-table">
               <thead>
                 <tr>
                   <th>Campagne</th>
-                  <th>Fermées NEW</th>
-                  <th>Sign. NEW</th>
+                  <th>Fermées</th>
+                  <th>Signatures</th>
                   <th>Closing</th>
-                  <th>CA NEW</th>
+                  <th>CA</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,8 +218,8 @@ export function ChannelsSection({
         <GlassCard className="review-chart-card">
           <h3 className="review-card-title">Concentration clients</h3>
           <p className="review-section-kicker">
-            Top {data.concentration.n_displayed} sur{' '}
-            {data.concentration.n_total} comptes · CA total, RENEW inclus
+            Top {topN} sur {data.concentration.n_total} comptes · CA total,
+            renouvellements inclus
           </p>
           <div className="review-table-wrap">
             <table className="review-data-table">
@@ -104,7 +233,7 @@ export function ChannelsSection({
               </thead>
               <tbody>
                 {data.concentration.items
-                  .slice(0, data.concentration.n_displayed)
+                  .slice(0, topN)
                   .map((row) => (
                     <tr key={`${row.rank}-${row.name}`}>
                       <td>{row.rank}</td>

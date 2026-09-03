@@ -1,7 +1,7 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur, fmtPct1 } from '../review.helpers';
-import { seriesLabel, seriesSpanLabel } from '../review.period';
+import { ANNUAL_ONLY_FY, FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function HistorySection({
@@ -22,7 +22,7 @@ export function HistorySection({
     return (
       <EmptyState
         title="Historique indisponible"
-        description={`Pas de série ${seriesSpanLabel('FY22', 'FY26', data?.period)}.`}
+        description={`Pas de série ${seriesSpanLabel(FY_OPTIONS[0].value, data?.fy || ANNUAL_ONLY_FY, data?.period)}.`}
       />
     );
   }
@@ -36,7 +36,8 @@ export function HistorySection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            CA total = NEW + RENEW · détections, fermées et signatures NEW
+            CA total = nouv. aff. + renouv. · détections, fermées et signatures
+            nouvelles affaires
             {data.period?.granularity === 'semester'
               ? ` · chaque ligne est une demi-année ${data.period.semester}`
               : ''}
@@ -49,12 +50,12 @@ export function HistorySection({
             <tr>
               <th>FY</th>
               <th>CA total</th>
-              <th>CA NEW</th>
-              <th>CA RENEW</th>
-              <th>Détect. NEW</th>
-              <th>Fermées NEW</th>
-              <th>Sign. NEW</th>
-              <th>Closing NEW</th>
+              <th>CA nouv. aff.</th>
+              <th>CA renouv.</th>
+              <th>Détect. nouv. aff.</th>
+              <th>Fermées nouv. aff.</th>
+              <th>Sign. nouv. aff.</th>
+              <th>Closing nouv. aff.</th>
             </tr>
           </thead>
           <tbody>

@@ -70,7 +70,7 @@ export function LeadershipSection({
           </h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            CA NEW · {seriesLabel(data.compare, data.period)}→
+            CA nouv. aff. · {seriesLabel(data.compare, data.period)}→
             {seriesLabel(data.fy, data.period)} · pas d'objectif, pas de
             comparaison sales
           </p>
@@ -79,14 +79,14 @@ export function LeadershipSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA NEW ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(curr.amountNew)}
           scope="new"
-          hint={`${curr.signaturesNew} signatures NEW`}
+          hint={`${curr.signaturesNew} signatures nouv. aff.`}
         />
         <StatCard label="RDV" value={String(curr.rdv)} hint={data.rdv_limit} />
         <StatCard
-          label="Closing NEW"
+          label="Closing nouv. aff."
           value={fmtPct1(curr.closing)}
           hint={`${curr.signaturesNew} / ${curr.closedNew} fermées`}
         />
@@ -104,27 +104,27 @@ export function LeadershipSection({
           curr={String(curr.detections)}
         />
         <Metric
-          label="Fermées NEW"
+          label="Fermées nouv. aff."
           prev={String(prev.closedNew)}
           curr={String(curr.closedNew)}
         />
         <Metric
-          label="Signatures NEW"
+          label="Signatures nouv. aff."
           prev={String(prev.signaturesNew)}
           curr={String(curr.signaturesNew)}
         />
         <Metric
-          label="Closing NEW"
+          label="Closing nouv. aff."
           prev={fmtPct1(prev.closing)}
           curr={fmtPct1(curr.closing)}
         />
         <Metric
-          label="Ticket NEW"
+          label="Ticket nouv. aff."
           prev={prev.ticket ? fmtEur(prev.ticket) : '—'}
           curr={curr.ticket ? fmtEur(curr.ticket) : '—'}
         />
         <Metric
-          label="CA NEW"
+          label="CA nouv. aff."
           prev={fmtEur(prev.amountNew)}
           curr={fmtEur(curr.amountNew)}
         />

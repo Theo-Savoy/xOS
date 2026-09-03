@@ -295,7 +295,20 @@
 .review-chart-card .recharts-legend-item-text,
 .review-section .recharts-legend-item-text {
   color: var(--xos-text) !important;
+  fill: var(--xos-text) !important;
   font-size: 11px;
+}
+
+.review-chart-card .recharts-cartesian-axis-tick text,
+.review-section .recharts-cartesian-axis-tick text,
+.review-chart-card .recharts-text {
+  fill: var(--xos-text-secondary) !important;
+  color: var(--xos-text-secondary) !important;
+}
+
+.review-chart-card .recharts-cartesian-axis-line,
+.review-chart-card .recharts-cartesian-axis-tick-line {
+  stroke: var(--xos-border) !important;
 }
 
 /* Info-bulle « i » : contexte éditorial hors du flux, accessible au clavier.
