@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
 import {
   act,
   cleanup,
@@ -327,6 +328,47 @@ describe('RunnerView — encart power', () => {
     expect(container.querySelector('.calls-power-kpis-condensed')).toBeTruthy();
   });
 
+  it('redirige l\'accent global XOS sur le jaune Power quand le mode est actif', () => {
+    // Le sélecteur `:has()` n'étant pas appliqué par jsdom,
+    // on vérifie la règle CSS source qui doit promouvoir
+    // --xos-accent sur --combo-power quand le mode Power est actif.
+    const callsCss = readFileSync('src/apps/calls/calls.css', 'utf8');
+    const callsDialerCss = readFileSync('src/apps/calls/calls-dialer.css', 'utf8');
+    // La surcharge --xos-accent existe bien dans le scope Power (au repos ET en conversation)
+    // et vaut toujours le combo-power jaune.
+    const powerBlock = callsCss.match(
+      /\.calls-app:has\(\.calls-view--power\)\s*\{[\s\S]*?--xos-accent:\s*var\(--combo-power\)[^;]*;/,
+    );
+    expect(powerBlock, '--xos-accent doit suivre --combo-power en mode Power').toBeTruthy();
+
+    const convBlock = callsCss.match(
+      /\.calls-app:has\(\.calls-view--power-conversation\)\s*\{[\s\S]*?--xos-accent:\s*var\(--combo-power\)[^;]*;/,
+    );
+    expect(
+      convBlock,
+      '--xos-accent doit suivre --combo-power en conversation Power',
+    ).toBeTruthy();
+
+    // Aucun violet ne doit rester dans les fonds Power (qui utilisaient var(--xos-accent)).
+    const powerBg = callsCss.match(
+      /\.calls-app:has\(\.calls-view--power\)\s*\{[\s\S]*?background:[\s\S]*?;/,
+    )?.[0] ?? '';
+    expect(powerBg).not.toContain('var(--xos-accent)');
+
+    // Aucun violet ne doit rester dans la bordure de ligne en cours de composition/sonnerie.
+    const dialingBorders = Array.from(
+      callsDialerCss.matchAll(
+        /\.calls-power-strip__line--(dialing|ringing)\s*\{[\s\S]*?border-left-color:\s*([^;]+);/g,
+      ),
+    ).map((m) => m[2]);
+    // Les deux règles (dialing et ringing) partagent le bloc → au moins un match;
+    // quand CSS est splitté, on doit avoir au moins une bordure non-violette.
+    expect(dialingBorders.length).toBeGreaterThanOrEqual(1);
+    for (const value of dialingBorders) {
+      expect(value).toContain('--combo-power');
+    }
+  });
+
   it('affiche le tableau Power directement sans état replié avec les 4 colonnes dont l’email', () => {
     const alice = {
       id: 3,
@@ -360,9 +402,18 @@ describe('RunnerView — encart power', () => {
     fireEvent.click(screen.getByRole('button', { name: /Liste/ }));
     fireEvent.click(powerSwitch()!);
 
-    // Tableau visible directement sans bouton Voir/Masquer
+    // Tableau visible directement sans bouton Voir/Masquer (aucun état replié)
     expect(screen.queryByRole('button', { name: 'Voir' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Masquer' })).toBeNull();
+
+    // Wrapper et tableau Power pleine largeur de cockpit
+    const tableWrap = container.querySelector(
+      '.calls-cockpit-list-wrap--power',
+    )!;
+    expect(tableWrap).toBeTruthy();
+    expect(tableWrap.classList.contains('calls-cockpit-list-wrap')).toBe(true);
+    const table = container.querySelector('.calls-cockpit-list--power')!;
+    expect(table).toBeTruthy();
 
     // Résumé et filtre immédiatement accessibles
     const summaryText = container.querySelector(
