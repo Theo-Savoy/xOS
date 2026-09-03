@@ -10,7 +10,7 @@
  * GET  /api/review?resource=portfolio[&fy=FY26]
  * GET  /api/review?resource=channels[&fy=FY26]
  * GET  /api/review?resource=diagnosis[&fy=FY26&compare=FY25]
- * GET  /api/review?resource=synthesis[&fy=FY26&compare=FY25]
+ * GET  /api/review?resource=synthesis[&fy=FY26&compare=FY25][&semester=S1|S2]
  * GET  /api/review?resource=quality[&fy=FY26][&semester=S1|S2]
  * GET  /api/review?resource=definitions
  * GET  /api/review?resource=fte-config
@@ -78,7 +78,7 @@ const BUSINESS_RESOURCES = [
   'quality',
 ];
 const SETTINGS_RESOURCES = ['fte-config', 'definitions'];
-const ANNUAL_ONLY_RESOURCES = ['portfolio', 'diagnosis', 'synthesis'];
+const ANNUAL_ONLY_RESOURCES = ['portfolio', 'diagnosis'];
 const VALID_RESOURCES = [
   'shared',
   ...BUSINESS_RESOURCES,
@@ -509,10 +509,11 @@ async function reviewHandler(request) {
 
       if (resource === 'diagnosis' || resource === 'synthesis') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const [fetched, fte] = await Promise.all([
+        const [rawFetched, fte] = await Promise.all([
           fetchFyWindow(token, fyInts),
           loadFte(client),
         ]);
+        const fetched = withSemester(rawFetched, semester);
         let arrRecords = [];
         try {
           arrRecords = await crmRecords(token, arrCatalogueOpps());
@@ -520,7 +521,7 @@ async function reviewHandler(request) {
           arrRecords = [];
         }
         const cohort = deriveArrCohort(
-          fetched.window,
+          rawFetched.window,
           fyParsed.label,
           arrRecords,
         );
@@ -550,14 +551,15 @@ async function reviewHandler(request) {
             ...diagnosis,
           });
         }
-        const overview = computeOverview(fetched.window);
         const prevWon = fetched.window[compareParsed.label]?.won || [];
         const currWon = fetched.window[fyParsed.label]?.won || [];
         const catalogue = catalogueBridge(prevWon, currWon);
         const synthesis = computeSynthesis({
-          overview,
+          window: fetched.window,
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+          semester: semester || null,
           catalogue,
-          fte,
           market,
           portfolio,
         });

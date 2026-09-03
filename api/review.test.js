@@ -35,6 +35,12 @@ vi.mock('./_crm/salesforce.js', async (importOriginal) => {
   };
 });
 
+vi.mock('./_business-review/fte-config.js', () => ({
+  DEFAULT_FTE: {},
+  loadFte: vi.fn().mockResolvedValue({}),
+  saveFte: vi.fn().mockResolvedValue({}),
+}));
+
 import { GET } from './review.js';
 
 function request(path) {
@@ -125,7 +131,7 @@ describe('GET /api/review — resources business', () => {
     });
   });
 
-  it('refuse le semestre sur les resources calées sur l’exercice complet', async () => {
+  it('accepte le semestre sur synthesis (devenue period-aware)', async () => {
     mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
     mockGetServiceClient.mockReturnValue({ from: vi.fn() });
     mockGetProfile.mockResolvedValue({
@@ -134,12 +140,19 @@ describe('GET /api/review — resources business', () => {
       fullName: 'Morgane',
       error: null,
     });
+    mockFetchSFToken.mockResolvedValue({ accessToken: 'token-sf' });
+    mockSearchContacts.mockResolvedValue({ records: [] });
     const response = await GET(
       request('/api/review?resource=synthesis&fy=FY26&semester=S1'),
     );
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      error: 'annual_only_resource',
+    expect(response.status).not.toBe(400);
+    const body = await response.json();
+    expect(body.period).toEqual({
+      granularity: 'semester',
+      semester: 'S1',
+      label: 'FY26 S1',
+      compare_label: 'FY25 S1',
     });
+    expect(Array.isArray(body.cards)).toBe(true);
   });
 });

@@ -8,6 +8,8 @@ import {
   periodRangeLabel,
   periodTitle,
   semesterBounds,
+  seriesLabel,
+  seriesSpanLabel,
 } from './review.period';
 
 describe('période du bilan', () => {
@@ -40,9 +42,9 @@ describe('période du bilan', () => {
   });
 
   it('affiche les bornes inclusives pour le sélecteur', () => {
-    expect(
-      periodRangeLabel({ mode: 'fy', fy: 'FY26', semester: 'S1' }),
-    ).toBe('01/07/2025 → 30/06/2026');
+    expect(periodRangeLabel({ mode: 'fy', fy: 'FY26', semester: 'S1' })).toBe(
+      '01/07/2025 → 30/06/2026',
+    );
     expect(
       periodRangeLabel({ mode: 'semester', fy: 'FY26', semester: 'S1' }),
     ).toBe('01/07/2025 → 31/12/2025');
@@ -57,9 +59,10 @@ describe('période du bilan', () => {
   });
 
   it('n’envoie le semestre que dans ce mode', () => {
-    expect(
-      periodQuery({ mode: 'fy', fy: 'FY26', semester: 'S1' }),
-    ).toEqual({ fy: 'FY26', compare: 'FY25' });
+    expect(periodQuery({ mode: 'fy', fy: 'FY26', semester: 'S1' })).toEqual({
+      fy: 'FY26',
+      compare: 'FY25',
+    });
     expect(
       periodQuery({ mode: 'semester', fy: 'FY26', semester: 'S2' }),
     ).toEqual({ fy: 'FY26', compare: 'FY25', semester: 'S2' });
@@ -69,9 +72,9 @@ describe('période du bilan', () => {
     expect(periodTitle({ mode: 'fy', fy: 'FY26', semester: 'S1' })).toBe(
       'FY25 → FY26',
     );
-    expect(
-      periodTitle({ mode: 'semester', fy: 'FY26', semester: 'S1' }),
-    ).toBe('FY25 S1 → FY26 S1');
+    expect(periodTitle({ mode: 'semester', fy: 'FY26', semester: 'S1' })).toBe(
+      'FY25 S1 → FY26 S1',
+    );
   });
 
   it('encode le semestre dans la requête API sans nouvelle resource', () => {
@@ -82,5 +85,34 @@ describe('période du bilan', () => {
         semester: 'S2',
       }),
     ).toBe('/api/review?resource=overview&fy=FY26&compare=FY25&semester=S2');
+  });
+
+  it('étiquette une série FY26 en exercice, FY26 · S1 en semestre', () => {
+    expect(seriesLabel('FY26')).toBe('FY26');
+    expect(seriesLabel('FY26', { granularity: 'year', semester: null })).toBe(
+      'FY26',
+    );
+    expect(
+      seriesLabel('FY26', { granularity: 'semester', semester: 'S1' }),
+    ).toBe('FY26 · S1');
+    expect(seriesLabel('FY25', { mode: 'semester', semester: 'S2' })).toBe(
+      'FY25 · S2',
+    );
+  });
+
+  it('étiquette une fenêtre FY22→FY26 en exercice, Série semestrielle S1 · FY22→FY26 en semestre', () => {
+    expect(seriesSpanLabel('FY22', 'FY26')).toBe('FY22→FY26');
+    expect(
+      seriesSpanLabel('FY22', 'FY26', { granularity: 'year', semester: null }),
+    ).toBe('FY22→FY26');
+    expect(
+      seriesSpanLabel('FY22', 'FY26', {
+        granularity: 'semester',
+        semester: 'S1',
+      }),
+    ).toBe('Série semestrielle S1 · FY22→FY26');
+    expect(
+      seriesSpanLabel('FY22', 'FY26', { mode: 'semester', semester: 'S2' }),
+    ).toBe('Série semestrielle S2 · FY22→FY26');
   });
 });

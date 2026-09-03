@@ -6,6 +6,7 @@ import {
   type WaterfallStep,
 } from '../components/WaterfallChart';
 import { fmtEur, fmtNum } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import { productivityOf, type CommercialPayload } from '../review.types';
 
 export function CapacitySection({
@@ -36,7 +37,11 @@ export function CapacitySection({
   const prevTotal = bridge.active.prev + bridge.dg.prev + bridge.departed.prev;
   const currTotal = bridge.active.curr + bridge.dg.curr + bridge.departed.curr;
   const steps: WaterfallStep[] = [
-    { name: data.compare, amount: prevTotal, kind: 'total' },
+    {
+      name: seriesLabel(data.compare, data.period),
+      amount: prevTotal,
+      kind: 'total',
+    },
     {
       name: 'Actifs',
       amount: bridge.active.delta,
@@ -52,7 +57,11 @@ export function CapacitySection({
       amount: bridge.departed.delta,
       kind: bridge.departed.delta >= 0 ? 'up' : 'down',
     },
-    { name: data.fy, amount: currTotal, kind: 'total' },
+    {
+      name: seriesLabel(data.fy, data.period),
+      amount: currTotal,
+      kind: 'total',
+    },
   ];
 
   return (
@@ -64,7 +73,8 @@ export function CapacitySection({
             <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            CA NEW · {data.compare}→{data.fy} · d'abord le cadrage, ensuite
+            CA NEW · {seriesLabel(data.compare, data.period)}→
+            {seriesLabel(data.fy, data.period)} · d'abord le cadrage, ensuite
             l'équipe active
           </p>
         </div>
@@ -121,7 +131,7 @@ export function CapacitySection({
                   row.fy === data.fy ? 'review-data-table__current' : undefined
                 }
               >
-                <td>{row.fy}</td>
+                <td>{seriesLabel(row.fy, data.period)}</td>
                 <td>{fmtEur(row.amountNew)}</td>
                 <td>{row.signaturesNew}</td>
                 <td>{row.detections}</td>
@@ -131,7 +141,9 @@ export function CapacitySection({
         </table>
         <p className="review-section-note">
           Jérôme (PDG) et le SDR sont hors de cette série.{' '}
-          {/S[12]$/.test(data.fy) ? 'ETP annuels : ' : 'ETP sales : '}
+          {data.period?.granularity === 'semester' || /S[12]$/.test(data.fy)
+            ? 'ETP annuels : '
+            : 'ETP sales : '}
           {fmtNum(productivityOf(data, data.compare)?.fte ?? null, 2)} →{' '}
           {fmtNum(productivityOf(data, data.fy)?.fte ?? null, 2)}.
         </p>

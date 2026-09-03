@@ -37,10 +37,7 @@ export function fmtPctDelta(n: number | null | undefined): string {
   return `${rounded > 0 ? '+' : ''}${rounded} %`;
 }
 
-export function fmtNum(
-  n: number | null | undefined,
-  digits = 1,
-): string {
+export function fmtNum(n: number | null | undefined, digits = 1): string {
   if (n === null || n === undefined) return '—';
   return n.toLocaleString('fr-FR', {
     minimumFractionDigits: digits,

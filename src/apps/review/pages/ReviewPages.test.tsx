@@ -26,12 +26,7 @@ const idle = { data: null, loading: false };
 describe('pages du bilan', () => {
   it('porte le périmètre dans le titre de chaque page', () => {
     const { unmount: unmountSummary } = render(
-      <SummaryPage
-        period={period}
-        synthesis={idle}
-        overview={idle}
-        bridge={idle}
-      />,
+      <SummaryPage period={period} synthesis={idle} bridge={idle} />,
     );
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(
       /CA total/,
@@ -176,7 +171,6 @@ describe('pages du bilan', () => {
       <SummaryPage
         period={period}
         synthesis={{ data: synthesis, loading: false }}
-        overview={idle}
         bridge={{ data: bridge, loading: false }}
       />,
     );
@@ -226,7 +220,6 @@ describe('pages du bilan', () => {
       <SummaryPage
         period={period}
         synthesis={{ data: synthesis, loading: false }}
-        overview={idle}
         bridge={idle}
       />,
     );
@@ -263,5 +256,47 @@ describe('pages du bilan', () => {
         hint.textContent?.includes('Point clé de synthèse'),
       ),
     ).toBe(true);
+  });
+
+  it('rend le cadrage KPI en semestre et remplace le narratif par une notice', () => {
+    const conservation = { ok: true, delta_count: 0, delta_amount: 0 };
+    const synthesis: SynthesisPayload = {
+      resource: 'synthesis',
+      fy: 'FY26',
+      compare: 'FY25',
+      truncated: false,
+      truncated_fys: [],
+      conservation,
+      cards: [
+        {
+          key: 'ca',
+          label: 'CA total',
+          display: '1 M€',
+          value: 1,
+          scope: 'total',
+        },
+      ],
+      patterns: [{ id: 'p1', title: 'Pattern 1', body: 'Corps 1' }],
+      verdict: 'Verdict de test',
+      key_point: 'Point clé de synthèse',
+    };
+
+    const { container } = render(
+      <SummaryPage
+        period={{ mode: 'semester', fy: 'FY26', semester: 'S1' }}
+        synthesis={{ data: synthesis, loading: false }}
+        bridge={idle}
+      />,
+    );
+
+    expect(container.textContent).toMatch(
+      /Cadrage de l’exercice|Cadrage de l'exercice/,
+    );
+    expect(container.textContent).toMatch(
+      /Le narratif \(patterns et verdict\) reste calibré sur l'exercice FY26 complet/,
+    );
+    expect(container.querySelector('.review-patterns-grid')).toBeNull();
+    expect(screen.queryByText('Pattern 1')).toBeNull();
+    expect(screen.queryByText('Verdict de test')).toBeNull();
   });
 });

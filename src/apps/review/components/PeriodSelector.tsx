@@ -24,15 +24,24 @@ export function PeriodSelector({
   onChange: (value: PeriodSelection) => void;
 }) {
   return (
-    <div className="review-period-selector" aria-label={`Période d’analyse · ${periodRangeLabel(value)}`}>
-      <div className="review-period-switch" role="group" aria-label="Granularité">
+    <div
+      className="review-period-selector"
+      aria-label={`Période d’analyse · ${periodRangeLabel(value)}`}
+    >
+      <div
+        className="review-period-switch"
+        role="group"
+        aria-label="Granularité"
+      >
         {MODES.map((mode) => (
           <Button
             key={mode.value}
             type="button"
             variant="ghost"
             size="sm"
-            className={value.mode === mode.value ? 'review-period-button--active' : ''}
+            className={
+              value.mode === mode.value ? 'review-period-button--active' : ''
+            }
             aria-pressed={value.mode === mode.value}
             onClick={() => onChange({ ...value, mode: mode.value })}
           >
@@ -47,7 +56,11 @@ export function PeriodSelector({
         options={FY_OPTIONS}
       />
       {value.mode === 'semester' ? (
-        <div className="review-period-switch" role="group" aria-label="Semestre">
+        <div
+          className="review-period-switch"
+          role="group"
+          aria-label="Semestre"
+        >
           {SEMESTERS.map((semester) => (
             <Button
               key={semester}
@@ -55,7 +68,9 @@ export function PeriodSelector({
               variant="ghost"
               size="sm"
               className={
-                value.semester === semester ? 'review-period-button--active' : ''
+                value.semester === semester
+                  ? 'review-period-button--active'
+                  : ''
               }
               aria-pressed={value.semester === semester}
               onClick={() => onChange({ ...value, semester })}

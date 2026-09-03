@@ -1,8 +1,19 @@
 /**
- * api/_business-review/synthesis.js — Slides 2 et 18, annexe A1.
- * 4 cartes, 4 patterns, 9 contrats de calcul affichables.
+ * api/_business-review/synthesis.js — Cartes de cadrage + narratif FY26.
+ *
+ * KPIs : 4 lectures structurantes calculées sur la période sélectionnée
+ * (FY complet ou semestre S1/S2), comparées à la même période N-1 :
+ *   1. croissance    — Δ% CA total vs même période N-1
+ *   2. mix new/renew — part du NEW dans le CA signé de la période
+ *   3. closing NEW   — signatures NEW / opportunités NEW fermées
+ *   4. cycle NEW     — médiane création → signature des NEW gagnés
+ * Le narratif (patterns, verdict) reste calibré sur l'exercice FY26 complet.
  */
-import { DEFAULT_FTE } from './fte-config.js';
+import mapping from '../_crm/mapping.js';
+import { isRenew, splitNewRenew } from './classify.js';
+import { cycleDays, summarizeCycles } from './cycles.js';
+
+const { opportunity: opp } = mapping.objects;
 
 export const PATTERN_IDS = [
   'new-renew',
@@ -15,7 +26,7 @@ export const DEFINITIONS = [
   {
     id: 'R1',
     title: 'Classification RENEW',
-    body: "Une opportunité est RENEW si Opportunity.Name contient « renew » ou « tacite », sans tenir compte de la casse. Sinon elle est NEW. Fonction unique isRenew, jamais réimplémentée.",
+    body: 'Une opportunité est RENEW si Opportunity.Name contient « renew » ou « tacite », sans tenir compte de la casse. Sinon elle est NEW. Fonction unique isRenew, jamais réimplémentée.',
   },
   {
     id: 'R2',
@@ -67,89 +78,116 @@ function card(key, label, display, value, scope, hint) {
   return { key, label, display, value, scope, hint };
 }
 
+function wonNewOf(window, fy) {
+  return (window[fy]?.won || []).filter(
+    (record) => !isRenew(record?.[opp.fields.name]),
+  );
+}
+
+/**
+ * Les 4 cartes de cadrage, calculées sur la période (FY ou semestre).
+ * @param {object} window fenêtre { FYxx: { won, closed, created } } déjà
+ *   filtrée par semestre le cas échéant (api/_review/semester.js).
+ */
+export function computeSynthesisCards({
+  window,
+  fy,
+  compare,
+  semester = null,
+}) {
+  const prevTotal = splitNewRenew(window[compare]?.won || []).total.amount;
+  const currSplit = splitNewRenew(window[fy]?.won || []);
+  const currTotal = currSplit.total.amount;
+  const suffix = semester ? ` · ${semester}` : '';
+  const periodLabel = `${fy}${suffix}`;
+  const prevLabel = `${compare}${suffix}`;
+
+  const growth = prevTotal > 0 ? (currTotal - prevTotal) / prevTotal : null;
+  const mixNew = currTotal > 0 ? currSplit.new.amount / currTotal : null;
+  const closedNewCount = (window[fy]?.closed || []).filter(
+    (record) => !isRenew(record?.[opp.fields.name]),
+  ).length;
+  const closing =
+    closedNewCount > 0 ? currSplit.new.count / closedNewCount : null;
+  const cycle = summarizeCycles(wonNewOf(window, fy).map(cycleDays));
+
+  return [
+    card(
+      'croissance',
+      'Croissance',
+      growth === null
+        ? '—'
+        : `${growth > 0 ? '+' : '−'}${fmtFr(Math.abs(growth * 100), 1)} %`,
+      growth ?? 0,
+      'total',
+      `CA total ${prevLabel} → ${periodLabel} (même période N-1)`,
+    ),
+    card(
+      'mix-new',
+      'Mix NEW / RENEW',
+      mixNew === null ? '—' : `${fmtFr(mixNew * 100, 1)} % NEW`,
+      mixNew ?? 0,
+      'new',
+      `Part du NEW dans le CA signé ${periodLabel}`,
+    ),
+    card(
+      'closing',
+      'Closing NEW',
+      closing === null ? '—' : `${fmtFr(closing * 100, 1)} %`,
+      closing ?? 0,
+      'signatures-new',
+      `${currSplit.new.count} signatures / ${closedNewCount} fermées ${periodLabel}`,
+    ),
+    card(
+      'cycle',
+      'Cycle NEW',
+      cycle.median === null ? '—' : `${fmtFr(cycle.median, 0)} j`,
+      cycle.median ?? 0,
+      'signatures-new',
+      `Médiane création → signature ${periodLabel} · ${cycle.n} dossiers`,
+    ),
+  ];
+}
+
 export function computeSynthesis({
-  overview,
+  window,
+  fy,
+  compare,
+  semester = null,
   catalogue,
-  fte = DEFAULT_FTE,
   market,
   portfolio,
 } = {}) {
-  const fy26 =
-    overview?.series?.find((row) => row.fy === 'FY26') ||
-    overview?.series?.at(-1);
-  const total = fy26?.total || 0;
-  const catalogueDelta = Number(catalogue?.total) || 0;
-  const fte25 = Number(fte?.FY25?.sales) || 0;
-  const fte26 = Number(fte?.FY26?.sales) || 0;
-  const capacite = fte25 ? (fte26 - fte25) / fte25 : 0;
-  const marcheRow =
-    market?.share?.find((row) => row.fy === 'FY26') || market?.share?.at(-1);
-  const marchePct = Number(marcheRow?.pct) || 0;
+  const total = splitNewRenew(window?.[fy]?.won || []).total.amount;
   const fidelises = Number(portfolio?.statuses?.fidelises?.amount) || 0;
   const fidelisesShare = total ? fidelises / total : 0;
   const shareRenew = Number(catalogue?.share_renew) || 0;
 
-  const cards = [
-    card(
-      'performance',
-      'Performance',
-      `${fmtFr(total / 1_000_000, 3)} M€`,
-      total,
-      'total',
-      'CA total NEW + RENEW',
-    ),
-    card(
-      'offres',
-      'Offres',
-      `−${fmtFr(Math.abs(catalogueDelta) / 1_000, 1)} k€`,
-      catalogueDelta,
-      'total',
-      'Recul catalogue FY25→FY26',
-    ),
-    card(
-      'capacite',
-      'Capacité',
-      `−${Math.abs(Math.round(capacite * 100))} %`,
-      capacite,
-      'new',
-      `ETP sales ${fmtFr(fte25, 2)} → ${fmtFr(fte26, 2)}`,
-    ),
-    card(
-      'marche',
-      'Marché',
-      `${fmtFr(marchePct, 1)} %`,
-      marchePct / 100,
-      'new',
-      'Part des pertes « marché / client »',
-    ),
-  ];
-
-  const patterns = [
-    {
-      id: PATTERN_IDS[0],
-      title: 'NEW et RENEW reculent ensemble',
-      body: 'Le recul FY26 n’est pas un simple trou de prospection : le stock RENEW baisse avec le flux NEW.',
-    },
-    {
-      id: PATTERN_IDS[1],
-      title: `${fmtFr(fidelisesShare * 100, 1)} % du CA signé vient des clients existants`,
-      body: 'Fidélisés portent l’essentiel du CA. Les nouveaux logos (Gagnés) ne compensent pas le stock perdu.',
-    },
-    {
-      id: PATTERN_IDS[2],
-      title: 'Le recul catalogue est d’abord un recul RENEW',
-      body: `${fmtFr(shareRenew * 100, 1)} % du recul catalogue vient des RENEW, le reste du volume et du ticket NEW.`,
-    },
-    {
-      id: PATTERN_IDS[3],
-      title: 'Le signal marché domine sans prouver l’aggravation',
-      body: market?.conclusion || "le signal domine sans prouver l'aggravation",
-    },
-  ];
-
   return {
-    cards,
-    patterns,
+    cards: computeSynthesisCards({ window, fy, compare, semester }),
+    patterns: [
+      {
+        id: PATTERN_IDS[0],
+        title: 'NEW et RENEW reculent ensemble',
+        body: 'Le recul FY26 n’est pas un simple trou de prospection : le stock RENEW baisse avec le flux NEW.',
+      },
+      {
+        id: PATTERN_IDS[1],
+        title: `${fmtFr(fidelisesShare * 100, 1)} % du CA signé vient des clients existants`,
+        body: 'Fidélisés portent l’essentiel du CA. Les nouveaux logos (Gagnés) ne compensent pas le stock perdu.',
+      },
+      {
+        id: PATTERN_IDS[2],
+        title: 'Le recul catalogue est d’abord un recul RENEW',
+        body: `${fmtFr(shareRenew * 100, 1)} % du recul catalogue vient des RENEW, le reste du volume et du ticket NEW.`,
+      },
+      {
+        id: PATTERN_IDS[3],
+        title: 'Le signal marché domine sans prouver l’aggravation',
+        body:
+          market?.conclusion || "le signal domine sans prouver l'aggravation",
+      },
+    ],
     verdict:
       'Le recul FY26 est d’abord un recul de capacité et de catalogue, dans un marché qui pèse sans s’aggraver statistiquement.',
     key_point:

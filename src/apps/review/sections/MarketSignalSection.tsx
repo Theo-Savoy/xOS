@@ -14,6 +14,7 @@ import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtPct1 } from '../review.helpers';
+import { seriesLabel } from '../review.period';
 import type { MarketMixRow, MarketPayload } from '../review.types';
 
 const MIX_COLORS = {
@@ -71,7 +72,7 @@ export function MarketSignalSection({
     mixRow('Sur-mesure', data.mix.sur_mesure),
   ];
   const series = data.share.map((row, index) => ({
-    fy: row.fy,
+    fy: seriesLabel(row.fy, data.period),
     pct: row.pct,
     pctDelta: index > 0 ? row.pct - data.share[index - 1].pct : null,
   }));
@@ -92,13 +93,13 @@ export function MarketSignalSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`Part marché / client ${currentShare?.fy ?? ''}`}
+          label={`Part marché / client ${seriesLabel(currentShare?.fy ?? '', data.period)}`}
           value={fmtPct1((currentShare?.pct ?? 0) / 100)}
           scope="new"
           hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes NEW`}
         />
         <StatCard
-          label={`Test ${data.test.fy_from ?? ''}→${data.test.fy_to ?? ''}`}
+          label={`Test ${seriesLabel(data.test.fy_from ?? '', data.period)}→${seriesLabel(data.test.fy_to ?? '', data.period)}`}
           value={`p = ${fmtP(data.test.p)}`}
           hint={
             data.test.z === null
@@ -160,7 +161,9 @@ export function MarketSignalSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Part marché / client {data.share[0]?.fy}→{data.fy}
+          Part marché / client{' '}
+          {seriesLabel(data.share[0]?.fy ?? '', data.period)}→
+          {seriesLabel(data.fy, data.period)}
         </h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={series}>
@@ -200,9 +203,9 @@ export function MarketSignalSection({
           </LineChart>
         </ResponsiveContainer>
         <p className="review-section-note">
-          Le test {data.test.fy_from ?? 'N-1'}→{data.test.fy_to ?? 'N'} ne
-          prouve pas l'aggravation : le signal domine, p reste au-dessus de
-          0,05.
+          Le test {seriesLabel(data.test.fy_from ?? 'N-1', data.period)}→
+          {seriesLabel(data.test.fy_to ?? 'N', data.period)} ne prouve pas
+          l'aggravation : le signal domine, p reste au-dessus de 0,05.
         </p>
       </GlassCard>
     </div>

@@ -4,6 +4,13 @@ export type Conservation = {
   delta_amount: number;
 };
 
+export type ReviewPayloadPeriod = {
+  granularity: 'year' | 'semester';
+  semester: 'S1' | 'S2' | null;
+  label: string;
+  compare_label: string;
+};
+
 export type OtherBucket = {
   count: number;
   amount: number;
@@ -33,6 +40,7 @@ export type OverviewPayload = {
   truncated_fys: string[];
   conservation: Conservation;
   series: OverviewYear[];
+  period?: ReviewPayloadPeriod;
 };
 
 export type VolumeTicketStep = {
@@ -75,6 +83,7 @@ export type BridgePayload = {
   volume_ticket: VolumeTicketBridge;
   owner: OwnerBridge;
   catalogue?: CatalogueBridge;
+  period?: ReviewPayloadPeriod;
 };
 
 export type CatalogueBridge = {
@@ -135,6 +144,7 @@ export type ProductPayload = {
   truncated_fys: string[];
   conservation: Conservation;
   series: ProductYear[];
+  period?: ReviewPayloadPeriod;
 };
 
 export type CycleProductStats = {
@@ -169,6 +179,7 @@ export type CyclesPayload = {
   truncated_fys: string[];
   conservation: Conservation;
   series: CycleYear[];
+  period?: ReviewPayloadPeriod;
 };
 
 export type ScopeKind = 'total' | 'new' | 'signatures-new';
@@ -249,6 +260,7 @@ export type CommercialPayload = {
   } & Record<string, ProductivityRow | ProductivityEvolution>;
   attribution_limit: string;
   rdv_limit: string;
+  period?: ReviewPayloadPeriod;
 };
 
 export function productivityOf(
@@ -323,6 +335,7 @@ export type MarketPayload = {
     catalogue: ReasonTable;
     sur_mesure: ReasonTable;
   };
+  period?: ReviewPayloadPeriod;
 };
 
 export type PortfolioStatus = {
@@ -338,6 +351,7 @@ export type PortfolioPayload = {
   fy: string;
   truncated: boolean;
   truncated_fys: string[];
+  period?: ReviewPayloadPeriod;
   conservation: Conservation & {
     signed?: {
       ok: boolean;
@@ -400,6 +414,7 @@ export type ChannelsPayload = {
     total: number;
   };
   sdr_limit: string;
+  period?: ReviewPayloadPeriod;
 };
 
 export type DiagnosisFactor = {
@@ -420,6 +435,7 @@ export type DiagnosisPayload = {
   conservation: Conservation;
   factors: DiagnosisFactor[];
   attribution_limit: string;
+  period?: ReviewPayloadPeriod;
 };
 
 export type SynthesisCard = {
@@ -448,6 +464,7 @@ export type SynthesisPayload = {
   patterns: SynthesisPattern[];
   verdict: string;
   key_point: string;
+  period?: ReviewPayloadPeriod;
 };
 
 export type QualityPayload = {
@@ -467,6 +484,7 @@ export type QualityPayload = {
   n_valid: number;
   n_won_new: number;
   limits: string[];
+  period?: ReviewPayloadPeriod;
 };
 
 export type DefinitionItem = {
