@@ -4,11 +4,12 @@ import {
   CartesianGrid,
   Cell,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { fmtEur } from '../review.helpers';
+import type { ScopeKind } from '../review.types';
+import { ChartTooltip, ReviewChartTooltip } from './ChartTooltip';
 
 export type WaterfallStep = {
   name: string;
@@ -55,7 +56,15 @@ const FILL: Record<WaterfallStep['kind'], string> = {
   down: 'var(--xos-accent-danger)',
 };
 
-export function WaterfallChart({ steps }: { steps: WaterfallStep[] }) {
+export function WaterfallChart({
+  steps,
+  scope,
+  source,
+}: {
+  steps: WaterfallStep[];
+  scope: ScopeKind;
+  source: string;
+}) {
   const data = toRows(steps);
   return (
     <ResponsiveContainer width="100%" height={280}>
@@ -70,12 +79,28 @@ export function WaterfallChart({ steps }: { steps: WaterfallStep[] }) {
           tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
           width={72}
         />
-        <Tooltip
-          formatter={(value, _name, item) => {
-            const row = item?.payload as ChartRow | undefined;
-            if (!row) return fmtEur(Number(value));
-            const signed = row.kind === 'down' ? -row.value : row.value;
-            return fmtEur(signed);
+        <ReviewChartTooltip
+          content={(props) => {
+            const visible = props.payload
+              ?.filter((entry) => entry.dataKey === 'value')
+              .map((entry) => {
+                const row = entry.payload as ChartRow;
+                return {
+                  ...entry,
+                  name: row.kind === 'total' ? 'Total' : 'Variation',
+                  value: row.kind === 'down' ? -row.value : row.value,
+                };
+              });
+            return (
+              <ChartTooltip
+                active={props.active}
+                label={props.label}
+                payload={visible}
+                scope={scope}
+                source={source}
+                valueFormatter={fmtEur}
+              />
+            );
           }}
         />
         <Bar

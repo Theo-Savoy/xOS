@@ -93,7 +93,11 @@ export function CapacitySection({
             hint={`${fmtEur(bridge.departed.prev)} → ${fmtEur(bridge.departed.curr)}`}
           />
         </div>
-        <WaterfallChart steps={steps} />
+        <WaterfallChart
+          steps={steps}
+          scope="new"
+          source="Salesforce · CA NEW par Owner courant"
+        />
         <p className="review-section-note">
           {fmtEur(bridge.total)} = actifs − PDG − partis. Le bridge montre
           d'où vient l'écart, pas pourquoi il existe. {data.attribution_limit}
@@ -130,7 +134,10 @@ export function CapacitySection({
           </tbody>
         </table>
         <p className="review-section-note">
-          Jérôme (PDG) et le SDR sont hors de cette série. ETP sales :{' '}
+          Jérôme (PDG) et le SDR sont hors de cette série.{' '}
+          {/S[12]$/.test(data.fy)
+            ? 'ETP annuels : '
+            : 'ETP sales : '}
           {fmtNum(productivityOf(data, data.compare)?.fte ?? null, 2)} →{' '}
           {fmtNum(productivityOf(data, data.fy)?.fte ?? null, 2)}.
         </p>

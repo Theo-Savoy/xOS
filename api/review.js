@@ -1,7 +1,7 @@
 /**
  * api/review.js — Business Review FY26 interactif + partage d'analyses.
  *
- * GET  /api/review?resource=overview[&fy=FY26]
+ * GET  /api/review?resource=overview[&fy=FY26][&semester=S1|S2]
  * GET  /api/review?resource=bridge[&fy=FY26&compare=FY25]
  * GET  /api/review?resource=product[&fy=FY26]
  * GET  /api/review?resource=cycles[&fy=FY26]
@@ -11,7 +11,7 @@
  * GET  /api/review?resource=channels[&fy=FY26]
  * GET  /api/review?resource=diagnosis[&fy=FY26&compare=FY25]
  * GET  /api/review?resource=synthesis[&fy=FY26&compare=FY25]
- * GET  /api/review?resource=quality[&fy=FY26]
+ * GET  /api/review?resource=quality[&fy=FY26][&semester=S1|S2]
  * GET  /api/review?resource=definitions
  * GET  /api/review?resource=fte-config
  * POST /api/review?resource=fte-config  { value }
@@ -32,6 +32,10 @@ import { roleAtLeast } from './_config/access.js';
 import { fetchSFToken, searchContacts } from './_crm/salesforce.js';
 import { parsePeriod } from './_review/period.js';
 import { listShared, createShared, revokeShared } from './_review/shared.js';
+import {
+  filterEventsBySemester,
+  filterWindowBySemester,
+} from './_review/semester.js';
 import { arrCatalogueOpps, fyRange } from './_business-review/soql.js';
 import { fetchEventsWindow, fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
@@ -74,6 +78,7 @@ const BUSINESS_RESOURCES = [
   'quality',
 ];
 const SETTINGS_RESOURCES = ['fte-config', 'definitions'];
+const ANNUAL_ONLY_RESOURCES = ['portfolio', 'diagnosis', 'synthesis'];
 const VALID_RESOURCES = [
   'shared',
   ...BUSINESS_RESOURCES,
@@ -90,6 +95,22 @@ function json(status, body, extraHeaders = {}) {
       ...extraHeaders,
     },
   });
+}
+
+function withSemester(fetched, semester) {
+  if (!semester) return fetched;
+  return {
+    ...fetched,
+    window: filterWindowBySemester(fetched.window, semester),
+  };
+}
+
+function eventsWithSemester(fetched, semester) {
+  if (!semester) return fetched;
+  return {
+    ...fetched,
+    window: filterEventsBySemester(fetched.window, semester),
+  };
 }
 
 async function crmRecords(token, soql) {
@@ -229,6 +250,7 @@ async function reviewHandler(request) {
     }
     const fyParam = url.searchParams.get('fy') || 'FY26';
     const compareParam = url.searchParams.get('compare') || 'FY25';
+    const semester = url.searchParams.get('semester');
     const fyParsed = parsePeriod(fyParam);
     const compareParsed = parsePeriod(compareParam);
     if (!fyParsed || fyParsed.granularity !== 'year') {
@@ -237,6 +259,22 @@ async function reviewHandler(request) {
     if (!compareParsed || compareParsed.granularity !== 'year') {
       return json(400, { error: 'invalid_compare', hint: 'FY22 … FY26' });
     }
+    if (semester && semester !== 'S1' && semester !== 'S2') {
+      return json(400, { error: 'invalid_semester', hint: 'S1 ou S2' });
+    }
+    if (semester && ANNUAL_ONLY_RESOURCES.includes(resource)) {
+      return json(400, {
+        error: 'annual_only_resource',
+        hint: 'Cette lecture dépend des ETP annuels ou de la cohorte au 30/06.',
+      });
+    }
+
+    const period = {
+      granularity: semester ? 'semester' : 'year',
+      semester: semester || null,
+      label: `${fyParsed.label}${semester ? ` ${semester}` : ''}`,
+      compare_label: `${compareParsed.label}${semester ? ` ${semester}` : ''}`,
+    };
 
     const token = await sfToken(client, user);
     if (!token) return json(502, { error: 'sf_auth_error' });
@@ -244,10 +282,14 @@ async function reviewHandler(request) {
     try {
       if (resource === 'overview') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const overview = computeOverview(fetched.window);
         return json(200, {
           resource: 'overview',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -258,7 +300,10 @@ async function reviewHandler(request) {
 
       if (resource === 'bridge') {
         const fyInts = fyRange(compareParsed.fyInt, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const prevWon = fetched.window[compareParsed.label]?.won || [];
         const currWon = fetched.window[fyParsed.label]?.won || [];
         const prevNew = splitNewRenew(prevWon).new;
@@ -279,6 +324,7 @@ async function reviewHandler(request) {
         };
         return json(200, {
           resource: 'bridge',
+          period,
           fy: fyParsed.label,
           compare: compareParsed.label,
           truncated: fetched.truncated,
@@ -292,10 +338,14 @@ async function reviewHandler(request) {
 
       if (resource === 'product') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const product = computeProduct(fetched.window);
         return json(200, {
           resource: 'product',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -306,10 +356,14 @@ async function reviewHandler(request) {
 
       if (resource === 'cycles') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const cycles = computeCycles(fetched.window);
         return json(200, {
           resource: 'cycles',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -324,11 +378,13 @@ async function reviewHandler(request) {
 
       if (resource === 'commercial') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const [fetched, fte, events] = await Promise.all([
+        const [rawFetched, fte, rawEvents] = await Promise.all([
           fetchFyWindow(token, fyInts),
           loadFte(client),
           fetchEventsWindow(token, fyInts),
         ]);
+        const fetched = withSemester(rawFetched, semester);
+        const events = eventsWithSemester(rawEvents, semester);
         const commercial = computeCommercial(
           fetched.window,
           fte,
@@ -346,6 +402,7 @@ async function reviewHandler(request) {
         ];
         return json(200, {
           resource: 'commercial',
+          period,
           fy: fyParsed.label,
           compare: compareParsed.label,
           truncated: truncated_fys.length > 0,
@@ -356,10 +413,14 @@ async function reviewHandler(request) {
 
       if (resource === 'market') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const market = computeMarket(fetched.window);
         return json(200, {
           resource: 'market',
+          period,
           fy: fyParsed.label,
           compare: compareParsed.label,
           truncated: fetched.truncated,
@@ -394,6 +455,7 @@ async function reviewHandler(request) {
         );
         return json(200, {
           resource: 'portfolio',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -405,10 +467,14 @@ async function reviewHandler(request) {
 
       if (resource === 'channels') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const channels = computeChannels(fetched.window, fyParsed.label);
         return json(200, {
           resource: 'channels',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -421,10 +487,14 @@ async function reviewHandler(request) {
 
       if (resource === 'quality') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = await fetchFyWindow(token, fyInts);
+        const fetched = withSemester(
+          await fetchFyWindow(token, fyInts),
+          semester,
+        );
         const quality = computeQuality(fetched.window, fyParsed.label);
         return json(200, {
           resource: 'quality',
+          period,
           fy: fyParsed.label,
           truncated: fetched.truncated,
           truncated_fys: fetched.truncated_fys,
@@ -472,6 +542,7 @@ async function reviewHandler(request) {
           });
           return json(200, {
             resource: 'diagnosis',
+            period,
             fy: fyParsed.label,
             compare: compareParsed.label,
             truncated: fetched.truncated,
@@ -492,6 +563,7 @@ async function reviewHandler(request) {
         });
         return json(200, {
           resource: 'synthesis',
+          period,
           fy: fyParsed.label,
           compare: compareParsed.label,
           truncated: fetched.truncated,

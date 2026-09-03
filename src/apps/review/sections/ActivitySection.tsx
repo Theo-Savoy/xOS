@@ -1,8 +1,8 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import { fmtEur, fmtNum, fmtPct1 } from '../../review.helpers';
-import type { CommercialPayload, CommercialPerson } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { fmtEur, fmtNum, fmtPct1 } from '../review.helpers';
+import type { CommercialPayload, CommercialPerson } from '../review.types';
 
 function roleLabel(mode: string): string {
   if (mode === 'dg') return 'PDG';
@@ -15,7 +15,7 @@ function closingCell(person: CommercialPerson): string {
   return fmtPct1(person.closing);
 }
 
-export function ActivityAnnex({
+export function ActivitySection({
   data,
   loading,
 }: {
@@ -32,7 +32,7 @@ export function ActivityAnnex({
   if (!data?.activity?.length) {
     return (
       <EmptyState
-        title="Annexe A3"
+        title="Activité nominative indisponible"
         description="Pas d'activité nominative sur cet exercice."
       />
     );
@@ -43,7 +43,7 @@ export function ActivityAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A3 · Activité FY par personne <ScopeTag scope="new" />
+            Activité par personne <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             CA NEW · {data.fy} · les totaux entreprise ne se somment pas avec
@@ -54,7 +54,7 @@ export function ActivityAnnex({
       </header>
 
       <GlassCard className="review-chart-card">
-        <table className="review-data-table">
+        <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
               <th>Personne</th>

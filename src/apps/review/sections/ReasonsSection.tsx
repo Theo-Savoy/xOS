@@ -1,8 +1,8 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import { fmtPct1 } from '../../review.helpers';
-import type { MarketPayload, ReasonTable } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { fmtPct1 } from '../review.helpers';
+import type { MarketPayload, ReasonTable } from '../review.types';
 
 function ReasonsTable({
   title,
@@ -49,7 +49,7 @@ function ReasonsTable({
   );
 }
 
-export function ReasonsAnnex({
+export function ReasonsSection({
   data,
   loading,
 }: {
@@ -66,7 +66,7 @@ export function ReasonsAnnex({
   if (!data?.loss_reasons || !data?.win_reasons) {
     return (
       <EmptyState
-        title="Annexe A6"
+        title="Motifs indisponibles"
         description="Pas de motifs de perte ou de gain NEW."
       />
     );
@@ -77,7 +77,7 @@ export function ReasonsAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A6 · Motifs déclaratifs <ScopeTag scope="new" />
+            Motifs déclaratifs <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
             Pertes et gains NEW · {data.fy} · motifs déclarés, pas de causalité

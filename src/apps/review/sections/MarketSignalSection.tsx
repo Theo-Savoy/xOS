@@ -6,12 +6,12 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ConservationBadge } from '../components/ConservationBadge';
+import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
 import { fmtPct1 } from '../review.helpers';
@@ -71,7 +71,12 @@ export function MarketSignalSection({
     mixRow('Catalogue', data.mix.catalogue),
     mixRow('Sur-mesure', data.mix.sur_mesure),
   ];
-  const series = data.share.map((row) => ({ fy: row.fy, pct: row.pct }));
+  const series = data.share.map((row, index) => ({
+    fy: row.fy,
+    pct: row.pct,
+    pctDelta:
+      index > 0 ? row.pct - data.share[index - 1].pct : null,
+  }));
 
   return (
     <div className="review-section">
@@ -123,9 +128,15 @@ export function MarketSignalSection({
               tick={{ fontSize: 12, fill: 'var(--xos-text-secondary)' }}
               width={90}
             />
-            <Tooltip
-              formatter={(value) =>
-                `${Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+            <ReviewChartTooltip
+              content={
+                <ChartTooltip
+                  scope="new"
+                  source="Salesforce · motifs de perte NEW"
+                  valueFormatter={(value) =>
+                    `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+                  }
+                />
               }
             />
             <Legend />
@@ -149,7 +160,9 @@ export function MarketSignalSection({
       </GlassCard>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Part marché / client FY24→FY26</h3>
+        <h3 className="review-card-title">
+          Part marché / client {data.share[0]?.fy}→{data.fy}
+        </h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={series}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--xos-border)" />
@@ -161,9 +174,20 @@ export function MarketSignalSection({
               tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
               unit=" %"
             />
-            <Tooltip
-              formatter={(value) =>
-                `${Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+            <ReviewChartTooltip
+              content={
+                <ChartTooltip
+                  scope="new"
+                  source="Salesforce · pertes NEW marché / client"
+                  compareLabel="période comparable"
+                  deltaKeys={{ pct: 'pctDelta' }}
+                  valueFormatter={(value) =>
+                    `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+                  }
+                  deltaFormatter={(value) =>
+                    `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} pt`
+                  }
+                />
               }
             />
             <Line
@@ -177,8 +201,9 @@ export function MarketSignalSection({
           </LineChart>
         </ResponsiveContainer>
         <p className="review-section-note">
-          Le test FY25→FY26 ne prouve pas l'aggravation : le signal domine, p
-          reste au-dessus de 0,05.
+          Le test {data.test.fy_from ?? 'N-1'}→{data.test.fy_to ?? 'N'} ne
+          prouve pas l'aggravation : le signal domine, p reste au-dessus de
+          0,05.
         </p>
       </GlassCard>
     </div>

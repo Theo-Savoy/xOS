@@ -105,4 +105,41 @@ describe('GET /api/review — resources business', () => {
       'definitions',
     ]);
   });
+
+  it('répond 400 si le semestre n’est ni S1 ni S2', async () => {
+    mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
+    mockGetServiceClient.mockReturnValue({ from: vi.fn() });
+    mockGetProfile.mockResolvedValue({
+      role: 'manager',
+      sfUserId: '005MGR',
+      fullName: 'Morgane',
+      error: null,
+    });
+    const response = await GET(
+      request('/api/review?resource=overview&fy=FY26&semester=S3'),
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'invalid_semester',
+      hint: 'S1 ou S2',
+    });
+  });
+
+  it('refuse le semestre sur les resources calées sur l’exercice complet', async () => {
+    mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
+    mockGetServiceClient.mockReturnValue({ from: vi.fn() });
+    mockGetProfile.mockResolvedValue({
+      role: 'manager',
+      sfUserId: '005MGR',
+      fullName: 'Morgane',
+      error: null,
+    });
+    const response = await GET(
+      request('/api/review?resource=synthesis&fy=FY26&semester=S1'),
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'annual_only_resource',
+    });
+  });
 });

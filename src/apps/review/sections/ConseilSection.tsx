@@ -73,8 +73,8 @@ export function ConseilSection({
       </div>
 
       <GlassCard className="review-chart-card">
-        <h3 className="review-card-title">Conseil FY22→FY26</h3>
-        <table className="review-data-table">
+        <h3 className="review-card-title">Conseil FY22→{data.fy}</h3>
+        <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
               <th>Exercice</th>

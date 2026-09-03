@@ -1,8 +1,8 @@
-import { EmptyState, GlassCard, Skeleton } from '../../../../components/ui';
-import { ConservationBadge } from '../../components/ConservationBadge';
-import { ScopeTag } from '../../components/ScopeTag';
-import { fmtDays, fmtEur, fmtPct1 } from '../../review.helpers';
-import type { ProductPayload, ProductRow } from '../../review.types';
+import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ConservationBadge } from '../components/ConservationBadge';
+import { ScopeTag } from '../components/ScopeTag';
+import { fmtDays, fmtEur, fmtPct1 } from '../review.helpers';
+import type { ProductPayload, ProductRow } from '../review.types';
 
 const KEYS = ['catalogue', 'sur_mesure', 'conseil', 'autre'] as const;
 
@@ -12,7 +12,6 @@ function rowsFor(data: ProductPayload): {
 }[] {
   const out: { fy: string; product: ProductRow }[] = [];
   for (const year of data.series) {
-    if (!['FY24', 'FY25', 'FY26'].includes(year.fy)) continue;
     for (const key of KEYS) {
       if (key === 'autre' && year.products.autre.amountNew === 0 && year.products.autre.won === 0) {
         continue;
@@ -23,7 +22,7 @@ function rowsFor(data: ProductPayload): {
   return out;
 }
 
-export function ProductFyAnnex({
+export function ProductHistorySection({
   data,
   loading,
 }: {
@@ -40,7 +39,7 @@ export function ProductFyAnnex({
   if (!data?.series?.length) {
     return (
       <EmptyState
-        title="Annexe A5"
+        title="Historique produit indisponible"
         description="Pas de série produit × exercice."
       />
     );
@@ -53,17 +52,17 @@ export function ProductFyAnnex({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            A5 · Produit × exercice <ScopeTag scope="new" />
+            Produit × exercice <ScopeTag scope="new" />
           </h3>
           <p className="review-section-kicker">
-            Fermées NEW, signatures NEW, closing, CA NEW, cycles — FY24→FY26
+            Fermées NEW, signatures NEW, closing, CA NEW, cycles — FY22→{data.fy}
           </p>
         </div>
         <ConservationBadge conservation={data.conservation} />
       </header>
 
       <GlassCard className="review-chart-card">
-        <table className="review-data-table">
+        <table className="review-data-table review-data-table--wide">
           <thead>
             <tr>
               <th>Produit · FY</th>
