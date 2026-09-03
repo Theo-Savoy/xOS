@@ -822,7 +822,7 @@ export function AccountSearchView({
                       )}
                   </div>
 
-                  {showResultsStage && (
+                  {showResultsStage && searchMode === 'name' && (
                     <section
                       className="calls-abm-cibler__results"
                       aria-label="Résultats de recherche"
