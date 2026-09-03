@@ -483,20 +483,14 @@ export function NewSessionView({
             <FilterBuilder
               filters={filters}
               onChange={onFiltersChange}
-              previewCount={preview.length > 0 ? preview.length : null}
-              previewLoading={previewLoading}
-              matchCount={matchCount}
-              matchCountCapped={matchCountCapped}
-              matchCountLoading={matchCountLoading}
-                matchCountError={matchCountError}
               presets={presets}
-                savingPreset={savingPreset}
-                currentUserId={currentUserId}
-                onLoadPreset={onLoadPreset}
-                onSavePreset={onSavePreset}
-                onDeletePreset={onDeletePreset}
-                team={team}
-              />
+              savingPreset={savingPreset}
+              currentUserId={currentUserId}
+              onLoadPreset={onLoadPreset}
+              onSavePreset={onSavePreset}
+              onDeletePreset={onDeletePreset}
+              team={team}
+            />
             </div>
           )}
 
@@ -899,6 +893,7 @@ export function NewSessionView({
             matchCount={matchCount}
             matchCountCapped={matchCountCapped}
             matchCountLoading={matchCountLoading}
+            matchCountError={matchCountError}
             previewCount={preview.length}
             selectedCount={selectedContacts.length}
             sessionName={sessionName}

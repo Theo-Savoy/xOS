@@ -1606,16 +1606,6 @@ describe('call targeting copy and controls', () => {
   const filterBuilderProps = {
     filters: emptyFilterTree(),
     onChange: vi.fn(),
-    previewCount: null as number | null,
-    previewLoading: false,
-    matchCount: null as number | null,
-    matchCountCapped: false,
-    matchCountLoading: false,
-    matchCountError: null,
-    contactLimit: 200 as const,
-    onContactLimitChange: vi.fn(),
-    maxPerCompany: null as null,
-    onMaxPerCompanyChange: vi.fn(),
     presets: [] as [],
     presetsLoading: false,
     savingPreset: false,
@@ -1695,16 +1685,39 @@ describe('call targeting copy and controls', () => {
     expect(screen.queryByText('Durée min (sec)')).toBeNull();
   });
 
-  it('surfaces live count errors instead of the idle placeholder', () => {
+  it('surfaces live count errors in the recap instead of a FilterBuilder footer', () => {
     render(
-      <FilterBuilder
-        {...filterBuilderProps}
+      <NewSessionView
+        filters={emptyFilterTree()}
+        onFiltersChange={vi.fn()}
+        contactLimit={200}
+        onContactLimitChange={vi.fn()}
+        maxPerCompany={null}
+        onMaxPerCompanyChange={vi.fn()}
+        loading={false}
+        previewLoading={false}
         matchCount={null}
+        matchCountCapped={false}
+        matchCountLoading={false}
         matchCountError="Salesforce a refusé la requête"
+        error={null}
+        preview={[]}
+        dedup={[]}
+        previewTruncated={false}
+        presets={[]}
+        presetsLoading={false}
+        savingPreset={false}
+        currentUserId="user-1"
+        onBack={vi.fn()}
+        onLoadPreset={vi.fn()}
+        onSavePreset={vi.fn()}
+        onDeletePreset={vi.fn()}
+        onCreate={vi.fn()}
       />,
     );
     expect(screen.getByText('Comptage impossible')).toBeTruthy();
     expect(screen.queryByText('Filtres → comptage live')).toBeNull();
+    expect(document.querySelector('.calls-fb-footer')).toBeNull();
   });
 
   it('shows opportunity filter guidance when open and lost are both selected', () => {

@@ -16,6 +16,7 @@ export type WizardRecapProps = {
   matchCount: number | null;
   matchCountCapped: boolean;
   matchCountLoading: boolean;
+  matchCountError: string | null;
   previewCount: number;
   selectedCount: number;
   sessionName: string;
@@ -56,6 +57,7 @@ export function WizardRecap({
   matchCount,
   matchCountCapped,
   matchCountLoading,
+  matchCountError,
   previewCount,
   selectedCount,
   sessionName,
@@ -154,14 +156,19 @@ export function WizardRecap({
         <div className="calls-wizard-recap__breakdown">
           <div className="calls-wizard-recap__item">
             <span className="calls-wizard-recap__item-label">Contacts ciblés</span>
-            <span className="calls-wizard-recap__item-value xos-numeric">
+            <span
+              className="calls-wizard-recap__item-value xos-numeric"
+              title={matchCountError ?? undefined}
+            >
               {matchCountLoading
                 ? 'Comptage…'
-                : matchCount !== null
-                  ? `${matchCountCapped ? '≥ ' : ''}${matchCount}`
-                  : previewCount > 0
-                    ? previewCount
-                    : '—'}
+                : matchCountError
+                  ? 'Comptage impossible'
+                  : matchCount !== null
+                    ? `${matchCountCapped ? '≥ ' : ''}${matchCount}`
+                    : previewCount > 0
+                      ? previewCount
+                      : '—'}
             </span>
           </div>
           <div className="calls-wizard-recap__item">

@@ -13,18 +13,7 @@ afterEach(() => {
 const filterBuilderProps = {
   filters: emptyFilterTree(),
   onChange: vi.fn(),
-  previewCount: null as number | null,
-  previewLoading: false,
-  matchCount: null as number | null,
-  matchCountCapped: false,
-  matchCountLoading: false,
-  matchCountError: null,
-  contactLimit: 200 as const,
-  onContactLimitChange: vi.fn(),
-  maxPerCompany: null as null,
-  onMaxPerCompanyChange: vi.fn(),
   presets: [] as [],
-  presetsLoading: false,
   savingPreset: false,
   currentUserId: 'user-1',
   onLoadPreset: vi.fn(),
@@ -112,5 +101,15 @@ describe('FilterBuilder — carte Enregistrer compacte', () => {
     await user.type(nameField, 'Relance Q4');
     await user.click(screen.getByRole('button', { name: 'OK' }));
     expect(onSavePreset).toHaveBeenCalledWith('Relance Q4', false);
+  });
+
+  it('does not render a duplicate match-count footer', () => {
+    render(
+      <FilterBuilder
+        {...filterBuilderProps}
+      />,
+    );
+    expect(document.querySelector('.calls-fb-footer')).toBeNull();
+    expect(screen.queryByText(/dans les filtres/)).toBeNull();
   });
 });

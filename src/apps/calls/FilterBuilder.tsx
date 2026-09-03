@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button, Checkbox, GlassCard, Tag } from '../../components/ui';
+import { Button, Checkbox, GlassCard } from '../../components/ui';
 import {
   EFFECTIF_TRANCHES,
   FONCTION_PRESETS,
@@ -25,12 +25,6 @@ import {
 type FilterBuilderProps = {
   filters: FilterTree;
   onChange: (next: FilterTree) => void;
-  previewCount: number | null;
-  previewLoading: boolean;
-  matchCount: number | null;
-  matchCountCapped: boolean;
-  matchCountLoading: boolean;
-  matchCountError: string | null;
   presets: CallTargetPreset[];
   savingPreset: boolean;
   currentUserId: string;
@@ -178,12 +172,6 @@ function TrashIcon(): ReactNode {
 export function FilterBuilder({
   filters,
   onChange,
-  previewCount,
-  previewLoading,
-  matchCount,
-  matchCountCapped,
-  matchCountLoading,
-  matchCountError,
   presets,
   savingPreset,
   currentUserId,
@@ -616,37 +604,6 @@ export function FilterBuilder({
           </div>
         </div>
       </details>
-
-      {/* 7. Footer simplifié : comptage uniquement */}
-      <footer className="calls-fb-footer">
-        <div className="calls-fb-match" role="status" aria-live="polite">
-          {matchCountLoading ? (
-            <Tag>Comptage…</Tag>
-          ) : matchCountError ? (
-            <Tag variant="alert" title={matchCountError}>
-              Comptage impossible
-            </Tag>
-          ) : matchCount !== null ? (
-            <Tag variant="accent">
-              {matchCountCapped ? '≥ ' : ''}
-              {matchCount} contact{matchCount > 1 ? 's' : ''} dans les filtres
-            </Tag>
-          ) : (
-            <Tag>Ajustez les filtres</Tag>
-          )}
-        </div>
-        {previewLoading ? (
-          <Tag role="status" aria-live="polite">
-            Mise à jour de la liste…
-          </Tag>
-        ) : (
-          previewCount !== null && (
-            <Tag variant="accent">
-              Aperçu : {previewCount} contact{previewCount > 1 ? 's' : ''}
-            </Tag>
-          )
-        )}
-      </footer>
     </GlassCard>
   );
 }
