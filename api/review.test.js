@@ -89,11 +89,6 @@ describe('GET /api/review — resources business', () => {
     const body = await response.json();
     expect(body.error).toBe('unknown_resource');
     expect(body.valid).toEqual([
-      'kpis',
-      'breakdown',
-      'funnel',
-      'calls',
-      'attention',
       'shared',
       'overview',
       'bridge',
