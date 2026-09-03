@@ -131,7 +131,7 @@ const payload: CommercialPayload = {
   attribution_limit:
     'Attribution par Owner courant du snapshot — pas de reconstitution historique.',
   rdv_limit:
-    'RDV Salesforce · périmètre différent du snapshot Excel du 21/07/2026',
+    'RDV Salesforce · périmètre différent du snapshot Excel utilisé pour la revue',
 };
 
 describe('CapacitySection', () => {

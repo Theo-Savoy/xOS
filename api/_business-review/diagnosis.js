@@ -6,6 +6,20 @@
 export const ATTRIBUTION_LIMIT =
   'Attribution par Owner courant du snapshot — pas de reconstitution historique.';
 
+/** Format monétaire compact : −591,6 k€ / 1,2 M€. */
+function fmtEur(value) {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '−' : '';
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toLocaleString('fr-FR', {
+      maximumFractionDigits: 1,
+    })} M€`;
+  }
+  return `${sign}${(abs / 1000).toLocaleString('fr-FR', {
+    maximumFractionDigits: 1,
+  })} k€`;
+}
+
 export function computeDiagnosis({
   portfolio,
   channels,
@@ -14,6 +28,7 @@ export function computeDiagnosis({
   fte,
   fy,
   compare,
+  bridge,
 } = {}) {
   const fteYears = Object.keys(fte || {}).sort();
   const currentFy = fy || fteYears.at(-1);
@@ -27,6 +42,12 @@ export function computeDiagnosis({
   const fteCurr = Number(fte?.[currentFy]?.sales) || 0;
   const capacite = ftePrev ? (fteCurr - ftePrev) / ftePrev : 0;
 
+  const catalogueDelta = bridge?.catalogue?.total ?? null;
+  const catalogueImpact =
+    catalogueDelta === null
+      ? 'Données manquantes'
+      : `Fort (${fmtEur(catalogueDelta)})`;
+
   const factors = [
     {
       id: 'capacite',
@@ -39,7 +60,7 @@ export function computeDiagnosis({
     {
       id: 'catalogue',
       facteur: 'Mix offres / recul catalogue',
-      impact: 'Fort (−591,6 k€)',
+      impact: catalogueImpact,
       fiabilite_mesure: 'Haute — Amount Salesforce, déjà annualisé',
       fiabilite_attribution: 'Moyenne — Owner courant, pas d’historique',
       manque: 'Reconstitution de la propriété dans le temps (R15)',

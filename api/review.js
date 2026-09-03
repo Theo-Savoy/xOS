@@ -570,6 +570,10 @@ async function reviewHandler(request) {
             market,
             cycles,
             fte,
+            bridge: bridgeByProduct(
+              fetched.window[compareParsed.label]?.won || [],
+              fetched.window[fyParsed.label]?.won || [],
+            ),
             fy: fyParsed.label,
             compare: compareParsed.label,
           });

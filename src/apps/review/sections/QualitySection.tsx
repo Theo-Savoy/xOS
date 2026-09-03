@@ -35,8 +35,7 @@ export function QualitySection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            Compteurs live · le snapshot du 21/07/2026 n&apos;est pas une cible
-            à figer
+            Compteurs live · pas une cible à figer
           </p>
         </div>
       </header>
