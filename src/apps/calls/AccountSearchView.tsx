@@ -603,8 +603,9 @@ export function AccountSearchView({
             variant="secondary"
             className="calls-view__back"
             onClick={onBack}
+            aria-label="Quitter la création de séance"
           >
-            Retour
+            Quitter
           </Button>
           <div className="calls-view__titleblock">
             <h2>{STEP_TITLES[step]}</h2>
