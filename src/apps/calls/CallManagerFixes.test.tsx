@@ -1767,10 +1767,15 @@ describe('call targeting copy and controls', () => {
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText('Preset'), '2');
+    const presetSelect = screen.getByRole('button', { name: 'Preset' });
+    await user.click(presetSelect);
+    await user.click(
+      screen.getByRole('option', { name: /Partagé par un collègue/i }),
+    );
     expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull();
 
-    await user.selectOptions(screen.getByLabelText('Preset'), '1');
+    await user.click(presetSelect);
+    await user.click(screen.getByRole('option', { name: /Partagé à moi/i }));
     expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy();
   });
 
@@ -1851,12 +1856,20 @@ describe('preview selection and enriched rows', () => {
       />,
     );
 
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
     expect(screen.getByText('2 sélectionnés / 2')).toBeTruthy();
     const bobRow = screen.getByText('Bob Durand').closest('li');
     expect(bobRow).toBeTruthy();
     await user.click(within(bobRow!).getByRole('checkbox'));
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Planifier/i })[0],
+    );
     await user.type(screen.getByLabelText('Nom de la séance'), 'Test');
-    await user.click(screen.getByRole('button', { name: 'Lancer la séance' }));
+    await user.click(
+      screen.getAllByRole('button', { name: 'Lancer la séance' })[0],
+    );
     expect(onCreate).toHaveBeenCalledWith(
       'Test',
       [preview[0]],
@@ -1899,7 +1912,12 @@ describe('preview selection and enriched rows', () => {
         onCreateAudience={onCreateAudience}
       />,
     );
-
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Planifier/i })[0],
+    );
     await user.click(
       screen.getByRole('checkbox', { name: /Découper en plusieurs séances/i }),
     );
@@ -1910,7 +1928,9 @@ describe('preview selection and enriched rows', () => {
       target: { value: '2' },
     });
     await user.type(screen.getByLabelText('Nom de la séance'), 'Liste test');
-    await user.click(screen.getByRole('button', { name: 'Créer 2 séances' }));
+    await user.click(
+      screen.getAllByRole('button', { name: 'Créer 2 séances' })[0],
+    );
 
     expect(onCreateAudience).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1922,7 +1942,8 @@ describe('preview selection and enriched rows', () => {
     );
   });
 
-  it('selects all preview contacts when max per company was applied at fetch time', () => {
+  it('selects all preview contacts when max per company was applied at fetch time', async () => {
+    const user = userEvent.setup();
     const cappedPreview = [
       {
         sf_contact_id: '003000000000002',
@@ -1974,11 +1995,16 @@ describe('preview selection and enriched rows', () => {
       />,
     );
 
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
+
     expect(screen.getByText('2 sélectionnés / 2')).toBeTruthy();
     expect(screen.getByText(/max 1\/entreprise/i)).toBeTruthy();
   });
 
-  it('shows a partial-results banner when the fetch was truncated', () => {
+  it('shows a partial-results banner when the fetch was truncated', async () => {
+    const user = userEvent.setup();
     render(
       <NewSessionView
         filters={emptyFilterTree()}
@@ -2007,6 +2033,10 @@ describe('preview selection and enriched rows', () => {
         onDeletePreset={vi.fn()}
         onCreate={vi.fn()}
       />,
+    );
+
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
     );
 
     expect(screen.getByText(/Résultats partiels/i)).toBeTruthy();
@@ -2064,8 +2094,13 @@ describe('dedup modes in preview selection', () => {
     onCreate: vi.fn(),
   };
 
-  it('keeps duplicates checked and tagged in Avertir mode', () => {
+  it('keeps duplicates checked and tagged in Avertir mode', async () => {
+    const user = userEvent.setup();
     render(<NewSessionView {...baseProps} />);
+
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
 
     expect(screen.getByText('Déjà en séance — Paul')).toBeTruthy();
     const aliceRow = screen.getByText('Alice Martin').closest('li');
@@ -2078,6 +2113,10 @@ describe('dedup modes in preview selection', () => {
   it('unchecks duplicates by default but keeps the warning tag in Exclure mode', async () => {
     const user = userEvent.setup();
     render(<NewSessionView {...baseProps} />);
+
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
 
     await user.click(screen.getByRole('button', { name: 'Exclure' }));
     expect(screen.getByText('Déjà en séance — Paul')).toBeTruthy();
