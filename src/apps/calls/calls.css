@@ -6301,11 +6301,19 @@ a.calls-contact-card__peer:hover {
 }
 
 .calls-wizard-recap__cta {
-  padding-top: 0.5rem;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--xos-border) 40%, transparent);
 }
 
 .calls-wizard-recap__cta-btn {
   width: 100%;
+}
+
+@container calls-app (max-width: 899px) {
+  .calls-wizard-recap__cta {
+    display: none;
+  }
 }
 
 /* --- Barre d'actions au bas des étapes --- */

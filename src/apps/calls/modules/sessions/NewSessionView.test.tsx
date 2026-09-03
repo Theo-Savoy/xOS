@@ -322,6 +322,45 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     expect(screen.getByRole('button', { name: /Tier A & B/i })).toBeTruthy();
   });
 
+  it('keeps the primary CTA in the recap sidebar, not in step footers', async () => {
+    const user = userEvent.setup();
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        filters={{
+          ...emptyFilterTree(),
+          entreprise: {
+            ...emptyFilterTree().entreprise,
+            tiers: ['A'],
+          },
+        }}
+      />,
+    );
+
+    const continueComposer = screen.getByRole('button', {
+      name: /Continuer vers Composer/i,
+    });
+    expect(continueComposer.closest('.calls-wizard-recap')).toBeTruthy();
+    expect(document.querySelector('.calls-wizard-nav')).toBeNull();
+
+    await user.click(continueComposer);
+    expect(
+      screen
+        .getByRole('button', { name: /Continuer vers Planifier/i })
+        .closest('.calls-wizard-recap'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: /Précédent : Cibler/i })
+        .closest('.calls-wizard-nav'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: /Continuer vers Planifier/i })
+        .closest('.calls-wizard-nav'),
+    ).toBeNull();
+  });
+
   it('accurately displays active filter and audience counters in the lateral recap', () => {
     render(
       <NewSessionView

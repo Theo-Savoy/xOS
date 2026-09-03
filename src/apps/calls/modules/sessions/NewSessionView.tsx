@@ -336,6 +336,25 @@ export function NewSessionView({
     selectedContacts.length > 0 &&
     (!splitSessions || packedGroups.length > 0);
 
+  const primaryDisabled =
+    step === 0
+      ? !canProceedToStep2
+      : step === 1
+        ? !canProceedToStep3
+        : loading || !canLaunchSession;
+
+  const handlePrimaryAction = () => {
+    if (step === 0) {
+      if (canProceedToStep2) setStep(1);
+      return;
+    }
+    if (step === 1) {
+      if (canProceedToStep3) setStep(2);
+      return;
+    }
+    if (canLaunchSession) handleCreate();
+  };
+
   const renderActiveFilterChips = () => {
     const chips: { key: string; label: string }[] = [];
     if (filters.entreprise.secteurs.length > 0) {
@@ -478,15 +497,6 @@ export function NewSessionView({
                 onDeletePreset={onDeletePreset}
                 team={team}
               />
-
-              <div className="calls-wizard-nav calls-wizard-nav--end">
-                <Button
-                  onClick={() => setStep(1)}
-                  disabled={!canProceedToStep2}
-                >
-                  Continuer vers Composer →
-                </Button>
-              </div>
             </div>
           )}
 
@@ -748,12 +758,6 @@ export function NewSessionView({
                 <Button variant="secondary" onClick={() => setStep(0)}>
                   ← Précédent : Cibler
                 </Button>
-                <Button
-                  onClick={() => setStep(2)}
-                  disabled={!canProceedToStep3}
-                >
-                  Continuer vers Planifier →
-                </Button>
               </div>
             </div>
           )}
@@ -883,16 +887,6 @@ export function NewSessionView({
                 <Button variant="secondary" onClick={() => setStep(1)}>
                   ← Précédent : Composer
                 </Button>
-                <Button
-                  onClick={handleCreate}
-                  disabled={loading || !canLaunchSession}
-                >
-                  {loading
-                    ? 'Création…'
-                    : splitSessions
-                      ? `Créer ${packedGroups.length} séance${packedGroups.length > 1 ? 's' : ''}`
-                      : 'Lancer la séance'}
-                </Button>
               </div>
             </div>
           )}
@@ -913,6 +907,9 @@ export function NewSessionView({
             shareMemberCount={shareMemberIds.size}
             splitSessions={splitSessions}
             packedSessionsCount={packedGroups.length}
+            onPrimaryAction={handlePrimaryAction}
+            primaryDisabled={primaryDisabled}
+            loading={loading}
             onStepClick={(targetStep) => {
               if (targetStep === 0) setStep(0);
               else if (targetStep === 1 && canProceedToStep2) setStep(1);
@@ -938,18 +935,8 @@ export function NewSessionView({
         </div>
         <Button
           size="sm"
-          onClick={() => {
-            if (step === 0 && canProceedToStep2) setStep(1);
-            else if (step === 1 && canProceedToStep3) setStep(2);
-            else if (step === 2 && canLaunchSession) handleCreate();
-          }}
-          disabled={
-            step === 0
-              ? !canProceedToStep2
-              : step === 1
-                ? !canProceedToStep3
-                : !canLaunchSession || loading
-          }
+          onClick={handlePrimaryAction}
+          disabled={primaryDisabled}
         >
           {step === 0
             ? 'Composer ▸'

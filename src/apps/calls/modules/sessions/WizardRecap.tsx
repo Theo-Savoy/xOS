@@ -25,6 +25,9 @@ export type WizardRecapProps = {
   splitSessions: boolean;
   packedSessionsCount: number;
   onStepClick?: (step: WizardStep) => void;
+  onPrimaryAction: () => void;
+  primaryDisabled: boolean;
+  loading?: boolean;
   className?: string;
 };
 
@@ -62,6 +65,9 @@ export function WizardRecap({
   splitSessions,
   packedSessionsCount,
   onStepClick,
+  onPrimaryAction,
+  primaryDisabled,
+  loading = false,
   className = '',
 }: WizardRecapProps) {
   const entrepriseCount = countEntrepriseFilters(filters.entreprise);
@@ -216,6 +222,24 @@ export function WizardRecap({
           )}
         </div>
       </section>
+
+      <div className="calls-wizard-recap__cta">
+        <Button
+          className="calls-wizard-recap__cta-btn"
+          onClick={onPrimaryAction}
+          disabled={primaryDisabled}
+        >
+          {step === 0
+            ? 'Continuer vers Composer'
+            : step === 1
+              ? 'Continuer vers Planifier'
+              : loading
+                ? 'Création…'
+                : splitSessions
+                  ? `Créer ${packedSessionsCount} séance${packedSessionsCount > 1 ? 's' : ''}`
+                  : 'Lancer la séance'}
+        </Button>
+      </div>
     </GlassCard>
   );
 }
