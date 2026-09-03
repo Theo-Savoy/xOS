@@ -135,18 +135,12 @@ function renderView(
   return { ...utils, onCreateAudience, onBack };
 }
 
-async function chooseNameSearch(
-  user: ReturnType<typeof userEvent.setup>,
-) {
+async function chooseNameSearch(user: ReturnType<typeof userEvent.setup>) {
   if (screen.queryByLabelText('Nom du compte')) return;
-  await user.click(
-    screen.getByRole('button', { name: /Rechercher par nom/ }),
-  );
+  await user.click(screen.getByRole('button', { name: /Rechercher par nom/ }));
 }
 
-async function chooseFiltersSearch(
-  user: ReturnType<typeof userEvent.setup>,
-) {
+async function chooseFiltersSearch(user: ReturnType<typeof userEvent.setup>) {
   if (screen.queryByPlaceholderText('Filtrer les secteurs…')) return;
   await user.click(
     screen.getByRole('button', { name: /Rechercher par filtres/ }),
@@ -251,9 +245,7 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    expect(
-      screen.queryByRole('button', { name: 'Rechercher' }),
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rechercher' })).toBeNull();
 
     await chooseFiltersSearch(user);
     await user.click(screen.getByRole('button', { name: 'A' }));
@@ -599,7 +591,9 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     const selectSortOption = async (label: string) => {
-      await user.click(screen.getByRole('button', { name: 'Trier les comptes' }));
+      await user.click(
+        screen.getByRole('button', { name: 'Trier les comptes' }),
+      );
       await user.click(screen.getByRole('option', { name: label }));
     };
 
@@ -617,15 +611,27 @@ describe('AccountSearchView', () => {
 
     // Tri par nom décroissant: Wayne, ACME Europe, ACME
     await selectSortOption('Nom (Z → A)');
-    expect(accountNames()).toEqual(['Wayne Enterprises', 'ACME Europe', 'ACME']);
+    expect(accountNames()).toEqual([
+      'Wayne Enterprises',
+      'ACME Europe',
+      'ACME',
+    ]);
 
     // Tri par nom croissant: ACME, ACME Europe, Wayne
     await selectSortOption('Nom (A → Z)');
-    expect(accountNames()).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+    expect(accountNames()).toEqual([
+      'ACME',
+      'ACME Europe',
+      'Wayne Enterprises',
+    ]);
 
     // Tri par tier prioritaire: ACME (Tier A), ACME Europe (Tier B), Wayne (sans tier)
     await selectSortOption('Tier (prioritaire)');
-    expect(accountNames()).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
+    expect(accountNames()).toEqual([
+      'ACME',
+      'ACME Europe',
+      'Wayne Enterprises',
+    ]);
   });
 
   it('persists and restores user preferences in localStorage', async () => {
@@ -641,7 +647,9 @@ describe('AccountSearchView', () => {
 
     // Modifier le tri doit sauvegarder dans localStorage
     await user.click(screen.getByRole('button', { name: 'Trier les comptes' }));
-    await user.click(screen.getByRole('option', { name: 'Contacts (décroissant)' }));
+    await user.click(
+      screen.getByRole('option', { name: 'Contacts (décroissant)' }),
+    );
 
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
       'calls_abm_prefs_v1',
@@ -676,12 +684,8 @@ describe('AccountSearchView', () => {
       screen.queryByText(/Recherchez une entreprise par son nom/),
     ).toBeNull();
     expect(screen.queryByText(/Ou démarrez directement avec/)).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Mes comptes' }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Tier A & B' }),
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mes comptes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tier A & B' })).toBeNull();
 
     await searchQuery(user, 'ACME');
     await screen.findByText('ACME');
@@ -726,7 +730,9 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
     );
-    expect(screen.getByText(/Réinitialiser la recherche effacera/)).toBeTruthy();
+    expect(
+      screen.getByText(/Réinitialiser la recherche effacera/),
+    ).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Annuler' }));
     expect(screen.getAllByText('ACME').length).toBeGreaterThanOrEqual(1);
 
@@ -745,9 +751,7 @@ describe('AccountSearchView', () => {
     vi.mocked(fetchAccountsSearch).mockReturnValue(promise as never);
     renderView();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Rechercher par nom/ }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Rechercher par nom/ }));
     fireEvent.change(screen.getByLabelText('Nom du compte'), {
       target: { value: 'ACME' },
     });
@@ -902,12 +906,20 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     expect(container.querySelector('.calls-abm-cibler--split')).toBeTruthy();
-    expect(container.querySelector('.calls-abm-cibler__form')).toBeTruthy();
-    expect(container.querySelector('.calls-abm-cibler__results')).toBeTruthy();
+    const form = container.querySelector('.calls-abm-cibler__form');
+    const results = container.querySelector('.calls-abm-cibler__results');
+    expect(form).toBeTruthy();
+    expect(results).toBeTruthy();
     expect(
-      screen.getByRole('heading', { name: 'Comptes trouvés' }),
-    ).toBeTruthy();
-    expect(screen.getByLabelText('Nom du compte')).toBeTruthy();
+      results?.contains(
+        screen.getByRole('heading', { name: 'Comptes trouvés' }),
+      ),
+    ).toBe(true);
+    expect(results?.contains(screen.getByText('ACME'))).toBe(true);
+    expect(form?.contains(screen.getByLabelText('Nom du compte'))).toBe(true);
+    expect(results?.contains(screen.getByLabelText('Nom du compte'))).toBe(
+      false,
+    );
   });
 
   it('allows clearing all active filters with Tout effacer button in active chips', async () => {
@@ -943,7 +955,9 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     // Add ACME to target
-    await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
+    );
 
     // Now change a filter
     vi.mocked(fetchAccountsSearch).mockResolvedValueOnce({
@@ -955,9 +969,7 @@ describe('AccountSearchView', () => {
 
     // Target remains completely intact (découplée de la recherche)
     await goToComposer(user);
-    expect(
-      screen.getByText(/1 compte · 1 contact retenu/),
-    ).toBeTruthy();
+    expect(screen.getByText(/1 compte · 1 contact retenu/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Retirer ACME de la cible' }),
     ).toBeTruthy();
@@ -979,9 +991,7 @@ describe('AccountSearchView', () => {
       screen.getByRole('checkbox', { name: 'Sélectionner ACME Europe' }),
     );
     await goToComposer(user);
-    expect(
-      screen.getByText(/1 compte · 2 contacts retenus/),
-    ).toBeTruthy();
+    expect(screen.getByText(/1 compte · 2 contacts retenus/)).toBeTruthy();
 
     // In TargetPanel, uncheck Alice Martin
     const aliceCheckbox = screen.getByRole('checkbox', {
@@ -990,13 +1000,13 @@ describe('AccountSearchView', () => {
     await user.click(aliceCheckbox);
 
     // Summary updates to 1 contact
-    expect(
-      screen.getByText(/1 compte · 1 contact retenu/),
-    ).toBeTruthy();
+    expect(screen.getByText(/1 compte · 1 contact retenu/)).toBeTruthy();
 
     // Create session from Planifier (CTA unique du récap)
     await goToPlanifier(user);
-    await user.click(screen.getByRole('button', { name: 'Créer 1 séance ABM' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Créer 1 séance ABM' }),
+    );
 
     // Verify payload only contains Jean Petit, NOT Alice Martin
     expect(onCreateAudience).toHaveBeenCalledWith(
@@ -1031,11 +1041,11 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     // Select ACME
-    await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
+    );
     await goToComposer(user);
-    expect(
-      screen.getByText(/1 compte · 1 contact retenu/),
-    ).toBeTruthy();
+    expect(screen.getByText(/1 compte · 1 contact retenu/)).toBeTruthy();
 
     // Click "Vider" in TargetPanel
     await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
@@ -1051,9 +1061,13 @@ describe('AccountSearchView', () => {
 
     // Confirm: target cleared
     await user.click(screen.getByRole('button', { name: 'Vider la cible' }));
-    const confirmBtns = screen.getAllByRole('button', { name: 'Vider la cible' });
+    const confirmBtns = screen.getAllByRole('button', {
+      name: 'Vider la cible',
+    });
     await user.click(confirmBtns[confirmBtns.length - 1]);
-    expect(screen.queryAllByText(/1 compte · 1 contact retenu/)).toHaveLength(0);
+    expect(screen.queryAllByText(/1 compte · 1 contact retenu/)).toHaveLength(
+      0,
+    );
   });
 });
 
@@ -1121,9 +1135,7 @@ describe('AccountSearchView — wizard 3 étapes', () => {
       'Comité DAF',
     );
 
-    await user.click(
-      screen.getByRole('button', { name: /Étape 1: Cibler/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /Étape 1: Cibler/ }));
     expect(
       screen.getByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeTruthy();
@@ -1135,9 +1147,7 @@ describe('AccountSearchView — wizard 3 étapes', () => {
       ).checked,
     ).toBe(true);
 
-    await user.click(
-      screen.getByRole('button', { name: /Étape 2: Composer/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /Étape 2: Composer/ }));
     expect(
       (
         screen.getByRole('checkbox', {
