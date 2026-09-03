@@ -25,7 +25,7 @@ export function BridgeNewSection({
     return (
       <EmptyState
         title="Aucun bridge"
-        description="Sélectionnez deux exercices pour décomposer le recul NEW."
+        description="Pas de comparaison sur cette fenêtre."
       />
     );
   }
@@ -59,12 +59,9 @@ export function BridgeNewSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Bridge NEW : décomposition volume / ticket <ScopeTag scope="new" />
+            Écart NEW
           </h3>
-          <p className="review-section-kicker">
-            Analyse NEW uniquement · {seriesLabel(data.compare, data.period)}→
-            {seriesLabel(data.fy, data.period)}
-          </p>
+          <ScopeTag scope="new" />
         </div>
       </header>
 
@@ -78,12 +75,12 @@ export function BridgeNewSection({
         <StatCard
           label="Effet volume"
           value={fmtEur(vt.volume)}
-          hint="Δ signatures × ticket N-1"
+          hint={`Δ signatures × ticket ${data.compare}`}
         />
         <StatCard
           label="Effet ticket"
           value={fmtEur(vt.ticket)}
-          hint="Δ ticket × signatures N"
+          hint={`Δ ticket × signatures ${data.fy}`}
         />
         <StatCard
           label={`CA NEW ${seriesLabel(data.fy, data.period)}`}

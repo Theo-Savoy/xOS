@@ -51,7 +51,7 @@ const ANALYSIS_PAGES: {
   { id: 'trajectory', label: 'Trajectoire' },
   { id: 'commercial', label: 'Commercial' },
   { id: 'product', label: 'Produit' },
-  { id: 'market', label: 'Marché & acquisition' },
+  { id: 'market', label: 'Marché' },
   { id: 'diagnostic', label: 'Diagnostic' },
 ];
 
@@ -364,7 +364,7 @@ export default function ReviewApp({
               />
             ) : null}
             {nav === 'market' ? (
-              <MarketPage period={period} market={market} channels={channels} />
+              <MarketPage market={market} channels={channels} />
             ) : null}
             {nav === 'diagnostic' ? (
               <DiagnosticPage

@@ -5,6 +5,7 @@ export type PeriodSelection = {
   mode: ReviewPeriodMode;
   fy: string;
   semester: ReviewSemester;
+  compare?: string;
 };
 
 export const FY_OPTIONS = [
@@ -78,14 +79,15 @@ export function periodQuery(selection: PeriodSelection): {
   compare: string;
   semester?: ReviewSemester;
 } {
-  const base = { fy: selection.fy, compare: comparisonFy(selection.fy) };
+  const compare = selection.compare || comparisonFy(selection.fy);
+  const base = { fy: selection.fy, compare };
   return selection.mode === 'semester'
     ? { ...base, semester: selection.semester }
     : base;
 }
 
 export function periodTitle(selection: PeriodSelection): string {
-  const compare = comparisonFy(selection.fy);
+  const compare = selection.compare || comparisonFy(selection.fy);
   const suffix = selection.mode === 'semester' ? ` ${selection.semester}` : '';
   return `${compare}${suffix} → ${selection.fy}${suffix}`;
 }

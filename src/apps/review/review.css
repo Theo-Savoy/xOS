@@ -283,6 +283,21 @@
   color: var(--xos-text-muted);
 }
 
+.review-section-scope {
+  margin: var(--xos-space-1) 0 0;
+  color: var(--xos-text-muted);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.review-chart-card .recharts-legend-item-text,
+.review-section .recharts-legend-item-text {
+  color: var(--xos-text) !important;
+  font-size: 11px;
+}
+
 /* Info-bulle « i » : contexte éditorial hors du flux, accessible au clavier.
    Sélecteur `button.` pour passer devant les paddings de .xos-btn--sm. */
 button.review-hint {
@@ -582,6 +597,21 @@ button.review-hint:focus-visible .review-hint__bubble {
   color: var(--xos-text);
   font-variant-numeric: tabular-nums;
   font-weight: 720;
+}
+
+.review-reasons-subheading {
+  margin: var(--xos-space-3) 0 var(--xos-space-1);
+  color: var(--xos-text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.review-reasons-empty {
+  margin: var(--xos-space-2) 0;
+  color: var(--xos-text-muted);
+  font-size: 11px;
 }
 
 .review-reason-bars {

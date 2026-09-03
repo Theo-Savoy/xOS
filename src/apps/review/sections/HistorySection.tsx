@@ -32,11 +32,9 @@ export function HistorySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            {data.period?.granularity === 'semester'
-              ? `Historique · ${seriesSpanLabel('FY22', data.fy, data.period)}`
-              : `Historique FY22→${data.fy}`}{' '}
-            <ScopeTag scope="total" />
+            Série
           </h3>
+          <ScopeTag scope="total" />
           <p className="review-section-kicker">
             CA total = NEW + RENEW · détections, fermées et signatures NEW
             {data.period?.granularity === 'semester'

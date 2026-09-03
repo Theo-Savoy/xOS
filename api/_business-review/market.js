@@ -145,7 +145,7 @@ function fyOfWindow(window) {
   return Object.keys(window || {}).sort();
 }
 
-export function computeMarket(window) {
+export function computeMarket(window, { fy, compare } = {}) {
   const share = [];
   const mixByFy = {};
 
@@ -194,6 +194,7 @@ export function computeMarket(window) {
       global: packMix(mix.global),
       catalogue: packMix(mix.catalogue),
       sur_mesure: packMix(mix.sur_mesure),
+      conseil: packMix(mix.conseil),
     };
 
     mixByFy[fy]._lostNew = lostNew;
@@ -201,19 +202,24 @@ export function computeMarket(window) {
   }
 
   const currentFy =
-    share.find((row) => row.fy === 'FY26')?.fy || share.at(-1)?.fy;
+    (fy && share.some((row) => row.fy === fy) && fy) ||
+    share.find((row) => row.fy === 'FY26')?.fy ||
+    share.at(-1)?.fy;
   const current = mixByFy[currentFy] || {
     global: packMix(emptyMix()),
     catalogue: packMix(emptyMix()),
     sur_mesure: packMix(emptyMix()),
+    conseil: packMix(emptyMix()),
     _lostNew: [],
     _wonNew: [],
   };
 
   const fy25 = share.find((row) => row.fy === 'FY25');
   const fy26 = share.find((row) => row.fy === 'FY26');
+  const isTargetPair =
+    (!fy || fy === 'FY26') && (!compare || compare === 'FY25');
   const test =
-    fy25 && fy26
+    isTargetPair && fy25 && fy26
       ? {
           ...twoProportionTest(
             fy25.n_marche,
@@ -229,18 +235,22 @@ export function computeMarket(window) {
           n2: fy26.n_lost,
         }
       : { z: null, p: null, fy_from: null, fy_to: null };
-
   const lostNew = current._lostNew || [];
   const wonNew = current._wonNew || [];
   const catWon = wonNew.filter((record) => productKey(record) === 'catalogue');
   const smWon = wonNew.filter((record) => productKey(record) === 'sur_mesure');
+  const conseilWon = wonNew.filter((record) => productKey(record) === 'conseil');
+
+  const catLost = lostNew.filter((record) => productKey(record) === 'catalogue');
+  const smLost = lostNew.filter((record) => productKey(record) === 'sur_mesure');
+  const conseilLost = lostNew.filter((record) => productKey(record) === 'conseil');
 
   const mix = {
     global: current.global,
     catalogue: current.catalogue,
     sur_mesure: current.sur_mesure,
+    conseil: current.conseil,
   };
-
   return {
     conclusion: CONCLUSION_MARCHE,
     share,
@@ -251,6 +261,12 @@ export function computeMarket(window) {
     win_by_offer: {
       catalogue: reasonsTable(catWon, winLabel, catWon.length),
       sur_mesure: reasonsTable(smWon, winLabel, smWon.length),
+      conseil: reasonsTable(conseilWon, winLabel, conseilWon.length),
+    },
+    loss_by_offer: {
+      catalogue: reasonsTable(catLost, lossLabel, catLost.length),
+      sur_mesure: reasonsTable(smLost, lossLabel, smLost.length),
+      conseil: reasonsTable(conseilLost, lossLabel, conseilLost.length),
     },
   };
 }

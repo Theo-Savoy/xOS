@@ -249,16 +249,29 @@ async function reviewHandler(request) {
       return json(403, { error: 'manager_required' });
     }
     const fyParam = url.searchParams.get('fy') || 'FY26';
-    const compareParam = url.searchParams.get('compare') || 'FY25';
-    const semester = url.searchParams.get('semester');
     const fyParsed = parsePeriod(fyParam);
-    const compareParsed = parsePeriod(compareParam);
     if (!fyParsed || fyParsed.granularity !== 'year') {
       return json(400, { error: 'invalid_fy', hint: 'FY22 … FY26' });
     }
+    const defaultCompare = `FY${String(fyParsed.fyInt - 1).padStart(2, '0')}`;
+    const compareParam = url.searchParams.get('compare') || defaultCompare;
+    const compareParsed = parsePeriod(compareParam);
     if (!compareParsed || compareParsed.granularity !== 'year') {
       return json(400, { error: 'invalid_compare', hint: 'FY22 … FY26' });
     }
+    if (compareParsed.fyInt >= fyParsed.fyInt) {
+      return json(400, {
+        error: 'invalid_compare',
+        hint: 'compare doit être strictement inférieur à fy',
+      });
+    }
+    if (compareParsed.fyInt < 22) {
+      return json(400, {
+        error: 'invalid_compare',
+        hint: 'compare minimum FY22',
+      });
+    }
+    const semester = url.searchParams.get('semester');
     if (semester && semester !== 'S1' && semester !== 'S2') {
       return json(400, { error: 'invalid_semester', hint: 'S1 ou S2' });
     }
@@ -417,7 +430,10 @@ async function reviewHandler(request) {
           await fetchFyWindow(token, fyInts),
           semester,
         );
-        const market = computeMarket(fetched.window);
+        const market = computeMarket(fetched.window, {
+          fy: fyParsed.label,
+          compare: compareParsed.label,
+        });
         return json(200, {
           resource: 'market',
           period,

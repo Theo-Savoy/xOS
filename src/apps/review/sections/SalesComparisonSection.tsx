@@ -66,9 +66,9 @@ export function SalesComparisonSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Comparaison sales : activité, conversion et ticket{' '}
-            <ScopeTag scope="new" />
+            Paul / Christophe
           </h3>
+          <ScopeTag scope="new" />
           <p className="review-section-kicker">
             CA NEW · {seriesLabel(data.fy, data.period)} · classement sales hors
             PDG et hors SDR
@@ -129,24 +129,6 @@ export function SalesComparisonSection({
         </p>
       </GlassCard>
 
-      <div className="review-compare-grid">
-        <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">Paul — ticket et CA NEW</h3>
-          <p className="review-section-kicker">
-            CA NEW plus élevé, ticket plus haut, détection sous le standard{' '}
-            {fmtPct1(DETECTION_STANDARD)}.
-          </p>
-        </GlassCard>
-        <GlassCard className="review-chart-card">
-          <h3 className="review-card-title">
-            Christophe — volume et détection
-          </h3>
-          <p className="review-section-kicker">
-            Détection au-dessus du standard {fmtPct1(DETECTION_STANDARD)}, plus
-            de signatures NEW. Le bridge Owner cadre d'abord l'écart d'équipe.
-          </p>
-        </GlassCard>
-      </div>
     </div>
   );
 }

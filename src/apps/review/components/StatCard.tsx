@@ -1,13 +1,10 @@
 import type { ReactNode } from 'react';
 import { GlassCard, Tag } from '../../../components/ui';
-import { ScopeTag } from './ScopeTag';
 import type { ScopeKind } from '../review.types';
-
 export function StatCard({
   label,
   value,
   hint,
-  scope,
   delta,
 }: {
   label: string;
@@ -18,10 +15,7 @@ export function StatCard({
 }) {
   return (
     <GlassCard className="review-kpi-card">
-      <span className="review-kpi-label">
-        {label}
-        {scope ? <ScopeTag scope={scope} /> : null}
-      </span>
+      <span className="review-kpi-label">{label}</span>
       <span className="review-kpi-value">{value}</span>
       {hint ? <span className="review-kpi-sub">{hint}</span> : null}
       {delta ? <Tag variant="muted">{delta}</Tag> : null}

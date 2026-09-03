@@ -31,8 +31,9 @@ export function QualitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Qualité des données <ScopeTag scope="total" />
+            Qualité
           </h3>
+          <ScopeTag scope="total" />
           <p className="review-section-kicker">
             Compteurs live · le snapshot du 21/07/2026 n&apos;est pas une cible
             à figer

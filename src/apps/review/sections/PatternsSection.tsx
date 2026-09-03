@@ -1,5 +1,4 @@
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
-import { InfoHint } from '../components/InfoHint';
 import { PatternCard } from '../components/PatternCard';
 import { ScopeTag } from '../components/ScopeTag';
 import type { SynthesisPayload } from '../review.types';
@@ -32,12 +31,9 @@ export function PatternsSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Lectures structurantes de l&apos;exercice <ScopeTag scope="total" />{' '}
-            <InfoHint label="Point clé de la synthèse" text={data.key_point} />
+            Lecture
           </h3>
-          <p className="review-section-kicker">
-            Patterns retenus, puis verdict d&apos;ensemble
-          </p>
+          <ScopeTag scope="total" />
         </div>
       </header>
       <div className="review-patterns-grid">

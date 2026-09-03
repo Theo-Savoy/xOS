@@ -22,11 +22,19 @@ export function ProductivitySection({
   }
   const current = data ? productivityOf(data, data.fy) : undefined;
   const previous = data ? productivityOf(data, data.compare) : undefined;
-  if (!data || !current || !previous) {
+  if (!data || !current) {
     return (
       <EmptyState
         title="Aucune productivité"
         description="Les ETP sales (hors PDG, hors SDR) manquent pour cet exercice."
+      />
+    );
+  }
+  if (!previous) {
+    return (
+      <EmptyState
+        title="Productivité indisponible"
+        description={`ETP non configurés pour ${seriesLabel(data.compare, data.period)}.`}
       />
     );
   }
@@ -39,8 +47,9 @@ export function ProductivitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Capacité et productivité sales (ETP) <ScopeTag scope="new" />
+            Productivité
           </h3>
+          <ScopeTag scope="new" />
           <p className="review-section-kicker">
             Production sales hors Jérôme, hors SDR ·{' '}
             {seriesLabel(data.compare, data.period)}→

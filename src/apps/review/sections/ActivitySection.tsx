@@ -43,8 +43,9 @@ export function ActivitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Activité par personne <ScopeTag scope="new" />
+            Par personne
           </h3>
+          <ScopeTag scope="new" />
           <p className="review-section-kicker">
             CA NEW · {seriesLabel(data.fy, data.period)} · les totaux entreprise
             ne se somment pas avec les lignes

@@ -57,12 +57,9 @@ export function PerformanceSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Trajectoire NEW / RENEW <ScopeTag scope="total" />
+            NEW et RENEW
           </h3>
-          <p className="review-section-kicker">
-            CA total · {seriesSpanLabel('FY22', data.fy, data.period)} · le
-            stock ARR catalogue n'est pas un flux
-          </p>
+          <ScopeTag scope="total" />
         </div>
       </header>
 
@@ -111,16 +108,7 @@ export function PerformanceSection({
               width={72}
             />
             <ReviewChartTooltip
-              content={
-                <ChartTooltip
-                  scope="total"
-                  source="Salesforce · CA total (NEW + RENEW)"
-                  compareLabel="période comparable"
-                  deltaKeys={{ NEW: 'NEWDelta', RENEW: 'RENEWDelta' }}
-                  valueFormatter={fmtEur}
-                  deltaFormatter={fmtEur}
-                />
-              }
+              content={<ChartTooltip valueFormatter={fmtEur} />}
             />
             <Legend />
             <Bar

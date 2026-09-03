@@ -49,9 +49,9 @@ export function PortfolioSection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Portefeuille : quatre statuts exclusifs au 30/06{' '}
-            <ScopeTag scope="total" />
+            Portefeuille au 30/06
           </h3>
+          <ScopeTag scope="total" />
           <p className="review-section-kicker">
             {data.statuses.n_accounts} comptes · Gagnés et Fidélisés = CA signé
             · Engagés et Perdus = ARR

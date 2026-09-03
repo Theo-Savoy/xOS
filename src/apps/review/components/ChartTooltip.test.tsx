@@ -8,7 +8,7 @@ import { ChartTooltip } from './ChartTooltip';
 afterEach(cleanup);
 
 describe('ChartTooltip', () => {
-  it('affiche métrique, valeur, scope, delta comparatif et source', () => {
+  it('affiche label, métrique et valeur sans bruit de delta ni source', () => {
     const { container } = render(
       <ChartTooltip
         active
@@ -19,26 +19,18 @@ describe('ChartTooltip', () => {
             name: 'NEW',
             value: 904_200,
             color: '#8b5bfa',
-            payload: { NEW: 904_200, NEWDelta: -163_700 },
           },
         ]}
-        scope="new"
-        source="Salesforce · CA NEW"
-        compareLabel="FY25"
-        deltaKeys={{ NEW: 'NEWDelta' }}
         valueFormatter={fmtEur}
-        deltaFormatter={fmtEur}
       />,
     );
 
     expect(screen.getByText('FY26')).toBeTruthy();
     expect(screen.getByText('NEW')).toBeTruthy();
     expect(screen.getByText('904,2 k€')).toBeTruthy();
-    expect(screen.getByText('−163,7 k€ vs FY25')).toBeTruthy();
-    expect(screen.getByText('CA NEW')).toBeTruthy();
-    expect(screen.getByText('Salesforce · CA NEW')).toBeTruthy();
+    expect(screen.queryByText(/vs/)).toBeNull();
+    expect(screen.queryByText(/Salesforce/)).toBeNull();
     expect(container.querySelector('.xos-glass-card')).toBeTruthy();
-    expect(container.querySelector('.xos-tag')).toBeTruthy();
   });
 
   it('ne rend rien quand le survol est inactif', () => {

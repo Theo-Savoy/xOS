@@ -28,7 +28,7 @@ export function CapacitySection({
     return (
       <EmptyState
         title="Aucune capacité"
-        description="Sélectionnez deux exercices pour cadrer l'équipe active."
+        description="Pas de comparaison sur cette fenêtre."
       />
     );
   }
@@ -69,20 +69,15 @@ export function CapacitySection({
       <header className="review-section-heading">
         <div>
           <h3 className="review-card-title">
-            Capacité commerciale : bridge Owner puis équipe active{' '}
-            <ScopeTag scope="new" />
+            Écart Owner
           </h3>
-          <p className="review-section-kicker">
-            CA NEW · {seriesLabel(data.compare, data.period)}→
-            {seriesLabel(data.fy, data.period)} · d'abord le cadrage, ensuite
-            l'équipe active
-          </p>
+          <ScopeTag scope="new" />
         </div>
       </header>
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Bridge Owner NEW — cadrage de l'écart
+          Cadrage Owner
         </h3>
         <div className="review-kpi-grid">
           <StatCard
@@ -107,8 +102,8 @@ export function CapacitySection({
           source="Salesforce · CA NEW par Owner courant"
         />
         <p className="review-section-note">
-          {fmtEur(bridge.total)} = actifs − PDG − partis. Le bridge montre d'où
-          vient l'écart, pas pourquoi il existe. {data.attribution_limit}
+          {fmtEur(bridge.total)} = actifs − PDG − partis.{' '}
+          {data.attribution_limit}
         </p>
       </GlassCard>
 

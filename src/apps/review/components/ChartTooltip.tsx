@@ -1,8 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { Tooltip } from 'recharts';
-import { GlassCard, Tag } from '../../../components/ui';
+import { GlassCard } from '../../../components/ui';
 import type { ScopeKind } from '../review.types';
-import { ScopeTag } from './ScopeTag';
 
 type TooltipEntry = {
   dataKey?: unknown;
@@ -11,9 +10,6 @@ type TooltipEntry = {
   color?: string;
   payload?: Record<string, unknown>;
 };
-
-type DeltaKeys = Record<string, string>;
-
 const TOOLTIP_CHROME = {
   cursor: {
     fill: 'color-mix(in srgb, var(--xos-accent) 12%, transparent)',
@@ -40,20 +36,15 @@ export function ChartTooltip({
   active,
   label,
   payload,
-  scope,
-  source,
-  compareLabel,
-  deltaKeys,
   valueFormatter,
-  deltaFormatter,
 }: {
   active?: boolean;
   label?: ReactNode;
   payload?: readonly TooltipEntry[];
-  scope: ScopeKind;
-  source: string;
+  scope?: ScopeKind;
+  source?: string;
   compareLabel?: string;
-  deltaKeys?: DeltaKeys;
+  deltaKeys?: Record<string, string>;
   valueFormatter: (value: number) => string;
   deltaFormatter?: (value: number) => string;
 }) {
@@ -63,14 +54,10 @@ export function ChartTooltip({
     <GlassCard className="review-chart-tooltip" role="status">
       <div className="review-chart-tooltip__header">
         <strong>{label}</strong>
-        <ScopeTag scope={scope} />
       </div>
       <div className="review-chart-tooltip__metrics">
         {payload.map((entry) => {
           const key = String(entry.dataKey ?? entry.name ?? 'metric');
-          const deltaKey = deltaKeys?.[key];
-          const rawDelta = deltaKey ? entry.payload?.[deltaKey] : undefined;
-          const delta = typeof rawDelta === 'number' ? rawDelta : null;
           return (
             <div key={key} className="review-chart-tooltip__metric">
               <span className="review-chart-tooltip__label">
@@ -78,18 +65,10 @@ export function ChartTooltip({
                 {entry.name ?? key}
               </span>
               <strong>{valueFormatter(Number(entry.value) || 0)}</strong>
-              {delta !== null && deltaFormatter && compareLabel ? (
-                <span className="review-chart-tooltip__delta">
-                  {deltaFormatter(delta)} vs {compareLabel}
-                </span>
-              ) : null}
             </div>
           );
         })}
       </div>
-      <Tag variant="muted" className="review-chart-tooltip__source">
-        {source}
-      </Tag>
     </GlassCard>
   );
 }
