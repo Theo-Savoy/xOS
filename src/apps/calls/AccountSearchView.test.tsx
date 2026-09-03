@@ -230,8 +230,8 @@ describe('AccountSearchView', () => {
     }) as HTMLButtonElement;
     expect(searchButton.disabled).toBe(true);
 
-    await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('checkbox', { name: 'A' }));
+    await user.click(screen.getByText('Entreprise'));
+    await user.click(screen.getByRole('button', { name: 'A' }));
 
     expect(searchButton.disabled).toBe(false);
     await user.click(searchButton);
@@ -310,8 +310,8 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('checkbox', { name: 'Paul Martin' }));
+    await user.click(screen.getByText('Entreprise'));
+    await user.click(screen.getByRole('button', { name: 'Paul Martin' }));
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
@@ -442,9 +442,9 @@ describe('AccountSearchView', () => {
       });
       renderView();
 
-      fireEvent.click(screen.getByText('Filtres entreprise'));
-      fireEvent.click(screen.getByRole('checkbox', { name: 'A' }));
-      fireEvent.click(screen.getByRole('checkbox', { name: 'B' }));
+      fireEvent.click(screen.getByText('Entreprise'));
+      fireEvent.click(screen.getByRole('button', { name: 'A' }));
+      fireEvent.click(screen.getByRole('button', { name: 'B' }));
 
       // Still within the 300ms window: no request fired yet.
       act(() => {
@@ -485,8 +485,8 @@ describe('AccountSearchView', () => {
 
       renderView();
 
-      fireEvent.click(screen.getByText('Filtres entreprise'));
-      fireEvent.click(screen.getByRole('checkbox', { name: 'A' }));
+      fireEvent.click(screen.getByText('Entreprise'));
+      fireEvent.click(screen.getByRole('button', { name: 'A' }));
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
@@ -494,7 +494,7 @@ describe('AccountSearchView', () => {
       const firstSignal =
         vi.mocked(fetchAccountsSearch).mock.calls[0][2]?.signal;
 
-      fireEvent.click(screen.getByRole('checkbox', { name: 'B' }));
+      fireEvent.click(screen.getByRole('button', { name: 'B' }));
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
@@ -737,7 +737,7 @@ describe('AccountSearchView', () => {
     renderView();
 
     // Search within PicklistMultiSelect
-    const searchInput = screen.getByPlaceholderText('Rechercher un secteur…');
+    const searchInput = screen.getByPlaceholderText('Filtrer les secteurs…');
     await user.type(searchInput, 'Services informatiques');
 
     // Click on the checkbox for Services informatiques
@@ -780,22 +780,17 @@ describe('AccountSearchView', () => {
     expect(screen.queryByRole('region', { name: 'Filtres actifs' })).toBeNull();
   });
 
-  it('allows clearing search query with the clear button', async () => {
-    const user = userEvent.setup();
-    renderView();
-
-    const input = screen.getByLabelText('Nom du compte') as HTMLInputElement;
-    await user.type(input, 'ACME');
-    expect(input.value).toBe('ACME');
-    const clearBtn = screen.getByRole('button', {
-      name: 'Effacer la recherche',
-    });
-    await user.click(clearBtn);
-
-    expect(input.value).toBe('');
-    expect(
-      screen.queryByRole('button', { name: 'Effacer la recherche' }),
-    ).toBeNull();
+  it('uses the classic FilterBuilder visual patterns on step 1', () => {
+    const { container } = renderView();
+    expect(container.querySelector('.calls-abm-search-box')).toBeNull();
+    expect(container.querySelector('.calls-filterbuilder')).toBeTruthy();
+    expect(container.querySelector('.calls-fb-section')).toBeTruthy();
+    expect(screen.queryByText('Replier')).toBeNull();
+    expect(screen.queryByText('Déplier')).toBeNull();
+    expect(screen.getByLabelText('Nom du compte')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Filtrer les secteurs…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'A' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Paul Martin' })).toBeTruthy();
   });
 
   it('allows clearing all active filters with Tout effacer button in active chips', async () => {
@@ -806,8 +801,8 @@ describe('AccountSearchView', () => {
     });
     renderView();
 
-    await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('checkbox', { name: 'A' }));
+    await user.click(screen.getByText('Entreprise'));
+    await user.click(screen.getByRole('button', { name: 'A' }));
     expect(screen.getByRole('region', { name: 'Filtres actifs' })).toBeTruthy();
     expect(screen.getByText('Tier A')).toBeTruthy();
 
@@ -838,8 +833,8 @@ describe('AccountSearchView', () => {
       accounts: [acmeSubsidiary],
       truncated: false,
     });
-    await user.click(screen.getByText('Filtres entreprise'));
-    await user.click(screen.getByRole('checkbox', { name: 'B' }));
+    await user.click(screen.getByText('Entreprise'));
+    await user.click(screen.getByRole('button', { name: 'B' }));
 
     // Target remains completely intact (découplée de la recherche)
     await goToComposer(user);

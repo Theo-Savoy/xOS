@@ -27,13 +27,12 @@ import {
   type AudienceSessionGroup,
 } from './api';
 import { packAccountsIntoSessions } from './audienceBinPacking';
-import { PicklistMultiSelect } from './filterControls';
+import { PicklistMultiSelect, ChipGroup } from './filterControls';
 import { asOptions } from './filterControls.helpers';
 import { tomorrowParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
 import { AccountRow } from './abm/AccountRow';
 import { TargetPanel, type TargetEntry } from './abm/TargetPanel';
-import { SearchIcon } from './abm/icons';
 import { WizardStepper, type WizardStep } from './modules/sessions/WizardStepper';
 import { AbmWizardRecap } from './abm/AbmWizardRecap';
 
@@ -63,7 +62,6 @@ const STEP_TITLES: Record<WizardStep, string> = {
 const ABM_PREFS_KEY = 'calls_abm_prefs_v1';
 type AbmPreferences = {
   sortBy?: AbmSortOption;
-  filtersOpen?: boolean;
   targetSize?: number;
   maxSessions?: number;
 };
@@ -167,9 +165,6 @@ export function AccountSearchView({
   const initialPrefs = useRef(readPrefs()).current;
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
-  const [filtersOpen, setFiltersOpen] = useState(
-    initialPrefs.filtersOpen ?? false,
-  );
   const [sortBy, setSortBy] = useState<AbmSortOption>(
     initialPrefs.sortBy ?? 'default',
   );
@@ -517,85 +512,70 @@ export function AccountSearchView({
           {/* Étape 0 : CIBLER */}
           {step === 0 && (
             <div className="calls-wizard-step-pane" data-step="cibler">
-              <div className="calls-abm-search-box">
-                <div className="calls-abm-search-row">
-                  <div className="calls-abm-search-input-wrap">
-                    <span className="calls-abm-search-icon">
-                      <SearchIcon />
-                    </span>
-                    <input
-                      type="text"
-                      className="calls-input calls-abm-search-input"
-                      placeholder="Rechercher une entreprise par son nom…"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === 'Enter' &&
-                        canSearch &&
-                        !loading &&
-                        void handleSearch()
-                      }
-                      aria-label="Nom du compte"
-                    />
-                    {query.trim() && (
-                      <Button
-                        variant="icon"
-                        size="sm"
-                        className="calls-abm-search-clear"
-                        onClick={() => setQuery('')}
-                        aria-label="Effacer la recherche"
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                  <div className="calls-abm-search-actions">
+              <GlassCard className="calls-filterbuilder">
+                <label className="calls-field">
+                  <span>Nom du compte</span>
+                  <input
+                    type="text"
+                    className="calls-input"
+                    placeholder="Rechercher une entreprise par son nom…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' &&
+                      canSearch &&
+                      !loading &&
+                      void handleSearch()
+                    }
+                    aria-label="Nom du compte"
+                  />
+                </label>
+                <div className="calls-fb-actions">
+                  <Button
+                    onClick={() => void handleSearch()}
+                    disabled={!canSearch || loading}
+                  >
+                    {loading ? 'Recherche…' : 'Rechercher'}
+                  </Button>
+                  {(query.trim() || hasAnyFilter(filters)) && (
                     <Button
-                      onClick={() => void handleSearch()}
-                      disabled={!canSearch || loading}
+                      variant="secondary"
+                      onClick={handleResetAll}
+                      disabled={loading}
+                      aria-label="Réinitialiser la recherche"
                     >
-                      {loading ? 'Recherche…' : 'Rechercher'}
+                      Réinitialiser
                     </Button>
-                    {(query.trim() || hasAnyFilter(filters)) && (
-                      <Button
-                        variant="secondary"
-                        onClick={handleResetAll}
-                        disabled={loading}
-                        aria-label="Réinitialiser la recherche"
-                      >
-                        Réinitialiser
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {activeChips.length > 0 && (
                   <div
-                    className="calls-abm-active-chips"
+                    className="calls-wizard-active-filters"
                     role="region"
                     aria-label="Filtres actifs"
                   >
+                    <span className="calls-wizard-active-filters__label">
+                      Filtres
+                    </span>
                     {activeChips.map((chip) => (
-                      <span
+                      <Button
                         key={`${chip.key}-${chip.value}`}
-                        className="calls-abm-active-chip"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="calls-wizard-active-filter-chip"
+                        onClick={() =>
+                          removeFilterItem(chip.key, chip.value)
+                        }
+                        aria-label={`Retirer le secteur ${chip.label}`}
                       >
                         <span>{chip.label}</span>
-                        <Button
-                          variant="icon"
-                          size="sm"
-                          className="calls-abm-active-chip__remove"
-                          onClick={() => removeFilterItem(chip.key, chip.value)}
-                          aria-label={`Retirer le secteur ${chip.label}`}
-                        >
-                          ×
-                        </Button>
-                      </span>
+                      </Button>
                     ))}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="calls-abm-active-chips__clear"
                       onClick={() => setFilters(emptyAbmFilters())}
                       aria-label="Tout effacer les filtres"
                     >
@@ -603,101 +583,62 @@ export function AccountSearchView({
                     </Button>
                   </div>
                 )}
-              </div>
 
-              <details
-                className="calls-fb-section calls-abm-filters-card"
-                open={filtersOpen}
-                onToggle={(e) => {
-                  const op = (e.currentTarget as HTMLDetailsElement).open;
-                  setFiltersOpen(op);
-                  writePrefs({ filtersOpen: op });
-                }}
-              >
-                <summary className="calls-abm-filters-card__header">
-                  <span className="calls-abm-filters-card__title">
-                    Filtres entreprise
-                  </span>
-                  {activeFiltersCount > 0 && (
-                    <span
-                      className="calls-abm-filters-card__badge"
-                      aria-label={`${activeFiltersCount} filtres actifs`}
-                    >
-                      {activeFiltersCount}
+                <details className="calls-fb-section">
+                  <summary>
+                    <span className="calls-fb-section__title">
+                      Entreprise
+                      {activeFiltersCount > 0 && (
+                        <span
+                          className="calls-fb-section__badge"
+                          aria-label={`${activeFiltersCount} filtres actifs`}
+                        >
+                          {activeFiltersCount}
+                        </span>
+                      )}
                     </span>
-                  )}
-                  <div className="calls-abm-filters-header-actions">
-                    {activeFiltersCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setFilters(emptyAbmFilters());
-                        }}
-                      >
-                        Effacer tous les filtres
-                      </Button>
-                    )}
-                    <span className="calls-text-sm calls-muted">
-                      {filtersOpen ? 'Replier' : 'Déplier'}
-                    </span>
-                  </div>
-                </summary>
-                <div className="calls-fb-section__body calls-abm-filters-card__body">
-                  <div className="calls-abm-filter-row">
+                  </summary>
+                  <div className="calls-fb-section__body">
                     <PicklistMultiSelect
                       label="Secteurs d'activité"
                       options={asOptions(SECTEUR_VALUES)}
                       groups={secteurGroups}
                       value={filters.secteurs}
                       onChange={(secteurs) => setFilter({ secteurs })}
-                      searchPlaceholder="Rechercher un secteur…"
+                      searchPlaceholder="Filtrer les secteurs…"
                     />
-                  </div>
-                  <div className="calls-abm-filter-row">
-                    <PicklistMultiSelect
+                    <ChipGroup
                       label="Effectifs"
                       options={asOptions(EFFECTIF_TRANCHES)}
                       value={filters.effectifs}
                       onChange={(effectifs) => setFilter({ effectifs })}
-                      searchPlaceholder="Rechercher un effectif…"
                     />
-                  </div>
-                  <div className="calls-abm-filter-row">
-                    <PicklistMultiSelect
+                    <ChipGroup
                       label="Type de client"
                       options={asOptions(TYPE_CLIENT_VALUES)}
                       value={filters.type_client}
                       onChange={(type_client) => setFilter({ type_client })}
-                      searchPlaceholder="Rechercher un type de client…"
                     />
-                  </div>
-                  <div className="calls-abm-filter-row">
-                    <PicklistMultiSelect
+                    <ChipGroup
                       label="Tier"
                       options={asOptions(TIER_VALUES)}
                       value={filters.tiers}
                       onChange={(tiers) => setFilter({ tiers })}
-                      searchPlaceholder="Rechercher un tier…"
                     />
-                  </div>
-                  {ownerOptions.length > 0 && (
-                    <div className="calls-abm-filter-row">
-                      <PicklistMultiSelect
-                        label="Propriétaires du compte"
-                        hint="Sélectionne par nom"
+                    {ownerOptions.length > 0 && (
+                      <ChipGroup
+                        label="Propriétaire du compte"
+                        hint="Commercial propriétaire du compte Salesforce"
                         options={ownerOptions}
                         value={filters.proprietaires}
                         onChange={(proprietaires) =>
                           setFilter({ proprietaires })
                         }
-                        searchPlaceholder="Rechercher un propriétaire…"
                       />
-                    </div>
-                  )}
-                </div>
-              </details>
+                    )}
+                  </div>
+                </details>
+              </GlassCard>
 
               {truncated && (
                 <GlassCard className="calls-truncated-banner" role="status">
