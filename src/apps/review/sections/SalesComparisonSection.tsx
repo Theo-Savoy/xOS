@@ -52,8 +52,8 @@ export function SalesComparisonSection({
   if (!data?.sales?.length) {
     return (
       <EmptyState
-        title="Aucune équipe sales"
-        description="Pas de commerciaux actifs (hors PDG, hors SDR) sur cet exercice."
+        title="Aucun commercial actif"
+        description="Aucun vendeur (hors PDG, hors SDR) sur cet exercice."
       />
     );
   }

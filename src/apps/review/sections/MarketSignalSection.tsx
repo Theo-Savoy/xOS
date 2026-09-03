@@ -134,8 +134,7 @@ export function MarketSignalSection({
           </BarChart>
         </ResponsiveContainer>
         <p className="review-section-note">
-          Les trois motifs somment à 100 % sur chaque ligne. Prix est déduit du
-          reliquat déclaré.
+          Chaque ligne totalise 100 % : marché, produit et prix couvrent toutes les pertes déclarées.
         </p>
       </GlassCard>
 

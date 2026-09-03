@@ -22,7 +22,7 @@ export function HistorySection({
     return (
       <EmptyState
         title="Historique indisponible"
-        description={`Pas de série ${seriesSpanLabel(FY_OPTIONS[0].value, data?.fy || ANNUAL_ONLY_FY, data?.period)}.`}
+        description={`Aucune série sur la fenêtre ${seriesSpanLabel(FY_OPTIONS[0].value, data?.fy || ANNUAL_ONLY_FY, data?.period)}.`}
       />
     );
   }

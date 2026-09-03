@@ -35,7 +35,7 @@ export function QualitySection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            Compteurs live · pas une cible à figer
+            Fiabilité des données : écarts détectés sur la fenêtre
           </p>
         </div>
       </header>

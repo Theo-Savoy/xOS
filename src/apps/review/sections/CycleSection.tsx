@@ -43,8 +43,8 @@ export function CycleSection({
     const endFy = data?.fy || ANNUAL_ONLY_FY;
     return (
       <EmptyState
-        title="Aucun cycle"
-        description={`Pas de dates exploitables sur la fenêtre ${seriesSpanLabel(startFy, endFy, data?.period)}.`}
+        title="Aucun cycle sur la période"
+        description={`Aucune date de cycle exploitable sur la fenêtre ${seriesSpanLabel(startFy, endFy, data?.period)}.`}
       />
     );
   }

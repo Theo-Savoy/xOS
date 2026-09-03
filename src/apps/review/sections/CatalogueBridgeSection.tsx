@@ -160,7 +160,7 @@ export function CatalogueBridgeSection({
           <span>{fmtPct1(cat.share_new)} nouvelles affaires</span>
         </p>
         <p className="review-section-note">
-          Stock ARR et flux signé ne s'additionnent pas.
+          Stock ARR et flux signé : deux lectures distinctes, à ne pas additionner.
         </p>
       </GlassCard>
     </div>

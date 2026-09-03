@@ -26,7 +26,7 @@ export function ProductivitySection({
     return (
       <EmptyState
         title="Aucune productivité"
-        description="Les ETP sales (hors PDG, hors SDR) manquent pour cet exercice."
+        description="Les ETP commerciaux (hors PDG, hors SDR) ne sont pas définis pour cet exercice."
       />
     );
   }

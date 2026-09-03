@@ -63,8 +63,8 @@ export function ChannelsSection({
   if (!data?.channels) {
     return (
       <EmptyState
-        title="Aucun canal"
-        description="Pas de campagnes nouvelles affaires sur cette fenêtre."
+        title="Aucun canal sur la période"
+        description="Aucune campagne de nouvelles affaires sur cette fenêtre."
       />
     );
   }

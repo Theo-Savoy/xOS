@@ -82,7 +82,7 @@ describe('pages du bilan', () => {
       <CommercialPage period={period} commercial={idle} />,
     );
     expect(screen.getByText('Activité nominative indisponible')).toBeTruthy();
-    expect(screen.getByText('Lecture PDG indisponible')).toBeTruthy();
+    expect(screen.getByText('Aucune activité PDG')).toBeTruthy();
     unmountCommercial();
 
     const { unmount: unmountTrajectory } = render(
@@ -100,7 +100,7 @@ describe('pages du bilan', () => {
       />,
     );
     expect(screen.getByText('Qualité indisponible')).toBeTruthy();
-    expect(screen.getByText('Contrats de calcul indisponibles')).toBeTruthy();
+    expect(screen.getByText('Définitions indisponibles')).toBeTruthy();
   });
 
   it('empile la Synthèse en pleine largeur puis patterns 2 colonnes', () => {

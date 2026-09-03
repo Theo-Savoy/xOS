@@ -101,7 +101,7 @@ export function BridgeNewSection({
           source="Salesforce · CA nouvelles affaires"
         />
         <p className="review-section-note">
-          Le bridge montre d'où vient l'écart, pas pourquoi il existe.
+          Le bridge décompose l'écart (volume, ticket) sans expliquer sa cause.
         </p>
       </GlassCard>
     </div>

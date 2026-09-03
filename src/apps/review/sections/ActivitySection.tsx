@@ -33,7 +33,7 @@ export function ActivitySection({
     return (
       <EmptyState
         title="Activité nominative indisponible"
-        description="Pas d'activité nominative sur cet exercice."
+        description="Aucune donnée d'activité individuelle sur cet exercice."
       />
     );
   }

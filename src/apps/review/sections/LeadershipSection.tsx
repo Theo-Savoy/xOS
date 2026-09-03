@@ -52,8 +52,8 @@ export function LeadershipSection({
   if (!data?.dg) {
     return (
       <EmptyState
-        title="Lecture PDG indisponible"
-        description="Pas de données PDG sur cette fenêtre."
+        title="Aucune activité PDG"
+        description="Aucune donnée PDG sur cette fenêtre."
       />
     );
   }

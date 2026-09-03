@@ -62,8 +62,8 @@ export function ProductCompareSection({
   if (!data?.series?.length) {
     return (
       <EmptyState
-        title="Aucun produit"
-        description="Pas de ventilation catalogue / sur-mesure sur cette fenêtre."
+        title="Aucun produit sur la période"
+        description="Pas de ventes nouvelles affaires sur cette fenêtre."
       />
     );
   }
