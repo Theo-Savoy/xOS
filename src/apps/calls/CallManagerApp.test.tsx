@@ -1183,6 +1183,9 @@ describe('CallManagerApp component', () => {
         { status: 200 },
       ),
     );
+    await user.click(
+      screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
+    );
     await screen.findByText('Contact récent');
 
     // La réponse du premier appel (obsolète) arrive après coup et ne doit
