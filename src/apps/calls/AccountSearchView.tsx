@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, GlassCard, Modal, Skeleton, Tag } from '../../components/ui';
 import {
   EFFECTIF_TRANCHES,
+  SECTEUR_FAMILIES,
   SECTEUR_VALUES,
   TIER_VALUES,
   TYPE_CLIENT_VALUES,
@@ -18,6 +19,7 @@ import {
 import { packAccountsIntoSessions } from './audienceBinPacking';
 import { ChipGroup } from './filterControls';
 import { asOptions } from './filterControls.helpers';
+import { FilterableMultiSelect } from './FilterableMultiSelect';
 import { DatePicker } from './formControls';
 import { tomorrowParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
@@ -134,7 +136,6 @@ type AccountSearchViewProps = {
   createError: string | null;
 };
 
-
 function AccountCard({
   account,
   checked,
@@ -169,43 +170,58 @@ function AccountCard({
           {account.effectif && <Tag>{account.effectif}</Tag>}
           {hasContacts ? (
             <Tag variant={checked ? 'accent' : 'default'}>
-              {account.contacts.length} contact{account.contacts.length > 1 ? 's' : ''}
+              {account.contacts.length} contact
+              {account.contacts.length > 1 ? 's' : ''}
             </Tag>
           ) : (
-            <Tag variant="warning" title="Aucun contact disponible — exclusion automatique">
+            <Tag
+              variant="warning"
+              title="Aucun contact disponible — exclusion automatique"
+            >
               0 contact (exclu)
             </Tag>
           )}
           {hasContacts && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               className="calls-expand-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 setExpanded(!expanded);
               }}
               aria-expanded={expanded}
-              aria-label={expanded ? 'Masquer les contacts' : 'Afficher les contacts'}
+              aria-label={
+                expanded ? 'Masquer les contacts' : 'Afficher les contacts'
+              }
             >
               {expanded ? '▲' : '▼'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
       <p className="calls-muted calls-fb-hint calls-mt-1">
-        {[account.industry, account.owner_name].filter(Boolean).join(' · ') || '—'}
+        {[account.industry, account.owner_name].filter(Boolean).join(' · ') ||
+          '—'}
       </p>
       {expanded && hasContacts && (
         <ul className="calls-account-contacts">
           {account.contacts.map((contact) => (
-            <li key={contact.sf_contact_id} className="calls-account-contact-item">
+            <li
+              key={contact.sf_contact_id}
+              className="calls-account-contact-item"
+            >
               <div className="calls-account-contact-item__main">
                 <strong>{contact.contact_name}</strong>
-                {contact.title && <span className="calls-muted"> · {contact.title}</span>}
+                {contact.title && (
+                  <span className="calls-muted"> · {contact.title}</span>
+                )}
               </div>
               <div className="calls-account-contact-item__meta">
                 {contact.decision_level && <Tag>{contact.decision_level}</Tag>}
-                {(contact.phone || contact.mobile_phone) && <span title="Téléphone disponible">📞</span>}
+                {(contact.phone || contact.mobile_phone) && (
+                  <span title="Téléphone disponible">📞</span>
+                )}
                 {contact.email && <span title="Email disponible">✉️</span>}
               </div>
             </li>
@@ -267,6 +283,15 @@ export function AccountSearchView({
       ).values(),
     ],
     [team],
+  );
+  const secteurGroups = useMemo(
+    () =>
+      SECTEUR_FAMILIES.map((fam) => ({
+        id: fam.id,
+        label: fam.label,
+        values: fam.secteurs,
+      })),
+    [],
   );
 
   const canSearchWith = (q: string, currentFilters: AbmFilters) =>
@@ -503,7 +528,8 @@ export function AccountSearchView({
           <h3>Sélection</h3>
           <p>
             {uniqueAccountsCount} compte{uniqueAccountsCount > 1 ? 's' : ''} ·{' '}
-            {selectedContactsCount} contact{selectedContactsCount > 1 ? 's' : ''}
+            {selectedContactsCount} contact
+            {selectedContactsCount > 1 ? 's' : ''}
           </p>
         </div>
 
@@ -535,7 +561,9 @@ export function AccountSearchView({
                 className="calls-input"
                 min={1}
                 value={targetSize}
-                onChange={(e) => handleTargetSizeChange(Number(e.target.value) || 1)}
+                onChange={(e) =>
+                  handleTargetSizeChange(Number(e.target.value) || 1)
+                }
               />
             </label>
             <label className="calls-field">
@@ -545,7 +573,9 @@ export function AccountSearchView({
                 className="calls-input"
                 min={1}
                 value={maxSessions}
-                onChange={(e) => handleMaxSessionsChange(Number(e.target.value) || 1)}
+                onChange={(e) =>
+                  handleMaxSessionsChange(Number(e.target.value) || 1)
+                }
               />
             </label>
           </div>
@@ -560,20 +590,28 @@ export function AccountSearchView({
               <ul className="calls-audience-pack__preview">
                 {groups.map((group, index) => (
                   <li key={index}>
-                    {group.accountNames.join(' + ')} : {group.totalContacts} contact{group.totalContacts > 1 ? 's' : ''}
+                    {group.accountNames.join(' + ')} : {group.totalContacts}{' '}
+                    contact{group.totalContacts > 1 ? 's' : ''}
                   </li>
                 ))}
               </ul>
-              <Button onClick={() => {
-                handleCreateClick();
-                setMobileDrawerOpen(false);
-              }} disabled={creating} className="calls-abm-sidebar-cta">
-                {creating ? 'Création…' : `Créer ${groups.length} séance${groups.length > 1 ? 's' : ''} ABM`}
+              <Button
+                onClick={() => {
+                  handleCreateClick();
+                  setMobileDrawerOpen(false);
+                }}
+                disabled={creating}
+                className="calls-abm-sidebar-cta"
+              >
+                {creating
+                  ? 'Création…'
+                  : `Créer ${groups.length} séance${groups.length > 1 ? 's' : ''} ABM`}
               </Button>
             </>
           ) : (
             <p className="calls-muted calls-fb-hint calls-mt-4">
-              Tous les contacts sélectionnés sont déjà en séance active. Aucune séance ne sera créée.
+              Tous les contacts sélectionnés sont déjà en séance active. Aucune
+              séance ne sera créée.
             </p>
           )}
         </div>
@@ -601,278 +639,462 @@ export function AccountSearchView({
 
       <div className="calls-abm-layout">
         <div className="calls-abm-layout__main">
-      <GlassCard className="calls-filterbuilder">
-        <div className="calls-fb-row">
-          <label className="calls-field calls-field--flex">
-            <span>Nom du compte</span>
-            <input
-              type="text"
-              className="calls-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void handleSearch()}
-              placeholder="ACME (optionnel si des filtres sont sélectionnés)"
-            />
-          </label>
-          <div className="calls-fb-actions">
-            <Button
-              onClick={() => void handleSearch()}
-              disabled={loading || !canSearch}
-            >
-              {loading ? 'Recherche…' : 'Rechercher'}
-            </Button>
-            {(query.trim() || hasAnyFilter(filters)) && (
-              <Button
-                variant="secondary"
-                onClick={handleResetAll}
-                disabled={loading}
-                aria-label="Réinitialiser la recherche"
-              >
-                Réinitialiser
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <details
-          className="calls-fb-section"
-          open={filtersOpen}
-          onToggle={(e) => handleFiltersToggle(e.currentTarget.open)}
-        >
-          <summary>
-            <span className="calls-fb-section__title">
-              Filtres entreprise
-              {activeFiltersCount > 0 && (
-                <span
-                  className="calls-fb-section__badge"
-                  aria-label={`${activeFiltersCount} filtre${activeFiltersCount > 1 ? 's' : ''} actif${activeFiltersCount > 1 ? 's' : ''}`}
-                >
-                  {activeFiltersCount}
+          {/* Sticky Search Zone */}
+          <div className="calls-abm-sticky-search">
+            <div className="calls-abm-search-row">
+              <div className="calls-abm-search-input-wrap">
+                <span className="calls-abm-search-icon" aria-hidden="true">
+                  🔍
                 </span>
-              )}
-            </span>
-          </summary>
-          <div className="calls-fb-section__body">
-            {activeFiltersCount > 0 && (
-              <div className="calls-abm-filters-header">
-                <span className="calls-muted calls-text-sm">
-                  {activeFiltersCount} critère
-                  {activeFiltersCount > 1 ? 's' : ''} sélectionné
-                  {activeFiltersCount > 1 ? 's' : ''}
-                </span>
+                <input
+                  type="text"
+                  className="calls-input calls-abm-search-input"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void handleSearch()}
+                  placeholder="ACME (optionnel si des filtres sont sélectionnés)"
+                  aria-label="Nom du compte"
+                />
+                {query && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="calls-abm-search-clear"
+                    onClick={() => setQuery('')}
+                    aria-label="Effacer la recherche"
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+              <div className="calls-abm-search-actions">
                 <Button
-                  variant="secondary"
-                  onClick={handleResetFilters}
-                  aria-label="Effacer les filtres"
+                  onClick={() => void handleSearch()}
+                  disabled={loading || !canSearch}
                 >
-                  Effacer les filtres
+                  {loading ? 'Recherche…' : 'Rechercher'}
+                </Button>
+                {(query.trim() || hasAnyFilter(filters)) && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleResetAll}
+                    disabled={loading}
+                    aria-label="Réinitialiser la recherche"
+                  >
+                    Réinitialiser
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Filter Chips */}
+            {hasAnyFilter(filters) && (
+              <div
+                className="calls-abm-active-chips"
+                role="region"
+                aria-label="Filtres actifs"
+              >
+                {filters.secteurs.map((secteur) => (
+                  <Tag
+                    key={secteur}
+                    variant="accent"
+                    className="calls-abm-active-chip"
+                  >
+                    <span>{secteur}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFilter({
+                          secteurs: filters.secteurs.filter(
+                            (s) => s !== secteur,
+                          ),
+                        })
+                      }
+                      aria-label={`Retirer le secteur ${secteur}`}
+                      className="calls-abm-active-chip__remove"
+                    >
+                      ×
+                    </Button>
+                  </Tag>
+                ))}
+                {filters.effectifs.map((eff) => (
+                  <Tag
+                    key={eff}
+                    variant="accent"
+                    className="calls-abm-active-chip"
+                  >
+                    <span>Eff: {eff}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFilter({
+                          effectifs: filters.effectifs.filter((e) => e !== eff),
+                        })
+                      }
+                      aria-label={`Retirer l'effectif ${eff}`}
+                      className="calls-abm-active-chip__remove"
+                    >
+                      ×
+                    </Button>
+                  </Tag>
+                ))}
+                {filters.type_client.map((tc) => (
+                  <Tag
+                    key={tc}
+                    variant="accent"
+                    className="calls-abm-active-chip"
+                  >
+                    <span>{tc}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFilter({
+                          type_client: filters.type_client.filter(
+                            (t) => t !== tc,
+                          ),
+                        })
+                      }
+                      aria-label={`Retirer le type ${tc}`}
+                      className="calls-abm-active-chip__remove"
+                    >
+                      ×
+                    </Button>
+                  </Tag>
+                ))}
+                {filters.tiers.map((tier) => (
+                  <Tag
+                    key={tier}
+                    variant="accent"
+                    className="calls-abm-active-chip"
+                  >
+                    <span>Tier {tier}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFilter({
+                          tiers: filters.tiers.filter((t) => t !== tier),
+                        })
+                      }
+                      aria-label={`Retirer le tier ${tier}`}
+                      className="calls-abm-active-chip__remove"
+                    >
+                      ×
+                    </Button>
+                  </Tag>
+                ))}
+                {filters.proprietaires.map((p) => {
+                  const label =
+                    ownerOptions.find((o) => o.value === p)?.label || p;
+                  return (
+                    <Tag
+                      key={p}
+                      variant="accent"
+                      className="calls-abm-active-chip"
+                    >
+                      <span>{label}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setFilter({
+                            proprietaires: filters.proprietaires.filter(
+                              (o) => o !== p,
+                            ),
+                          })
+                        }
+                        aria-label={`Retirer le propriétaire ${label}`}
+                        className="calls-abm-active-chip__remove"
+                      >
+                        ×
+                      </Button>
+                    </Tag>
+                  );
+                })}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="calls-abm-active-chips__clear"
+                  aria-label="Tout effacer les filtres"
+                >
+                  Tout effacer
                 </Button>
               </div>
             )}
-            <ChipGroup
-              label="Secteurs d'activité"
-              options={asOptions(SECTEUR_VALUES)}
-              value={filters.secteurs}
-              onChange={(secteurs) => setFilter({ secteurs })}
-            />
-            <ChipGroup
-              label="Effectifs"
-              options={asOptions(EFFECTIF_TRANCHES)}
-              value={filters.effectifs}
-              onChange={(effectifs) => setFilter({ effectifs })}
-            />
-            <ChipGroup
-              label="Type de client"
-              options={asOptions(TYPE_CLIENT_VALUES)}
-              value={filters.type_client}
-              onChange={(type_client) => setFilter({ type_client })}
-            />
-            <ChipGroup
-              label="Tier"
-              options={asOptions(TIER_VALUES)}
-              value={filters.tiers}
-              onChange={(tiers) => setFilter({ tiers })}
-            />
-            <ChipGroup
-              label="Propriétaires du compte"
-              hint="Sélectionne par nom"
-              options={ownerOptions}
-              value={filters.proprietaires}
-              onChange={(proprietaires) => setFilter({ proprietaires })}
-            />
           </div>
-        </details>
-      </GlassCard>
 
-      {(error || createError) && (
-        <GlassCard className="calls-error">
-          <p role="alert" aria-live="assertive">
-            {error || createError}
-          </p>
-          {error && canSearch && !loading && (
-            <div className="calls-mt-1">
-              <Button variant="secondary" onClick={() => void handleSearch()}>
-                Réessayer la recherche
-              </Button>
-            </div>
-          )}
-        </GlassCard>
-      )}
-
-      {truncated && (
-        <GlassCard className="calls-truncated-banner" role="status">
-          <p>Résultats partiels : affinez votre recherche.</p>
-        </GlassCard>
-      )}
-
-      {excludedCount > 0 && (
-        <div className="calls-builder-excluded-banner" role="status">
-          <strong>{excludedCount}</strong> contact{excludedCount > 1 ? 's' : ''}{' '}
-          exclu{excludedCount > 1 ? 's' : ''} car déjà dans une séance active.
-        </div>
-      )}
-
-      {loading && (
-        <GlassCard
-          className="calls-loading-card"
-          role="status"
-          aria-busy="true"
-          aria-live="polite"
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '30rem',
-              display: 'grid',
-              gap: '0.65rem',
-            }}
+          {/* Filters Section */}
+          <details
+            className="calls-fb-section calls-abm-filters-card"
+            open={filtersOpen}
+            onToggle={(e) => handleFiltersToggle(e.currentTarget.open)}
           >
-            <Skeleton height="1.5rem" width="45%" />
-            <Skeleton height="1rem" width="85%" />
-            <Skeleton height="1rem" width="60%" />
-          </div>
-          <p className="calls-muted calls-skeleton-text">
-            Recherche des comptes en cours…
-          </p>
-        </GlassCard>
-      )}
-
-      {!loading && !searched && accounts.length === 0 && !error && (
-        <GlassCard className="calls-empty calls-empty--hero">
-          <Tag variant="accent">Mode ABM</Tag>
-          <h3>Cibler des comptes spécifiques</h3>
-          <p>
-            Recherchez une entreprise par son nom ou combinez les filtres
-            d&apos;entreprise pour composer votre sélection.
-          </p>
-        </GlassCard>
-      )}
-
-      {!loading && searched && accounts.length === 0 && !error && (
-        <GlassCard className="calls-empty calls-empty--hero">
-          <Tag variant="accent">Mode ABM</Tag>
-          <h3>Aucun compte trouvé</h3>
-          <p>Essayez un autre nom ou ajustez les filtres.</p>
-          {(query.trim() || hasAnyFilter(filters)) && (
-            <Button variant="secondary" onClick={handleResetAll}>
-              Réinitialiser la recherche
-            </Button>
-          )}
-        </GlassCard>
-      )}
-
-      {!loading && accounts.length > 0 && (
-        <>
-          <GlassCard className="calls-name-form calls-name-form--sticky">
-            <div className="calls-name-form__meta">
-              <Tag>
-                {accounts.length} compte{accounts.length > 1 ? 's' : ''} trouvé{accounts.length > 1 ? 's' : ''} · {totalContactsCount} contact{totalContactsCount > 1 ? 's' : ''} au total
-              </Tag>
-            </div>
-          </GlassCard>
-
-          <div className="calls-abm-toolbar">
-            <div className="calls-abm-actions">
-              <Button
-                variant="secondary"
-                onClick={handleSelectAll}
-                disabled={selectedIds.size === accounts.length}
-                aria-label="Tout sélectionner"
-              >
-                Tout sélectionner ({accounts.length})
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleDeselectAll}
-                disabled={selectedIds.size === 0}
-                aria-label="Tout désélectionner"
-              >
-                Tout désélectionner
-              </Button>
-              {accounts.some((a) => a.contacts.length === 0) &&
-                accounts.some((a) => a.contacts.length > 0) && (
-                  <Button
-                    variant="secondary"
-                    onClick={handleSelectWithContacts}
-                    aria-label="Sélectionner uniquement les comptes avec contacts"
+            <summary className="calls-abm-filters-card__header">
+              <span className="calls-fb-section__title calls-abm-filters-card__title">
+                Filtres entreprise
+                {activeFiltersCount > 0 && (
+                  <span
+                    className="calls-fb-section__badge calls-abm-filters-card__badge"
+                    aria-label={`${activeFiltersCount} filtre${activeFiltersCount > 1 ? 's' : ''} actif${activeFiltersCount > 1 ? 's' : ''}`}
                   >
-                    Avec contacts uniquement
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </span>
+              <div className="calls-abm-filters-header-actions">
+                {activeFiltersCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleResetFilters();
+                    }}
+                    aria-label="Effacer les filtres"
+                  >
+                    Effacer les filtres
                   </Button>
                 )}
-            </div>
-
-            <label className="calls-field calls-field--inline">
-              <span>Trier par</span>
-              <select
-                className="calls-select"
-                value={sortBy}
-                onChange={(e) =>
-                  handleSortChange(e.target.value as AbmSortOption)
-                }
-                aria-label="Trier les comptes"
-              >
-                <option value="default">Ordre par défaut</option>
-                <option value="name-asc">Nom (A → Z)</option>
-                <option value="name-desc">Nom (Z → A)</option>
-                <option value="contacts-desc">Contacts (décroissant)</option>
-                <option value="contacts-asc">Contacts (croissant)</option>
-                <option value="tier-asc">Tier (prioritaire)</option>
-              </select>
-            </label>
-          </div>
-
-          <div
-            className="calls-preview__table-wrap"
-            role="list"
-            aria-label="Comptes trouvés"
-          >
-            {sortedAccounts.map((account) => {
-              const checked = selectedIds.has(account.id);
-              return (
-                <AccountCard
-                  key={account.id}
-                  account={account}
-                  checked={checked}
-                  onToggle={() => toggleAccount(account.id)}
+                <span className="calls-text-sm calls-muted">
+                  {filtersOpen ? 'Replier' : 'Déplier'}
+                </span>
+              </div>
+            </summary>
+            <div className="calls-fb-section__body calls-abm-filters-card__body">
+              <div className="calls-abm-filter-row">
+                <span className="calls-abm-filter-row__label">
+                  Secteurs d&apos;activité
+                </span>
+                <FilterableMultiSelect
+                  label="Secteurs d'activité"
+                  options={asOptions(SECTEUR_VALUES)}
+                  groups={secteurGroups}
+                  value={filters.secteurs}
+                  onChange={(secteurs) => setFilter({ secteurs })}
+                  searchPlaceholder="Rechercher parmi 50+ secteurs…"
                 />
-              );
-            })}
-          </div>
-        </>
-      )}
+              </div>
+              <div className="calls-abm-filter-row">
+                <ChipGroup
+                  label="Effectifs"
+                  options={asOptions(EFFECTIF_TRANCHES)}
+                  value={filters.effectifs}
+                  onChange={(effectifs) => setFilter({ effectifs })}
+                />
+              </div>
+              <div className="calls-abm-filter-row">
+                <ChipGroup
+                  label="Type de client"
+                  options={asOptions(TYPE_CLIENT_VALUES)}
+                  value={filters.type_client}
+                  onChange={(type_client) => setFilter({ type_client })}
+                />
+              </div>
+              <div className="calls-abm-filter-row">
+                <ChipGroup
+                  label="Tier"
+                  options={asOptions(TIER_VALUES)}
+                  value={filters.tiers}
+                  onChange={(tiers) => setFilter({ tiers })}
+                />
+              </div>
+              {ownerOptions.length > 0 && (
+                <div className="calls-abm-filter-row">
+                  <ChipGroup
+                    label="Propriétaires du compte"
+                    hint="Sélectionne par nom"
+                    options={ownerOptions}
+                    value={filters.proprietaires}
+                    onChange={(proprietaires) => setFilter({ proprietaires })}
+                  />
+                </div>
+              )}
+            </div>
+          </details>
+
+          {(error || createError) && (
+            <GlassCard className="calls-error">
+              <p role="alert" aria-live="assertive">
+                {error || createError}
+              </p>
+              {error && canSearch && !loading && (
+                <div className="calls-mt-1">
+                  <Button
+                    variant="secondary"
+                    onClick={() => void handleSearch()}
+                  >
+                    Réessayer la recherche
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
+          )}
+
+          {truncated && (
+            <GlassCard className="calls-truncated-banner" role="status">
+              <p>Résultats partiels : affinez votre recherche.</p>
+            </GlassCard>
+          )}
+
+          {excludedCount > 0 && (
+            <div className="calls-builder-excluded-banner" role="status">
+              <strong>{excludedCount}</strong> contact
+              {excludedCount > 1 ? 's' : ''} exclu{excludedCount > 1 ? 's' : ''}{' '}
+              car déjà dans une séance active.
+            </div>
+          )}
+
+          {loading && (
+            <GlassCard
+              className="calls-loading-card"
+              role="status"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: '30rem',
+                  display: 'grid',
+                  gap: '0.65rem',
+                }}
+              >
+                <Skeleton height="1.5rem" width="45%" />
+                <Skeleton height="1rem" width="85%" />
+                <Skeleton height="1rem" width="60%" />
+              </div>
+              <p className="calls-muted calls-skeleton-text">
+                Recherche des comptes en cours…
+              </p>
+            </GlassCard>
+          )}
+
+          {!loading && !searched && accounts.length === 0 && !error && (
+            <GlassCard className="calls-empty calls-empty--hero">
+              <Tag variant="accent">Mode ABM</Tag>
+              <h3>Cibler des comptes spécifiques</h3>
+              <p>
+                Recherchez une entreprise par son nom ou combinez les filtres
+                d&apos;entreprise pour composer votre sélection.
+              </p>
+            </GlassCard>
+          )}
+
+          {!loading && searched && accounts.length === 0 && !error && (
+            <GlassCard className="calls-empty calls-empty--hero">
+              <Tag variant="accent">Mode ABM</Tag>
+              <h3>Aucun compte trouvé</h3>
+              <p>Essayez un autre nom ou ajustez les filtres.</p>
+              {(query.trim() || hasAnyFilter(filters)) && (
+                <Button variant="secondary" onClick={handleResetAll}>
+                  Réinitialiser la recherche
+                </Button>
+              )}
+            </GlassCard>
+          )}
+
+          {!loading && accounts.length > 0 && (
+            <>
+              <GlassCard className="calls-name-form calls-name-form--sticky">
+                <div className="calls-name-form__meta">
+                  <Tag>
+                    {accounts.length} compte{accounts.length > 1 ? 's' : ''}{' '}
+                    trouvé{accounts.length > 1 ? 's' : ''} ·{' '}
+                    {totalContactsCount} contact
+                    {totalContactsCount > 1 ? 's' : ''} au total
+                  </Tag>
+                </div>
+              </GlassCard>
+
+              <div className="calls-abm-toolbar">
+                <div className="calls-abm-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={handleSelectAll}
+                    disabled={selectedIds.size === accounts.length}
+                    aria-label="Tout sélectionner"
+                  >
+                    Tout sélectionner ({accounts.length})
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleDeselectAll}
+                    disabled={selectedIds.size === 0}
+                    aria-label="Tout désélectionner"
+                  >
+                    Tout désélectionner
+                  </Button>
+                  {accounts.some((a) => a.contacts.length === 0) &&
+                    accounts.some((a) => a.contacts.length > 0) && (
+                      <Button
+                        variant="secondary"
+                        onClick={handleSelectWithContacts}
+                        aria-label="Sélectionner uniquement les comptes avec contacts"
+                      >
+                        Avec contacts uniquement
+                      </Button>
+                    )}
+                </div>
+
+                <label className="calls-field calls-field--inline">
+                  <span>Trier par</span>
+                  <select
+                    className="calls-select"
+                    value={sortBy}
+                    onChange={(e) =>
+                      handleSortChange(e.target.value as AbmSortOption)
+                    }
+                    aria-label="Trier les comptes"
+                  >
+                    <option value="default">Ordre par défaut</option>
+                    <option value="name-asc">Nom (A → Z)</option>
+                    <option value="name-desc">Nom (Z → A)</option>
+                    <option value="contacts-desc">
+                      Contacts (décroissant)
+                    </option>
+                    <option value="contacts-asc">Contacts (croissant)</option>
+                    <option value="tier-asc">Tier (prioritaire)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div
+                className="calls-preview__table-wrap"
+                role="list"
+                aria-label="Comptes trouvés"
+              >
+                {sortedAccounts.map((account) => {
+                  const checked = selectedIds.has(account.id);
+                  return (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      checked={checked}
+                      onToggle={() => toggleAccount(account.id)}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {selectedIds.size > 0 && !loading && (
           <>
             <aside className="calls-abm-sidebar">
-              <GlassCard>
-                {renderSidebarContent()}
-              </GlassCard>
+              <GlassCard>{renderSidebarContent()}</GlassCard>
             </aside>
 
             <div className="calls-abm-bottom-bar">
               <div className="calls-abm-bottom-bar-summary">
-                <strong>{new Set(selectedAccounts.map((a) => a.id)).size} comptes</strong> · {selectedContactsCount} contacts
+                <strong>
+                  {new Set(selectedAccounts.map((a) => a.id)).size} comptes
+                </strong>{' '}
+                · {selectedContactsCount} contacts
               </div>
               <Button onClick={() => setMobileDrawerOpen(true)}>
                 Configurer et créer ▸

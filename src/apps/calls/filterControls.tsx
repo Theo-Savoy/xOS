@@ -4,6 +4,8 @@ import type { PicklistGroup } from './filterControls.helpers';
 
 /** @deprecated moved to src/components/ui/SegmentedControl — import from there in new code. */
 export { SegmentedControl as ChipGroup } from '../../components/ui/SegmentedControl';
+export { FilterableMultiSelect } from './FilterableMultiSelect';
+export type { FilterableMultiSelectProps } from './FilterableMultiSelect';
 
 /** Bascule à trois états : peu importe / oui / non. */
 export function TriState({
