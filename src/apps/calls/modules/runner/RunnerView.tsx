@@ -89,7 +89,7 @@ import {
   RECALL_DAYS_KEY,
 } from './runnerFormatters';
 import { ContactCardPanel } from './ContactCardPanel';
-import { PowerStrip } from './PowerStrip';
+import { PowerStrip, normalizeE164 } from './PowerStrip';
 import { ResultButtons } from '../../ResultButtons';
 import { RecallFields } from '../rdv/RecallFields';
 import { ContextSideSkeleton } from '../../ContextSideSkeleton';
@@ -176,7 +176,6 @@ type RunnerViewProps = {
   canPowerDialer?: boolean;
 };
 
-
 /** Phases du micro-fade texte entre deux fiches (conteneur unique). */
 type CardTextPhase =
   'idle' | 'outgoing' | 'outgoing-active' | 'incoming' | 'incoming-active';
@@ -225,6 +224,7 @@ export function RunnerView({
   const [powerConversation, setPowerConversation] = useState(false);
   const [powerRunning, setPowerRunning] = useState(false);
   const [powerHangupRetryable, setPowerHangupRetryable] = useState(false);
+  const [powerQueueExpanded, setPowerQueueExpanded] = useState(false);
   const powerHangupRef = useRef<(() => void) | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -1116,6 +1116,9 @@ export function RunnerView({
           navigateContact(-1);
           return;
         case 'mode-list':
+          // En conversation Power, la fiche est l'écran de travail : on ne
+          // quitte pas la consignation pour revenir à la liste (P0 audit).
+          if (isPowerConversationActive) return;
           setMode('list');
           playComboSound('nav', { master: soundsEnabled });
           return;
@@ -1347,6 +1350,30 @@ export function RunnerView({
   const isPowerActive = Boolean(powerAvailable && powerOn);
   const isPowerConversationActive = Boolean(isPowerActive && powerConversation);
 
+  const { powerReadyCount, powerUnreachableCount } = useMemo(() => {
+    if (!isPowerActive) return { powerReadyCount: 0, powerUnreachableCount: 0 };
+    let ready = 0;
+    let unreachable = 0;
+    contacts.forEach((c) => {
+      if (c.status !== 'pending') return;
+      if (
+        c.claim_active &&
+        c.claimed_by &&
+        currentUserId &&
+        c.claimed_by !== currentUserId
+      ) {
+        return;
+      }
+      const phone = normalizeE164(c.phone);
+      if (!phone) {
+        unreachable += 1;
+      } else {
+        ready += 1;
+      }
+    });
+    return { powerReadyCount: ready, powerUnreachableCount: unreachable };
+  }, [isPowerActive, contacts, currentUserId]);
+
   return (
     <div
       className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
@@ -1408,19 +1435,30 @@ export function RunnerView({
             Quitter
           </Button>
           <div className="calls-view__titleblock">
-            <div className="calls-view__title-tags">
-              <Tag variant="accent">
-                {isRecallQueue ? 'File de rappels' : 'Cockpit'}
-              </Tag>
-              {isPowerActive && (
-                <Tag
-                  className={`calls-power-badge${isPowerConversationActive ? ' calls-power-badge--conversation' : ''}`}
+            {isPowerActive ? (
+              <h2>
+                {isRecallQueue ? 'Rappels' : session.name}
+                <span
+                  className="calls-power-indicator"
+                  aria-label="Mode Power actif"
                 >
-                  {isPowerConversationActive ? 'Power · En ligne' : 'Power actif'}
-                </Tag>
-              )}
-            </div>
-            <h2>{isRecallQueue ? 'Rappels' : session.name}</h2>
+                  <span
+                    className="calls-power-indicator__dot"
+                    aria-hidden="true"
+                  />
+                  Power
+                </span>
+              </h2>
+            ) : (
+              <>
+                <div className="calls-view__title-tags">
+                  <Tag variant="accent">
+                    {isRecallQueue ? 'File de rappels' : 'Cockpit'}
+                  </Tag>
+                </div>
+                <h2>{isRecallQueue ? 'Rappels' : session.name}</h2>
+              </>
+            )}
             {!isRecallQueue && (session.members?.length ?? 0) > 0 && (
               <p className="calls-muted calls-share-hint">
                 Partagée avec {session.members!.map((m) => m.label).join(', ')}
@@ -1429,48 +1467,51 @@ export function RunnerView({
           </div>
         </div>
         <div className="calls-view__actions">
-          <div
-            className="calls-mode-toggle"
-            role="group"
-            aria-label="Mode d'affichage"
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              className={`calls-mode-toggle__btn${mode === 'list' ? ' calls-mode-toggle__btn--active' : ''}`}
-              aria-pressed={mode === 'list'}
-              onClick={() => {
-                handleShortcutMouseClick('L');
-                setMode('list');
-              }}
-              title="L"
+          {(!isPowerActive ||
+            (!powerRunning && !powerConversation && !powerHangupRetryable)) && (
+            <div
+              className="calls-mode-toggle"
+              role="group"
+              aria-label="Mode d'affichage"
             >
-              Liste{' '}
-              <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
-                L
-              </kbd>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              className={`calls-mode-toggle__btn${mode === 'detail' ? ' calls-mode-toggle__btn--active' : ''}`}
-              aria-pressed={mode === 'detail'}
-              onClick={() => {
-                handleShortcutMouseClick('F');
-                setMode('detail');
-              }}
-              title="F"
-            >
-              Fiche{' '}
-              <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
-                F
-              </kbd>
-            </Button>
-          </div>
-          {powerAvailable && (
-            isPowerActive && (powerRunning || powerConversation || powerHangupRetryable) ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                className={`calls-mode-toggle__btn${mode === 'list' ? ' calls-mode-toggle__btn--active' : ''}`}
+                aria-pressed={mode === 'list'}
+                onClick={() => {
+                  handleShortcutMouseClick('L');
+                  setMode('list');
+                }}
+                title="L"
+              >
+                Liste{' '}
+                <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
+                  L
+                </kbd>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                className={`calls-mode-toggle__btn${mode === 'detail' ? ' calls-mode-toggle__btn--active' : ''}`}
+                aria-pressed={mode === 'detail'}
+                onClick={() => {
+                  handleShortcutMouseClick('F');
+                  setMode('detail');
+                }}
+                title="F"
+              >
+                Fiche{' '}
+                <kbd className="calls-kbd calls-kbd--inline" aria-hidden="true">
+                  F
+                </kbd>
+              </Button>
+            </div>
+          )}
+          {powerAvailable &&
+            (powerHangupRetryable ? (
               <Button
                 type="button"
                 variant="danger"
@@ -1478,20 +1519,16 @@ export function RunnerView({
                 className="calls-power-exit-btn"
                 onClick={() => {
                   powerHangupRef.current?.();
-                  if (powerHangupRetryable) return;
-                  setPowerOn(false);
-                  setPowerConversation(false);
-                  setPowerRunning(false);
                 }}
-                title={
-                  powerHangupRetryable
-                    ? 'Le raccrochage serveur a échoué — réessayez avant de quitter'
-                    : 'Interrompre la vague en cours et quitter le mode Power'
-                }
+                title="Le raccrochage serveur a échoué — réessayez avant de quitter"
               >
-                {powerHangupRetryable ? 'Réessayer le raccrochage' : 'Raccrocher et quitter'}
+                Réessayer le raccrochage
               </Button>
-            ) : (
+            ) : isPowerActive &&
+              (powerRunning ||
+                powerConversation) ? // En vague : aucune commande destructive ici — le PowerStrip
+            // porte « Raccrocher tout », Quitter reste la seule sortie.
+            null : (
               <Button
                 type="button"
                 role="switch"
@@ -1512,55 +1549,62 @@ export function RunnerView({
                     return next;
                   });
                 }}
-                title={powerOn ? 'Désactiver le mode Power' : 'Composer plusieurs contacts en parallèle'}
+                title={
+                  powerOn
+                    ? 'Désactiver le mode Power'
+                    : 'Composer plusieurs contacts en parallèle'
+                }
               >
                 <span className="calls-power-toggle__track" aria-hidden="true">
                   <span className="calls-power-toggle__thumb" />
                 </span>
                 Power
               </Button>
-            )
-          )}
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setCommandBarOpen(true);
-              playComboSound('whoosh', { master: soundsEnabled });
-            }}
-            title="Command bar (⌘K)"
-            aria-label="Command bar"
-          >
-            ⌘K
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              handleShortcutMouseClick('?');
-              setHelpOpen(true);
-              playComboSound('whoosh', { master: soundsEnabled });
-            }}
-            title="Aide raccourcis (?)"
-            aria-label="Aide raccourcis"
-          >
-            ?
-          </Button>
-          {!isRecallQueue && onShareSession && (
-            <Button variant="secondary" onClick={() => setShareOpen(true)}>
-              Partager
-            </Button>
-          )}
-          {!isRecallQueue && onPin && (
-            <Button
-              variant="secondary"
-              disabled={pinned}
-              onClick={() => {
-                void onPin()
-                  .then(() => setPinned(true))
-                  .catch(() => {});
-              }}
-            >
-              {pinned ? 'Épinglé ✓' : 'Épingler au bureau'}
-            </Button>
+            ))}
+          {!isPowerActive && (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCommandBarOpen(true);
+                  playComboSound('whoosh', { master: soundsEnabled });
+                }}
+                title="Command bar (⌘K)"
+                aria-label="Command bar"
+              >
+                ⌘K
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  handleShortcutMouseClick('?');
+                  setHelpOpen(true);
+                  playComboSound('whoosh', { master: soundsEnabled });
+                }}
+                title="Aide raccourcis (?)"
+                aria-label="Aide raccourcis"
+              >
+                ?
+              </Button>
+              {!isRecallQueue && onShareSession && (
+                <Button variant="secondary" onClick={() => setShareOpen(true)}>
+                  Partager
+                </Button>
+              )}
+              {!isRecallQueue && onPin && (
+                <Button
+                  variant="secondary"
+                  disabled={pinned}
+                  onClick={() => {
+                    void onPin()
+                      .then(() => setPinned(true))
+                      .catch(() => {});
+                  }}
+                >
+                  {pinned ? 'Épinglé ✓' : 'Épingler au bureau'}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </header>
@@ -1584,84 +1628,106 @@ export function RunnerView({
         />
       )}
 
-      {!isRecallQueue && (
-        <>
-          <ProgressBar
-            called={called}
-            total={contacts.length}
-            label="Progression de la séance"
-          />
-          <div
-            className="calls-cockpit-kpis"
-            aria-label="Indicateurs de séance"
-          >
-            <GlassCard className="calls-stat">
-              <span>Contacts</span>
-              <strong className="xos-numeric">{kpis.total}</strong>
-            </GlassCard>
-            <GlassCard className="calls-stat">
-              <span>Restant</span>
-              <strong className="xos-numeric">{kpis.remaining}</strong>
-            </GlassCard>
-            <GlassCard className="calls-stat">
-              <span>Décrochés</span>
-              <strong className="xos-numeric calls-stat__value">
-                {kpis.decroches}
-                {kpis.called > 0 && (
-                  <span className="calls-stat__rate">
-                    {Math.round((kpis.decroches / kpis.called) * 1000) / 10}
-                    &nbsp;%
-                  </span>
-                )}
-              </strong>
-            </GlassCard>
-            <GlassCard className="calls-stat">
-              <span>Argumentés</span>
-              <strong className="xos-numeric">{kpis.argumentes}</strong>
-            </GlassCard>
-            <GlassCard
-              className={[
-                'calls-stat',
-                'calls-stat--rdv',
-                rdvGoal != null && sessionRdvCount >= rdvGoal
-                  ? 'calls-stat--rdv-goal'
-                  : '',
-                kpiGoalPulse ? 'calls-stat--rdv-goal-hit' : '',
-                sessionRdvCount >= 1
-                  ? `calls-stat--rdv-heat-${rdvHeatLevel(sessionRdvCount, false)}`
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
+      {!isRecallQueue &&
+        (!isPowerActive ? (
+          <>
+            <ProgressBar
+              called={called}
+              total={contacts.length}
+              label="Progression de la séance"
+            />
+            <div
+              className="calls-cockpit-kpis"
+              aria-label="Indicateurs de séance"
             >
-              <span>RDV</span>
-              <strong className="xos-numeric">
-                {sessionRdvCount}
-                {rdvGoal != null ? (
-                  <span className="calls-stat__goal">/{rdvGoal}</span>
-                ) : null}
-              </strong>
-              {rdvGoal != null && (
-                <div
-                  className="calls-stat__progress"
-                  role="progressbar"
-                  aria-label={`Progression RDV : ${sessionRdvCount} sur ${rdvGoal}`}
-                  aria-valuemin={0}
-                  aria-valuemax={rdvGoal}
-                  aria-valuenow={Math.min(sessionRdvCount, rdvGoal)}
-                >
-                  <span
-                    className="calls-stat__progress-fill"
-                    style={{
-                      width: `${Math.min(100, (sessionRdvCount / rdvGoal) * 100)}%`,
-                    }}
-                  />
-                </div>
-              )}
-            </GlassCard>
+              <GlassCard className="calls-stat">
+                <span>Contacts</span>
+                <strong className="xos-numeric">{kpis.total}</strong>
+              </GlassCard>
+              <GlassCard className="calls-stat">
+                <span>Restant</span>
+                <strong className="xos-numeric">{kpis.remaining}</strong>
+              </GlassCard>
+              <GlassCard className="calls-stat">
+                <span>Décrochés</span>
+                <strong className="xos-numeric calls-stat__value">
+                  {kpis.decroches}
+                  {kpis.called > 0 && (
+                    <span className="calls-stat__rate">
+                      {Math.round((kpis.decroches / kpis.called) * 1000) / 10}
+                      &nbsp;%
+                    </span>
+                  )}
+                </strong>
+              </GlassCard>
+              <GlassCard className="calls-stat">
+                <span>Argumentés</span>
+                <strong className="xos-numeric">{kpis.argumentes}</strong>
+              </GlassCard>
+              <GlassCard
+                className={[
+                  'calls-stat',
+                  'calls-stat--rdv',
+                  rdvGoal != null && sessionRdvCount >= rdvGoal
+                    ? 'calls-stat--rdv-goal'
+                    : '',
+                  kpiGoalPulse ? 'calls-stat--rdv-goal-hit' : '',
+                  sessionRdvCount >= 1
+                    ? `calls-stat--rdv-heat-${rdvHeatLevel(sessionRdvCount, false)}`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <span>RDV</span>
+                <strong className="xos-numeric">
+                  {sessionRdvCount}
+                  {rdvGoal != null ? (
+                    <span className="calls-stat__goal">/{rdvGoal}</span>
+                  ) : null}
+                </strong>
+                {rdvGoal != null && (
+                  <div
+                    className="calls-stat__progress"
+                    role="progressbar"
+                    aria-label={`Progression RDV : ${sessionRdvCount} sur ${rdvGoal}`}
+                    aria-valuemin={0}
+                    aria-valuemax={rdvGoal}
+                    aria-valuenow={Math.min(sessionRdvCount, rdvGoal)}
+                  >
+                    <span
+                      className="calls-stat__progress-fill"
+                      style={{
+                        width: `${Math.min(100, (sessionRdvCount / rdvGoal) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </GlassCard>
+            </div>
+          </>
+        ) : !powerConversation ? (
+          <div
+            className="calls-power-kpis-condensed"
+            role="status"
+            aria-label="Progression de la séance"
+          >
+            <span className="xos-numeric">
+              {kpis.called}/{contacts.length} traités
+            </span>
+            <span
+              className="calls-power-kpis-condensed__sep"
+              aria-hidden="true"
+            >
+              {' '}
+              ·{' '}
+            </span>
+            <span className="xos-numeric">
+              {sessionRdvCount}
+              {rdvGoal != null ? `/${rdvGoal}` : ''} RDV
+            </span>
           </div>
-        </>
-      )}
+        ) : null)}
 
       {isRecallQueue && (
         <div className="calls-recall-queue__filters-wrap">
@@ -1735,7 +1801,7 @@ export function RunnerView({
           sessionId={session.id}
           contacts={contacts}
           currentUserId={currentUserId}
-          onFocusContact={onFocusContact}
+          onFocusContact={openDetail}
           onConversationChange={setPowerConversation}
           onRunningChange={setPowerRunning}
           onRegisterHangup={(hangup) => {
@@ -1766,544 +1832,685 @@ export function RunnerView({
           />
         </GlassCard>
       ) : mode === 'list' ? (
-        <div className="calls-cockpit-list-wrap">
-          {(pendingSelected.length > 0 || recallManageSelected.length > 0) && (
-            <GlassCard className="calls-bulk-bar">
-              <div className="calls-bulk-bar__head">
-                <strong>
-                  {pendingSelected.length || recallManageSelected.length}{' '}
-                  contact
-                  {(pendingSelected.length || recallManageSelected.length) > 1
-                    ? 's'
-                    : ''}{' '}
-                  sélectionné
-                  {(pendingSelected.length || recallManageSelected.length) > 1
-                    ? 's'
-                    : ''}
-                </strong>
-                <span className="calls-muted">
-                  {pendingSelected.length > 0
-                    ? singleSelectedId
-                      ? 'Consigner, planifier un RDV, ou reporter'
-                      : 'Même action pour toute la sélection'
-                    : 'Reporter ou retirer les rappels sélectionnés'}
+        isPowerConversationActive ? null : isPowerActive ? (
+          <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
+            {!powerQueueExpanded ? (
+              <GlassCard className="calls-power-queue-summary">
+                <span className="calls-power-queue-summary__text">
+                  File d&apos;appel ·{' '}
+                  <strong className="xos-numeric">{powerReadyCount}</strong>{' '}
+                  prêt{powerReadyCount > 1 ? 's' : ''}
+                  {powerUnreachableCount > 0 && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span className="xos-numeric">
+                        {powerUnreachableCount}
+                      </span>{' '}
+                      sans numéro valide
+                    </>
+                  )}
                 </span>
-              </div>
-              {pendingSelected.length > 0 && (
-                <>
-                  <div className="calls-fb-control">
-                    <div className="calls-fb-control__label">
-                      <span>Résultat</span>
-                    </div>
-                    <ResultButtons
-                      value={bulkResultat}
-                      onChange={setBulkResultat}
-                      disabledValues={singleSelectedId ? [] : ['RDV planifié']}
-                      onPick={() =>
-                        playComboSound('result-pick', { master: soundsEnabled })
-                      }
-                    />
-                  </div>
-                  <details className="calls-bulk-options">
-                    <summary>Options (rappel, NPA, commentaires)</summary>
-                    {bulkCanRecall && (
-                      <RecallFields
-                        resultat={bulkResultat}
-                        scheduleRecall={bulkScheduleRecall}
-                        onScheduleRecallChange={setBulkScheduleRecall}
-                        recallAt={bulkRecallAt}
-                        onRecallAtChange={setBulkRecallAt}
-                        onDefaultRecallDaysChange={handleDefaultRecallDays}
-                      />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="calls-power-queue-summary__toggle"
+                  onClick={() => setPowerQueueExpanded(true)}
+                  aria-expanded={false}
+                >
+                  Voir
+                </Button>
+              </GlassCard>
+            ) : (
+              <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
+                <div className="calls-power-queue-summary calls-power-queue-summary--expanded">
+                  <span className="calls-power-queue-summary__text">
+                    File d&apos;appel ·{' '}
+                    <strong className="xos-numeric">{powerReadyCount}</strong>{' '}
+                    prêt{powerReadyCount > 1 ? 's' : ''}
+                    {powerUnreachableCount > 0 && (
+                      <>
+                        {' '}
+                        ·{' '}
+                        <span className="xos-numeric">
+                          {powerUnreachableCount}
+                        </span>{' '}
+                        sans numéro valide
+                      </>
                     )}
-                    <label className="calls-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={bulkDoNotCall}
-                        onChange={(e) => setBulkDoNotCall(e.target.checked)}
-                      />
-                      Ne pas rappeler (NPA) — définitif
-                    </label>
-                    <label className="calls-field">
-                      <span>Commentaires (optionnel)</span>
-                      <textarea
-                        className="calls-textarea"
-                        value={bulkComments}
-                        onChange={(e) => setBulkComments(e.target.value)}
-                        rows={2}
-                        placeholder="Note commune pour la sélection…"
-                      />
-                    </label>
-                  </details>
-                  {bulkResultat === 'RDV planifié' && singleSelectedContact ? (
-                    <EventPanel
-                      key={singleSelectedContact.id}
-                      contactName={singleSelectedContact.contact_name}
-                      loading={loading}
-                      onSubmit={handleBulkRdvSubmit}
-                      submitLabel="Consigner appel + RDV & suivant"
-                      heading={`Détails du RDV — ${singleSelectedContact.contact_name}`}
-                      className="calls-event-panel--inline"
-                      team={team}
-                      sessionType={session.session_type}
-                      currentSfUserId={currentSfUserId}
-                      accountCustomerType={
-                        contextApplies &&
-                        contextContactId === singleSelectedContact.id
-                          ? (contactContext?.account_customer_type ?? null)
-                          : null
-                      }
-                      defaultOwnerSfUserId={
-                        contextApplies &&
-                        contextContactId === singleSelectedContact.id
-                          ? (contactContext?.account_owner_sf_user_id ?? null)
-                          : null
-                      }
-                    />
-                  ) : (
-                    <div className="calls-runner-actions">
-                      <Button
-                        onClick={handleBulkLog}
-                        disabled={loading || bulkResultat === 'RDV planifié'}
-                      >
-                        {loading
-                          ? 'Enregistrement…'
-                          : `Consigner pour ${pendingSelected.length}`}
-                      </Button>
-                      {!isRecallQueue && (
-                        <Button
-                          variant="secondary"
-                          onClick={() => openDefer(pendingSelected)}
-                          disabled={loading}
-                          title={`Reporter vers « ${continuationLabel} » · D`}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    className="calls-power-queue-summary__toggle"
+                    onClick={() => setPowerQueueExpanded(false)}
+                    aria-expanded={true}
+                  >
+                    Masquer
+                  </Button>
+                </div>
+                <div className="calls-cockpit-list__filters calls-cockpit-list__filters--power">
+                  <input
+                    type="search"
+                    className="calls-input calls-cockpit-list__search"
+                    placeholder="Filtrer nom, entreprise…"
+                    value={listQuery}
+                    onChange={(e) => setListQuery(e.target.value)}
+                    aria-label="Filtrer la liste"
+                  />
+                </div>
+                <div className="calls-cockpit-list__scroll">
+                  <ul className="calls-cockpit-list__rows calls-cockpit-list__rows--power">
+                    <li
+                      className="calls-cockpit-list__header calls-cockpit-list__header--power"
+                      aria-hidden="true"
+                    >
+                      <span>Contact</span>
+                      <span>Entreprise</span>
+                      <span>Tentative / état</span>
+                    </li>
+                    {filteredContacts.map((contact) => {
+                      const status = listStatusDisplay(contact);
+                      return (
+                        <li
+                          key={contact.id}
+                          className={`calls-cockpit-list__row--power${contact.status !== 'pending' ? ' calls-cockpit-list__row--done' : ''}`}
                         >
-                          Reporter
-                          <kbd
-                            className="calls-kbd calls-kbd--inline"
-                            aria-hidden="true"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            className="calls-cockpit-list__name"
+                            onClick={() => openDetail(contact.id)}
                           >
-                            D
-                          </kbd>
-                        </Button>
+                            <strong title={contact.contact_name}>
+                              {contact.contact_name}
+                            </strong>
+                            {contact.title && (
+                              <small className="calls-muted calls-cockpit-list__subtitle">
+                                {contact.title}
+                              </small>
+                            )}
+                          </Button>
+                          <span
+                            className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
+                            title={contact.account_name ?? undefined}
+                          >
+                            {contact.account_name ?? '—'}
+                          </span>
+                          <span
+                            className="calls-cockpit-list__status"
+                            title={status.label}
+                          >
+                            <Tag variant={status.variant}>{status.label}</Tag>
+                            {(contact.attempt_count ?? 0) > 0 && (
+                              <small className="calls-cockpit-list__attempt">
+                                {formatAttemptLabel(contact.attempt_count ?? 0)}
+                              </small>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                    {filteredContacts.length === 0 && (
+                      <li className="calls-cockpit-list__empty">
+                        Aucun contact pour ce filtre.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </GlassCard>
+            )}
+          </div>
+        ) : (
+          <div className="calls-cockpit-list-wrap">
+            {(pendingSelected.length > 0 ||
+              recallManageSelected.length > 0) && (
+              <GlassCard className="calls-bulk-bar">
+                <div className="calls-bulk-bar__head">
+                  <strong>
+                    {pendingSelected.length || recallManageSelected.length}{' '}
+                    contact
+                    {(pendingSelected.length || recallManageSelected.length) > 1
+                      ? 's'
+                      : ''}{' '}
+                    sélectionné
+                    {(pendingSelected.length || recallManageSelected.length) > 1
+                      ? 's'
+                      : ''}
+                  </strong>
+                  <span className="calls-muted">
+                    {pendingSelected.length > 0
+                      ? singleSelectedId
+                        ? 'Consigner, planifier un RDV, ou reporter'
+                        : 'Même action pour toute la sélection'
+                      : 'Reporter ou retirer les rappels sélectionnés'}
+                  </span>
+                </div>
+                {pendingSelected.length > 0 && (
+                  <>
+                    <div className="calls-fb-control">
+                      <div className="calls-fb-control__label">
+                        <span>Résultat</span>
+                      </div>
+                      <ResultButtons
+                        value={bulkResultat}
+                        onChange={setBulkResultat}
+                        disabledValues={
+                          singleSelectedId ? [] : ['RDV planifié']
+                        }
+                        onPick={() =>
+                          playComboSound('result-pick', {
+                            master: soundsEnabled,
+                          })
+                        }
+                      />
+                    </div>
+                    <details className="calls-bulk-options">
+                      <summary>Options (rappel, NPA, commentaires)</summary>
+                      {bulkCanRecall && (
+                        <RecallFields
+                          resultat={bulkResultat}
+                          scheduleRecall={bulkScheduleRecall}
+                          onScheduleRecallChange={setBulkScheduleRecall}
+                          recallAt={bulkRecallAt}
+                          onRecallAtChange={setBulkRecallAt}
+                          onDefaultRecallDaysChange={handleDefaultRecallDays}
+                        />
                       )}
-                      {recallManageSelected.length > 0 &&
-                        (bulkRecallPicker &&
-                        bulkRecallPicker.ids.length ===
-                          recallManageSelected.length &&
-                        bulkRecallPicker.ids.every((id) =>
-                          recallManageSelected.includes(id),
-                        ) ? (
-                          <DatePicker
-                            compact
-                            defaultOpen
-                            label="Reporter les rappels"
-                            triggerLabel={
-                              recallManageSelected.length > 1
-                                ? `Reporter (${recallManageSelected.length})`
-                                : 'Reporter'
-                            }
-                            value={bulkRecallPicker.seed}
-                            onChange={(next) =>
-                              applyRecallDate(bulkRecallPicker.ids, next)
-                            }
-                            triggerClassName="xos-btn xos-btn--secondary"
-                          />
-                        ) : (
+                      <label className="calls-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={bulkDoNotCall}
+                          onChange={(e) => setBulkDoNotCall(e.target.checked)}
+                        />
+                        Ne pas rappeler (NPA) — définitif
+                      </label>
+                      <label className="calls-field">
+                        <span>Commentaires (optionnel)</span>
+                        <textarea
+                          className="calls-textarea"
+                          value={bulkComments}
+                          onChange={(e) => setBulkComments(e.target.value)}
+                          rows={2}
+                          placeholder="Note commune pour la sélection…"
+                        />
+                      </label>
+                    </details>
+                    {bulkResultat === 'RDV planifié' &&
+                    singleSelectedContact ? (
+                      <EventPanel
+                        key={singleSelectedContact.id}
+                        contactName={singleSelectedContact.contact_name}
+                        loading={loading}
+                        onSubmit={handleBulkRdvSubmit}
+                        submitLabel="Consigner appel + RDV & suivant"
+                        heading={`Détails du RDV — ${singleSelectedContact.contact_name}`}
+                        className="calls-event-panel--inline"
+                        team={team}
+                        sessionType={session.session_type}
+                        currentSfUserId={currentSfUserId}
+                        accountCustomerType={
+                          contextApplies &&
+                          contextContactId === singleSelectedContact.id
+                            ? (contactContext?.account_customer_type ?? null)
+                            : null
+                        }
+                        defaultOwnerSfUserId={
+                          contextApplies &&
+                          contextContactId === singleSelectedContact.id
+                            ? (contactContext?.account_owner_sf_user_id ?? null)
+                            : null
+                        }
+                      />
+                    ) : (
+                      <div className="calls-runner-actions">
+                        <Button
+                          onClick={handleBulkLog}
+                          disabled={loading || bulkResultat === 'RDV planifié'}
+                        >
+                          {loading
+                            ? 'Enregistrement…'
+                            : `Consigner pour ${pendingSelected.length}`}
+                        </Button>
+                        {!isRecallQueue && (
                           <Button
                             variant="secondary"
-                            onClick={() =>
-                              openBulkRecallPicker(recallManageSelected)
-                            }
+                            onClick={() => openDefer(pendingSelected)}
                             disabled={loading}
+                            title={`Reporter vers « ${continuationLabel} » · D`}
                           >
                             Reporter
-                            {recallManageSelected.length > 1
-                              ? ` (${recallManageSelected.length})`
-                              : ''}
+                            <kbd
+                              className="calls-kbd calls-kbd--inline"
+                              aria-hidden="true"
+                            >
+                              D
+                            </kbd>
                           </Button>
-                        ))}
+                        )}
+                        {recallManageSelected.length > 0 &&
+                          (bulkRecallPicker &&
+                          bulkRecallPicker.ids.length ===
+                            recallManageSelected.length &&
+                          bulkRecallPicker.ids.every((id) =>
+                            recallManageSelected.includes(id),
+                          ) ? (
+                            <DatePicker
+                              compact
+                              defaultOpen
+                              label="Reporter les rappels"
+                              triggerLabel={
+                                recallManageSelected.length > 1
+                                  ? `Reporter (${recallManageSelected.length})`
+                                  : 'Reporter'
+                              }
+                              value={bulkRecallPicker.seed}
+                              onChange={(next) =>
+                                applyRecallDate(bulkRecallPicker.ids, next)
+                              }
+                              triggerClassName="xos-btn xos-btn--secondary"
+                            />
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              onClick={() =>
+                                openBulkRecallPicker(recallManageSelected)
+                              }
+                              disabled={loading}
+                            >
+                              Reporter
+                              {recallManageSelected.length > 1
+                                ? ` (${recallManageSelected.length})`
+                                : ''}
+                            </Button>
+                          ))}
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            confirmRemove(
+                              isRecallQueue
+                                ? recallManageSelected
+                                : pendingSelected,
+                              singleSelectedContact?.contact_name ??
+                                'ces contacts',
+                            )
+                          }
+                          disabled={loading}
+                        >
+                          {isRecallQueue ? 'Retirer des rappels' : 'Retirer'}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {pendingSelected.length === 0 &&
+                  recallManageSelected.length > 0 && (
+                    <div className="calls-runner-actions">
+                      {bulkRecallPicker &&
+                      bulkRecallPicker.ids.length ===
+                        recallManageSelected.length &&
+                      bulkRecallPicker.ids.every((id) =>
+                        recallManageSelected.includes(id),
+                      ) ? (
+                        <DatePicker
+                          compact
+                          defaultOpen
+                          label="Reporter les rappels"
+                          triggerLabel={
+                            recallManageSelected.length > 1
+                              ? `Reporter (${recallManageSelected.length})`
+                              : 'Reporter'
+                          }
+                          value={bulkRecallPicker.seed}
+                          onChange={(next) =>
+                            applyRecallDate(bulkRecallPicker.ids, next)
+                          }
+                          triggerClassName="xos-btn xos-btn--secondary"
+                        />
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            openBulkRecallPicker(recallManageSelected)
+                          }
+                          disabled={loading}
+                        >
+                          Reporter
+                          {recallManageSelected.length > 1
+                            ? ` (${recallManageSelected.length})`
+                            : ''}
+                        </Button>
+                      )}
                       <Button
                         variant="secondary"
                         onClick={() =>
                           confirmRemove(
-                            isRecallQueue
-                              ? recallManageSelected
-                              : pendingSelected,
-                            singleSelectedContact?.contact_name ??
-                              'ces contacts',
+                            recallManageSelected,
+                            contacts.find(
+                              (c) => c.id === recallManageSelected[0],
+                            )?.contact_name ?? 'ces contacts',
                           )
                         }
                         disabled={loading}
                       >
-                        {isRecallQueue ? 'Retirer des rappels' : 'Retirer'}
+                        Retirer des rappels
                       </Button>
                     </div>
                   )}
-                </>
-              )}
-              {pendingSelected.length === 0 &&
-                recallManageSelected.length > 0 && (
-                  <div className="calls-runner-actions">
-                    {bulkRecallPicker &&
-                    bulkRecallPicker.ids.length ===
-                      recallManageSelected.length &&
-                    bulkRecallPicker.ids.every((id) =>
-                      recallManageSelected.includes(id),
-                    ) ? (
-                      <DatePicker
-                        compact
-                        defaultOpen
-                        label="Reporter les rappels"
-                        triggerLabel={
-                          recallManageSelected.length > 1
-                            ? `Reporter (${recallManageSelected.length})`
-                            : 'Reporter'
-                        }
-                        value={bulkRecallPicker.seed}
-                        onChange={(next) =>
-                          applyRecallDate(bulkRecallPicker.ids, next)
-                        }
-                        triggerClassName="xos-btn xos-btn--secondary"
-                      />
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        onClick={() =>
-                          openBulkRecallPicker(recallManageSelected)
-                        }
-                        disabled={loading}
-                      >
-                        Reporter
-                        {recallManageSelected.length > 1
-                          ? ` (${recallManageSelected.length})`
-                          : ''}
-                      </Button>
-                    )}
+              </GlassCard>
+            )}
+
+            {deferIds && !isRecallQueue && (
+              <div
+                className="calls-defer-panel"
+                role="region"
+                aria-label="Créer la séance suivante"
+              >
+                <strong>Reporter → {continuationLabel}</strong>
+                <p className="calls-defer-panel__empty">
+                  Choisissez la date de la séance suivante
+                  {deferIds.length > 1 ? ` (${deferIds.length} contacts)` : ''}.
+                </p>
+                <DatePicker
+                  label="Date de la séance"
+                  value={deferDate}
+                  onChange={(d) => {
+                    setDeferDate(d);
+                    setDeferTargetId(null);
+                  }}
+                />
+                {deferCandidates.length > 0 ? (
+                  <ul className="calls-defer-panel__candidates">
+                    {deferCandidates.map((candidate) => (
+                      <li key={candidate.id}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          className={`calls-defer-panel__candidate${deferTargetId === candidate.id ? ' calls-defer-panel__candidate--active' : ''}`}
+                          onClick={() => setDeferTargetId(candidate.id)}
+                        >
+                          <span>
+                            <strong>{candidate.name}</strong>
+                            <small>
+                              {' '}
+                              · {sessionTypeLabel(candidate.session_type)}
+                            </small>
+                          </span>
+                          <span className="xos-numeric">
+                            {candidate.pending} restants
+                          </span>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="calls-defer-panel__empty">
+                    Nouvelle séance « {continuationLabel} » le{' '}
+                    {formatIsoDateFr(deferDate)}.
+                  </p>
+                )}
+                <div className="calls-runner-actions">
+                  <Button onClick={confirmDefer} disabled={loading}>
+                    {loading
+                      ? 'Enregistrement…'
+                      : deferTargetId
+                        ? 'Associer à la séance'
+                        : `Créer ${continuationLabel}`}
+                  </Button>
+                  {deferTargetId != null && (
                     <Button
                       variant="secondary"
-                      onClick={() =>
-                        confirmRemove(
-                          recallManageSelected,
-                          contacts.find((c) => c.id === recallManageSelected[0])
-                            ?.contact_name ?? 'ces contacts',
-                        )
-                      }
+                      onClick={() => setDeferTargetId(null)}
                       disabled={loading}
                     >
-                      Retirer des rappels
+                      Créer plutôt {continuationLabel}
                     </Button>
-                  </div>
-                )}
-            </GlassCard>
-          )}
-
-          {deferIds && !isRecallQueue && (
-            <div
-              className="calls-defer-panel"
-              role="region"
-              aria-label="Créer la séance suivante"
-            >
-              <strong>Reporter → {continuationLabel}</strong>
-              <p className="calls-defer-panel__empty">
-                Choisissez la date de la séance suivante
-                {deferIds.length > 1 ? ` (${deferIds.length} contacts)` : ''}.
-              </p>
-              <DatePicker
-                label="Date de la séance"
-                value={deferDate}
-                onChange={(d) => {
-                  setDeferDate(d);
-                  setDeferTargetId(null);
-                }}
-              />
-              {deferCandidates.length > 0 ? (
-                <ul className="calls-defer-panel__candidates">
-                  {deferCandidates.map((candidate) => (
-                    <li key={candidate.id}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        className={`calls-defer-panel__candidate${deferTargetId === candidate.id ? ' calls-defer-panel__candidate--active' : ''}`}
-                        onClick={() => setDeferTargetId(candidate.id)}
-                      >
-                        <span>
-                          <strong>{candidate.name}</strong>
-                          <small>
-                            {' '}
-                            · {sessionTypeLabel(candidate.session_type)}
-                          </small>
-                        </span>
-                        <span className="xos-numeric">
-                          {candidate.pending} restants
-                        </span>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="calls-defer-panel__empty">
-                  Nouvelle séance « {continuationLabel} » le{' '}
-                  {formatIsoDateFr(deferDate)}.
-                </p>
-              )}
-              <div className="calls-runner-actions">
-                <Button onClick={confirmDefer} disabled={loading}>
-                  {loading
-                    ? 'Enregistrement…'
-                    : deferTargetId
-                      ? 'Associer à la séance'
-                      : `Créer ${continuationLabel}`}
-                </Button>
-                {deferTargetId != null && (
+                  )}
                   <Button
                     variant="secondary"
-                    onClick={() => setDeferTargetId(null)}
+                    onClick={() => setDeferIds(null)}
                     disabled={loading}
                   >
-                    Créer plutôt {continuationLabel}
+                    Annuler
                   </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  onClick={() => setDeferIds(null)}
-                  disabled={loading}
-                >
-                  Annuler
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <GlassCard className="calls-cockpit-list">
-            <div className="calls-cockpit-list__toolbar">
-              <h3>
-                {isRecallQueue ? 'Contacts à rappeler' : 'Liste de la séance'}
-              </h3>
-              <div className="calls-preview__actions">
-                <Button
-                  variant="secondary"
-                  disabled={loading || selectableContacts.length === 0}
-                  onClick={toggleSelectAllSelectable}
-                >
-                  {allSelectableSelected
-                    ? 'Tout désélectionner'
-                    : `Sélectionner (${selectableContacts.length})`}
-                </Button>
-              </div>
-            </div>
-            <div className="calls-cockpit-list__filters">
-              {!isRecallQueue && (
-                <div
-                  className="calls-list-filter-chips"
-                  role="group"
-                  aria-label="Filtrer par statut"
-                >
-                  {(
-                    [
-                      ['all', 'Tous', statusCounts.all],
-                      ['pending', 'À faire', statusCounts.pending],
-                      ['called', 'Appelés', statusCounts.called],
-                      ['skipped', 'Non contactés', statusCounts.skipped],
-                    ] as const
-                  ).map(([value, label, count]) => (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      key={value}
-                      type="button"
-                      className={`calls-list-filter-chip${listStatusFilter === value ? ' calls-list-filter-chip--active' : ''}`}
-                      aria-pressed={listStatusFilter === value}
-                      onClick={() => setListStatusFilter(value)}
-                    >
-                      {label}
-                      <span className="calls-list-filter-chip__count xos-numeric">
-                        {count}
-                      </span>
-                    </Button>
-                  ))}
                 </div>
-              )}
-              <input
-                type="search"
-                className="calls-input calls-cockpit-list__search"
-                placeholder={
-                  isRecallQueue
-                    ? 'Filtrer nom, entreprise, séance…'
-                    : 'Filtrer nom, poste, entreprise, tél…'
-                }
-                value={listQuery}
-                onChange={(e) => setListQuery(e.target.value)}
-                aria-label="Filtrer la liste"
-              />
-            </div>
-            <div className="calls-cockpit-list__scroll">
-              <ul
-                className={`calls-cockpit-list__rows${isRecallQueue ? ' calls-cockpit-list__rows--recalls' : ''}`}
-              >
-                <li className="calls-cockpit-list__header" aria-hidden="true">
-                  <span />
-                  <span>Contact</span>
-                  <span>Poste</span>
-                  <span>Entreprise</span>
-                  <span>Email</span>
-                  <span>Tél.</span>
-                  <span>{isRecallQueue ? 'Séance' : 'Statut'}</span>
-                  <span>Rappel</span>
-                </li>
-                {filteredContacts.map((contact) => {
-                  const status = listStatusDisplay(contact);
-                  const previousCallersBadge = isRecallQueue
-                    ? formatPreviousCallersBadge(contact.previous_callers)
-                    : null;
-                  return (
-                    <li
-                      key={
-                        isRecallQueue
-                          ? `${contact.origin_session_id}-${contact.id}`
-                          : contact.id
-                      }
-                      className={
-                        [
-                          contact.status !== 'pending'
-                            ? 'calls-cockpit-list__row--done'
-                            : '',
-                          selectedIds.has(contact.id)
-                            ? 'calls-cockpit-list__row--selected'
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ') || undefined
-                      }
-                    >
-                      <label className="calls-checkbox calls-checkbox--tight">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(contact.id)}
-                          disabled={
-                            contact.status !== 'pending' &&
-                            !(
-                              contact.recall_at &&
-                              (isRecallQueue || contact.status === 'called')
-                            )
-                          }
-                          onChange={() => toggleSelected(contact.id)}
-                          aria-label={`Sélectionner ${contact.contact_name}`}
-                        />
-                      </label>
+              </div>
+            )}
+
+            <GlassCard className="calls-cockpit-list">
+              <div className="calls-cockpit-list__toolbar">
+                <h3>
+                  {isRecallQueue ? 'Contacts à rappeler' : 'Liste de la séance'}
+                </h3>
+                <div className="calls-preview__actions">
+                  <Button
+                    variant="secondary"
+                    disabled={loading || selectableContacts.length === 0}
+                    onClick={toggleSelectAllSelectable}
+                  >
+                    {allSelectableSelected
+                      ? 'Tout désélectionner'
+                      : `Sélectionner (${selectableContacts.length})`}
+                  </Button>
+                </div>
+              </div>
+              <div className="calls-cockpit-list__filters">
+                {!isRecallQueue && (
+                  <div
+                    className="calls-list-filter-chips"
+                    role="group"
+                    aria-label="Filtrer par statut"
+                  >
+                    {(
+                      [
+                        ['all', 'Tous', statusCounts.all],
+                        ['pending', 'À faire', statusCounts.pending],
+                        ['called', 'Appelés', statusCounts.called],
+                        ['skipped', 'Non contactés', statusCounts.skipped],
+                      ] as const
+                    ).map(([value, label, count]) => (
                       <Button
                         variant="ghost"
                         size="sm"
+                        key={value}
                         type="button"
-                        className="calls-cockpit-list__name"
-                        onClick={() => openDetail(contact.id)}
+                        className={`calls-list-filter-chip${listStatusFilter === value ? ' calls-list-filter-chip--active' : ''}`}
+                        aria-pressed={listStatusFilter === value}
+                        onClick={() => setListStatusFilter(value)}
                       >
-                        <strong title={contact.contact_name}>
-                          {contact.contact_name}
-                        </strong>
-                        {(contact.attempt_count ?? 0) > 0 && (
-                          <small className="calls-cockpit-list__attempt">
-                            {formatAttemptLabel(contact.attempt_count ?? 0)}
-                          </small>
-                        )}
-                        {previousCallersBadge && (
-                          <small className="calls-muted">
-                            {previousCallersBadge}
-                          </small>
-                        )}
+                        {label}
+                        <span className="calls-list-filter-chip__count xos-numeric">
+                          {count}
+                        </span>
                       </Button>
-                      <span
-                        className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
-                        title={contact.title ?? undefined}
+                    ))}
+                  </div>
+                )}
+                <input
+                  type="search"
+                  className="calls-input calls-cockpit-list__search"
+                  placeholder={
+                    isRecallQueue
+                      ? 'Filtrer nom, entreprise, séance…'
+                      : 'Filtrer nom, poste, entreprise, tél…'
+                  }
+                  value={listQuery}
+                  onChange={(e) => setListQuery(e.target.value)}
+                  aria-label="Filtrer la liste"
+                />
+              </div>
+              <div className="calls-cockpit-list__scroll">
+                <ul
+                  className={`calls-cockpit-list__rows${isRecallQueue ? ' calls-cockpit-list__rows--recalls' : ''}`}
+                >
+                  <li className="calls-cockpit-list__header" aria-hidden="true">
+                    <span />
+                    <span>Contact</span>
+                    <span>Poste</span>
+                    <span>Entreprise</span>
+                    <span>Email</span>
+                    <span>Tél.</span>
+                    <span>{isRecallQueue ? 'Séance' : 'Statut'}</span>
+                    <span>Rappel</span>
+                  </li>
+                  {filteredContacts.map((contact) => {
+                    const status = listStatusDisplay(contact);
+                    const previousCallersBadge = isRecallQueue
+                      ? formatPreviousCallersBadge(contact.previous_callers)
+                      : null;
+                    return (
+                      <li
+                        key={
+                          isRecallQueue
+                            ? `${contact.origin_session_id}-${contact.id}`
+                            : contact.id
+                        }
+                        className={
+                          [
+                            contact.status !== 'pending'
+                              ? 'calls-cockpit-list__row--done'
+                              : '',
+                            selectedIds.has(contact.id)
+                              ? 'calls-cockpit-list__row--selected'
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                        }
                       >
-                        {contact.title ?? '—'}
-                      </span>
-                      <span
-                        className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
-                        title={contact.account_name ?? undefined}
-                      >
-                        {contact.account_name ?? '—'}
-                      </span>
-                      <span
-                        className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
-                        title={contact.email ?? undefined}
-                      >
-                        {contact.email ? (
-                          <a
-                            href={`mailto:${contact.email}`}
-                            className="calls-cockpit-list__email"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {contact.email}
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </span>
-                      <span className="calls-cockpit-list__cell">
-                        {contact.phone ? (
-                          <a
-                            href={`tel:${contact.phone}`}
-                            className="calls-cockpit-list__phone xos-numeric"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {contact.phone}
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </span>
-                      {isRecallQueue ? (
+                        <label className="calls-checkbox calls-checkbox--tight">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(contact.id)}
+                            disabled={
+                              contact.status !== 'pending' &&
+                              !(
+                                contact.recall_at &&
+                                (isRecallQueue || contact.status === 'called')
+                              )
+                            }
+                            onChange={() => toggleSelected(contact.id)}
+                            aria-label={`Sélectionner ${contact.contact_name}`}
+                          />
+                        </label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          className="calls-cockpit-list__name"
+                          onClick={() => openDetail(contact.id)}
+                        >
+                          <strong title={contact.contact_name}>
+                            {contact.contact_name}
+                          </strong>
+                          {(contact.attempt_count ?? 0) > 0 && (
+                            <small className="calls-cockpit-list__attempt">
+                              {formatAttemptLabel(contact.attempt_count ?? 0)}
+                            </small>
+                          )}
+                          {previousCallersBadge && (
+                            <small className="calls-muted">
+                              {previousCallersBadge}
+                            </small>
+                          )}
+                        </Button>
                         <span
                           className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
-                          title={contact.origin_session_name}
+                          title={contact.title ?? undefined}
                         >
-                          {contact.origin_session_name ?? '—'}
+                          {contact.title ?? '—'}
                         </span>
-                      ) : (
                         <span
-                          className="calls-cockpit-list__status"
-                          title={status.label}
+                          className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
+                          title={contact.account_name ?? undefined}
                         >
-                          <Tag variant={status.variant}>{status.label}</Tag>
+                          {contact.account_name ?? '—'}
                         </span>
+                        <span
+                          className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
+                          title={contact.email ?? undefined}
+                        >
+                          {contact.email ? (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="calls-cockpit-list__email"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.email}
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </span>
+                        <span className="calls-cockpit-list__cell">
+                          {contact.phone ? (
+                            <a
+                              href={`tel:${contact.phone}`}
+                              className="calls-cockpit-list__phone xos-numeric"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.phone}
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </span>
+                        {isRecallQueue ? (
+                          <span
+                            className="calls-cockpit-list__cell calls-cockpit-list__cell--wrap"
+                            title={contact.origin_session_name}
+                          >
+                            {contact.origin_session_name ?? '—'}
+                          </span>
+                        ) : (
+                          <span
+                            className="calls-cockpit-list__status"
+                            title={status.label}
+                          >
+                            <Tag variant={status.variant}>{status.label}</Tag>
+                          </span>
+                        )}
+                        <span className="calls-cockpit-list__cell xos-numeric">
+                          {contact.recall_at
+                            ? formatIsoDateFr(contact.recall_at)
+                            : '—'}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          className="calls-cockpit-list__remove"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmRemove([contact.id], contact.contact_name);
+                          }}
+                          title="Retirer ce contact de la séance"
+                          aria-label={`Retirer ${contact.contact_name} de la séance`}
+                        >
+                          ×
+                        </Button>
+                      </li>
+                    );
+                  })}
+                  {filteredContacts.length === 0 && (
+                    <li className="calls-cockpit-list__empty">
+                      {isRecallQueue ? (
+                        <EmptyState
+                          title="Calme plat sur ce filtre"
+                          description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
+                        />
+                      ) : (
+                        'Aucun contact pour ce filtre.'
                       )}
-                      <span className="calls-cockpit-list__cell xos-numeric">
-                        {contact.recall_at
-                          ? formatIsoDateFr(contact.recall_at)
-                          : '—'}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        className="calls-cockpit-list__remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmRemove([contact.id], contact.contact_name);
-                        }}
-                        title="Retirer ce contact de la séance"
-                        aria-label={`Retirer ${contact.contact_name} de la séance`}
-                      >
-                        ×
-                      </Button>
                     </li>
-                  );
-                })}
-                {filteredContacts.length === 0 && (
-                  <li className="calls-cockpit-list__empty">
-                    {isRecallQueue ? (
-                      <EmptyState
-                        title="Calme plat sur ce filtre"
-                        description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
-                      />
-                    ) : (
-                      'Aucun contact pour ce filtre.'
-                    )}
-                  </li>
-                )}
-              </ul>
-            </div>
-          </GlassCard>
-        </div>
+                  )}
+                </ul>
+              </div>
+            </GlassCard>
+          </div>
+        )
       ) : focusedContact ? (
         <div className="calls-cockpit-detail">
           <div className="calls-contact-card-viewport">
