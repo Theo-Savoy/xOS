@@ -648,6 +648,51 @@ describe('AccountSearchView', () => {
     ).toBe('');
   });
 
+  it('asks for confirmation before resetting when more than 5 accounts are selected', async () => {
+    const user = userEvent.setup();
+    const sixAccounts = [
+      acme,
+      acmeSubsidiary,
+      zeroContactAccount,
+      { ...acme, id: 'acc-3', name: 'Bravo Corp' },
+      { ...acme, id: 'acc-4', name: 'Charlie Inc' },
+      { ...acme, id: 'acc-5', name: 'Delta LLC' },
+    ];
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: sixAccounts,
+      truncated: false,
+    });
+    const confirmSpy = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    renderView();
+
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await screen.findByText('ACME');
+
+    // Sélectionner les 6 comptes (> 5, seuil de confirmation).
+    await user.click(
+      screen.getByRole('button', { name: 'Tout sélectionner' }),
+    );
+
+    // Au-dessus du seuil : confirm s'affiche. Annuler préserve la sélection.
+    await user.click(
+      screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
+    );
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('ACME')).toBeTruthy();
+
+    // Confirmer cette fois : reset effectif.
+    await user.click(
+      screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
+    );
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
+    confirmSpy.mockRestore();
+  });
+
   it('renders a loading skeleton while searching', async () => {
     let resolveSearch!: (value: unknown) => void;
     const promise = new Promise((resolve) => {

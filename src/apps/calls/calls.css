@@ -3745,6 +3745,12 @@
   gap: 0.9rem;
 }
 
+.calls-fb-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
 .calls-fb-control {
   display: grid;
   gap: 0.4rem;
@@ -4201,6 +4207,11 @@
 @media (max-width: 720px) {
   .calls-fb-row {
     grid-template-columns: 1fr;
+  }
+
+  .calls-fb-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .calls-fb-save {

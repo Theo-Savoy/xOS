@@ -244,6 +244,12 @@ export function AccountSearchView({
   };
 
   const handleResetAll = () => {
+    if (selectedIds.size > 5) {
+      const ok = window.confirm(
+        `Réinitialiser la recherche effacera aussi ${selectedIds.size} compte${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's' : ''}. Continuer ?`,
+      );
+      if (!ok) return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     abortRef.current?.abort();
     setQuery('');
@@ -443,13 +449,7 @@ export function AccountSearchView({
               placeholder="ACME (optionnel si des filtres sont sélectionnés)"
             />
           </label>
-          <div
-            style={{
-              display: 'flex',
-              gap: '0.5rem',
-              alignItems: 'flex-end',
-            }}
-          >
+          <div className="calls-fb-actions">
             <Button
               onClick={() => void handleSearch()}
               disabled={loading || !canSearch}
@@ -611,7 +611,7 @@ export function AccountSearchView({
 
       {!loading && searched && accounts.length === 0 && !error && (
         <GlassCard className="calls-empty calls-empty--hero">
-          <Tag variant="accent">ABM</Tag>
+          <Tag variant="accent">Mode ABM</Tag>
           <h3>Aucun compte trouvé</h3>
           <p>Essayez un autre nom ou ajustez les filtres.</p>
           {(query.trim() || hasAnyFilter(filters)) && (
