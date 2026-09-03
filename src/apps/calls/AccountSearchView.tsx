@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, GlassCard, Modal, Skeleton, Tag } from '../../components/ui';
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  GlassCard,
+  Modal,
+  Select,
+  type SelectOption,
+  Skeleton,
+  Tag,
+} from '../../components/ui';
+import { ConfirmDialog } from './ConfirmDialog';
 import {
   EFFECTIF_TRANCHES,
   SECTEUR_FAMILIES,
@@ -31,6 +42,15 @@ export type AbmSortOption =
   | 'contacts-desc'
   | 'contacts-asc'
   | 'tier-asc';
+const SORT_OPTIONS: readonly SelectOption<AbmSortOption>[] = [
+  { value: 'default', label: 'Ordre par défaut' },
+  { value: 'name-asc', label: 'Nom (A → Z)' },
+  { value: 'name-desc', label: 'Nom (Z → A)' },
+  { value: 'contacts-desc', label: 'Contacts (décroissant)' },
+  { value: 'contacts-asc', label: 'Contacts (croissant)' },
+  { value: 'tier-asc', label: 'Tier (prioritaire)' },
+];
+
 
 const ABM_PREFS_KEY = 'calls_abm_prefs_v1';
 
@@ -154,16 +174,15 @@ function AccountCard({
       role="listitem"
     >
       <div className="calls-preview__header">
-        <label className="calls-checkbox" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
             checked={checked}
-            onChange={onToggle}
+            onChange={() => onToggle()}
             disabled={!hasContacts}
             aria-label={`Sélectionner ${account.name}`}
+            label={<strong>{account.name}</strong>}
           />
-          <strong>{account.name}</strong>
-        </label>
+        </div>
         <div className="calls-preview__actions">
           {account.tier && <Tag>Tier {account.tier}</Tag>}
           {account.type_client && <Tag>{account.type_client}</Tag>}
@@ -261,6 +280,8 @@ export function AccountSearchView({
   const [targetSize, setTargetSize] = useState(initialPrefs.targetSize ?? 50);
   const [maxSessions, setMaxSessions] = useState(initialPrefs.maxSessions ?? 5);
 
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
   const setFilter = (patch: Partial<AbmFilters>) =>
     setFilters((current) => ({ ...current, ...patch }));
 
@@ -346,13 +367,7 @@ export function AccountSearchView({
     setFilters(emptyAbmFilters());
   };
 
-  const handleResetAll = () => {
-    if (selectedIds.size > 5) {
-      const ok = window.confirm(
-        `Réinitialiser la recherche effacera aussi ${selectedIds.size} compte${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's' : ''}. Continuer ?`,
-      );
-      if (!ok) return;
-    }
+  const executeResetAll = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     abortRef.current?.abort();
     setQuery('');
@@ -361,6 +376,15 @@ export function AccountSearchView({
     setSelectedIds(new Set());
     setSearched(false);
     setError(null);
+    setConfirmResetOpen(false);
+  };
+
+  const handleResetAll = () => {
+    if (selectedIds.size > 5) {
+      setConfirmResetOpen(true);
+      return;
+    }
+    executeResetAll();
   };
 
   // Live preview: modifier un filtre relance la recherche après 300ms, sans clic "Actualiser" (F.2).
@@ -555,7 +579,7 @@ export function AccountSearchView({
           </div>
           <div className="calls-fb-row">
             <label className="calls-field">
-              <span>Comptes/séance</span>
+              <span>Contacts par séance</span>
               <input
                 type="number"
                 className="calls-input"
@@ -974,27 +998,24 @@ export function AccountSearchView({
           )}
 
           {!loading && !searched && accounts.length === 0 && !error && (
-            <GlassCard className="calls-empty calls-empty--hero">
-              <Tag variant="accent">Mode ABM</Tag>
-              <h3>Cibler des comptes spécifiques</h3>
-              <p>
-                Recherchez une entreprise par son nom ou combinez les filtres
-                d&apos;entreprise pour composer votre sélection.
-              </p>
-            </GlassCard>
+            <EmptyState
+              title="Cibler des comptes spécifiques"
+              description="Recherchez une entreprise par son nom ou combinez les filtres d'entreprise pour composer votre sélection."
+            />
           )}
 
           {!loading && searched && accounts.length === 0 && !error && (
-            <GlassCard className="calls-empty calls-empty--hero">
-              <Tag variant="accent">Mode ABM</Tag>
-              <h3>Aucun compte trouvé</h3>
-              <p>Essayez un autre nom ou ajustez les filtres.</p>
-              {(query.trim() || hasAnyFilter(filters)) && (
-                <Button variant="secondary" onClick={handleResetAll}>
-                  Réinitialiser la recherche
-                </Button>
-              )}
-            </GlassCard>
+            <EmptyState
+              title="Aucun compte trouvé"
+              description="Essayez un autre nom ou ajustez les filtres."
+              action={
+                query.trim() || hasAnyFilter(filters) ? (
+                  <Button variant="secondary" onClick={handleResetAll}>
+                    Réinitialiser la recherche
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
 
           {!loading && accounts.length > 0 && (
@@ -1040,26 +1061,15 @@ export function AccountSearchView({
                     )}
                 </div>
 
-                <label className="calls-field calls-field--inline">
+                <div className="calls-field calls-field--inline">
                   <span>Trier par</span>
-                  <select
-                    className="calls-select"
+                  <Select<AbmSortOption>
+                    options={SORT_OPTIONS}
                     value={sortBy}
-                    onChange={(e) =>
-                      handleSortChange(e.target.value as AbmSortOption)
-                    }
+                    onChange={handleSortChange}
                     aria-label="Trier les comptes"
-                  >
-                    <option value="default">Ordre par défaut</option>
-                    <option value="name-asc">Nom (A → Z)</option>
-                    <option value="name-desc">Nom (Z → A)</option>
-                    <option value="contacts-desc">
-                      Contacts (décroissant)
-                    </option>
-                    <option value="contacts-asc">Contacts (croissant)</option>
-                    <option value="tier-asc">Tier (prioritaire)</option>
-                  </select>
-                </label>
+                  />
+                </div>
               </div>
 
               <div
@@ -1112,6 +1122,15 @@ export function AccountSearchView({
       >
         {renderSidebarContent()}
       </Modal>
+      <ConfirmDialog
+        open={confirmResetOpen}
+        title="Réinitialiser la recherche"
+        description={`Réinitialiser la recherche effacera aussi ${selectedIds.size} compte${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's' : ''}. Continuer ?`}
+        confirmLabel="Réinitialiser"
+        cancelLabel="Annuler"
+        onConfirm={executeResetAll}
+        onCancel={() => setConfirmResetOpen(false)}
+      />
     </div>
   );
 }

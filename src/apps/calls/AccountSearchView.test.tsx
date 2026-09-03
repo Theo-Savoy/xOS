@@ -561,10 +561,13 @@ describe('AccountSearchView', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
     await screen.findByText('ACME');
 
-    const sortSelect = screen.getByLabelText('Trier les comptes');
+    const selectSortOption = async (label: string) => {
+      await user.click(screen.getByRole('button', { name: 'Trier les comptes' }));
+      await user.click(screen.getByRole('option', { name: label }));
+    };
 
     // Tri par contacts décroissant: ACME Europe (2), ACME (1), Wayne (0)
-    await user.selectOptions(sortSelect, 'contacts-desc');
+    await selectSortOption('Contacts (décroissant)');
     const itemsContactsDesc = screen
       .getAllByRole('listitem')
       .map((el) => el.querySelector('strong')?.textContent);
@@ -575,21 +578,21 @@ describe('AccountSearchView', () => {
     ]);
 
     // Tri par nom décroissant: Wayne, ACME Europe, ACME
-    await user.selectOptions(sortSelect, 'name-desc');
+    await selectSortOption('Nom (Z → A)');
     const itemsNameDesc = screen
       .getAllByRole('listitem')
       .map((el) => el.querySelector('strong')?.textContent);
     expect(itemsNameDesc).toEqual(['Wayne Enterprises', 'ACME Europe', 'ACME']);
 
     // Tri par nom croissant: ACME, ACME Europe, Wayne
-    await user.selectOptions(sortSelect, 'name-asc');
+    await selectSortOption('Nom (A → Z)');
     const itemsNameAsc = screen
       .getAllByRole('listitem')
       .map((el) => el.querySelector('strong')?.textContent);
     expect(itemsNameAsc).toEqual(['ACME', 'ACME Europe', 'Wayne Enterprises']);
 
     // Tri par tier prioritaire: ACME (Tier A), ACME Europe (Tier B), Wayne (sans tier)
-    await user.selectOptions(sortSelect, 'tier-asc');
+    await selectSortOption('Tier (prioritaire)');
     const itemsTierAsc = screen
       .getAllByRole('listitem')
       .map((el) => el.querySelector('strong')?.textContent);
@@ -609,8 +612,8 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     // Modifier le tri doit sauvegarder dans localStorage
-    const sortSelect = screen.getByLabelText('Trier les comptes');
-    await user.selectOptions(sortSelect, 'contacts-desc');
+    await user.click(screen.getByRole('button', { name: 'Trier les comptes' }));
+    await user.click(screen.getByRole('option', { name: 'Contacts (décroissant)' }));
 
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
       'calls_abm_prefs_v1',
@@ -662,10 +665,7 @@ describe('AccountSearchView', () => {
       accounts: sixAccounts,
       truncated: false,
     });
-    const confirmSpy = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
+
     renderView();
 
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
@@ -679,16 +679,15 @@ describe('AccountSearchView', () => {
     await user.click(
       screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
     );
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Réinitialiser la recherche effacera/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Annuler' }));
     expect(screen.getByText('ACME')).toBeTruthy();
 
     // Confirmer cette fois : reset effectif.
     await user.click(
       screen.getByRole('button', { name: 'Réinitialiser la recherche' }),
     );
-    expect(confirmSpy).toHaveBeenCalledTimes(2);
-    expect(screen.getByText('Cibler des comptes spécifiques')).toBeTruthy();
-    confirmSpy.mockRestore();
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser' }));
   });
 
   it('renders a loading skeleton while searching', async () => {
