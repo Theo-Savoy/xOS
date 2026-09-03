@@ -205,6 +205,7 @@ export function AccountSearchView({
   initialStep,
 }: AccountSearchViewProps) {
   const [step, setStep] = useState<WizardStep>(initialStep ?? 0);
+  const [composerSubStep, setComposerSubStep] = useState<'accounts' | 'contacts'>('accounts');
   const initialPrefs = useRef(readPrefs()).current;
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
@@ -261,7 +262,6 @@ export function AccountSearchView({
   );
 
   const canSearch = query.trim().length >= 2 || hasAnyFilter(filters);
-  const showResultsStage = searched || loading;
   const activeFiltersCount = useMemo(
     () =>
       filters.secteurs.length +
@@ -370,6 +370,7 @@ export function AccountSearchView({
     setSearched(false);
     setError(null);
     setConfirmResetOpen(false);
+    setComposerSubStep('accounts');
   };
 
   const handleResetAll = () => {
@@ -395,31 +396,58 @@ export function AccountSearchView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filters]);
 
-  const sortedAccounts = useMemo(() => {
-    if (sortBy === 'default') return accounts;
-    return [...accounts].sort((a, b) => {
-      if (sortBy === 'name-asc')
+  const sortAccountList = (list: AccountSearchHit[], sort: AbmSortOption) => {
+    if (sort === 'default') return list;
+    return [...list].sort((a, b) => {
+      if (sort === 'name-asc')
         return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
-      if (sortBy === 'name-desc')
+      if (sort === 'name-desc')
         return b.name.localeCompare(a.name, 'fr', { sensitivity: 'base' });
-      if (sortBy === 'contacts-desc')
+      if (sort === 'contacts-desc')
         return (
           b.contacts.length - a.contacts.length ||
           a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
         );
-      if (sortBy === 'contacts-asc')
+      if (sort === 'contacts-asc')
         return (
           a.contacts.length - b.contacts.length ||
           a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
         );
-      if (sortBy === 'tier-asc')
+      if (sort === 'tier-asc')
         return (
           (a.tier || 'ZZZ').localeCompare(b.tier || 'ZZZ') ||
           a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
         );
       return 0;
     });
-  }, [accounts, sortBy]);
+  };
+
+  const targetAccounts = useMemo(
+    () => Array.from(targetList.values()).map((e) => e.account),
+    [targetList],
+  );
+
+  const nonTargetAccounts = useMemo(() => {
+    if (!canSearch) return [];
+    return accounts.filter((a) => !targetList.has(a.id));
+  }, [accounts, targetList, canSearch]);
+
+  const sortedTargetAccounts = useMemo(
+    () => sortAccountList(targetAccounts, sortBy),
+    [targetAccounts, sortBy],
+  );
+
+  const sortedNonTargetAccounts = useMemo(
+    () => sortAccountList(nonTargetAccounts, sortBy),
+    [nonTargetAccounts, sortBy],
+  );
+
+  const displayedAccounts = useMemo(() => {
+    if (query.trim().length === 0 && !hasAnyFilter(filters)) {
+      return sortedTargetAccounts;
+    }
+    return [...sortedTargetAccounts, ...sortedNonTargetAccounts];
+  }, [query, filters, sortedTargetAccounts, sortedNonTargetAccounts]);
 
   const handleToggleTarget = (acc: AccountSearchHit) => {
     if (acc.contacts.length === 0) return;
@@ -447,11 +475,10 @@ export function AccountSearchView({
       return next;
     });
   };
-
   const handleSelectAll = () => {
     setTargetList((prev) => {
       const next = new Map(prev);
-      for (const a of accounts) {
+      for (const a of displayedAccounts) {
         if (a.contacts.length > 0)
           next.set(a.id, {
             account: a,
@@ -465,14 +492,14 @@ export function AccountSearchView({
   const handleDeselectAll = () => {
     setTargetList((prev) => {
       const next = new Map(prev);
-      for (const a of accounts) next.delete(a.id);
+      for (const a of displayedAccounts) next.delete(a.id);
       return next;
     });
   };
 
   const totalContactsCount = useMemo(
-    () => accounts.reduce((t, a) => t + a.contacts.length, 0),
-    [accounts],
+    () => displayedAccounts.reduce((t, a) => t + a.contacts.length, 0),
+    [displayedAccounts],
   );
 
   const packableAccounts = useMemo(
@@ -835,39 +862,283 @@ export function AccountSearchView({
           {/* Étape 1 : COMPOSER */}
           {step === 1 && (
             <div className="calls-wizard-step-pane" data-step="composer">
-              {targetList.size === 0 ? (
-                <EmptyState
-                  title="Votre cible est vide"
-                  description="Recherchez et sélectionnez des comptes dans l'étape précédente pour composer votre cible."
-                  action={
-                    <Button variant="secondary" onClick={() => setStep(0)}>
-                      ← Revenir à l'étape Cibler
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className="calls-wizard-target">
-                  <TargetPanel
-                    targetList={targetList}
-                    onToggleContact={handleToggleContact}
-                    onRemoveAccount={(id) =>
-                      setTargetList((prev) => {
-                        const n = new Map(prev);
-                        n.delete(id);
-                        return n;
-                      })
-                    }
-                    onClearTarget={() => setTargetList(new Map())}
-                    hideFooter
-                  />
-                </div>
-              )}
-
-              <div className="calls-wizard-nav">
-                <Button variant="secondary" onClick={() => setStep(0)}>
-                  ← Précédent : Cibler
+              <div
+                className="calls-abm-substepper"
+                role="tablist"
+                aria-label="Étapes de sélection"
+              >
+                <Button
+                  variant="ghost"
+                  role="tab"
+                  aria-selected={composerSubStep === 'accounts'}
+                  className={`calls-abm-substepper__step ${composerSubStep === 'accounts' ? 'calls-abm-substepper__step--active' : ''}`}
+                  onClick={() => setComposerSubStep('accounts')}
+                >
+                  <span className="calls-abm-substepper__number">1</span>
+                  <span className="calls-abm-substepper__label">
+                    Sélectionner les comptes
+                  </span>
+                  {targetList.size > 0 && (
+                    <Tag variant="accent">
+                      {targetList.size}
+                    </Tag>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  role="tab"
+                  aria-selected={composerSubStep === 'contacts'}
+                  disabled={!canProceedToStep3}
+                  className={`calls-abm-substepper__step ${composerSubStep === 'contacts' ? 'calls-abm-substepper__step--active' : ''}`}
+                  onClick={() => {
+                    if (canProceedToStep3) setComposerSubStep('contacts');
+                  }}
+                  aria-label="Affiner les contacts"
+                >
+                  <span className="calls-abm-substepper__number">2</span>
+                  <span className="calls-abm-substepper__label">
+                    Affiner les contacts
+                  </span>
+                  {totalRetainedInTarget > 0 && (
+                    <Tag variant="accent">
+                      {totalRetainedInTarget}
+                    </Tag>
+                  )}
                 </Button>
               </div>
+
+              {composerSubStep === 'accounts' && (
+                <section
+                  className="calls-abm-cibler__results"
+                  aria-label="Résultats de recherche"
+                >
+                  <div className="calls-abm-cibler__results-head">
+                    <div className="calls-abm-results-head-left">
+                      <h3 className="calls-abm-cibler__results-title">
+                        Comptes ciblés et trouvés
+                      </h3>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setStep(0)}
+                        aria-label="Modifier le ciblage (retour étape 1)"
+                      >
+                        ← Modifier le ciblage
+                      </Button>
+                    </div>
+                    {!loading && displayedAccounts.length > 0 && (
+                      <div className="calls-abm-results-summary">
+                        <Tag>
+                          {displayedAccounts.length} compte
+                          {displayedAccounts.length > 1 ? 's' : ''} trouvé
+                          {displayedAccounts.length > 1 ? 's' : ''} ·{' '}
+                          {totalContactsCount} contact
+                          {totalContactsCount > 1 ? 's' : ''} au total
+                        </Tag>
+                      </div>
+                    )}
+                  </div>
+
+                  {truncated && (
+                    <GlassCard
+                      className="calls-truncated-banner"
+                      role="status"
+                    >
+                      <p>Résultats partiels : affinez votre recherche.</p>
+                    </GlassCard>
+                  )}
+
+                  {excludedCount > 0 && (
+                    <div
+                      className="calls-builder-excluded-banner"
+                      role="status"
+                    >
+                      <strong>{excludedCount}</strong> contact
+                      {excludedCount > 1 ? 's' : ''} exclu
+                      {excludedCount > 1 ? 's' : ''} car déjà dans une
+                      séance active.
+                    </div>
+                  )}
+
+                  {loading && (
+                    <div
+                      className="calls-abm-account-list"
+                      role="status"
+                      aria-busy="true"
+                      aria-live="polite"
+                    >
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="calls-abm-account-row">
+                          <div className="calls-abm-account-row__content">
+                            <Skeleton height="1.25rem" width="40%" />
+                            <Skeleton height="0.85rem" width="60%" />
+                          </div>
+                          <Skeleton height="2rem" width="5rem" />
+                        </div>
+                      ))}
+                      <p className="calls-muted calls-abm-skeleton-status">
+                        Recherche des comptes en cours…
+                      </p>
+                    </div>
+                  )}
+
+                  {!loading &&
+                    searched &&
+                    displayedAccounts.length === 0 &&
+                    !error && (
+                      <EmptyState
+                        title="Aucun compte trouvé"
+                        description="Essayez un autre nom ou ajustez les filtres."
+                        action={
+                          <Button
+                            variant="secondary"
+                            onClick={() => setStep(0)}
+                            aria-label="Modifier le ciblage"
+                          >
+                            Modifier le ciblage
+                          </Button>
+                        }
+                      />
+                    )}
+
+                  {!loading &&
+                    !searched &&
+                    displayedAccounts.length === 0 &&
+                    !error && (
+                      <EmptyState
+                        title="Votre cible est vide"
+                        description="Définissez vos critères de recherche dans l'étape précédente pour afficher des comptes."
+                        action={
+                          <Button
+                            variant="secondary"
+                            onClick={() => setStep(0)}
+                            aria-label="Définir le ciblage"
+                          >
+                            Définir le ciblage
+                          </Button>
+                        }
+                      />
+                    )}
+
+                  {!loading && displayedAccounts.length > 0 && (
+                    <>
+                      <div className="calls-abm-toolbar">
+                        <div className="calls-abm-actions">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleSelectAll}
+                            disabled={displayedAccounts
+                              .filter((a) => a.contacts.length > 0)
+                              .every((a) => targetList.has(a.id))}
+                            aria-label="Tout sélectionner"
+                          >
+                            Tout sélectionner ({displayedAccounts.length})
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleDeselectAll}
+                            disabled={!displayedAccounts.some((a) => targetList.has(a.id))}
+                            aria-label="Tout désélectionner"
+                          >
+                            Tout désélectionner
+                          </Button>
+                          {displayedAccounts.some((a) => a.contacts.length === 0) &&
+                            displayedAccounts.some((a) => a.contacts.length > 0) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleSelectAll}
+                                aria-label="Sélectionner uniquement les comptes avec contacts"
+                              >
+                                Avec contacts uniquement
+                              </Button>
+                            )}
+                        </div>
+
+                        <div className="calls-field calls-field--inline">
+                          <span>Trier par</span>
+                          <Select<AbmSortOption>
+                            options={SORT_OPTIONS}
+                            value={sortBy}
+                            onChange={(s) => {
+                              setSortBy(s);
+                              writePrefs({ sortBy: s });
+                            }}
+                            aria-label="Trier les comptes"
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        className="calls-abm-account-list"
+                        role="list"
+                        aria-label="Comptes trouvés"
+                      >
+                        {displayedAccounts.map((account) => (
+                          <AccountRow
+                            key={account.id}
+                            account={account}
+                            inTarget={targetList.has(account.id)}
+                            onToggleTarget={handleToggleTarget}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="calls-wizard-nav">
+                    <Button variant="secondary" onClick={() => setStep(0)}>
+                      ← Précédent : Cibler
+                    </Button>
+                  </div>
+                </section>
+              )}
+
+              {composerSubStep === 'contacts' && (
+                <div className="calls-abm-composer-contacts">
+                  {targetList.size === 0 ? (
+                    <EmptyState
+                      title="Votre cible est vide"
+                      description="Recherchez et sélectionnez des comptes dans l'étape précédente pour composer votre cible."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => setComposerSubStep('accounts')}
+                        >
+                          ← Revenir à la sélection des comptes
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="calls-wizard-target">
+                      <TargetPanel
+                        targetList={targetList}
+                        onToggleContact={handleToggleContact}
+                        onRemoveAccount={(id) =>
+                          setTargetList((prev) => {
+                            const n = new Map(prev);
+                            n.delete(id);
+                            return n;
+                          })
+                        }
+                        onClearTarget={() => setTargetList(new Map())}
+                        hideFooter
+                      />
+                    </div>
+                  )}
+
+                  <div className="calls-wizard-nav">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setComposerSubStep('accounts')}
+                    >
+                      ← Précédent : Comptes
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -981,6 +1252,7 @@ export function AccountSearchView({
         <aside className="calls-abm-sidebar calls-wizard-sidebar">
           <AbmWizardRecap
             step={step}
+            composerSubStep={composerSubStep}
             query={query}
             activeFiltersCount={activeFiltersCount}
             secteursCount={filters.secteurs.length}

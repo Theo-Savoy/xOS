@@ -194,6 +194,77 @@
   }
 }
 
+/* ABM Sub-stepper (Step 1 : Comptes / Contacts) */
+.calls-abm-substepper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--xos-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  width: 100%;
+}
+
+.calls-abm-substepper__step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xos-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  justify-content: center;
+  text-align: center;
+}
+
+.calls-abm-substepper__step:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--xos-text);
+}
+
+.calls-abm-substepper__step--active {
+  background: color-mix(in srgb, var(--xos-accent) 15%, transparent);
+  color: var(--xos-text);
+  font-weight: 600;
+}
+
+.calls-abm-substepper__step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.calls-abm-substepper__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  color: currentColor;
+}
+
+.calls-abm-substepper__step--active .calls-abm-substepper__number {
+  background: var(--xos-accent);
+  color: var(--xos-accent-contrast, #000);
+}
+
+.calls-abm-results-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 /* Toolbar */
 .calls-abm-toolbar {
   display: flex;
