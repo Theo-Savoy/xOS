@@ -111,7 +111,7 @@ export function SummaryPage({
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
       ) : narrativeAvailable ? null : (
         <AnnualOnlyNotice>
-          {period.mode === 'semester'
+          {period.mode !== 'fy'
             ? `Le narratif n'est disponible que sur l'exercice ${ANNUAL_ONLY_FY} complet.`
             : `Le narratif et le verdict restent réservés à ${ANNUAL_ONLY_FY}.`}
         </AnnualOnlyNotice>

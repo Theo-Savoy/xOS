@@ -70,6 +70,8 @@
   --xos-accent-salesforce: #00a1e0;
   --xos-accent-success: #6effbb;
   --xos-accent-highlight: #ffe566;
+  --xos-chart-current: var(--xos-accent);
+  --xos-chart-compare: color-mix(in srgb, var(--xos-accent) 40%, transparent);
   --xos-surface-plain: #fff;
 
   --xos-text: #f4f5fb;

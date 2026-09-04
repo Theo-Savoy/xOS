@@ -3,26 +3,44 @@ import { listShared, createShared, revokeShared } from './shared.js';
 
 // Minimal Supabase client mock for listShared (no .single(), chain awaited directly)
 function makeListClient({ rows = [], listError = null, isManager = false }) {
-  const chain = {};
-  chain.select = vi.fn().mockReturnValue(chain);
-  chain.is = vi.fn().mockReturnValue(chain);
-  chain.order = vi.fn().mockReturnValue(chain);
-  chain.or = vi.fn((filter) => {
-    if (!isManager) {
-      expect(filter).toContain('recipient_id.eq.');
-      expect(filter).toContain('recipient_id.is.null');
-    }
-    return chain;
-  });
-  chain.then = (resolve) =>
-    resolve({ data: listError ? null : rows, error: listError || null });
-  return { from: vi.fn().mockReturnValue(chain) };
+  return {
+    from: vi.fn((table) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: [] }),
+          }),
+        };
+      }
+      const chain = {};
+      chain.select = vi.fn().mockReturnValue(chain);
+      chain.is = vi.fn().mockReturnValue(chain);
+      chain.order = vi.fn().mockReturnValue(chain);
+      chain.or = vi.fn((filter) => {
+        if (!isManager) {
+          expect(filter).toContain('recipient_id.eq.');
+          expect(filter).toContain('recipient_id.is.null');
+        }
+        return chain;
+      });
+      chain.then = (resolve) =>
+        resolve({ data: listError ? null : rows, error: listError || null });
+      return chain;
+    }),
+  };
 }
 
 // Mock for createShared / revokeShared (uses .single())
 function makeMutationClient({ insertError = null, updateError = null } = {}) {
   return {
     from: vi.fn((table) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: 'some-id' }, error: null }),
+        };
+      }
       if (table !== 'shared_analyses') throw new Error('unexpected table ' + table);
       const builder = {
         select: vi.fn().mockReturnThis(),
@@ -51,7 +69,7 @@ describe('shared.js', () => {
         isManager: true,
       });
       const result = await listShared(client, 'user-1', 'manager');
-      expect(result.analyses).toEqual([{ id: 'a', recipient_id: null }]);
+      expect(result.analyses).toEqual([{ id: 'a', recipient_id: null, created_by_label: 'Inconnu' }]);
       expect(result.error).toBeUndefined();
     });
 
@@ -61,7 +79,7 @@ describe('shared.js', () => {
         isManager: false,
       });
       const result = await listShared(client, 'user-1', 'commercial');
-      expect(result.analyses).toEqual([{ id: 'a', recipient_id: 'user-1' }]);
+      expect(result.analyses).toEqual([{ id: 'a', recipient_id: 'user-1', created_by_label: 'Inconnu' }]);
     });
 
     it('returns 500 on lookup error', async () => {

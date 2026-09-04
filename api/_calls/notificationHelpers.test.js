@@ -39,6 +39,7 @@ describe('notification helpers', () => {
           action: 'open_session',
           app_id: 'calls',
           params: { view: 'runner', session_id: '12' },
+          action_label: 'Ouvrir la séance',
         },
       }),
     );

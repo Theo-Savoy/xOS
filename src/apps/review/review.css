@@ -40,11 +40,13 @@
 .review-header-left {
   gap: var(--xos-space-4);
   min-width: 0;
+  align-items: baseline;
 }
 
 .review-header-right,
 .review-period-selector {
   gap: var(--xos-space-2);
+  flex-wrap: wrap;
 }
 
 .review-title {
@@ -55,7 +57,6 @@
   letter-spacing: -0.02em;
 }
 
-.review-subtitle,
 .review-live {
   color: var(--xos-text-muted);
   font-size: 11px;
@@ -581,12 +582,12 @@ button.review-hint:focus-visible .review-hint__bubble {
 }
 
 .review-split-bar__renew {
-  background: #5b8def;
+  background: var(--xos-chart-compare);
 }
 
 .review-split-bar__new,
-.review-funnel-bar {
-  background: var(--xos-accent);
+.review-split-bar__won {
+  background: var(--xos-chart-current);
 }
 
 .review-split-legend {
@@ -970,4 +971,27 @@ button.review-hint:focus-visible .review-hint__bubble {
   .review-hint__bubble {
     transition: none;
   }
+}
+
+.review-share-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background-color: var(--xos-bg-card);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+}
+
+.review-share-banner-fields {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.review-share-banner-actions {
+  display: flex;
+  gap: 8px;
 }

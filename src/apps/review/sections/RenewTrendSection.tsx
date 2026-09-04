@@ -106,7 +106,7 @@ export function RenewTrendSection({
               type="monotone"
               dataKey="renew"
               name="Renouvellements"
-              stroke="#5b8def"
+              stroke="var(--xos-chart-compare)"
               strokeWidth={2}
               dot={{ r: 3 }}
             />
@@ -115,7 +115,7 @@ export function RenewTrendSection({
               type="monotone"
               dataKey="part"
               name="Part du CA total"
-              stroke="var(--xos-accent-success)"
+              stroke="var(--xos-chart-current)"
               strokeWidth={2}
               strokeDasharray="4 3"
               dot={{ r: 3 }}
