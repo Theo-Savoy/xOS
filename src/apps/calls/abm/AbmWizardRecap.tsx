@@ -39,7 +39,9 @@ export type AbmWizardRecapProps = {
   /** Mode Rapport : contacts/comptes exposés par la source (dans Cible). */
   exposedContactsCount?: number | null;
   exposedAccountsCount?: number | null;
-  /** N'afficher la Planification que si l'étape Planifier est atteinte. */
+  /** Afficher l'Audience (résultats sélection) — à partir de l'étape Composer. */
+  audienceVisible?: boolean;
+  /** Afficher la Planification — à partir de l'étape Planifier. */
   planVisible?: boolean;
 };
 
@@ -94,6 +96,7 @@ export function AbmWizardRecap({
   nextCtaLabel,
   exposedContactsCount = null,
   exposedAccountsCount = null,
+  audienceVisible = true,
   planVisible = true,
 }: AbmWizardRecapProps) {
   const computedNextCtaLabel =
@@ -215,7 +218,8 @@ export function AbmWizardRecap({
         </div>
       </section>
 
-      {/* Section 2 : Audience (Comptes & Contacts) */}
+      {/* Section 2 : Audience (Comptes & Contacts) — visible à partir de Composer */}
+      {audienceVisible && (
       <section
         className="calls-wizard-recap__section"
         aria-label="Résultats et sélection"
@@ -250,6 +254,7 @@ export function AbmWizardRecap({
           </div>
         </div>
       </section>
+      )}
 
       {/* Section 3 : Planification (visible à partir de l'étape Planifier) */}
       {planVisible && (

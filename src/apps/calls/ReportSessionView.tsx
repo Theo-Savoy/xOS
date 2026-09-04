@@ -1087,6 +1087,7 @@ export function ReportSessionView({
             ctaNoun="Rapport"
             exposedContactsCount={reportRun?.contact_ids.length ?? null}
             exposedAccountsCount={reportRun?.account_ids.length ?? null}
+            audienceVisible={step >= 2}
             planVisible={step >= 3}
             activeFiltersCount={activeFilters.total}
             secteursCount={activeFilters.secteurs}

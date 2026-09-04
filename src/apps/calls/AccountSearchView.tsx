@@ -742,7 +742,7 @@ export function AccountSearchView({
 
       {truncated && (
         <GlassCard className="calls-truncated-banner" role="status">
-          <p>Résultats partiels : affinez votre recherche.</p>
+          <p>Limite de résultats atteinte — utilisez des filtres plus précis pour voir tous les comptes.</p>
         </GlassCard>
       )}
 
