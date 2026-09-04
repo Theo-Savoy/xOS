@@ -1997,7 +1997,6 @@ export default function CallManagerApp({
         {view === 'pilotage' && (
           <div className="calls-hub-transition" key="pilotage">
             <PilotageView
-              onBack={goToSessions}
               onPin={handlePinPilotage}
               onOpenSuivi={() => setView('rdv-suivi')}
             />
@@ -2006,7 +2005,7 @@ export default function CallManagerApp({
 
         {view === 'rdv-suivi' && (
           <div className="calls-hub-transition" key="rdv-suivi">
-            <RdvSuiviView onBack={goToSessions} />
+            <RdvSuiviView />
           </div>
         )}
 

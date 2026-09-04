@@ -98,18 +98,9 @@ export function CalendarView({
   };
 
   return (
-    <div className="calls-view calls-calendar-view" aria-busy={loading}>
+    <div className="calls-view calls-calendar-view" aria-busy={loading} aria-label="Calendrier">
       <header className="calls-view__header">
-        <div>
-          <h2>Calendrier</h2>
-          <p className="calls-view__subtitle">
-            Retrouvez vos séances par jour.
-          </p>
-        </div>
         <div className="calls-view__actions">
-          <Button variant="secondary" onClick={onRefresh} disabled={loading}>
-            Actualiser
-          </Button>
           <Button onClick={onNewSession}>Nouvelle séance</Button>
         </div>
       </header>

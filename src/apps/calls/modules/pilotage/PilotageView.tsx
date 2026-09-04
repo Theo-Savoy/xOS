@@ -443,11 +443,9 @@ function CommercialCard({
 }
 
 export function PilotageView({
-  onBack,
   onPin,
   onOpenSuivi,
 }: {
-  onBack: () => void;
   onPin?: () => Promise<void>;
   onOpenSuivi?: () => void;
 }) {
@@ -762,15 +760,8 @@ export function PilotageView({
   };
 
   return (
-    <div className="calls-view pilotage-app">
+    <div className="calls-view pilotage-app" aria-label="Pilotage">
       <header className="calls-view__header pilotage-header">
-        <div>
-          <Tag variant="accent">Combo</Tag>
-          <h2>Pilotage</h2>
-          <p className="pilotage-header__sub">
-            L’équipe en un coup d’œil · {periodLabel}
-          </p>
-        </div>
         <div className="calls-view__actions pilotage-header__actions">
           <div
             className="pilotage-period-nav"
@@ -900,9 +891,6 @@ export function PilotageView({
               {pinned ? 'Épinglé ✓' : 'Épingler au bureau'}
             </Button>
           )}
-          <Button variant="secondary" onClick={onBack}>
-            Retour
-          </Button>
         </div>
       </header>
 

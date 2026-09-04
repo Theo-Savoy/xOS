@@ -1376,6 +1376,7 @@ export function RunnerView({
   return (
     <div
       className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
+      aria-label={isRecallQueue ? 'Rappels' : undefined}
     >
       {toast?.kind === 'plain' && (
         <div className="calls-runner-toast" role="status">
@@ -1425,46 +1426,46 @@ export function RunnerView({
         goalHit={goalBurst}
       />
       <header className="calls-view__header calls-view__header--runner">
-        <div className="calls-view__nav">
-          <Button
-            variant="secondary"
-            className="calls-view__back"
-            onClick={onBack}
-          >
-            Quitter
-          </Button>
-          <div className="calls-view__titleblock">
-            {isPowerActive ? (
-              <h2>
-                {isRecallQueue ? 'Rappels' : session.name}
-                <span
-                  className="calls-power-indicator"
-                  aria-label="Mode Power actif"
-                >
+        {!isRecallQueue && (
+          <div className="calls-view__nav">
+            <Button
+              variant="secondary"
+              className="calls-view__back"
+              onClick={onBack}
+            >
+              Quitter
+            </Button>
+            <div className="calls-view__titleblock">
+              {isPowerActive ? (
+                <h2>
+                  {session.name}
                   <span
-                    className="calls-power-indicator__dot"
-                    aria-hidden="true"
-                  />
-                  Power
-                </span>
-              </h2>
-            ) : (
-              <>
-                <div className="calls-view__title-tags">
-                  <Tag variant="accent">
-                    {isRecallQueue ? 'File de rappels' : 'Cockpit'}
-                  </Tag>
-                </div>
-                <h2>{isRecallQueue ? 'Rappels' : session.name}</h2>
-              </>
-            )}
-            {!isRecallQueue && (session.members?.length ?? 0) > 0 && (
-              <p className="calls-muted calls-share-hint">
-                Partagée avec {session.members!.map((m) => m.label).join(', ')}
-              </p>
-            )}
+                    className="calls-power-indicator"
+                    aria-label="Mode Power actif"
+                  >
+                    <span
+                      className="calls-power-indicator__dot"
+                      aria-hidden="true"
+                    />
+                    Power
+                  </span>
+                </h2>
+              ) : (
+                <>
+                  <div className="calls-view__title-tags">
+                    <Tag variant="accent">Cockpit</Tag>
+                  </div>
+                  <h2>{session.name}</h2>
+                </>
+              )}
+              {(session.members?.length ?? 0) > 0 && (
+                <p className="calls-muted calls-share-hint">
+                  Partagée avec {session.members!.map((m) => m.label).join(', ')}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         <div className="calls-view__actions">
           {(!isPowerActive ||
             (!powerRunning && !powerConversation && !powerHangupRetryable)) && (

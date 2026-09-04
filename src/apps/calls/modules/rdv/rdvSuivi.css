@@ -24,13 +24,6 @@
   flex-wrap: wrap;
 }
 
-.rdv-suivi__title {
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--xos-text);
-  margin: 0;
-}
-
 /* Sélecteur de période — positionnement (styles via calls-seg) */
 .rdv-suivi__periods {
   margin-left: auto;

@@ -17,7 +17,6 @@ import {
 import './rdvSuivi.css';
 
 type RdvSuiviViewProps = {
-  onBack: () => void;
   teamSfUserIds?: string[];
 };
 
@@ -123,7 +122,7 @@ function periodRange(period: Period): { start: string; end: string } | null {
   };
 }
 
-export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
+export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
   const { session } = useSession();
   const token = session?.access_token ?? '';
 
@@ -284,13 +283,8 @@ export function RdvSuiviView({ onBack, teamSfUserIds }: RdvSuiviViewProps) {
   }
 
   return (
-    <div className="rdv-suivi">
+    <div className="rdv-suivi" aria-label="Suivi des rendez-vous">
       <header className="rdv-suivi__header">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          ← Retour
-        </Button>
-        <h1 className="rdv-suivi__title">Suivi RDV</h1>
-
         {/* Sélecteur de période — pattern standard calls-seg */}
         <div
           className="calls-seg rdv-suivi__periods"
