@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Checkbox, EmptyState, GlassCard, Tag } from '../../../../../components/ui';
-import type { ResultatCall } from '../../../../../crm';
+import {
+  RELANCE_DEFAULT_RESULTATS,
+  type ResultatCall,
+} from '../../../../../crm';
 import { RESULTAT_OPTIONS } from '../../../types';
 import type {
   ContactContext,
@@ -12,12 +15,13 @@ import { EventPanel } from '../../../EventPanel';
 import { ResultButtons } from '../../../ResultButtons';
 import { ContactCardPanel } from '../ContactCardPanel';
 import { RecallFields } from '../../rdv/RecallFields';
+import { addDaysIso, readDefaultRecallDays } from '../runnerFormatters';
 import type { LogPayload } from '../RunnerView.types';
-
 export interface ContactWorkspaceProps {
   contact: SessionContact | null;
   contactContext: ContactContext | null;
   contextContactId: number | null;
+  contextTargetContactId?: number | null;
   loading: boolean;
   onFocusContact: (contactId: number) => void;
   onLogAndNext: (contactId: number, payload: LogPayload) => void;
@@ -42,12 +46,19 @@ export interface ContactWorkspaceProps {
     subject: string;
     ownerSfUserId: string | null;
   }) => void;
+  onLogEvent?: (
+    start: string,
+    durationMin: number,
+    meta: { subject: string; ownerSfUserId: string | null },
+  ) => void;
+  onCelebrateGoal?: (payload: { goal: number; count: number }) => void;
 }
 
 export function ContactWorkspace({
   contact,
   contactContext,
   contextContactId,
+  contextTargetContactId,
   loading,
   onLogAndNext,
   onLogRdvAndNext,
@@ -57,15 +68,35 @@ export function ContactWorkspace({
   sessionType,
   awaitingEvent,
   onFinalizeEvent,
+  onLogEvent,
 }: ContactWorkspaceProps) {
   const [resultat, setResultat] = useState<ResultatCall>(
     RESULTAT_OPTIONS[0].value,
   );
   const [comments, setComments] = useState('');
-  const [recallAt, setRecallAt] = useState('');
-  const [scheduleRecall, setScheduleRecall] = useState(true);
+  const [recallAt, setRecallAt] = useState(() =>
+    addDaysIso(readDefaultRecallDays()),
+  );
+  const [scheduleRecall, setScheduleRecall] = useState(() =>
+    RELANCE_DEFAULT_RESULTATS.includes(RESULTAT_OPTIONS[0].value),
+  );
   const [doNotCall, setDoNotCall] = useState(false);
 
+  // Synchronisation de l'ACW au changement de contact actif
+  useEffect(() => {
+    setResultat(RESULTAT_OPTIONS[0].value);
+    setComments('');
+    setDoNotCall(false);
+    setScheduleRecall(
+      RELANCE_DEFAULT_RESULTATS.includes(RESULTAT_OPTIONS[0].value),
+    );
+    setRecallAt(addDaysIso(readDefaultRecallDays()));
+  }, [contact?.id]);
+
+  // Synchronisation du rappel par défaut lors du changement de résultat
+  useEffect(() => {
+    setScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(resultat));
+  }, [resultat]);
   if (!contact) {
     return (
       <main
@@ -82,7 +113,15 @@ export function ContactWorkspace({
   }
 
   const contextApplies = Boolean(
-    contactContext && contextContactId === contact.id,
+    contactContext &&
+      contact &&
+      (contextContactId == null || contextContactId === contact.id),
+  );
+  const contextBusy = Boolean(
+    loading ||
+      (contact &&
+        contextTargetContactId === contact.id &&
+        contextContactId !== contact.id),
   );
   const sfContactUrl =
     contextApplies && contactContext?.contact_record_url
@@ -130,6 +169,16 @@ export function ContactWorkspace({
     }
     setComments('');
   };
+  const handleDefaultRecallDaysChange = (days: number) => {
+    // Producteur de défaut rappel : persisté dans localStorage et met à jour recallAt
+    try {
+      localStorage.setItem('xos_calls_default_recall_days', String(days));
+    } catch {
+      /* ignore */
+    }
+    setRecallAt(addDaysIso(days));
+  };
+
 
   return (
     <main
@@ -147,7 +196,7 @@ export function ContactWorkspace({
           displayEmail={contact.email ?? null}
           sfContactUrl={sfContactUrl}
           contextApplies={contextApplies}
-          contextBusy={loading}
+          contextBusy={contextBusy}
           contactContext={contextApplies ? contactContext : null}
           isRecallQueue={false}
           onUpdateRecall={onUpdateRecall ?? (() => {})}
@@ -170,7 +219,9 @@ export function ContactWorkspace({
               durationMin: number,
               meta: { subject: string; ownerSfUserId: string | null },
             ) => {
-              if (onFinalizeEvent) {
+              if (onLogEvent) {
+                onLogEvent(start, durationMin, meta);
+              } else if (onFinalizeEvent) {
                 onFinalizeEvent({
                   start,
                   durationMin,
@@ -231,7 +282,7 @@ export function ContactWorkspace({
                   onScheduleRecallChange={setScheduleRecall}
                   recallAt={recallAt}
                   onRecallAtChange={setRecallAt}
-                  onDefaultRecallDaysChange={() => {}}
+                  onDefaultRecallDaysChange={handleDefaultRecallDaysChange}
                 />
 
                 <Checkbox

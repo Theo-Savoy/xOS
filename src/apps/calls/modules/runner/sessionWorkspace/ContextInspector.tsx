@@ -7,6 +7,8 @@ import { formatRelativeDaysFr } from '../runnerFormatters';
 
 export interface ContextInspectorProps {
   contactContext: ContactContext | null;
+  contextContactId?: number | null;
+  contextTargetContactId?: number | null;
   loading: boolean;
   contact: SessionContact | null;
   /** Replié en sheet pour les largeurs <720px et 720-899px (Plan §1) */
@@ -16,11 +18,24 @@ export interface ContextInspectorProps {
 
 export function ContextInspector({
   contactContext,
+  contextContactId,
+  contextTargetContactId,
   loading,
   contact,
   isSheet = false,
   onCloseSheet,
 }: ContextInspectorProps) {
+  const contextApplies = Boolean(
+    contact &&
+      contactContext &&
+      (contextContactId == null || contextContactId === contact.id),
+  );
+  const contextBusy = Boolean(
+    loading ||
+      (contact &&
+        contextTargetContactId === contact.id &&
+        contextContactId !== contact.id),
+  );
   return (
     <aside
       className={`calls-workspace__inspector ${isSheet ? 'calls-workspace__inspector--sheet' : ''}`}
@@ -43,12 +58,14 @@ export function ContextInspector({
       </div>
 
       <div className="calls-workspace__inspector-content">
-        {loading ? (
+        {contextBusy ? (
           <ContextSideSkeleton />
-        ) : !contact || !contactContext ? (
+        ) : !contact || !contactContext || !contextApplies ? (
           <GlassCard className="calls-context-panel">
             <p className="calls-muted">
-              Aucun contexte CRM disponible pour ce contact.
+              {!contact
+                ? 'Aucun contact sélectionné.'
+                : 'Aucun contexte CRM disponible pour ce contact.'}
             </p>
           </GlassCard>
         ) : (

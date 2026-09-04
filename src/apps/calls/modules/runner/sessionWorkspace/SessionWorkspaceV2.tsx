@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, GlassCard, Skeleton } from '../../../../../components/ui';
 import { RunnerView } from '../RunnerView';
 import { ContactWorkspace } from './ContactWorkspace';
@@ -32,38 +32,78 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     awaitingEvent,
     contactContext,
     contextContactId,
+    contextTargetContactId,
     onBack,
     onPin,
     onShareSession,
     onFocusContact,
     onLogAndNext,
     onLogRdvAndNext,
+    onLogEvent,
     onUpdateRecall,
+    onCelebrateGoal,
     team = [],
     currentSfUserId = null,
     currentUserId = null,
     canPowerDialer = false,
   } = props;
 
-  // Contact actif : props.focusedContactId prioritaire, puis currentContact, puis 1er contact
+  // Contact actif : props.focusedContactId prioritaire, puis awaitingEvent, puis currentContact, puis 1er contact
   const [internalFocusedId, setInternalFocusedId] = useState<number | null>(
-    () => focusedContactId ?? currentContact?.id ?? (contacts[0]?.id ?? null),
+    () =>
+      awaitingEvent?.id ??
+      focusedContactId ??
+      currentContact?.id ??
+      (contacts[0]?.id ?? null),
   );
 
+  // Bootstrap initial : si aucun focus explicite, focaliser le contact courant pour déclencher claim & contexte
+  const bootstrappedRef = useRef(false);
   useEffect(() => {
+    if (bootstrappedRef.current) return;
+    if (focusedContactId != null) {
+      bootstrappedRef.current = true;
+      return;
+    }
+    if (currentContact && currentContact.status === 'pending') {
+      bootstrappedRef.current = true;
+      onFocusContact(currentContact.id);
+    }
+  }, [focusedContactId, currentContact, onFocusContact]);
+
+  // Synchronisation du focus lors du changement des props
+  useEffect(() => {
+    if (awaitingEvent?.id != null) {
+      setInternalFocusedId(awaitingEvent.id);
+      return;
+    }
     if (focusedContactId != null) {
       setInternalFocusedId(focusedContactId);
-    } else if (currentContact?.id != null) {
-      setInternalFocusedId(currentContact.id);
+      return;
     }
-  }, [focusedContactId, currentContact?.id]);
+    if (currentContact?.id != null) {
+      setInternalFocusedId(currentContact.id);
+    } else {
+      setInternalFocusedId((prev) => {
+        if (prev != null && contacts.some((c) => c.id === prev)) return prev;
+        return contacts[0]?.id ?? null;
+      });
+    }
+  }, [awaitingEvent?.id, focusedContactId, currentContact?.id, contacts]);
 
   const focusedContact = useMemo(() => {
+    if (awaitingEvent) return awaitingEvent;
     if (!contacts.length) return null;
-    return (
-      contacts.find((c) => c.id === internalFocusedId) ?? contacts[0] ?? null
-    );
-  }, [contacts, internalFocusedId]);
+    if (internalFocusedId != null) {
+      return (
+        contacts.find((c) => c.id === internalFocusedId) ??
+        currentContact ??
+        contacts[0] ??
+        null
+      );
+    }
+    return currentContact ?? contacts[0] ?? null;
+  }, [awaitingEvent, contacts, currentContact, internalFocusedId]);
 
   // Gestion du mode Power (placeholder L2)
   const [isPowerActive, setIsPowerActive] = useState(false);
@@ -79,7 +119,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       powerOn: isPowerActive,
       powerAvailable: canPowerDialer,
       hasConnectedLine: false,
-      isAcw: false,
+      isAcw: false, // L3 : restera false tant que la machine Power L4 n'existe pas (repli rail ACW = L4)
       isRunning: false,
       hangupRetryable: false,
     });
@@ -131,9 +171,9 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
             <Skeleton height="3rem" />
             <Skeleton height="15rem" />
           </div>
-        ) : error ? (
-          <GlassCard className="calls-workspace__error" role="alert">
-            <p>{error}</p>
+        ) : error && contacts.length === 0 ? (
+          <GlassCard className="calls-workspace__error calls-error" role="alert">
+            <p aria-live="assertive">{error}</p>
           </GlassCard>
         ) : contacts.length === 0 ? (
           <EmptyState
@@ -141,7 +181,16 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
             description="Aucun contact dans cette séance."
           />
         ) : (
-          <div className="calls-workspace__layout">
+          <>
+            {error && (
+              <GlassCard
+                className="calls-workspace__error calls-error"
+                role="alert"
+              >
+                <p aria-live="assertive">{error}</p>
+              </GlassCard>
+            )}
+            <div className="calls-workspace__layout">
             {/* Colonne 1 : File persistante (Queue) */}
             <SessionQueue
               contacts={contacts}
@@ -157,10 +206,13 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               contact={focusedContact}
               contactContext={contactContext}
               contextContactId={contextContactId}
+              contextTargetContactId={contextTargetContactId}
               loading={loading}
               onFocusContact={handleFocusContact}
               onLogAndNext={onLogAndNext}
               onLogRdvAndNext={onLogRdvAndNext}
+              onLogEvent={onLogEvent}
+              onCelebrateGoal={onCelebrateGoal}
               onUpdateRecall={onUpdateRecall}
               team={team}
               currentSfUserId={currentSfUserId}
@@ -171,10 +223,13 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
             {/* Colonne 3 : Contexte CRM en lecture */}
             <ContextInspector
               contactContext={contactContext}
+              contextContactId={contextContactId}
+              contextTargetContactId={contextTargetContactId}
               loading={loading}
               contact={focusedContact}
             />
           </div>
+        </>
         )}
       </div>
 
@@ -187,6 +242,8 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
           <div onClick={(e) => e.stopPropagation()}>
             <ContextInspector
               contactContext={contactContext}
+              contextContactId={contextContactId}
+              contextTargetContactId={contextTargetContactId}
               loading={loading}
               contact={focusedContact}
               isSheet
