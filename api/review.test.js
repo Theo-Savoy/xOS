@@ -150,10 +150,70 @@ describe('GET /api/review — resources business', () => {
     expect(body.period).toEqual({
       granularity: 'semester',
       semester: 'S1',
+      quarter: null,
       label: 'FY26 S1',
       compare_label: 'FY25 S1',
     });
     expect(Array.isArray(body.cards)).toBe(true);
     expect(body.analysis).toEqual({ status: 'none' });
+  });
+
+  it('accepte le trimestre sur overview', async () => {
+    mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
+    mockGetServiceClient.mockReturnValue({ from: vi.fn() });
+    mockGetProfile.mockResolvedValue({
+      role: 'manager',
+      sfUserId: '005MGR',
+      fullName: 'Morgane',
+      error: null,
+    });
+    mockFetchSFToken.mockResolvedValue({ accessToken: 'token-sf' });
+    mockSearchContacts.mockResolvedValue({ records: [] });
+    const response = await GET(
+      request('/api/review?resource=overview&fy=FY26&quarter=Q2'),
+    );
+    expect(response.status).not.toBe(400);
+    const body = await response.json();
+    expect(body.period).toEqual({
+      granularity: 'quarter',
+      semester: null,
+      quarter: 'Q2',
+      label: 'FY26 T2',
+      compare_label: 'FY25 T2',
+    });
+  });
+
+  it('rejette un quarter invalide', async () => {
+    mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
+    mockGetServiceClient.mockReturnValue({ from: vi.fn() });
+    mockGetProfile.mockResolvedValue({
+      role: 'manager',
+      sfUserId: '005MGR',
+      fullName: 'Morgane',
+      error: null,
+    });
+    const response = await GET(
+      request('/api/review?resource=overview&fy=FY26&quarter=Q5'),
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('invalid_quarter');
+  });
+
+  it('rejette le trimestre sur les vues annuelles (portfolio)', async () => {
+    mockVerifyJWT.mockResolvedValue({ id: 'user-mgr' });
+    mockGetServiceClient.mockReturnValue({ from: vi.fn() });
+    mockGetProfile.mockResolvedValue({
+      role: 'manager',
+      sfUserId: '005MGR',
+      fullName: 'Morgane',
+      error: null,
+    });
+    const response = await GET(
+      request('/api/review?resource=portfolio&fy=FY26&quarter=Q1'),
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('annual_only_resource');
   });
 });

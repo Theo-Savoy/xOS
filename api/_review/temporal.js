@@ -1,5 +1,6 @@
 import mapping from '../_crm/mapping.js';
 import { quarterBounds } from './period.js';
+export const QUARTER_LABELS = { Q1: 'T1', Q2: 'T2', Q3: 'T3', Q4: 'T4' };
 
 const { opportunity: opp, event: evt } = mapping.objects;
 
@@ -21,12 +22,15 @@ function inBounds(value, bounds) {
   return day >= bounds.from && day < bounds.toExclusive;
 }
 
-export function filterWindowBySemester(window, semester) {
+export function filterWindowByPeriod(window, mode, periodValue) {
   return Object.fromEntries(
     Object.entries(window || {}).map(([fy, bucket]) => {
       const fyInt = fyIntOfLabel(fy);
       if (fyInt === null) return [fy, bucket];
-      const bounds = semesterBounds(fyInt, semester);
+      const bounds =
+        mode === 'quarter'
+          ? quarterBounds(fyInt, Number(periodValue.slice(1)))
+          : semesterBounds(fyInt, periodValue);
       return [
         fy,
         {
@@ -45,12 +49,23 @@ export function filterWindowBySemester(window, semester) {
   );
 }
 
-export function filterEventsBySemester(window, semester) {
+export function filterWindowBySemester(window, semester) {
+  return filterWindowByPeriod(window, 'semester', semester);
+}
+
+export function filterWindowByQuarter(window, quarter) {
+  return filterWindowByPeriod(window, 'quarter', quarter);
+}
+
+export function filterEventsByPeriod(window, mode, periodValue) {
   return Object.fromEntries(
     Object.entries(window || {}).map(([fy, rows]) => {
       const fyInt = fyIntOfLabel(fy);
       if (fyInt === null) return [fy, rows];
-      const bounds = semesterBounds(fyInt, semester);
+      const bounds =
+        mode === 'quarter'
+          ? quarterBounds(fyInt, Number(periodValue.slice(1)))
+          : semesterBounds(fyInt, periodValue);
       return [
         fy,
         (rows || []).filter((row) =>
@@ -59,4 +74,12 @@ export function filterEventsBySemester(window, semester) {
       ];
     }),
   );
+}
+
+export function filterEventsBySemester(window, semester) {
+  return filterEventsByPeriod(window, 'semester', semester);
+}
+
+export function filterEventsByQuarter(window, quarter) {
+  return filterEventsByPeriod(window, 'quarter', quarter);
 }

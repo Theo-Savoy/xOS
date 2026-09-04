@@ -57,6 +57,26 @@ describe('PeriodSelector', () => {
     expect(screen.getByText('01/01/2026 → 30/06/2026')).toBeTruthy();
   });
 
+  it('bascule de FY vers Trimestre avec T1 à T4', () => {
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trimestre' }));
+
+    expect(
+      screen
+        .getByRole('button', { name: 'Trimestre' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Par défaut, quarter n'est pas défini dans le mode FY du Harness initial,
+    // mais on s'assure qu'on peut cliquer sur T2
+    fireEvent.click(screen.getByRole('button', { name: 'T2' }));
+    expect(
+      screen.getByRole('button', { name: 'T2' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(screen.getByText('01/10/2025 → 31/12/2025')).toBeTruthy();
+  });
+
   it('propose FY22 à FY26 dans le sélecteur d’exercice', () => {
     render(<Harness />);
 

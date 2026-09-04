@@ -35,7 +35,10 @@ import { listShared, createShared, revokeShared } from './_review/shared.js';
 import {
   filterEventsBySemester,
   filterWindowBySemester,
-} from './_review/semester.js';
+  filterEventsByQuarter,
+  filterWindowByQuarter,
+  QUARTER_LABELS,
+} from './_review/temporal.js';
 import { arrCatalogueOpps, fyRange } from './_business-review/soql.js';
 import { fetchEventsWindow, fetchFyWindow } from './_business-review/fetch.js';
 import { computeOverview } from './_business-review/overview.js';
@@ -112,11 +115,27 @@ function withSemester(fetched, semester) {
   };
 }
 
+function withQuarter(fetched, quarter) {
+  if (!quarter) return fetched;
+  return {
+    ...fetched,
+    window: filterWindowByQuarter(fetched.window, quarter),
+  };
+}
+
 function eventsWithSemester(fetched, semester) {
   if (!semester) return fetched;
   return {
     ...fetched,
     window: filterEventsBySemester(fetched.window, semester),
+  };
+}
+
+function eventsWithQuarter(fetched, quarter) {
+  if (!quarter) return fetched;
+  return {
+    ...fetched,
+    window: filterEventsByQuarter(fetched.window, quarter),
   };
 }
 
@@ -279,10 +298,14 @@ async function reviewHandler(request) {
       });
     }
     const semester = url.searchParams.get('semester');
+    const quarter = url.searchParams.get('quarter');
     if (semester && semester !== 'S1' && semester !== 'S2') {
       return json(400, { error: 'invalid_semester', hint: 'S1 ou S2' });
     }
-    if (semester && ANNUAL_ONLY_RESOURCES.includes(resource)) {
+    if (quarter && !/^Q[1-4]$/.test(quarter)) {
+      return json(400, { error: 'invalid_quarter', hint: 'Q1 à Q4' });
+    }
+    if ((semester || quarter) && ANNUAL_ONLY_RESOURCES.includes(resource)) {
       return json(400, {
         error: 'annual_only_resource',
         hint: 'Cette lecture dépend des ETP annuels ou de la cohorte au 30/06.',
@@ -290,10 +313,11 @@ async function reviewHandler(request) {
     }
 
     const period = {
-      granularity: semester ? 'semester' : 'year',
+      granularity: quarter ? 'quarter' : semester ? 'semester' : 'year',
       semester: semester || null,
-      label: `${fyParsed.label}${semester ? ` ${semester}` : ''}`,
-      compare_label: `${compareParsed.label}${semester ? ` ${semester}` : ''}`,
+      quarter: quarter || null,
+      label: `${fyParsed.label}${quarter ? ` ${QUARTER_LABELS[quarter]}` : semester ? ` ${semester}` : ''}`,
+      compare_label: `${compareParsed.label}${quarter ? ` ${QUARTER_LABELS[quarter]}` : semester ? ` ${semester}` : ''}`,
     };
 
     const token = await sfToken(client, user);
@@ -302,10 +326,8 @@ async function reviewHandler(request) {
     try {
       if (resource === 'overview') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const overview = computeOverview(fetched.window);
         return sectionJson({
           resource: 'overview',
@@ -320,10 +342,8 @@ async function reviewHandler(request) {
 
       if (resource === 'bridge') {
         const fyInts = fyRange(compareParsed.fyInt, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const prevWon = fetched.window[compareParsed.label]?.won || [];
         const currWon = fetched.window[fyParsed.label]?.won || [];
         const prevNew = splitNewRenew(prevWon).new;
@@ -362,10 +382,8 @@ async function reviewHandler(request) {
 
       if (resource === 'product') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const product = computeProduct(fetched.window);
         return sectionJson({
           resource: 'product',
@@ -380,10 +398,8 @@ async function reviewHandler(request) {
 
       if (resource === 'cycles') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const cycles = computeCycles(fetched.window);
         return sectionJson({
           resource: 'cycles',
@@ -407,8 +423,8 @@ async function reviewHandler(request) {
           loadFte(client),
           fetchEventsWindow(token, fyInts),
         ]);
-        const fetched = withSemester(rawFetched, semester);
-        const events = eventsWithSemester(rawEvents, semester);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
+        const events = quarter ? eventsWithQuarter(rawEvents, quarter) : eventsWithSemester(rawEvents, semester);
         const commercial = computeCommercial(
           fetched.window,
           fte,
@@ -437,10 +453,8 @@ async function reviewHandler(request) {
 
       if (resource === 'market') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const market = computeMarket(fetched.window, {
           fy: fyParsed.label,
           compare: compareParsed.label,
@@ -494,10 +508,8 @@ async function reviewHandler(request) {
 
       if (resource === 'channels') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const channels = computeChannels(fetched.window, fyParsed.label);
         return sectionJson({
           resource: 'channels',
@@ -514,10 +526,8 @@ async function reviewHandler(request) {
 
       if (resource === 'quality') {
         const fyInts = fyRange(BUSINESS_FROM_FY, fyParsed.fyInt);
-        const fetched = withSemester(
-          await fetchFyWindow(token, fyInts),
-          semester,
-        );
+        const rawFetched = await fetchFyWindow(token, fyInts);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         const quality = computeQuality(fetched.window, fyParsed.label);
         return sectionJson({
           resource: 'quality',
@@ -540,7 +550,7 @@ async function reviewHandler(request) {
           fetchFyWindow(token, fyInts),
           loadFte(client),
         ]);
-        const fetched = withSemester(rawFetched, semester);
+        const fetched = quarter ? withQuarter(rawFetched, quarter) : withSemester(rawFetched, semester);
         let arrRecords = [];
         try {
           arrRecords = await crmRecords(token, arrCatalogueOpps());
@@ -595,6 +605,7 @@ async function reviewHandler(request) {
           fy: fyParsed.label,
           compare: compareParsed.label,
           semester: semester || null,
+          quarter: quarter || null,
           catalogue,
           market,
           portfolio,

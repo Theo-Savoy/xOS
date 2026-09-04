@@ -4,8 +4,10 @@ import {
   comparisonFy,
   fyIntFromLabel,
   periodRangeLabel,
+  QUARTER_LABELS,
   type PeriodSelection,
   type ReviewPeriodMode,
+  type ReviewQuarter,
   type ReviewSemester,
 } from '../review.period';
 
@@ -14,9 +16,11 @@ export type { PeriodSelection } from '../review.period';
 const MODES: { value: ReviewPeriodMode; label: string }[] = [
   { value: 'fy', label: 'FY' },
   { value: 'semester', label: 'Semestre' },
+  { value: 'quarter', label: 'Trimestre' },
 ];
 
 const SEMESTERS: ReviewSemester[] = ['S1', 'S2'];
+const QUARTERS: ReviewQuarter[] = ['Q1', 'Q2', 'Q3', 'Q4'];
 
 export function PeriodSelector({
   value,
@@ -158,6 +162,35 @@ export function PeriodSelector({
               onClick={() => onChange({ ...value, semester })}
             >
               {semester}
+            </Button>
+          ))}
+        </div>
+      ) : value.mode === 'quarter' ? (
+        <div
+          className="review-period-switch"
+          role="group"
+          aria-label="Trimestre"
+          style={{
+            '--options-count': QUARTERS.length,
+            '--active-index': Math.max(
+              0,
+              QUARTERS.findIndex((q) => q === value.quarter),
+            ),
+          } as React.CSSProperties}
+        >
+          {QUARTERS.map((quarter) => (
+            <Button
+              key={quarter}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={
+                value.quarter === quarter ? 'review-period-button--active' : ''
+              }
+              aria-pressed={value.quarter === quarter}
+              onClick={() => onChange({ ...value, quarter })}
+            >
+              {QUARTER_LABELS[quarter]}
             </Button>
           ))}
         </div>
