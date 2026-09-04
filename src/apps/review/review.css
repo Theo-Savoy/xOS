@@ -323,6 +323,29 @@
   font-size: 11px;
 }
 
+/* Légende statique (remplace le <Legend> recharts, qui boucle au resize). */
+.review-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xos-space-3) var(--xos-space-4);
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--xos-text-secondary);
+}
+
+.review-chart-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+}
+
+.review-chart-legend__swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
 .review-chart-card .recharts-cartesian-axis-line,
 .review-chart-card .recharts-cartesian-axis-tick-line,
 .review-section .recharts-cartesian-axis-line,

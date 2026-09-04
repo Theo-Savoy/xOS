@@ -2,12 +2,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   XAxis,
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur } from '../review.helpers';
@@ -85,7 +85,6 @@ export function ProductTrendSection({
             <ReviewChartTooltip
               content={<ChartTooltip valueFormatter={(v) => fmtEur(v)} />}
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar dataKey="Catalogue" fill="var(--xos-chart-current)" radius={[4, 4, 0, 0]} />
             <Bar
               dataKey="Sur-mesure"
@@ -95,6 +94,13 @@ export function ProductTrendSection({
             <Bar dataKey="Conseil" fill="var(--xos-chart-compare)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Catalogue', color: 'var(--xos-chart-current)' },
+            { label: 'Sur-mesure', color: 'var(--xos-chart-mid)' },
+            { label: 'Conseil', color: 'var(--xos-chart-compare)' },
+          ]}
+        />
         <p className="review-section-note">
           {scope === 'total'
             ? 'CA signé par exercice et par produit, renouvellements inclus.'

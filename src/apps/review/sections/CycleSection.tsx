@@ -1,6 +1,5 @@
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -8,6 +7,7 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -120,7 +120,6 @@ export function CycleSection({
                 <ChartTooltip valueFormatter={(value) => fmtDays(value)} />
               }
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Line
               type="monotone"
               dataKey="Médiane"
@@ -137,6 +136,12 @@ export function CycleSection({
             />
           </LineChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Médiane', color: 'var(--xos-chart-current)' },
+            { label: 'Moyenne', color: 'var(--xos-chart-compare)' },
+          ]}
+        />
       </GlassCard>
 
       <GlassCard className="review-chart-card">
