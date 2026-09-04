@@ -60,20 +60,29 @@ describe('PeriodSelector', () => {
   it('propose FY22 à FY26 dans le sélecteur d’exercice', () => {
     render(<Harness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Exercice' }));
+    const group = screen.getByRole('group', { name: 'Exercice' });
+    const buttons = Array.from(group.querySelectorAll('button'));
 
-    expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
-    ).toEqual(['FY22', 'FY23', 'FY24', 'FY25', 'FY26']);
+    expect(buttons.map((btn) => btn.textContent)).toEqual([
+      'FY22',
+      'FY23',
+      'FY24',
+      'FY25',
+      'FY26',
+    ]);
   });
   it('propose les exercices strictement antérieurs (min FY22) dans Comparer avec', () => {
     render(<Harness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Comparer avec' }));
+    const group = screen.getByRole('group', { name: 'Comparer avec' });
+    const buttons = Array.from(group.querySelectorAll('button'));
 
-    expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
-    ).toEqual(['FY22', 'FY23', 'FY24', 'FY25']);
+    expect(buttons.map((btn) => btn.textContent)).toEqual([
+      'FY22',
+      'FY23',
+      'FY24',
+      'FY25',
+    ]);
   });
 
   it('affiche les bornes FY avant de basculer en semestre', () => {

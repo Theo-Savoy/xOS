@@ -1,4 +1,4 @@
-import { Button, Select } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import {
   FY_OPTIONS,
   comparisonFy,
@@ -46,6 +46,10 @@ export function PeriodSelector({
         className="review-period-switch"
         role="group"
         aria-label="Granularité"
+        style={{
+          '--options-count': MODES.length,
+          '--active-index': MODES.findIndex((m) => m.value === value.mode),
+        } as React.CSSProperties}
       >
         {MODES.map((mode) => (
           <Button
@@ -63,34 +67,81 @@ export function PeriodSelector({
           </Button>
         ))}
       </div>
-      <Select
+      <div
+        className="review-period-switch"
+        role="group"
         aria-label="Exercice"
-        value={value.fy}
-        onChange={(fy) => {
-          const newFyInt = fyIntFromLabel(fy);
-          const nextCompare =
-            value.compare &&
-            fyIntFromLabel(value.compare) < newFyInt &&
-            fyIntFromLabel(value.compare) >= 22
-              ? value.compare
-              : comparisonFy(fy);
-          onChange({ ...value, fy, compare: nextCompare });
-        }}
-        options={FY_OPTIONS}
-      />
+        style={{
+          '--options-count': FY_OPTIONS.length,
+          '--active-index': FY_OPTIONS.findIndex((o) => o.value === value.fy),
+        } as React.CSSProperties}
+      >
+        {FY_OPTIONS.map((opt) => (
+          <Button
+            key={opt.value}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={
+              value.fy === opt.value ? 'review-period-button--active' : ''
+            }
+            aria-pressed={value.fy === opt.value}
+            onClick={() => {
+              const fy = opt.value;
+              const newFyInt = fyIntFromLabel(fy);
+              const nextCompare =
+                value.compare &&
+                fyIntFromLabel(value.compare) < newFyInt &&
+                fyIntFromLabel(value.compare) >= 22
+                  ? value.compare
+                  : comparisonFy(fy);
+              onChange({ ...value, fy, compare: nextCompare });
+            }}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
       {compareOptions.length > 0 ? (
-        <Select
+        <div
+          className="review-period-switch"
+          role="group"
           aria-label="Comparer avec"
-          value={currentCompare}
-          onChange={(compare) => onChange({ ...value, compare })}
-          options={compareOptions}
-        />
+          style={{
+            '--options-count': compareOptions.length,
+            '--active-index': compareOptions.findIndex(
+              (o) => o.value === currentCompare
+            ),
+          } as React.CSSProperties}
+        >
+          {compareOptions.map((opt) => (
+            <Button
+              key={opt.value}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={
+                currentCompare === opt.value
+                  ? 'review-period-button--active'
+                  : ''
+              }
+              aria-pressed={currentCompare === opt.value}
+              onClick={() => onChange({ ...value, compare: opt.value })}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
       ) : null}
       {value.mode === 'semester' ? (
         <div
           className="review-period-switch"
           role="group"
           aria-label="Semestre"
+          style={{
+            '--options-count': SEMESTERS.length,
+            '--active-index': SEMESTERS.findIndex((s) => s === value.semester),
+          } as React.CSSProperties}
         >
           {SEMESTERS.map((semester) => (
             <Button
