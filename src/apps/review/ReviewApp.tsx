@@ -397,6 +397,7 @@ export default function ReviewApp({
                 period={period}
                 overview={overview}
                 bridge={bridge}
+                product={product}
                 portfolio={portfolio}
               />
             ) : null}

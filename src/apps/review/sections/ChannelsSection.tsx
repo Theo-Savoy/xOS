@@ -95,7 +95,7 @@ export function ChannelsSection({
           <h3 className="review-card-title">Canaux</h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            {data.channels.n_total} canaux · lecture complète, sans top-N masqué
+            {data.channels.n_total} canaux
           </p>
         </div>
       </header>

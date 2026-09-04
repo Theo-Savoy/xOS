@@ -42,6 +42,7 @@ describe('pages du bilan', () => {
         period={period}
         overview={idle}
         bridge={idle}
+        product={idle}
         portfolio={idle}
       />,
     );
@@ -100,6 +101,7 @@ describe('pages du bilan', () => {
         period={period}
         overview={idle}
         bridge={idle}
+        product={idle}
         portfolio={idle}
       />,
     );

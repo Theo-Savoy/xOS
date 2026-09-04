@@ -37,7 +37,7 @@ import { PerformanceSection } from '../sections/PerformanceSection';
 import { PortfolioSection } from '../sections/PortfolioSection';
 import { ProductHistorySection } from '../sections/ProductHistorySection';
 import { ProductSection } from '../sections/ProductSection';
-import { ProductSignaturesSection } from '../sections/ProductSignaturesSection';
+import { ProductTrendSection } from '../sections/ProductTrendSection';
 import { ProductivitySection } from '../sections/ProductivitySection';
 import { QualitySection } from '../sections/QualitySection';
 import { RenewTrendSection } from '../sections/RenewTrendSection';
@@ -102,10 +102,9 @@ export function SummaryPage({
       />
       <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
       <TotalBridgeSection data={bridge.data} loading={bridge.loading} />
-      <ProductSignaturesSection
+      <ProductTrendSection
         data={product.data}
         loading={product.loading}
-        compare={period.compare || comparisonFy(period.fy)}
       />
       {narrativeAvailable && hasNarrative ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
@@ -124,11 +123,13 @@ export function TrajectoryPage({
   period,
   overview,
   bridge,
+  product,
   portfolio,
 }: {
   period: PeriodSelection;
   overview: Loadable<OverviewPayload>;
   bridge: Loadable<BridgePayload>;
+  product: Loadable<ProductPayload> | null;
   portfolio: Loadable<PortfolioPayload>;
 }) {
   const portfolioAvailable = isAnnualOnlySelection(period);
@@ -145,6 +146,10 @@ export function TrajectoryPage({
       <BridgeNewSection data={bridge.data} loading={bridge.loading} />
       <RenewTrendSection data={overview.data} loading={overview.loading} />
       <HistorySection data={overview.data} loading={overview.loading} />
+      <ProductTrendSection
+        data={product?.data ?? null}
+        loading={product?.loading ?? false}
+      />
       {!portfolioAvailable ? (
         <AnnualOnlyNotice>
           {`Le portefeuille de référence reste arrêté au ${fyEndLabel(ANNUAL_ONLY_FY)}.`}

@@ -7,8 +7,8 @@ import type { PortfolioPayload, PortfolioStatus } from '../review.types';
 type StatusKey = 'gagnes' | 'fidelises' | 'engages' | 'perdus';
 
 /**
- * Deux univers distincts, jamais additionnés : le flux signé de l'exercice
- * (lecture par compte) et la cohorte d'ouverture ARR (contrats antérieurs).
+ * Deux univers distincts, jamais additionnés : les comptes signataires de
+ * l'exercice et le portefeuille hérité des exercices précédents.
  */
 const GROUPS: {
   title: string;
@@ -17,23 +17,21 @@ const GROUPS: {
   rows: { key: StatusKey; label: string }[];
 }[] = [
   {
-    title: "Flux signé de l'exercice",
-    caption:
-      "Comptes ayant signé pendant l'exercice, un compte par ligne · CA signé.",
+    title: "Signé pendant l'exercice",
+    caption: 'Comptes qui ont signé pendant l’exercice · CA signé.',
     unit: 'CA signé',
     rows: [
-      { key: 'gagnes', label: 'Gagnés (nouveaux comptes)' },
-      { key: 'fidelises', label: 'Fidélisés (comptes déjà clients)' },
+      { key: 'gagnes', label: 'Nouveaux clients' },
+      { key: 'fidelises', label: 'Clients fidélisés' },
     ],
   },
   {
-    title: "Cohorte d'ouverture (ARR)",
-    caption:
-      "Comptes sous contrat catalogue ARR ouvert avant l'exercice · stock ARR.",
+    title: 'Portefeuille hérité',
+    caption: 'Comptes clients avant l’exercice · ARR en cours.',
     unit: 'ARR',
     rows: [
-      { key: 'engages', label: "Engagés (cohorte d'ouverture)" },
-      { key: 'perdus', label: "Perdus (cohorte d'ouverture)" },
+      { key: 'engages', label: 'Toujours clients' },
+      { key: 'perdus', label: 'Perdus' },
     ],
   },
 ];
@@ -65,7 +63,7 @@ export function PortfolioSection({
     return (
       <EmptyState
         title="Aucun portefeuille sur la période"
-        description="Aucun statut ni cohorte catalogue sur cette fenêtre."
+        description="Aucun statut de portefeuille sur cette fenêtre."
       />
     );
   }
@@ -82,8 +80,8 @@ export function PortfolioSection({
           <h3 className="review-card-title">Portefeuille au 30/06</h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            Deux lectures par compte, à ne pas additionner : le flux signé de
-            l&apos;exercice et la cohorte d&apos;ouverture ARR.
+            Deux lectures distinctes : les comptes qui ont signé pendant
+            l&apos;exercice, et le portefeuille hérité des exercices précédents.
           </p>
         </div>
       </header>
@@ -119,13 +117,11 @@ export function PortfolioSection({
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Devenir de la cohorte d&apos;ouverture
+          Portefeuille hérité : retenus ou perdus
         </h3>
         <p className="review-section-kicker">
-          {data.cohort.n_accounts} comptes · {fmtEur(data.cohort.arr)} ARR. La
-          cohorte d&apos;ouverture (contrats ARR antérieurs à l&apos;exercice)
-          est un univers séparé des comptes ayant signé pendant l&apos;exercice :
-          les deux ne se somment pas.
+          {data.cohort.n_accounts} comptes clients avant l&apos;exercice, pour{' '}
+          {fmtEur(data.cohort.arr)} d&apos;ARR.
         </p>
         <div className="review-split-bar" aria-hidden="true">
           <span
@@ -146,7 +142,8 @@ export function PortfolioSection({
           </span>
         </div>
         <p className="review-section-note">
-          Contrôle : Gagnés + Fidélisés = CA total signé de l&apos;exercice.{' '}
+          Contrôle : Nouveaux clients + Clients fidélisés = CA total signé de
+          l&apos;exercice.{' '}
           {data.conservation.ok ? (
             <Tag variant="success">OK</Tag>
           ) : (
@@ -154,7 +151,7 @@ export function PortfolioSection({
           )}
           {lostShare === null
             ? null
-            : ` Part du stock ARR perdue : ${fmtPct1(lostShare)}.`}
+            : ` Part du portefeuille hérité perdue : ${fmtPct1(lostShare)}.`}
         </p>
       </GlassCard>
     </div>

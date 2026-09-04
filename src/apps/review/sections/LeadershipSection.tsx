@@ -129,9 +129,8 @@ export function LeadershipSection({
           curr={fmtEur(curr.amountNew)}
         />
         <p className="review-section-note">
-          Identifié par le mode de suivi PDG, pas par le nom. Inclus dans les
-          totaux entreprise, exclu du classement sales et du dénominateur ETP.{' '}
-          {data.attribution_limit}
+          Inclus dans les totaux entreprise, exclu du classement sales et du
+          dénominateur ETP.
         </p>
       </GlassCard>
     </div>

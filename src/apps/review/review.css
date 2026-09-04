@@ -993,10 +993,10 @@ button.review-hint:focus-visible .review-hint__bubble {
 .review-share-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--xos-space-3);
   flex-wrap: wrap;
-  padding: 12px 16px;
-  margin: 0 0 16px;
+  padding: var(--xos-space-3) var(--xos-space-4);
+  margin: 0 0 var(--xos-space-4);
   background-color: var(--xos-bg-card);
   border: 1px solid var(--xos-border);
   border-radius: var(--xos-radius-md);
@@ -1014,8 +1014,8 @@ button.review-hint:focus-visible .review-hint__bubble {
   color: var(--xos-text);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--xos-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.65rem;
+  border-radius: var(--xos-radius-sm);
+  padding: var(--xos-space-2) var(--xos-space-3);
 }
 
 .review-share-note::placeholder {
@@ -1029,6 +1029,6 @@ button.review-hint:focus-visible .review-hint__bubble {
 
 .review-share-banner-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--xos-space-2);
   margin-left: auto;
 }

@@ -102,8 +102,7 @@ export function CapacitySection({
           source="Salesforce · CA nouvelles affaires par Owner courant"
         />
         <p className="review-section-note">
-          {fmtEur(bridge.total)} = actifs − PDG − partis.{' '}
-          {data.attribution_limit}
+          {fmtEur(bridge.total)} = actifs − PDG − partis.
         </p>
       </GlassCard>
 
