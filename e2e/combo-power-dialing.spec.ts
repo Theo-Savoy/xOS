@@ -84,13 +84,14 @@ test('l’encart power s’ouvre sur clic et décrit la file réelle de la séan
   await combo.getByRole('button', { name: 'Power' }).click();
 
   // 6 contacts, dont un sans numéro : 5 composables.
-  await expect(combo.getByText('5 contacts joignables · 1 sans numéro composable')).toBeVisible();
+  await expect(combo.getByText('5 numéros prêts · 1 sans numéro valide')).toBeVisible();
   await expect(combo.getByRole('button', { name: /Lancer 3 appels/ })).toBeEnabled();
-  await expect(combo.getByText('12/50')).toBeVisible();
+  // Le quota n’est affiché que lorsqu’il reste moins de huit compositions.
+  await expect(combo.getByText('12/50')).toHaveCount(0);
 
   // Second clic : l'encart se referme, rien ne reste monté.
   await combo.getByRole('button', { name: 'Power' }).click();
-  await expect(combo.getByText('5 contacts joignables · 1 sans numéro composable')).toHaveCount(0);
+  await expect(combo.getByText('5 numéros prêts · 1 sans numéro valide')).toHaveCount(0);
 });
 
 test('le numéro sortant se choisit dans la liste déroulante', async ({ page }) => {
