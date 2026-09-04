@@ -433,9 +433,10 @@ export default function CallManagerApp({
           setFocusedContactId(focusContactId);
         }
         const isToday = sessionDayKey(data.session) === todayParisIso();
+        const isStale = isStaleSession(data.session, todayParisIso());
         if (data.session.status === 'completed') {
           setView('recap');
-        } else if (shouldShowPreSession(data.session) && isToday) {
+        } else if (shouldShowPreSession(data.session) && !isStale) {
           setView('pre-session');
         } else if (data.session.engaged_at === null && !isToday) {
           invalidateComboHubCache();

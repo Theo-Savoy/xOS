@@ -52,6 +52,7 @@ describe('CalendarView', () => {
     expect(screen.getByRole('button', { name: "Aujourd'hui" })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Échéance' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Type de séance' })).toBeNull();
+    expect(screen.getAllByRole('group').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Séance du jour' }));
     expect(onOpenSession).toHaveBeenCalledWith(1);
@@ -62,7 +63,9 @@ describe('CalendarView', () => {
     const sessions = [1, 2, 3, 4].map((id) => makeSession(id, `Séance ${id}`));
     renderCalendar(sessions);
 
-    await user.click(screen.getByRole('button', { name: '+1' }));
+    await user.click(
+      screen.getByRole('button', { name: /\+1 autres séances/ }),
+    );
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Séance 4')).toBeTruthy();
     expect(within(dialog).getByText('Fermer')).toBeTruthy();

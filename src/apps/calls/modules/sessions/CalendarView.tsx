@@ -36,6 +36,14 @@ function dateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function formatDayLabel(date: Date): string {
+  return date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
 export function CalendarView({
   sessions,
   loading,
@@ -163,6 +171,7 @@ export function CalendarView({
                   <div
                     key={`empty-${index}`}
                     className="calls-calendar__cell calls-calendar__cell--empty"
+                    aria-hidden="true"
                   />
                 );
               }
@@ -173,6 +182,8 @@ export function CalendarView({
                 <div
                   key={key}
                   className={`calls-calendar__cell${isToday ? ' calls-calendar__cell--today' : ''}${daySessions.length ? ' calls-calendar__cell--has' : ''}`}
+                  role="group"
+                  aria-label={formatDayLabel(date)}
                 >
                   <span className="calls-calendar__day xos-numeric">
                     {date.getDate()}
@@ -197,6 +208,7 @@ export function CalendarView({
                           variant="ghost"
                           type="button"
                           className="calls-calendar__more"
+                          aria-label={`+${daySessions.length - 3} autres séances le ${formatDayLabel(date)}`}
                           onClick={() =>
                             setDayOverflow({ key, sessions: daySessions })
                           }

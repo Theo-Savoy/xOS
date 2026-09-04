@@ -1428,6 +1428,12 @@ describe('SessionsView home', () => {
     expect(
       within(hero).getByRole('heading', { name: 'Séance active du jour' }),
     ).toBeTruthy();
+    expect(within(hero).getByText('Relance')).toBeTruthy();
+    expect(
+      within(hero).getByLabelText(
+        'Progression de Séance active du jour : 3 sur 10',
+      ),
+    ).toBeTruthy();
     expect(within(hero).queryByText('Séance en retard')).toBeNull();
 
     await userEvent
@@ -1544,6 +1550,7 @@ describe('SessionsView home', () => {
       expect.stringContaining('Terminée récente'),
       expect.stringContaining('Terminée ancienne'),
     ]);
+    expect(screen.getByText('Programmée')).toBeTruthy();
   });
 
   it('déplace les actions de séance dans le menu de la carte', async () => {
@@ -1583,6 +1590,36 @@ describe('SessionsView home', () => {
     ).toBeTruthy();
     await user.click(within(menu).getByRole('menuitem', { name: 'Partager' }));
     expect(onShareSession).toHaveBeenCalledWith(1);
+  });
+
+  it('ferme le menu de séance avec Échap et rend le focus au déclencheur', async () => {
+    const user = userEvent.setup();
+    renderSessions({
+      sessions: [
+        {
+          id: 1,
+          name: 'Secteur public',
+          status: 'active' as const,
+          created_at: `${relativeDay(0)}T10:00:00Z`,
+          scheduled_for: relativeDay(0),
+          session_type: 'prospection' as const,
+          total: 10,
+          called: 2,
+          skipped: 0,
+          pending: 8,
+          is_owner: true,
+        },
+      ],
+    });
+
+    const trigger = screen.getByRole('button', {
+      name: 'Actions pour Secteur public',
+    });
+    await user.click(trigger);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('confirme la suppression de session dans une modale non-glass', async () => {

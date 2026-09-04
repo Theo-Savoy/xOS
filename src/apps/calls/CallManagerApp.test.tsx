@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appRegistry, getAppManifest } from '../../os/registry';
 import { useSession } from '../../auth/useSession';
-import { todayParisIso } from './formControls.helpers';
+import { todayParisIso, tomorrowParisIso } from './formControls.helpers';
 
 const testToday = todayParisIso();
 const mockSession = {
@@ -966,6 +966,56 @@ describe('CallManagerApp component', () => {
 
     expect(
       await screen.findByRole('heading', { name: 'Jamais engagée' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
+  });
+
+  it('ouvre aussi la préparation d’une séance active programmée', async () => {
+    const session = {
+      id: 2,
+      name: 'Séance de demain',
+      status: 'active',
+      created_at: `${testToday}T10:00:00Z`,
+      scheduled_for: tomorrowParisIso(),
+      rdv_goal: null,
+      engaged_at: null,
+    };
+    const contact = {
+      id: 201,
+      position: 0,
+      sf_contact_id: '003000000000002AAA',
+      sf_account_id: null,
+      contact_name: 'Bob Durand',
+      account_name: 'ACME',
+      phone: null,
+      title: null,
+      linkedin_url: null,
+      status: 'pending',
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/calls?resource=hub') return hubResponse();
+      if (url === '/api/calls?session_id=2') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ session, contacts: [contact] }), {
+            status: 200,
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'not_found' }), { status: 404 }),
+      );
+    });
+
+    render(<CallManagerApp params={{ session_id: '2' }} />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Séance de demain' }),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
   });

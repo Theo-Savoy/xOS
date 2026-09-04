@@ -6000,6 +6000,10 @@ a.calls-contact-card__peer:hover {
   width: min(28rem, 100%);
   display: grid;
   gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-lg, 16px);
+  background: var(--xos-window-content-bg);
 }
 .calls-share-panel__head {
   display: flex;
@@ -7082,11 +7086,23 @@ a.calls-contact-card__peer:hover {
   font-size: 0.9rem;
 }
 
+.calls-hero__progress {
+  max-width: 28rem;
+  margin-top: 0.9rem;
+}
+
 .calls-hero__action {
   display: flex;
   align-items: end;
   gap: 0.7rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.calls-hero__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   justify-content: flex-end;
 }
 

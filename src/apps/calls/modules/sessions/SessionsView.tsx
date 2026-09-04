@@ -128,9 +128,9 @@ function heroContext(session: SessionSummary, today: string): string {
 function sessionStatusLabel(session: SessionSummary, today?: string): string {
   if (session.status === 'completed') return 'Terminée';
   if (today && session.scheduled_for && session.scheduled_for > today) {
-    return 'Planifiée';
+    return 'Programmée';
   }
-  return session.pending > 0 ? 'En cours' : 'Prête';
+  return 'En cours';
 }
 
 function SessionsSkeleton() {
@@ -280,11 +280,23 @@ export function SessionsView({
                       ? `${heroSession.pending} contact${heroSession.pending > 1 ? 's' : ''} à appeler`
                       : 'Séance prête à reprendre'}
                   </p>
+                  <div className="calls-hero__progress">
+                    <ProgressBar
+                      called={heroSession.called}
+                      total={heroSession.total}
+                      label={`Progression de ${heroSession.name} : ${heroSession.called} sur ${heroSession.total}`}
+                    />
+                  </div>
                 </div>
                 <div className="calls-hero__action">
-                  <Tag variant="accent">
-                    {sessionStatusLabel(heroSession, today)}
-                  </Tag>
+                  <div className="calls-hero__tags">
+                    <Tag variant="muted">
+                      {sessionTypeLabel(heroSession.session_type)}
+                    </Tag>
+                    <Tag variant="accent">
+                      {sessionStatusLabel(heroSession, today)}
+                    </Tag>
+                  </div>
                   <Button onClick={() => openSession(heroSession.id)}>
                     Ouvrir
                   </Button>
@@ -399,7 +411,17 @@ export function SessionsView({
                         <div
                           className="calls-session-card__menu"
                           onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => {
+                            event.stopPropagation();
+                            if (event.key !== 'Escape') return;
+                            event.preventDefault();
+                            setOpenMenuId(null);
+                            event.currentTarget
+                              .querySelector<HTMLButtonElement>(
+                                '[aria-haspopup="menu"]',
+                              )
+                              ?.focus();
+                          }}
                         >
                           <Button
                             variant="icon"
