@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionContact } from '../../types';
+import type { SessionContact } from '../../../types';
 import {
   ALLOWED_POWER_TRANSITIONS,
   assertValidPowerUiTransition,
@@ -16,22 +16,24 @@ function createMockContact(
   partial: Partial<SessionContact> & { id: number },
 ): SessionContact {
   return {
+    position: partial.id,
+    sf_contact_id: null,
+    sf_account_id: null,
+    contact_name: `Contact ${partial.id}`,
     account_name: 'Acme Corp',
-    call_session_id: 1,
+    phone: '06 12 34 56 78',
+    email: null,
+    title: 'Directeur',
+    linkedin_url: null,
+    status: 'pending',
+    outcome: null,
+    comments: null,
+    sf_task_id: null,
+    sf_event_id: null,
     called_at: null,
-    called_count: 0,
     claim_active: false,
-    claim_expires_at: null,
     claimed_at: null,
     claimed_by: null,
-    contact_name: `Contact ${partial.id}`,
-    id: partial.id,
-    job_title: 'Directeur',
-    phone: '06 12 34 56 78',
-    qualification_status: null,
-    recall_at: null,
-    session_index: partial.id,
-    status: 'pending',
     ...partial,
   };
 }

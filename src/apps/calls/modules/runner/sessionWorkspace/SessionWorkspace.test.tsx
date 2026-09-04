@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SessionContact, SessionDetail } from '../../../types';
 import { DialerProvider } from '../../dialer/DialerProvider';
 import {
   readRunnerV2Flag,
@@ -34,24 +35,26 @@ const mockSession: SessionDetail = {
   created_at: '2026-07-10T10:00:00Z',
   rdv_goal: 3,
 };
-
 const mockContact: SessionContact = {
   id: 101,
-  call_session_id: 42,
+  position: 0,
+  sf_contact_id: null,
+  sf_account_id: null,
   contact_name: 'Jean Dupont',
   account_name: 'Entreprise A',
   phone: '06 12 34 56 78',
+  email: null,
+  title: 'Directeur',
+  linkedin_url: null,
   status: 'pending',
+  outcome: null,
+  comments: null,
+  sf_task_id: null,
+  sf_event_id: null,
   called_at: null,
-  called_count: 0,
   claim_active: false,
-  claim_expires_at: null,
   claimed_at: null,
   claimed_by: null,
-  job_title: 'Directeur',
-  qualification_status: null,
-  recall_at: null,
-  session_index: 1,
 };
 
 const baseProps: SessionWorkspaceProps = {
@@ -76,7 +79,7 @@ const baseProps: SessionWorkspaceProps = {
 };
 
 function renderWithDialer(ui: React.ReactElement) {
-  return render(<DialerProvider token={null}>{ui}</DialerProvider>);
+  return render(<DialerProvider token="mock-token" dryRun>{ui}</DialerProvider>);
 }
 
 beforeEach(() => {
@@ -152,7 +155,7 @@ describe('SessionWorkspace - Façade de migration (Plan §5)', () => {
 
     // Le re-render de la même session ne bascule PAS la surface (flag figé à l'ouverture de séance)
     rerender(
-      <DialerProvider token={null}>
+      <DialerProvider token="mock-token" dryRun>
         <SessionWorkspace {...baseProps} />
       </DialerProvider>,
     );
@@ -165,7 +168,7 @@ describe('SessionWorkspace - Façade de migration (Plan §5)', () => {
       name: 'Nouvelle séance',
     };
     rerender(
-      <DialerProvider token={null}>
+      <DialerProvider token="mock-token" dryRun>
         <SessionWorkspace {...baseProps} session={newSession} />
       </DialerProvider>,
     );

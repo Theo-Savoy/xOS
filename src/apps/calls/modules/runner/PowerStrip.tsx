@@ -5,13 +5,7 @@ import { readSoundsEnabled } from '../gamification/comboKeyboard';
 import type { SessionContact } from '../../types';
 import { useDialerPool } from '../dialer/application/useDialerPool';
 import { fetchDialerConfig, type DialerConfig } from '../dialer/dialerApi';
-import {
-  normalizeE164,
-  projectPowerQueue,
-} from './sessionWorkspace/powerUiState';
-
-export { normalizeE164 };
-
+import { projectPowerQueue } from './sessionWorkspace/powerUiState';
 /** Durée du sweep lumineux au lancement (miroir de --xos-power-launch en CSS). */
 const LAUNCH_MS = 900;
 

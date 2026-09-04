@@ -4,7 +4,7 @@ import type {
   SessionDetail,
   SessionSummary,
   TeamMember,
-} from '../../types';
+} from '../../../types';
 import type { DeferPayload, LogPayload } from '../RunnerView.types';
 
 export type { DeferPayload, LogPayload };

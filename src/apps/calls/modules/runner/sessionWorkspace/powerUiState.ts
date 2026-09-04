@@ -1,4 +1,4 @@
-import type { SessionContact } from '../../types';
+import type { SessionContact } from '../../../types';
 import type {
   PowerPrimaryCta,
   PowerStateInputs,

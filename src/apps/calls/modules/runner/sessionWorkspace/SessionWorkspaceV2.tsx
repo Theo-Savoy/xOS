@@ -1,4 +1,4 @@
-import { GlassCard, Skeleton } from '../../../../../components/ui';
+import { Button, GlassCard, Skeleton } from '../../../../../components/ui';
 import type { SessionWorkspaceProps } from './types';
 
 /**
@@ -22,13 +22,14 @@ export function SessionWorkspaceV2({
     >
       <header className="calls-view__header calls-view__header--runner">
         <div className="calls-view__nav">
-          <button
-            type="button"
-            className="xos-btn xos-btn--secondary xos-btn--md calls-view__back"
+          <Button
+            variant="secondary"
+            size="md"
+            className="calls-view__back"
             onClick={onBack}
           >
             Quitter
-          </button>
+          </Button>
           <div className="calls-view__titleblock">
             <h2>{session.name}</h2>
           </div>
@@ -38,7 +39,7 @@ export function SessionWorkspaceV2({
       <main className="calls-workspace__body">
         {loading ? (
           <div className="calls-workspace__loading" role="status">
-            <Skeleton count={3} />
+            <Skeleton height="2.5rem" />
           </div>
         ) : error ? (
           <GlassCard className="calls-workspace__error" role="alert">
