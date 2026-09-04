@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionContact, SessionDetail } from '../../../types';
 import { DialerProvider } from '../../dialer/DialerProvider';
@@ -235,6 +236,22 @@ describe('SessionWorkspaceV2 — L5B actions bulk', () => {
     );
     expect(within(tool).getByText('0 sélectionné')).toBeTruthy();
     expect(props.onFocusContact).not.toHaveBeenCalledWith(102);
+  });
+
+  it('C4 : la saisie bulk ne perd pas le focus à la première frappe (userEvent.type)', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    const tool = openQueueTool();
+    selectContact(tool, 'Alice Martin');
+
+    const comments = within(tool).getByRole('textbox', {
+      name: /commentaire groupé/i,
+    });
+    await user.type(comments, 'Note commune');
+
+    // C4 : le focus DOIT rester dans le textarea (pas volé par ✕), texte complet
+    expect(comments).toHaveProperty('value', 'Note commune');
+    expect(document.activeElement).toBe(comments);
   });
 
   it('désactive RDV pour une sélection multiple et expose les erreurs partielles', () => {

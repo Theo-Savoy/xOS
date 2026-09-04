@@ -293,6 +293,10 @@ export function QueueToolOverlay({
   // C3 Opus : comportement du kit Modal (Échap + focus trap + restauration du focus)
   // appliqué à la surface outil, sans casser le layout custom.
   const panelRef = useRef<HTMLElement>(null);
+  // C4 Opus : onClose change d'identité dès que isDirty/hasSelection bascule (C2) ;
+  // une ref stabilisée évite le re-run de l'effet qui volait le focus à la 1ère frappe.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -305,7 +309,7 @@ export function QueueToolOverlay({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab' || !panel) return;
@@ -328,7 +332,7 @@ export function QueueToolOverlay({
       document.removeEventListener('keydown', onKeyDown);
       previous?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || isPowerConversation) return null;
 
