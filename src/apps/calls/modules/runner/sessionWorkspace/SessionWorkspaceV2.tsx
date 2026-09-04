@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, GlassCard, Skeleton } from '../../../../../components/ui';
+import { ConfirmDialog } from '../../../ConfirmDialog';
 import { RunnerView } from '../RunnerView';
 import { ContactWorkspace } from './ContactWorkspace';
 import { ContextInspector } from './ContextInspector';
 import { PowerWorkspace } from './PowerWorkspace';
+import { QueueToolOverlay } from './QueueToolOverlay';
 import { SessionHeader } from './SessionHeader';
 import { SessionQueue } from './SessionQueue';
-import type { SessionWorkspaceProps } from './types';
+import type { QueueToolState, SessionWorkspaceProps } from './types';
 import { useSessionPowerPool } from './useSessionPowerPool';
 
 /**
@@ -150,6 +152,29 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
   const [isInspectorSheetOpen, setIsInspectorSheetOpen] = useState(false);
   const [isQueueSheetOpen, setIsQueueSheetOpen] = useState(false);
   const [isPowerSheetOpen, setIsPowerSheetOpen] = useState(false);
+  const [isQueueToolOpen, setIsQueueToolOpen] = useState(false);
+  const [queueToolState, setQueueToolState] = useState<QueueToolState>({
+    hasSelection: false,
+    isDirty: false,
+  });
+  const [queueToolConfirmOpen, setQueueToolConfirmOpen] = useState(false);
+  const [pendingQueueFocusId, setPendingQueueFocusId] = useState<number | null>(
+    null,
+  );
+
+  const isQueueCollapsed = powerViewModel.isQueueCollapsed;
+  const isPowerConversation = powerViewModel.state === 'conversation';
+
+  const handleQueueToolStateChange = useCallback((next: QueueToolState) => {
+    setQueueToolState(next);
+  }, []);
+
+  useEffect(() => {
+    if (!isPowerConversation || !isQueueToolOpen) return;
+    setIsQueueToolOpen(false);
+    setQueueToolState({ hasSelection: false, isDirty: false });
+    setQueueToolConfirmOpen(false);
+  }, [isPowerConversation, isQueueToolOpen]);
 
   // Grok note a : la file de rappels n'est pas paritaire -> forcer le legacy
   if (variant === 'recalls') {
@@ -159,11 +184,49 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
   const handleFocusContact = (id: number) => {
     // I5 lock focus : pendant awaitingEvent, la file est inerte jusqu'à finalisation
     if (awaitingEvent) return;
+    if (isQueueToolOpen) {
+      if (queueToolState.isDirty) {
+        setPendingQueueFocusId(id);
+        setQueueToolConfirmOpen(true);
+        return;
+      }
+      setIsQueueToolOpen(false);
+      setQueueToolState({ hasSelection: false, isDirty: false });
+      setIsQueueSheetOpen(false);
+    }
     setInternalFocusedId(id);
     onFocusContact(id);
   };
 
-  const isQueueCollapsed = powerViewModel.isQueueCollapsed;
+  const closeQueueTool = () => {
+    if (queueToolState.isDirty) {
+      setPendingQueueFocusId(null);
+      setQueueToolConfirmOpen(true);
+      return;
+    }
+    setIsQueueToolOpen(false);
+    setQueueToolState({ hasSelection: false, isDirty: false });
+    setIsQueueSheetOpen(false);
+  };
+
+  const openQueueTool = () => {
+    if (powerViewModel.state === 'conversation') return;
+    setIsQueueSheetOpen(false);
+    setIsQueueToolOpen(true);
+  };
+
+  const confirmCloseQueueTool = () => {
+    const nextFocusId = pendingQueueFocusId;
+    setQueueToolConfirmOpen(false);
+    setPendingQueueFocusId(null);
+    setIsQueueToolOpen(false);
+    setQueueToolState({ hasSelection: false, isDirty: false });
+    setIsQueueSheetOpen(false);
+    if (nextFocusId != null) {
+      setInternalFocusedId(nextFocusId);
+      onFocusContact(nextFocusId);
+    }
+  };
 
   return (
     <div
@@ -261,6 +324,9 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               isPowerActive={isPowerActive}
               projectedPowerQueue={projectedQueue}
               isCollapsed={isQueueCollapsed}
+              onOpenQueueTool={openQueueTool}
+              isQueueToolOpen={isQueueToolOpen}
+              isPowerConversation={isPowerConversation}
             />
 
             {/* Colonne 2 : Contact actif + ACW */}
@@ -288,7 +354,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               awaitingEvent={awaitingEvent}
               isCallBarHidden={powerViewModel.isCallBarHidden}
               onHangupAll={onHangupAll}
-              isPowerConversation={powerViewModel.state === 'conversation'}
+              isPowerConversation={isPowerConversation}
             />
 
             {/* Colonne 3 : Contexte CRM en lecture */}
@@ -342,6 +408,9 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               projectedPowerQueue={projectedQueue}
               isSheet
               onCloseSheet={() => setIsQueueSheetOpen(false)}
+              onOpenQueueTool={openQueueTool}
+              isQueueToolOpen={isQueueToolOpen}
+              isPowerConversation={isPowerConversation}
             />
           </div>
         </div>
@@ -381,6 +450,29 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
           </div>
         </div>
       )}
+
+      <QueueToolOverlay
+        open={isQueueToolOpen}
+        contacts={contacts}
+        currentUserId={currentUserId}
+        isPowerConversation={isPowerConversation}
+        onClose={closeQueueTool}
+        onRequestFocus={handleFocusContact}
+        onStateChange={handleQueueToolStateChange}
+      />
+
+      <ConfirmDialog
+        open={queueToolConfirmOpen}
+        title="Abandonner la saisie groupée ?"
+        description="Les modifications du formulaire bulk seront perdues. Le contact ne sera changé qu’après votre confirmation."
+        confirmLabel="Abandonner"
+        cancelLabel="Continuer la saisie"
+        onConfirm={confirmCloseQueueTool}
+        onCancel={() => {
+          setQueueToolConfirmOpen(false);
+          setPendingQueueFocusId(null);
+        }}
+      />
     </div>
   );
 }

@@ -97,6 +97,12 @@ export interface ProjectedPowerQueue {
   duplicateCount: number;
 }
 
+/** État minimal remonté au shell pour arbitrer le focus et la surface bulk. */
+export interface QueueToolState {
+  hasSelection: boolean;
+  isDirty: boolean;
+}
+
 /** Contrat d'entrée complet partagé entre la façade SessionWorkspace, RunnerView et V2 */
 export interface RunnerSessionProps {
   session: SessionDetail;

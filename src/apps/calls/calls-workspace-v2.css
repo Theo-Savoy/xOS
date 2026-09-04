@@ -160,6 +160,16 @@
   border-bottom: 1px solid var(--xos-border);
 }
 
+.calls-workspace--v2 .calls-workspace__queue-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-trigger {
+  white-space: nowrap;
+}
+
 .calls-workspace__queue-title {
   margin: 0;
   font-size: 0.95rem;
@@ -208,6 +218,176 @@
 .calls-workspace__queue-item--focused .calls-workspace__queue-item-btn {
   background: var(--xos-surface-2);
   border-color: var(--xos-accent);
+}
+
+/* ==========================================================================
+   3b. QueueToolOverlay — surface outil bulk, jamais un second mode de liste
+   ========================================================================== */
+
+.calls-workspace--v2 .calls-workspace__queue-tool-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--xos-space-4);
+  background: color-mix(in srgb, var(--xos-bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool {
+  display: flex;
+  flex-direction: column;
+  width: min(68rem, 100%);
+  max-height: min(48rem, 100%);
+  overflow: hidden;
+  background: var(--xos-surface-1);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-lg);
+  box-shadow: 0 1.5rem 4rem color-mix(in srgb, var(--xos-bg) 72%, transparent);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header,
+.calls-workspace--v2 .calls-workspace__queue-tool-toolbar,
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk {
+  padding: var(--xos-space-4);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xos-space-4);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header h2,
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk h3 {
+  margin: 0;
+  color: var(--xos-text);
+}
+
+.calls-workspace--v2 .calls-workspace__eyebrow {
+  margin: 0 0 var(--xos-space-1);
+  color: var(--xos-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--xos-space-4);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-search {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-filter--active {
+  color: var(--xos-accent);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(16rem, 0.8fr);
+  min-height: 0;
+  overflow: auto;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--xos-space-4);
+  list-style: none;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-2) var(--xos-space-3);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-row--selected {
+  border-color: var(--xos-accent);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-contact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-contact-link {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  color: var(--xos-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-account {
+  overflow: hidden;
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk {
+  border-left: 1px solid var(--xos-border);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xos-space-2);
+  margin-bottom: var(--xos-space-3);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
 }
 
 .calls-workspace__queue-item-header {

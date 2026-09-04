@@ -15,6 +15,10 @@ export interface SessionQueueProps {
   /** Mode sheet en affichage responsive (<720px) */
   isSheet?: boolean;
   onCloseSheet?: () => void;
+  /** Ouvre la surface outil de file étendue, sans changer de mode de runner. */
+  onOpenQueueTool?: () => void;
+  isQueueToolOpen?: boolean;
+  isPowerConversation?: boolean;
 }
 
 export function SessionQueue({
@@ -26,6 +30,9 @@ export function SessionQueue({
   isCollapsed = false,
   isSheet = false,
   onCloseSheet,
+  onOpenQueueTool,
+  isQueueToolOpen = false,
+  isPowerConversation = false,
 }: SessionQueueProps) {
   const readyPowerContactIds = useMemo(() => {
     return new Set(projectedPowerQueue?.contactIds ?? []);
@@ -45,17 +52,37 @@ export function SessionQueue({
         <h3 className="calls-workspace__queue-title">
           File d&apos;attente ({contacts.length})
         </h3>
-        {isSheet && onCloseSheet && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="calls-workspace__queue-close"
-            onClick={onCloseSheet}
-            aria-label="Fermer la file d'attente"
-          >
-            ✕
-          </Button>
-        )}
+        <div className="calls-workspace__queue-header-actions">
+          {onOpenQueueTool && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="calls-workspace__queue-tool-trigger"
+              onClick={onOpenQueueTool}
+              disabled={isPowerConversation}
+              aria-expanded={isQueueToolOpen}
+              aria-label="Ouvrir la file étendue"
+              title={
+                isPowerConversation
+                  ? 'Indisponible pendant une conversation Power'
+                  : 'Sélection multiple et actions groupées'
+              }
+            >
+              File étendue
+            </Button>
+          )}
+          {isSheet && onCloseSheet && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="calls-workspace__queue-close"
+              onClick={onCloseSheet}
+              aria-label="Fermer la file d'attente"
+            >
+              ✕
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="calls-workspace__queue-scrollable">
