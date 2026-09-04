@@ -108,7 +108,7 @@ export async function listReportsAction(client, userId, body) {
       id: report.id,
       name: report.name,
       folder_name: report.folder_name ?? null,
-      last_run_date: report.last_run_date ?? null,
+      created_date: report.created_date ?? null,
     })),
   };
 }

@@ -37,7 +37,7 @@ const report = {
   id: '00O-report-1',
   name: 'Prospects à rappeler',
   folder_name: 'Équipe commerciale',
-  last_run_date: '2026-09-03T08:00:00.000Z',
+  created_date: '2026-09-03T08:00:00.000Z',
 };
 
 const contactA: ContactPreview = {
@@ -107,14 +107,13 @@ async function chooseAndLoadReport(
     name: report.name,
   });
   await user.click(reportRadio);
-  await user.click(screen.getByRole('button', { name: 'Charger le rapport' }));
   await waitFor(() =>
     expect(fetchRunReport).toHaveBeenCalledWith('token-123', report.id),
   );
 }
 
 describe('ReportSessionView', () => {
-  it('désactive le bouton de chargement pendant le run Salesforce', async () => {
+  it('affiche le chargement pendant le run auto à la sélection', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchReports).mockResolvedValue({ reports: [report] });
     vi.mocked(fetchRunReport).mockReturnValue(new Promise(() => {}));
@@ -125,14 +124,10 @@ describe('ReportSessionView', () => {
       expect(fetchReports).toHaveBeenCalledWith('token-123', ''),
     );
     await user.click(await screen.findByRole('radio', { name: report.name }));
-    const loadButton = screen.getByRole('button', {
-      name: 'Charger le rapport',
-    }) as HTMLButtonElement;
 
-    await user.click(loadButton);
-
-    expect(loadButton.disabled).toBe(true);
-    expect(loadButton.textContent).toContain('Chargement du rapport…');
+    expect(
+      await screen.findByText('Chargement du rapport…'),
+    ).toBeTruthy();
   });
 
   it('traduit l’erreur de recherche du rapport en message utilisateur', async () => {
@@ -181,15 +176,12 @@ describe('ReportSessionView', () => {
     await waitFor(() =>
       expect(fetchReports).toHaveBeenCalledWith('token-123', ''),
     );
-    const continueButton = await screen.findByRole('button', {
+    const continueButton = screen.getByRole('button', {
       name: 'Continuer vers Composer →',
     });
     expect((continueButton as HTMLButtonElement).disabled).toBe(true);
 
     await user.click(screen.getByRole('radio', { name: report.name }));
-    await user.click(
-      screen.getByRole('button', { name: 'Charger le rapport' }),
-    );
 
     expect(
       await screen.findByText('Ce rapport n’expose ni contact ni compte'),
@@ -306,7 +298,6 @@ describe('ReportSessionView', () => {
       expect(fetchReports).toHaveBeenCalledWith('token-123', ''),
     );
     await user.click(screen.getByRole('radio', { name: report.name }));
-    await user.click(screen.getByRole('button', { name: 'Charger le rapport' }));
     await waitFor(() =>
       expect(fetchRunReport).toHaveBeenCalledWith('token-123', report.id),
     );

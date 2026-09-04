@@ -39,10 +39,7 @@ import { canSelectContact, selectIdsWithCompanyCap } from './selection';
 import type { ContactPreview, SessionType, TeamMember } from './types';
 import { AbmWizardRecap } from './abm/AbmWizardRecap';
 import { ContactPreviewCard } from './modules/sessions/ContactPreviewCard';
-import {
-  WizardStepper,
-  type WizardStep,
-} from './modules/sessions/WizardStepper';
+import type { WizardStep } from './modules/sessions/WizardStepper';
 
 export type ReportAudiencePayload = {
   groups: AudienceSessionGroup[];
@@ -350,20 +347,8 @@ export function ReportSessionView({
   const canLaunchSession =
     Boolean(sessionName.trim()) && canProceedToStep3 && packedGroups.length > 0;
 
-  const handleSelectReport = (reportId: string) => {
-    setSelectedReportId(reportId);
-    setReportRun(null);
-    setRunError(null);
-    setPreview([]);
-    setPreviewError(null);
-    setDedup([]);
-    setExcludedCount(0);
-    setPreviewTruncated(false);
-    hadPreviewRef.current = false;
-  };
-
-  const handleLoadReport = async () => {
-    if (!selectedReportId) return;
+  const handleLoadReport = async (reportId: string) => {
+    if (!reportId) return;
     setRunLoading(true);
     setRunError(null);
     setReportRun(null);
@@ -374,7 +359,7 @@ export function ReportSessionView({
     setPreviewTruncated(false);
     hadPreviewRef.current = false;
     try {
-      const data = await fetchRunReport(token, selectedReportId);
+      const data = await fetchRunReport(token, reportId);
       setReportRun(data.run);
       if (data.run.contact_ids.length === 0) setRunError(NO_CONTACTS_ERROR);
       // Garde-fou : le backend rejette les listes > 2000 ids (SOQL_FETCH_CAP).
@@ -387,6 +372,19 @@ export function ReportSessionView({
     } finally {
       setRunLoading(false);
     }
+  };
+
+  const handleSelectReport = (reportId: string) => {
+    setSelectedReportId(reportId);
+    setReportRun(null);
+    setRunError(null);
+    setPreview([]);
+    setPreviewError(null);
+    setDedup([]);
+    setExcludedCount(0);
+    setPreviewTruncated(false);
+    hadPreviewRef.current = false;
+    void handleLoadReport(reportId);
   };
 
   const toggleContact = (contactId: string) => {
@@ -475,7 +473,6 @@ export function ReportSessionView({
               Sélectionnez un rapport pour récupérer ses contacts et comptes.
             </p>
           </div>
-          {selectedReport && <Tag variant="accent">Rapport sélectionné</Tag>}
         </div>
 
         <label className="calls-field">
@@ -556,7 +553,7 @@ export function ReportSessionView({
                     <span className="calls-report-option__meta">
                       {report.folder_name || 'Dossier non renseigné'}
                       <span aria-hidden="true"> · </span>
-                      Dernier run : {formatActivityDateFr(report.last_run_date)}
+                      Créé le : {formatActivityDateFr(report.created_date)}
                     </span>
                   </span>
                 </label>
@@ -621,14 +618,7 @@ export function ReportSessionView({
           </div>
         )}
 
-        <div className="calls-report-selection__actions">
-          <Button
-            onClick={() => void handleLoadReport()}
-            disabled={!selectedReportId || runLoading}
-          >
-            {runLoading ? 'Chargement du rapport…' : 'Charger le rapport'}
-          </Button>
-        </div>
+        {runLoading && <p className="calls-muted">Chargement du rapport…</p>}
       </GlassCard>
     </div>
   );
@@ -729,12 +719,6 @@ export function ReportSessionView({
             <h2>{STEP_TITLES[step]}</h2>
           </div>
         </div>
-        <WizardStepper
-          currentStep={step}
-          onStepChange={handleStepChange}
-          canProceedToStep2={canProceedToStep2}
-          canProceedToStep3={canProceedToStep3}
-        />
       </header>
 
       <div className="calls-wizard-layout">
