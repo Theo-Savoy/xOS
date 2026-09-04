@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from 'react';
 import { Button, Checkbox, EmptyState, GlassCard, Tag } from '../../../../../components/ui';
 import {
   RELANCE_DEFAULT_RESULTATS,
@@ -60,25 +66,36 @@ export interface ContactWorkspaceProps {
   isPowerConversation?: boolean;
 }
 
-export function ContactWorkspace({
-  contact,
-  contactContext,
-  contextContactId,
-  contextTargetContactId,
-  loading,
-  onLogAndNext,
-  onLogRdvAndNext,
-  onUpdateRecall,
-  team = [],
-  currentSfUserId = null,
-  sessionType,
-  awaitingEvent,
-  onFinalizeEvent,
-  onLogEvent,
-  isCallBarHidden = false,
-  onHangupAll,
-  isPowerConversation = false,
-}: ContactWorkspaceProps) {
+export type ContactWorkspaceHandle = {
+  pickResult: (resultat: ResultatCall) => boolean;
+  submit: () => boolean;
+};
+
+export const ContactWorkspace = forwardRef<
+  ContactWorkspaceHandle,
+  ContactWorkspaceProps
+>(function ContactWorkspace(
+  {
+    contact,
+    contactContext,
+    contextContactId,
+    contextTargetContactId,
+    loading,
+    onLogAndNext,
+    onLogRdvAndNext,
+    onUpdateRecall,
+    team = [],
+    currentSfUserId = null,
+    sessionType,
+    awaitingEvent,
+    onFinalizeEvent,
+    onLogEvent,
+    isCallBarHidden = false,
+    onHangupAll,
+    isPowerConversation = false,
+  },
+  ref,
+) {
   const [resultat, setResultat] = useState<ResultatCall>(
     RESULTAT_OPTIONS[0].value,
   );
@@ -106,6 +123,60 @@ export function ContactWorkspace({
   useEffect(() => {
     setScheduleRecall(RELANCE_DEFAULT_RESULTATS.includes(resultat));
   }, [resultat]);
+
+  const handleSubmit = useCallback(() => {
+    if (
+      !contact ||
+      loading ||
+      awaitingEvent ||
+      contact.status !== 'pending' ||
+      resultat === 'RDV planifié'
+    ) {
+      return false;
+    }
+    const payload: LogPayload = {
+      resultat,
+      comments: comments.trim(),
+      recallAt: scheduleRecall && recallAt ? recallAt : null,
+      doNotCall,
+    };
+    onLogAndNext(contact.id, payload);
+    // Reset ACW state
+    setComments('');
+    setDoNotCall(false);
+    return true;
+  }, [
+    awaitingEvent,
+    comments,
+    contact,
+    doNotCall,
+    loading,
+    onLogAndNext,
+    recallAt,
+    resultat,
+    scheduleRecall,
+  ]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      pickResult: (nextResultat) => {
+        if (
+          !contact ||
+          loading ||
+          awaitingEvent ||
+          contact.status !== 'pending'
+        ) {
+          return false;
+        }
+        setResultat(nextResultat);
+        return true;
+      },
+      submit: handleSubmit,
+    }),
+    [awaitingEvent, contact, handleSubmit, loading],
+  );
+
   if (!contact) {
     return (
       <main
@@ -140,20 +211,6 @@ export function ContactWorkspace({
         (contact.sf_contact_id
           ? `https://salesforce.com/${contact.sf_contact_id}`
           : null);
-
-  const handleSubmit = () => {
-    if (!contact) return;
-    const payload: LogPayload = {
-      resultat,
-      comments: comments.trim(),
-      recallAt: scheduleRecall && recallAt ? recallAt : null,
-      doNotCall,
-    };
-    onLogAndNext(contact.id, payload);
-    // Reset ACW state
-    setComments('');
-    setDoNotCall(false);
-  };
 
   const handleRdvSubmit = (
     start: string,
@@ -359,4 +416,4 @@ export function ContactWorkspace({
       </section>
     </main>
   );
-}
+});

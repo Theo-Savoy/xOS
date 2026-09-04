@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, GlassCard, Skeleton } from '../../../../../components/ui';
+import type { ResultatCall } from '../../../../../crm';
 import { ConfirmDialog } from '../../../ConfirmDialog';
 import { RunnerView } from '../RunnerView';
-import { ContactWorkspace } from './ContactWorkspace';
+import {
+  ContactWorkspace,
+  type ContactWorkspaceHandle,
+} from './ContactWorkspace';
 import { ContextInspector } from './ContextInspector';
 import { PowerWorkspace } from './PowerWorkspace';
 import { QueueToolOverlay } from './QueueToolOverlay';
@@ -10,6 +14,7 @@ import { SessionHeader } from './SessionHeader';
 import { SessionQueue } from './SessionQueue';
 import type { QueueToolState, SessionWorkspaceProps } from './types';
 import { useSessionPowerPool } from './useSessionPowerPool';
+import { useSessionWorkspaceShortcuts } from './useSessionWorkspaceShortcuts';
 
 /**
  * Surface SessionWorkspace V2 complète (Issue #119 - Lot L2).
@@ -164,6 +169,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
   const [pendingQueueFocusId, setPendingQueueFocusId] = useState<number | null>(
     null,
   );
+  const contactWorkspaceRef = useRef<ContactWorkspaceHandle>(null);
 
   const isQueueCollapsed = powerViewModel.isQueueCollapsed;
   const isPowerConversation = powerViewModel.state === 'conversation';
@@ -179,29 +185,32 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     setQueueToolConfirmOpen(false);
   }, [isPowerConversation, isQueueToolOpen]);
 
-  // Grok note a : la file de rappels n'est pas paritaire -> forcer le legacy
-  if (variant === 'recalls') {
-    return <RunnerView {...props} />;
-  }
-
-  const handleFocusContact = (id: number) => {
-    // I5 lock focus : pendant awaitingEvent, la file est inerte jusqu'à finalisation
-    if (awaitingEvent) return;
-    if (isQueueToolOpen) {
-      if (queueToolState.isDirty) {
-        setPendingQueueFocusId(id);
-        setQueueToolConfirmOpen(true);
-        return;
+  const handleFocusContact = useCallback(
+    (id: number) => {
+      // I5 lock focus : pendant awaitingEvent, la file est inerte jusqu'à finalisation
+      if (awaitingEvent) return;
+      if (isQueueToolOpen) {
+        if (queueToolState.isDirty) {
+          setPendingQueueFocusId(id);
+          setQueueToolConfirmOpen(true);
+          return;
+        }
+        setIsQueueToolOpen(false);
+        setQueueToolState({ hasSelection: false, isDirty: false });
+        setIsQueueSheetOpen(false);
       }
-      setIsQueueToolOpen(false);
-      setQueueToolState({ hasSelection: false, isDirty: false });
-      setIsQueueSheetOpen(false);
-    }
-    setInternalFocusedId(id);
-    onFocusContact(id);
-  };
+      setInternalFocusedId(id);
+      onFocusContact(id);
+    },
+    [
+      awaitingEvent,
+      isQueueToolOpen,
+      onFocusContact,
+      queueToolState.isDirty,
+    ],
+  );
 
-  const closeQueueTool = () => {
+  const closeQueueTool = useCallback(() => {
     if (queueToolState.isDirty) {
       setPendingQueueFocusId(null);
       setQueueToolConfirmOpen(true);
@@ -210,15 +219,15 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     setIsQueueToolOpen(false);
     setQueueToolState({ hasSelection: false, isDirty: false });
     setIsQueueSheetOpen(false);
-  };
+  }, [queueToolState.isDirty]);
 
-  const openQueueTool = () => {
-    if (powerViewModel.state === 'conversation') return;
+  const openQueueTool = useCallback(() => {
+    if (isPowerConversation) return;
     setIsQueueSheetOpen(false);
     setIsQueueToolOpen(true);
-  };
+  }, [isPowerConversation]);
 
-  const confirmCloseQueueTool = () => {
+  const confirmCloseQueueTool = useCallback(() => {
     const nextFocusId = pendingQueueFocusId;
     setQueueToolConfirmOpen(false);
     setPendingQueueFocusId(null);
@@ -229,7 +238,37 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       setInternalFocusedId(nextFocusId);
       onFocusContact(nextFocusId);
     }
-  };
+  }, [onFocusContact, pendingQueueFocusId]);
+
+  const handleOpenContactShortcut = useCallback(() => {
+    if (focusedContact) handleFocusContact(focusedContact.id);
+  }, [focusedContact, handleFocusContact]);
+
+  const handlePickResultShortcut = useCallback(
+    (resultat: ResultatCall) =>
+      contactWorkspaceRef.current?.pickResult(resultat) ?? false,
+    [],
+  );
+
+  const handleSubmitShortcut = useCallback(
+    () => contactWorkspaceRef.current?.submit() ?? false,
+    [],
+  );
+
+  useSessionWorkspaceShortcuts({
+    active: props.active !== false && variant !== 'recalls',
+    bulkOpen: isQueueToolOpen,
+    isPowerConversation,
+    onOpenQueue: openQueueTool,
+    onOpenContact: handleOpenContactShortcut,
+    onPickResult: handlePickResultShortcut,
+    onSubmit: handleSubmitShortcut,
+  });
+
+  // Grok note a : la file de rappels n'est pas paritaire -> forcer le legacy
+  if (variant === 'recalls') {
+    return <RunnerView {...props} />;
+  }
 
   return (
     <div
@@ -334,6 +373,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
 
             {/* Colonne 2 : Contact actif + ACW */}
             <ContactWorkspace
+              ref={contactWorkspaceRef}
               contact={focusedContact}
               contactContext={contactContext}
               contextContactId={contextContactId}
