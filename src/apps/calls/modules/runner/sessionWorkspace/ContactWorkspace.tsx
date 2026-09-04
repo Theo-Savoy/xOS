@@ -260,6 +260,7 @@ export function ContactWorkspace({
                 contactName={contact.contact_name}
                 loading={loading}
                 onSubmit={handleRdvSubmit}
+                submitLabel="Consigner appel + RDV & suivant"
                 team={team}
                 sessionType={sessionType}
                 currentSfUserId={currentSfUserId}
