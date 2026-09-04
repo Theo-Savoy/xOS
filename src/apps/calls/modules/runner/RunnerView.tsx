@@ -89,7 +89,8 @@ import {
   RECALL_DAYS_KEY,
 } from './runnerFormatters';
 import { ContactCardPanel } from './ContactCardPanel';
-import { PowerStrip, normalizeE164 } from './PowerStrip';
+import { PowerStrip } from './PowerStrip';
+import { projectPowerQueue } from './sessionWorkspace/powerUiState';
 import { ResultButtons } from '../../ResultButtons';
 import { RecallFields } from '../rdv/RecallFields';
 import { ContextSideSkeleton } from '../../ContextSideSkeleton';
@@ -174,6 +175,11 @@ type RunnerViewProps = {
   /** Power dialing : jeton API + droit. Absents → l'encart n'est pas proposé. */
   token?: string | null;
   canPowerDialer?: boolean;
+  /**
+   * Indique si la surface runner est active pour les interactions clavier/effets.
+   * Lorsqu'elle est sous le pré-session (underlay flouté), active=false désactive le listener clavier.
+   */
+  active?: boolean;
 };
 
 /** Phases du micro-fade texte entre deux fiches (conteneur unique). */
@@ -210,6 +216,7 @@ export function RunnerView({
   currentUserId = null,
   token = null,
   canPowerDialer = false,
+  active = true,
 }: RunnerViewProps) {
   const isRecallQueue = variant === 'recalls';
   // Pas de power dans la file de rappels : ses contacts viennent de séances
@@ -225,6 +232,8 @@ export function RunnerView({
   const [powerRunning, setPowerRunning] = useState(false);
   const [powerHangupRetryable, setPowerHangupRetryable] = useState(false);
   const powerHangupRef = useRef<(() => void) | null>(null);
+  const isPowerActive = Boolean(powerAvailable && powerOn);
+  const isPowerConversationActive = Boolean(isPowerActive && powerConversation);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [listStatusFilter, setListStatusFilter] =
@@ -1174,11 +1183,13 @@ export function RunnerView({
       }
     },
     [
-      currentContact,
       confirmRemove,
+      currentContact,
+      currentUserId,
       focusedContact,
       handleDefaultRecallDays,
       handleSubmit,
+      isPowerConversationActive,
       isRecallQueue,
       mode,
       navigateContact,
@@ -1189,6 +1200,7 @@ export function RunnerView({
   );
 
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       // Capture + stopPropagation : ⌘K ne doit pas ouvrir le launcher OS.
       if (isModKey(event) && event.key.toLowerCase() === 'k') {
@@ -1303,6 +1315,7 @@ export function RunnerView({
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [
+    active,
     commandBarOpen,
     demoOpen,
     focusedContact?.status,
@@ -1346,31 +1359,14 @@ export function RunnerView({
 
   const called = contacts.filter((c) => c.status === 'called').length;
 
-  const isPowerActive = Boolean(powerAvailable && powerOn);
-  const isPowerConversationActive = Boolean(isPowerActive && powerConversation);
 
   const { powerReadyCount, powerUnreachableCount } = useMemo(() => {
     if (!isPowerActive) return { powerReadyCount: 0, powerUnreachableCount: 0 };
-    let ready = 0;
-    let unreachable = 0;
-    contacts.forEach((c) => {
-      if (c.status !== 'pending') return;
-      if (
-        c.claim_active &&
-        c.claimed_by &&
-        currentUserId &&
-        c.claimed_by !== currentUserId
-      ) {
-        return;
-      }
-      const phone = normalizeE164(c.phone);
-      if (!phone) {
-        unreachable += 1;
-      } else {
-        ready += 1;
-      }
-    });
-    return { powerReadyCount: ready, powerUnreachableCount: unreachable };
+    const projection = projectPowerQueue(contacts, currentUserId);
+    return {
+      powerReadyCount: projection.readyCount,
+      powerUnreachableCount: projection.unreachableCount,
+    };
   }, [isPowerActive, contacts, currentUserId]);
 
   return (

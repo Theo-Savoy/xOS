@@ -473,4 +473,66 @@ describe('RunnerView — encart power', () => {
     expect(screen.getByText('Bob Durand')).toBeTruthy();
     expect(screen.getByText(/Consigner l.?appel/)).toBeTruthy();
   });
+
+  it('Invariant I12 : le raccourci L ne quitte jamais la fiche pendant une conversation Power', () => {
+    render(<RunnerView {...baseProps} token="tok" canPowerDialer />);
+    fireEvent.click(screen.getByRole('button', { name: /Fiche/ }));
+    fireEvent.click(powerSwitch()!);
+
+    // Décrochage : conversation active
+    act(() => {
+      mockStripProps.onFocusContact?.(bob.id);
+      mockStripProps.onConversationChange?.(true);
+    });
+
+    expect(screen.getByText('Bob Durand')).toBeTruthy();
+
+    // Appui sur la touche 'l' pour tenter de basculer vers la liste
+    fireEvent.keyDown(document, { key: 'l' });
+
+    // La fiche Bob Durand reste toujours affichée, pas de bascule en liste
+    expect(screen.getByText('Bob Durand')).toBeTruthy();
+    expect(screen.getByText(/Consigner l.?appel/)).toBeTruthy();
+  });
+
+  it('Invariant I13 : active=false désactive le listener clavier global document', () => {
+    const alice = { ...bob, id: 3, contact_name: 'Alice Martin' };
+    const onFocusContact = vi.fn();
+    render(
+      <RunnerView
+        {...baseProps}
+        active={false}
+        contacts={[bob, alice]}
+        currentContact={bob}
+        onFocusContact={onFocusContact}
+      />,
+    );
+    onFocusContact.mockClear();
+
+    // En mode fiche initiale avec active=false, taper 'k' ne doit déclencher aucune navigation clavier
+    fireEvent.keyDown(document, { key: 'k' });
+    fireEvent.keyDown(document, { key: 'j' });
+    expect(onFocusContact).not.toHaveBeenCalled();
+  });
+
+  it('Invariant I9 : déduplique les numéros dans le résumé de file Power', () => {
+    const contactA = { ...bob, id: 10, phone: '06 11 11 11 11' };
+    const contactB = { ...bob, id: 11, phone: '06 11 11 11 11' };
+    const contactC = { ...bob, id: 12, phone: '06 22 22 22 22' };
+
+    render(
+      <RunnerView
+        {...baseProps}
+        contacts={[contactA, contactB, contactC]}
+        token="tok"
+        canPowerDialer
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Liste/ }));
+    fireEvent.click(powerSwitch()!);
+
+    // Il y a 3 contacts pending mais 2 numéros uniques prêts après déduplication
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getByText(/prêts/)).toBeTruthy();
+  });
 });
