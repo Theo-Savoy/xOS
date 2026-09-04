@@ -585,6 +585,46 @@ export async function searchContacts(token, soql, options = {}) {
   };
 }
 
+export async function listReports(token, { q = '', limit = 50 } = {}) {
+  const reportLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
+  const where = q ? ` WHERE Name LIKE '%${escapeSOQL(q)}%'` : '';
+  const soql = `SELECT Id, Name, FolderName, LastRunDate FROM Report${where} ORDER BY LastRunDate DESC NULLS LAST LIMIT ${reportLimit}`;
+  const result = await searchContacts(token, soql);
+  if (result.error) return result;
+
+  return {
+    reports: (result.records || []).map((record) => ({
+      id: record.Id,
+      name: record.Name,
+      folder_name: record.FolderName ?? null,
+      last_run_date: record.LastRunDate ?? null,
+    })),
+  };
+}
+
+export async function runReport(token, reportId) {
+  const request = (requestToken) =>
+    fetch(
+      `${instanceUrl()}/services/data/v67.0/analytics/reports/${encodeURIComponent(reportId)}?includeDetails=true`,
+      {
+        headers: { Authorization: `Bearer ${requestToken}` },
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+  const result = await sfFetchWithRetry(token, request);
+  if (result.error) return result;
+
+  const { response } = result;
+  if (!response.ok) {
+    return {
+      error:
+        response.status === 404 ? 'report_not_found' : 'sf_analytics_error',
+      status: response.status,
+    };
+  }
+  return response.json();
+}
+
 export async function searchSOSL(token, sosl) {
   const request = (requestToken) =>
     fetch(

@@ -1,0 +1,752 @@
+{
+  "attributes": {
+    "describeUrl": "/services/data/v67.0/analytics/reports/00OAZ000000WkhW2AS/describe",
+    "instancesUrl": "/services/data/v67.0/analytics/reports/00OAZ000000WkhW2AS/instances",
+    "reportId": "00OAZ000000WkhW2AS",
+    "reportName": "Ventilation pipe Christophe",
+    "type": "Report"
+  },
+  "allData": true,
+  "factMap": {
+    "0!T": {
+      "aggregates": [
+        {
+          "label": "8 842,54 €",
+          "value": 8842.54
+        },
+        {
+          "label": "6",
+          "value": 6
+        }
+      ],
+      "rows": []
+    },
+    "0_0!T": {
+      "aggregates": [
+        {
+          "label": "8 753,54 €",
+          "value": 8753.54
+        },
+        {
+          "label": "5",
+          "value": 5
+        }
+      ],
+      "rows": [
+        {
+          "dataCells": [
+            {
+              "label": "Contact 1480",
+              "recordId": "006Sb00000azjWYIAY",
+              "value": "001ANON000174XXXXX"
+            },
+            {
+              "label": "SE - Bundle 5 - 200 users",
+              "recordId": "006Sb00000azjWYIAY",
+              "value": "006Sb00000azjWYIAY"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000azjWYIAY",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "XOS recommandé",
+              "recordId": "006Sb00000azjWYIAY",
+              "value": "XOS recommandé"
+            },
+            {
+              "label": "4 470,00 €",
+              "recordId": "006Sb00000azjWYIAY",
+              "value": {
+                "amount": 17944,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "30 %",
+              "value": 85581
+            },
+            {
+              "label": "14 900,00 €",
+              "value": {
+                "amount": 32281,
+                "currency": null
+              }
+            }
+          ]
+        },
+        {
+          "dataCells": [
+            {
+              "label": "Contact 1481",
+              "recordId": "006Sb00000YRhIDIA1",
+              "value": "001ANON000141XXXXX"
+            },
+            {
+              "label": "SE - Bureautique 150 users",
+              "recordId": "006Sb00000YRhIDIA1",
+              "value": "006Sb00000YRhIDIA1"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000YRhIDIA1",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "Projet qualifié / AO reçu",
+              "recordId": "006Sb00000YRhIDIA1",
+              "value": "Projet qualifié / AO reçu"
+            },
+            {
+              "label": "1 725,00 €",
+              "recordId": "006Sb00000YRhIDIA1",
+              "value": {
+                "amount": 6566,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "25 %",
+              "value": 29056
+            },
+            {
+              "label": "6 900,00 €",
+              "value": {
+                "amount": 24078,
+                "currency": null
+              }
+            }
+          ]
+        },
+        {
+          "dataCells": [
+            {
+              "label": "ANRH",
+              "recordId": "006Sb00000bSbs9IAC",
+              "value": "001ANON000178XXXXX"
+            },
+            {
+              "label": "SE - CNV 80 users",
+              "recordId": "006Sb00000bSbs9IAC",
+              "value": "006Sb00000bSbs9IAC"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000bSbs9IAC",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "XOS recommandé",
+              "recordId": "006Sb00000bSbs9IAC",
+              "value": "XOS recommandé"
+            },
+            {
+              "label": "1 035,00 €",
+              "recordId": "006Sb00000bSbs9IAC",
+              "value": {
+                "amount": 85349,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "15 %",
+              "value": 95151
+            },
+            {
+              "label": "6 900,00 €",
+              "value": {
+                "amount": 24078,
+                "currency": null
+              }
+            }
+          ]
+        },
+        {
+          "dataCells": [
+            {
+              "label": "SCC France",
+              "recordId": "006Sb00000TB2aUIAT",
+              "value": "001ANON000491XXXXX"
+            },
+            {
+              "label": "RENEW-2 SCC - EXCEL 200 users 3 ans",
+              "recordId": "006Sb00000TB2aUIAT",
+              "value": "006Sb00000TB2aUIAT"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000TB2aUIAT",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "Contact 1482",
+              "recordId": "006Sb00000TB2aUIAT",
+              "value": "Contact 1483"
+            },
+            {
+              "label": "53,54 €",
+              "recordId": "006Sb00000TB2aUIAT",
+              "value": {
+                "amount": 25043,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "1 %",
+              "value": 72992
+            },
+            {
+              "label": "5 354,00 €",
+              "value": {
+                "amount": 21594,
+                "currency": null
+              }
+            }
+          ]
+        },
+        {
+          "dataCells": [
+            {
+              "label": "Contact 1484",
+              "recordId": "006Sb00000aCYUDIA4",
+              "value": "001ANON000157XXXXX"
+            },
+            {
+              "label": "SE - CNV - 135 users",
+              "recordId": "006Sb00000aCYUDIA4",
+              "value": "006Sb00000aCYUDIA4"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000aCYUDIA4",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "Contact 1485",
+              "recordId": "006Sb00000aCYUDIA4",
+              "value": "Contact 1486"
+            },
+            {
+              "label": "1 470,00 €",
+              "recordId": "006Sb00000aCYUDIA4",
+              "value": {
+                "amount": 20853,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "30 %",
+              "value": 85581
+            },
+            {
+              "label": "4 900,00 €",
+              "value": {
+                "amount": 33866,
+                "currency": null
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "0_1!T": {
+      "aggregates": [
+        {
+          "label": "89,00 €",
+          "value": 89.0
+        },
+        {
+          "label": "1",
+          "value": 1
+        }
+      ],
+      "rows": [
+        {
+          "dataCells": [
+            {
+              "label": "POMA",
+              "recordId": "006Sb00000bnkxFIAQ",
+              "value": "001ANON000094XXXXX"
+            },
+            {
+              "label": "RENEW-1 SE - Intervention IA Codir",
+              "recordId": "006Sb00000bnkxFIAQ",
+              "value": "006Sb00000bnkxFIAQ"
+            },
+            {
+              "label": "30/09/2026",
+              "recordId": "006Sb00000bnkxFIAQ",
+              "value": "2026-09-30"
+            },
+            {
+              "label": "Contact 1487",
+              "recordId": "006Sb00000bnkxFIAQ",
+              "value": "Contact 1488"
+            },
+            {
+              "label": "89,00 €",
+              "recordId": "006Sb00000bnkxFIAQ",
+              "value": {
+                "amount": 98865,
+                "currency": null
+              }
+            },
+            {
+              "label": "Q1-2026",
+              "value": "Q1-2026"
+            },
+            {
+              "label": "1 %",
+              "value": 72992
+            },
+            {
+              "label": "8 900,00 €",
+              "value": {
+                "amount": 91682,
+                "currency": null
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "T!T": {
+      "aggregates": [
+        {
+          "label": "8 842,54 €",
+          "value": 8842.54
+        },
+        {
+          "label": "6",
+          "value": 6
+        }
+      ],
+      "rows": []
+    }
+  },
+  "groupingsAcross": {
+    "groupings": []
+  },
+  "groupingsDown": {
+    "groupings": [
+      {
+        "groupings": [
+          {
+            "groupings": [],
+            "key": "0_0",
+            "label": "Catalogue",
+            "value": "Catalogue"
+          },
+          {
+            "groupings": [],
+            "key": "0_1",
+            "label": "Conseil",
+            "value": "Conseil"
+          }
+        ],
+        "key": "0",
+        "label": "Contact 1489",
+        "value": "00XANON000003XXXXX"
+      }
+    ]
+  },
+  "hasDetailRows": true,
+  "hasExceededTabularRowLimit": false,
+  "picklistColors": {},
+  "reportExtendedMetadata": {
+    "aggregateColumnInfo": {
+      "RowCount": {
+        "dataType": "int",
+        "label": "Contact 1490"
+      },
+      "s!EXP_AMOUNT": {
+        "dataType": "currency",
+        "label": "Contact 1491"
+      }
+    },
+    "availableDashboardSettings": null,
+    "detailColumnInfo": {
+      "ACCOUNT_NAME": {
+        "dataType": "string",
+        "entityColumnName": "Account.Name",
+        "fieldInfo": {
+          "entityName": "Opportunity",
+          "fieldName": "AccountId",
+          "lookupEntityName": "Account"
+        },
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Account.Name",
+        "inactiveFilterValues": [],
+        "isLookup": true,
+        "label": "Contact 1492",
+        "uniqueCountable": true
+      },
+      "OPPORTUNITY_NAME": {
+        "dataType": "string",
+        "entityColumnName": "Opportunity.Name",
+        "fieldInfo": {
+          "entityName": "Opportunity",
+          "fieldName": "Name",
+          "lookupEntityName": "Opportunity"
+        },
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Name",
+        "inactiveFilterValues": [],
+        "isLookup": true,
+        "label": "Contact 1493",
+        "uniqueCountable": true
+      },
+      "CLOSE_DATE": {
+        "dataType": "date",
+        "entityColumnName": "Opportunity.CloseDate",
+        "fieldInfo": {
+          "entityName": "Opportunity",
+          "fieldName": "CloseDate"
+        },
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.CloseDate",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Contact 1494",
+        "uniqueCountable": true
+      },
+      "STAGE_NAME": {
+        "dataType": "picklist",
+        "entityColumnName": "Opportunity.StageName",
+        "fieldInfo": {
+          "entityName": "Opportunity",
+          "fieldName": "StageName"
+        },
+        "filterValues": [
+          {
+            "apiName": "Contact 1495",
+            "label": "Contact 1496",
+            "name": "Contact 1497"
+          },
+          {
+            "apiName": "XOS recommandé",
+            "label": "XOS recommandé",
+            "name": "XOS recommandé"
+          },
+          {
+            "apiName": "Projet qualifié / AO reçu",
+            "label": "Projet qualifié / AO reçu",
+            "name": "Projet qualifié / AO reçu"
+          },
+          {
+            "apiName": "Contact 1498",
+            "label": "Contact 1499",
+            "name": "Contact 1500"
+          },
+          {
+            "apiName": "XOS short-listé",
+            "label": "XOS short-listé",
+            "name": "XOS short-listé"
+          },
+          {
+            "apiName": "Contact 1501",
+            "label": "Contact 1502",
+            "name": "Contact 1503"
+          },
+          {
+            "apiName": "Contact 1504",
+            "label": "Contact 1505",
+            "name": "Contact 1506"
+          },
+          {
+            "apiName": "OK de principe",
+            "label": "OK de principe",
+            "name": "OK de principe"
+          },
+          {
+            "apiName": "Fermée / Gagnée",
+            "label": "Fermée / Gagnée",
+            "name": "Fermée / Gagnée"
+          },
+          {
+            "apiName": "Fermée / Perdue",
+            "label": "Fermée / Perdue",
+            "name": "Fermée / Perdue"
+          },
+          {
+            "apiName": "Contact 1507",
+            "label": "Contact 1508",
+            "name": "Contact 1509"
+          }
+        ],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.StageName",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Étape",
+        "uniqueCountable": true
+      },
+      "EXP_AMOUNT": {
+        "dataType": "currency",
+        "entityColumnName": "Opportunity.ExpectedRevenue",
+        "fieldInfo": {
+          "entityName": "Opportunity",
+          "fieldName": "ExpectedRevenue"
+        },
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.ExpectedRevenue",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Contact 1510",
+        "uniqueCountable": true
+      },
+      "FISCAL_QUARTER": {
+        "dataType": "string",
+        "entityColumnName": "Opportunity.Fiscal",
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Fiscal",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Contact 1511",
+        "uniqueCountable": true
+      },
+      "PROBABILITY": {
+        "dataType": "percent",
+        "entityColumnName": "Opportunity.Probability",
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Probability",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Probabilité (%)",
+        "uniqueCountable": true
+      },
+      "AMOUNT": {
+        "dataType": "currency",
+        "entityColumnName": "Opportunity.Amount",
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Amount",
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Montant",
+        "uniqueCountable": true
+      }
+    },
+    "groupingColumnInfo": {
+      "FULL_NAME": {
+        "dataType": "string",
+        "entityColumnName": "User.Name",
+        "filterValues": [],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Owner.Name",
+        "groupingLevel": 0,
+        "inactiveFilterValues": [],
+        "isLookup": true,
+        "label": "Contact 1512",
+        "uniqueCountable": true
+      },
+      "Opportunity.Type_de_vente__c": {
+        "dataType": "picklist",
+        "entityColumnName": "Opportunity.Type_de_vente__c",
+        "filterValues": [
+          {
+            "apiName": "Catalogue",
+            "label": "Catalogue",
+            "name": "Catalogue"
+          },
+          {
+            "apiName": "Contact 1513",
+            "label": "Contact 1514",
+            "name": "Contact 1515"
+          },
+          {
+            "apiName": "Conseil",
+            "label": "Conseil",
+            "name": "Conseil"
+          },
+          {
+            "apiName": "LMS",
+            "label": "LMS",
+            "name": "LMS"
+          },
+          {
+            "apiName": "XOS+",
+            "label": "XOS+",
+            "name": "XOS+"
+          }
+        ],
+        "filterable": true,
+        "fullyQualifiedName": "Opportunity.Type_de_vente__c",
+        "groupingLevel": 1,
+        "inactiveFilterValues": [],
+        "isLookup": false,
+        "label": "Contact 1516",
+        "uniqueCountable": true
+      }
+    }
+  },
+  "reportMetadata": {
+    "aggregates": [
+      "s!EXP_AMOUNT",
+      "RowCount"
+    ],
+    "chart": {
+      "chartType": "Donut",
+      "combineSmallGroups": false,
+      "groupingColorPalette": "DEFAULT",
+      "groupings": [
+        "Opportunity.Type_de_vente__c"
+      ],
+      "hasLegend": true,
+      "legendPosition": "Right",
+      "paletteColors": [
+        "#2976ca",
+        "#1f5da1",
+        "#16457a",
+        "#0d2f55",
+        "#05182f",
+        "#87aef7",
+        "#4794f5"
+      ],
+      "referenceLineColors": [
+        null
+      ],
+      "referenceLineValues": [
+        null
+      ],
+      "showChartPercentages": true,
+      "showChartTotal": true,
+      "showChartValues": false,
+      "sortLegendValues": false,
+      "sortReportCharts": false,
+      "summaries": [
+        "s!EXP_AMOUNT"
+      ],
+      "summaryAxisLocations": [
+        "Y"
+      ],
+      "summaryColors": [
+        null
+      ],
+      "summaryVisualizationTypes": [
+        "Column"
+      ],
+      "title": null
+    },
+    "crossFilters": [],
+    "currency": null,
+    "dashboardSetting": null,
+    "description": null,
+    "detailColumns": [
+      "ACCOUNT_NAME",
+      "OPPORTUNITY_NAME",
+      "CLOSE_DATE",
+      "STAGE_NAME",
+      "EXP_AMOUNT",
+      "FISCAL_QUARTER",
+      "PROBABILITY",
+      "AMOUNT"
+    ],
+    "developerName": "Ventilation_pipe_Christophe_rLh",
+    "division": null,
+    "folderId": "00lAZ000000MTynYAG",
+    "groupingsAcross": [],
+    "groupingsDown": [
+      {
+        "dateGranularity": "None",
+        "name": "FULL_NAME",
+        "sortAggregate": null,
+        "sortOrder": "Asc"
+      },
+      {
+        "dateGranularity": "None",
+        "name": "Opportunity.Type_de_vente__c",
+        "sortAggregate": null,
+        "sortOrder": "Asc"
+      }
+    ],
+    "hasDetailRows": true,
+    "hasRecordCount": true,
+    "historicalSnapshotDates": [],
+    "id": "00OAZ000000WkhW2AS",
+    "name": "Contact 1517",
+    "paletteColors": [
+      "#2976ca",
+      "#1f5da1",
+      "#16457a",
+      "#0d2f55",
+      "#05182f",
+      "#87aef7",
+      "#4794f5"
+    ],
+    "presentationOptions": {
+      "hasStackedSummaries": true
+    },
+    "reportBooleanFilter": null,
+    "reportFilters": [
+      {
+        "column": "FULL_NAME",
+        "filterType": "fieldValue",
+        "isRunPageEditable": true,
+        "operator": "contains",
+        "value": "Christophe"
+      }
+    ],
+    "reportFormat": "SUMMARY",
+    "reportType": {
+      "label": "Opportunités",
+      "type": "Opportunity"
+    },
+    "saveRoleHierarchy": true,
+    "scope": "organization",
+    "showGrandTotal": true,
+    "showSubtotals": true,
+    "sortBy": [
+      {
+        "sortColumn": "AMOUNT",
+        "sortOrder": "Desc"
+      }
+    ],
+    "standardDateFilter": {
+      "column": "CLOSE_DATE",
+      "durationValue": "THIS_FISCAL_QUARTER",
+      "endDate": "2026-09-30",
+      "startDate": "2026-07-01"
+    },
+    "standardFilters": [
+      {
+        "name": "open",
+        "value": "open"
+      },
+      {
+        "name": "probability",
+        "value": ">0"
+      }
+    ],
+    "supportsRoleHierarchy": true,
+    "userOrHierarchyFilterId": null
+  },
+  "anonymization": "Synthetic identifiers, names, emails, phones and amounts only. No production CRM content, credentials or tokens. Structure preserved: factMap keys, row counts, duplicate rates."
+}

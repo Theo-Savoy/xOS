@@ -6,6 +6,7 @@ import { handleLogging } from './_calls/logging.js';
 import { handleRdvSuivi } from './_calls/rdvSuivi.js';
 import { handleSessionsRead } from './_calls/sessionsRead.js';
 import { handleSessionWrite } from './_calls/sessionsWrite.js';
+import { listReportsAction, runReportAction } from './_calls/reports.js';
 import { getServiceClient, jsonResponse } from './_calls/http.js';
 
 export {
@@ -79,6 +80,24 @@ async function handleBuiltInAction(action, body, user, client) {
       excluded_count: result.excluded_count ?? 0,
       truncated: Boolean(result.truncated),
     });
+  }
+  if (action === 'list_reports') {
+    const result = await listReportsAction(client, user.id, body);
+    if (result.error)
+      return response(result.status || 500, {
+        error: result.error,
+        ...(result.message ? { message: result.message } : {}),
+      });
+    return response(200, { reports: result.reports });
+  }
+  if (action === 'run_report') {
+    const result = await runReportAction(client, user.id, body);
+    if (result.error)
+      return response(result.status || 500, {
+        error: result.error,
+        ...(result.message ? { message: result.message } : {}),
+      });
+    return response(200, result);
   }
   if (action === 'list_presets') {
     const result = await listPresets(client, user.id);
