@@ -34,6 +34,37 @@ export function sessionShareNotification({
       action: 'open_session',
       app_id: 'calls',
       params: { view: 'runner', session_id: String(sessionId) },
+      action_label: 'Ouvrir la séance',
     },
+  };
+}
+
+export function reviewShareNotification({
+  analysisId,
+  periodLabel,
+  fy,
+  semester,
+  quarter,
+  actorId,
+  actorLabel,
+}) {
+  return {
+    kind: 'review_shared',
+    title: 'Analyse partagée',
+    body: `${actorLabel} a partagé l'analyse ${periodLabel} avec vous`,
+    payload: {
+      analysis_id: analysisId,
+      actor_id: actorId,
+      action: 'open_review',
+      app_id: 'review',
+      params: {
+        shared: '1',
+        fy,
+        ...(semester ? { semester } : {}),
+        ...(quarter ? { quarter } : {}),
+      },
+      action_label: "Ouvrir l'analyse",
+    },
+    dedupeKey: `review_share:${analysisId}`,
   };
 }

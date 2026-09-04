@@ -32,6 +32,8 @@ import { roleAtLeast } from './_config/access.js';
 import { fetchSFToken, searchContacts } from './_crm/salesforce.js';
 import { parsePeriod } from './_review/period.js';
 import { listShared, createShared, revokeShared } from './_review/shared.js';
+import { insertUserNotification } from './_notifications/router.js';
+import { reviewShareNotification } from './_calls/notificationHelpers.js';
 import {
   filterEventsBySemester,
   filterWindowBySemester,
@@ -204,6 +206,28 @@ async function reviewHandler(request) {
         recipientId: body.recipient_id || null,
       });
       if (result.error) return json(result.status, { error: result.error });
+
+      if (body.recipient_id) {
+        const actorLabel = profile.fullName ?? user.email;
+        const periodLabel = body.config.period;
+        const fy = body.config.fy;
+        const semester = body.config.semester;
+        const quarter = body.config.quarter;
+
+        insertUserNotification(
+          client,
+          reviewShareNotification({
+            analysisId: result.analysis.id,
+            periodLabel,
+            fy,
+            semester,
+            quarter,
+            actorId: user.id,
+            actorLabel,
+          }),
+        );
+      }
+
       return json(201, result);
     }
     if (method === 'DELETE') {

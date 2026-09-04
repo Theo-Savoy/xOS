@@ -244,9 +244,7 @@ function DesktopContent({ userEmail, accessToken }: DesktopProps) {
           <ControlCenter
             accessToken={accessToken}
             onOpenApp={(appId, params) => {
-              const app = visibleApps.find(
-                (candidate) => candidate.id === appId,
-              );
+              const app = getAppManifest(appId);
               if (app) openApp(app, params);
             }}
           />

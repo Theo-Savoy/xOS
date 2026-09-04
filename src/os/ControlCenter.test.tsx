@@ -163,6 +163,7 @@ describe('ControlCenter', () => {
         action: 'open_session',
         app_id: 'calls',
         params: { view: 'runner', session_id: '12' },
+        action_label: 'Ouvrir la séance',
       },
       created_at: new Date().toISOString(),
       read_at: null,
@@ -194,6 +195,48 @@ describe('ControlCenter', () => {
     expect(onOpenApp).toHaveBeenCalledWith('calls', {
       view: 'runner',
       session_id: '12',
+    });
+  });
+
+  it('opens a shared analysis deep-link in Bilan', async () => {
+    const reviewShared = {
+      id: 45,
+      kind: 'review_shared',
+      title: 'Analyse partagée',
+      body: 'Théo a partagé l\'analyse FY26 avec vous',
+      payload: {
+        app_id: 'review',
+        params: { shared: '1', fy: 'FY26' },
+        action_label: "Ouvrir l'analyse",
+      },
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ notifications: [reviewShared], unread_count: 1 }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const onOpenApp = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <NotificationsProvider>
+        <ControlCenter accessToken="token" onOpenApp={onOpenApp} />
+      </NotificationsProvider>,
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Centre de notifications' }),
+    );
+    await waitFor(() => expect(screen.getByText(reviewShared.title)).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: "Ouvrir l'analyse" }));
+
+    expect(onOpenApp).toHaveBeenCalledWith('review', {
+      shared: '1',
+      fy: 'FY26',
     });
   });
 

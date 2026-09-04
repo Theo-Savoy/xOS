@@ -3,8 +3,9 @@
  * Six pages d’analyse, sans transposition slide par slide ni annexes séparées.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Button, EmptyState, Skeleton } from '../../components/ui';
+import { Button, Skeleton } from '../../components/ui';
 import { apiFetch } from '../../lib/apiClient';
+import { fetchTeam } from '../calls/api';
 import { supabase } from '../../lib/supabase';
 import { PeriodSelector } from './components/PeriodSelector';
 import {
@@ -17,6 +18,7 @@ import {
 } from './pages/ReviewPages';
 import {
   ANNUAL_ONLY_FY,
+  FY_OPTIONS,
   isAnnualOnlySelection,
   type PeriodSelection,
 } from './review.period';
@@ -65,14 +67,21 @@ export default function ReviewApp({
   params?: Record<string, string>;
 } = {}) {
   const [token, setToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [nav, setNav] = useState<NavId>(params?.shared ? 'shared' : 'summary');
-  const [period, setPeriod] = useState<PeriodSelection>({
-    mode: 'fy',
-    fy: ANNUAL_ONLY_FY,
-    semester: 'S1',
+  const [period, setPeriod] = useState<PeriodSelection>(() => {
+    const fy = params?.fy && FY_OPTIONS.some((o) => o.value === params.fy) ? params.fy : ANNUAL_ONLY_FY;
+    if (params?.semester === 'S1' || params?.semester === 'S2') {
+      return { mode: 'semester', fy, semester: params.semester };
+    }
+    if (params?.quarter === 'Q1' || params?.quarter === 'Q2' || params?.quarter === 'Q3' || params?.quarter === 'Q4') {
+      return { mode: 'quarter', fy, semester: 'S1', quarter: params.quarter };
+    }
+    return { mode: 'fy', fy, semester: 'S1' };
   });
   const [isManager, setIsManager] = useState(false);
   const [roleKnown, setRoleKnown] = useState(false);
+  const [team, setTeam] = useState<{ user_id: string; label: string }[]>([]);
   const [shared, setShared] = useState<SharedAnalysis[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
   const [sharedError, setSharedError] = useState<string | null>(null);
@@ -80,9 +89,11 @@ export default function ReviewApp({
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setToken(data.session?.access_token || null);
+      setUserId(data.session?.user?.id || null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setToken(session?.access_token || null);
+      setUserId(session?.user?.id || null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -182,28 +193,44 @@ export default function ReviewApp({
   }, [token]);
 
   useEffect(() => {
-    if (nav === 'shared' && token) fetchShared();
-  }, [nav, token, fetchShared]);
-
-  const handleShare = useCallback(async () => {
-    if (!token) return;
-    const periodKey =
-      period.mode === 'semester'
-        ? `${period.fy}-${period.semester}`
-        : period.fy;
-    try {
-      await apiFetch(token, '/api/review?resource=shared', {
-        method: 'POST',
-        body: JSON.stringify({
-          config: { granularity: period.mode, period: periodKey },
-          note: `Analyse ${periodKey}`,
-        }),
-      });
+    if (nav === 'shared' && token) {
       fetchShared();
-    } catch {
-      // Conserver la liste valide si la création échoue.
+      if (isManager) {
+        fetchTeam(token).then(setTeam).catch(() => {});
+      }
     }
-  }, [token, period, fetchShared]);
+  }, [nav, token, fetchShared, isManager]);
+  const handleShare = useCallback(
+    async (recipientId: string | null, note: string) => {
+      if (!token) return;
+      const periodKey =
+        period.mode === 'semester'
+          ? `${period.fy}-${period.semester}`
+          : period.mode === 'quarter'
+            ? `${period.fy}-${period.quarter}`
+            : period.fy;
+      try {
+        await apiFetch(token, '/api/review?resource=shared', {
+          method: 'POST',
+          body: JSON.stringify({
+            config: {
+              granularity: period.mode,
+              period: periodKey,
+              fy: period.fy,
+              semester: period.mode === 'semester' ? period.semester : null,
+              quarter: period.mode === 'quarter' ? period.quarter : null,
+            },
+            note,
+            recipient_id: recipientId,
+          }),
+        });
+        fetchShared();
+      } catch {
+        // géré silencieusement pour le moment
+      }
+    },
+    [token, period, fetchShared],
+  );
 
   const handleRevoke = useCallback(
     async (id: string) => {
@@ -262,11 +289,31 @@ export default function ReviewApp({
 
   if (!isManager) {
     return (
-      <div className="review-app">
-        <EmptyState
-          title="Bilan réservé aux managers"
-          description="Cette revue d'exercice n'est pas ouverte aux commerciaux. Demandez une analyse partagée à votre manager."
-        />
+      <div className="review-app review-app--shell">
+        <header className="review-header">
+          <div className="review-header-left">
+            <h2 className="review-title">Bilan</h2>
+          </div>
+        </header>
+        <div className="review-body">
+          <div className="review-main">
+            {sharedError ? (
+              <div className="review-error">{sharedError}</div>
+            ) : null}
+            <main className="review-content">
+              <SharedSection
+                shared={shared}
+                loading={sharedLoading}
+                error={sharedError}
+                isManager={false}
+                currentUserId={userId}
+                onShare={handleShare}
+                onRevoke={handleRevoke}
+                team={team}
+              />
+            </main>
+          </div>
+        </div>
       </div>
     );
   }
@@ -381,8 +428,10 @@ export default function ReviewApp({
                 loading={sharedLoading}
                 error={sharedError}
                 isManager={isManager}
+                currentUserId={userId}
                 onShare={handleShare}
                 onRevoke={handleRevoke}
+                team={team}
               />
             ) : null}
           </main>

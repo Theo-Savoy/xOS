@@ -972,3 +972,26 @@ button.review-hint:focus-visible .review-hint__bubble {
     transition: none;
   }
 }
+
+.review-share-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background-color: var(--xos-bg-card);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+}
+
+.review-share-banner-fields {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.review-share-banner-actions {
+  display: flex;
+  gap: 8px;
+}

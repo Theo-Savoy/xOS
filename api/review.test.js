@@ -6,12 +6,18 @@ const {
   mockGetProfile,
   mockFetchSFToken,
   mockSearchContacts,
+  mockInsertUserNotification,
 } = vi.hoisted(() => ({
   mockVerifyJWT: vi.fn(),
   mockGetServiceClient: vi.fn(),
   mockGetProfile: vi.fn(),
   mockFetchSFToken: vi.fn(),
   mockSearchContacts: vi.fn(),
+  mockInsertUserNotification: vi.fn(),
+}));
+
+vi.mock('./_notifications/router.js', () => ({
+  insertUserNotification: mockInsertUserNotification,
 }));
 
 vi.mock('./_auth.js', () => ({
@@ -215,5 +221,131 @@ describe('GET /api/review — resources business', () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe('annual_only_resource');
+  });
+});
+
+describe('POST /api/review?resource=shared', () => {
+  let mockInsert;
+  let mockSelect;
+  let mockSingle;
+  let mockEq;
+  let mockClient;
+
+  beforeEach(() => {
+    mockVerifyJWT.mockResolvedValue({ id: 'u1', email: 'u1@test.fr' });
+    mockGetProfile.mockResolvedValue({ role: 'manager', fullName: 'User Un' });
+    mockInsertUserNotification.mockClear();
+    
+    mockSingle = vi.fn().mockResolvedValue({ data: { id: 'u2' } });
+    mockEq = vi.fn().mockReturnValue({ single: mockSingle });
+    mockSelect = vi.fn().mockReturnValue({ eq: mockEq, single: mockSingle, in: vi.fn().mockResolvedValue({ data: [] }) });
+    mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+
+    mockClient = {
+      from: vi.fn().mockReturnValue({
+        insert: mockInsert,
+        select: mockSelect,
+        eq: mockEq,
+        is: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
+      }),
+    };
+    mockGetServiceClient.mockReturnValue(mockClient);
+  });
+
+  it('insère une notification si recipient_id est présent', async () => {
+    const req = new Request('https://xos.hellotheo.fr/api/review?resource=shared', {
+      method: 'POST',
+      body: JSON.stringify({
+        config: { granularity: 'fy', period: 'FY26', fy: 'FY26' },
+        recipient_id: 'u2',
+      }),
+    });
+    const { POST } = await import('./review.js');
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    
+    expect(mockInsertUserNotification).toHaveBeenCalledTimes(1);
+    expect(mockInsertUserNotification.mock.calls[0][1]).toMatchObject({
+      kind: 'review_shared',
+      payload: expect.objectContaining({
+        actor_id: 'u1',
+        app_id: 'review',
+        params: { shared: '1', fy: 'FY26' },
+      }),
+    });
+  });
+
+  it('aucune notification insérée si partage équipe (pas de recipient_id)', async () => {
+    const req = new Request('https://xos.hellotheo.fr/api/review?resource=shared', {
+      method: 'POST',
+      body: JSON.stringify({
+        config: { granularity: 'fy', period: 'FY26' },
+      }),
+    });
+    const { POST } = await import('./review.js');
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    
+    expect(mockInsertUserNotification).not.toHaveBeenCalled();
+  });
+
+  it('répond 400 invalid_recipient si destinataire inconnu', async () => {
+    mockSingle.mockResolvedValueOnce({ data: null });
+    const req = new Request('https://xos.hellotheo.fr/api/review?resource=shared', {
+      method: 'POST',
+      body: JSON.stringify({
+        config: { granularity: 'fy', period: 'FY26' },
+        recipient_id: 'unknown-user',
+      }),
+    });
+    const { POST } = await import('./review.js');
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_recipient');
+  });
+});
+
+describe('GET /api/review?resource=shared', () => {
+  let mockClient;
+
+  beforeEach(() => {
+    mockVerifyJWT.mockResolvedValue({ id: 'u1', email: 'u1@test.fr' });
+    mockGetProfile.mockResolvedValue({ role: 'manager', fullName: 'User Un' });
+
+    const mockIn = vi.fn().mockResolvedValue({
+      data: [{ id: 'creator-id', full_name: 'Creator Name' }]
+    });
+
+    mockClient = {
+      from: vi.fn((table) => {
+        if (table === 'shared_analyses') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            is: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({
+              data: [{ id: 'a1', created_by: 'creator-id' }]
+            }),
+          };
+        }
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({ in: mockIn }),
+          };
+        }
+      })
+    };
+    mockGetServiceClient.mockReturnValue(mockClient);
+  });
+
+  it('ajoute created_by_label aux analyses listées', async () => {
+    const req = new Request('https://xos.hellotheo.fr/api/review?resource=shared');
+    const { GET } = await import('./review.js');
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.analyses[0].created_by_label).toBe('Creator Name');
   });
 });
