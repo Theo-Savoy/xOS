@@ -118,6 +118,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       onFocusContact(id);
     },
     onBack,
+    initialPowerOn: props.initialPowerOn,
   });
 
   const {

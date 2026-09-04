@@ -141,7 +141,8 @@ export interface RunnerSessionProps {
   currentUserId?: string | null;
   token?: string | null;
   canPowerDialer?: boolean;
-
+  /** État initial d'activation Power (optionnel, principalement utile aux tests) */
+  initialPowerOn?: boolean;
   /**
    * Indique si la surface runner est active pour les interactions clavier/effets.
    * Lorsqu'elle est sous le pré-session (underlay flouté), active=false désactive le listener clavier.

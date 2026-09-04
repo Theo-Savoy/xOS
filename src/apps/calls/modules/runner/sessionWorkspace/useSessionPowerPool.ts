@@ -288,10 +288,9 @@ export function useSessionPowerPool({
   const onRetryHangup = pool.hangupAll;
   const togglePower = useCallback(() => {
     // Interdire la désactivation brutale en plein milieu d'une vague active
-    if (isWaveActive) return;
+    if (powerOn && isWaveActive) return;
     setPowerOn((prev) => !prev);
-  }, [isWaveActive]);
-
+  }, [powerOn, isWaveActive]);
   return {
     isPowerActive: powerViewModel.state !== 'off',
     powerOn,

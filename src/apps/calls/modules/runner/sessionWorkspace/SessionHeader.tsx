@@ -169,7 +169,7 @@ export function SessionHeader({
             className="calls-workspace__power-toggle-btn"
             onClick={onTogglePower}
             aria-pressed={isPowerActive}
-            aria-label={isPowerActive ? 'Désactiver le mode Power' : 'Activer le mode Power'}
+            aria-label={isPowerActive ? 'Désactiver le mode Power' : 'Mode Power'}
           >
             ⚡ Power
           </Button>
