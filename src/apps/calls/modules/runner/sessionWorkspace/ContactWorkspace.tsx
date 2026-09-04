@@ -52,6 +52,8 @@ export interface ContactWorkspaceProps {
     meta: { subject: string; ownerSfUserId: string | null },
   ) => void;
   onCelebrateGoal?: (payload: { goal: number; count: number }) => void;
+  /** Masquage de l'action d'appel séquentiel / CallBar quand Power est actif */
+  isCallBarHidden?: boolean;
 }
 
 export function ContactWorkspace({
@@ -69,6 +71,7 @@ export function ContactWorkspace({
   awaitingEvent,
   onFinalizeEvent,
   onLogEvent,
+  isCallBarHidden = false,
 }: ContactWorkspaceProps) {
   const [resultat, setResultat] = useState<ResultatCall>(
     RESULTAT_OPTIONS[0].value,
@@ -201,6 +204,7 @@ export function ContactWorkspace({
           contactContext={contextApplies ? contactContext : null}
           isRecallQueue={false}
           onUpdateRecall={onUpdateRecall ?? (() => {})}
+          isCallBarHidden={isCallBarHidden}
         />
       </div>
 
