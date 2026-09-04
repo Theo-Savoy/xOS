@@ -399,113 +399,57 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
     expect(quitBtn).toBeTruthy();
   });
 
-  it('9. Sortie transactionnelle I10 : hangup 200 autorise la sortie, échec la bloque (B2 Opus)', async () => {
-      setupPool(
-        { isRunning: true },
-        {
-          running: true,
-          lines: [{ slot: 0, phase: 'dialing', destination: '+331****0001', error: null }],
-        },
-      );
+  it('9. Sortie transactionnelle I10 : B2a course lignes terminales, B2b échec bloque, 200 idle libère', async () => {
+    // B2a — pendant la vague, les lignes sont terminales (skipped) mais running retombe à false
+    // AVANT que le serveur ne confirme le 200 : la sortie ne doit PAS partir (signature idle exigée).
+    setupPool(
+      { isRunning: false },
+      {
+        running: false,
+        lines: [
+          { slot: 0, phase: 'skipped', destination: '+331****0001', error: null },
+          { slot: 1, phase: 'skipped', destination: '+331****0002', error: null },
+          { slot: 2, phase: 'ended', destination: '+331****0003', error: null },
+        ],
+      },
+    );
 
-      const onBack = vi.fn();
-      const { rerender } = renderWorkspace({ onBack, initialPowerOn: true });
+    const onBack = vi.fn();
+    const { rerender } = renderWorkspace({ onBack, initialPowerOn: true });
 
-      // Clic sur Quitter pendant la vague
-      const quitBtn = screen.getByRole('button', { name: /retour aux séances/i });
-      fireEvent.click(quitBtn);
-      expect(onBack).not.toHaveBeenCalled();
-      expect(poolMockHandlers.hangupAll).toHaveBeenCalled();
+    // Clic sur Quitter : le pool est "au repos" (running false) mais les lignes ne sont
+    // PAS idle -> la sortie reste bloquée (le hangup serveur est encore en vol)
+    const quitBtn = screen.getByRole('button', { name: /retour aux séances/i });
+    fireEvent.click(quitBtn);
+    expect(poolMockHandlers.hangupAll).toHaveBeenCalled();
+    expect(onBack).not.toHaveBeenCalled();
 
-      // ÉTAPE 1 — raccrochage en échec serveur (hangupRetryable) : la sortie RESTE bloquée
-      setupPool(
-        { isRunning: false, hangupRetryable: true },
-        {
-          running: false,
-          lines: [{ slot: 0, phase: 'failed', destination: '+331****0001', error: 'Raccrochage serveur impossible' }],
-        },
-      );
+    // B2b — échec serveur confirmé (hangupRetryable) : la sortie reste bloquée, CTA retry unique
+    setupPool(
+      { isRunning: false, hangupRetryable: true },
+      {
+        running: false,
+        lines: [{ slot: 0, phase: 'failed', destination: '+331****0001', error: 'Raccrochage serveur impossible' }],
+      },
+    );
+    rerender(<App onBack={onBack} />);
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Réessayer le raccrochage/i })).toBeTruthy();
 
-      rerender(
-        <DialerProvider token="valid-token" dryRun>
-          <SessionWorkspaceV2
-            session={mockSession}
-            contacts={mockContacts}
-            hubSessions={[]}
-            currentContact={mockContacts[0]}
-            focusedContactId={101}
-            loading={false}
-            error={null}
-            awaitingEvent={null}
-            contactContext={null}
-            contextContactId={null}
-            onBack={onBack}
-            onFocusContact={vi.fn()}
-            onLogAndNext={vi.fn()}
-            onLogRdvAndNext={vi.fn()}
-            onLogMany={vi.fn()}
-            onLogEvent={vi.fn()}
-            onDeferContacts={vi.fn()}
-            onRemoveContacts={vi.fn()}
-            onUpdateRecall={vi.fn()}
-            canPowerDialer={true}
-            token="valid-token"
-            initialPowerOn={true}
-          />
-        </DialerProvider>,
-      );
-
-      // La sortie est BLOQUÉE tant que le raccrochage serveur n'est pas confirmé
-      expect(onBack).not.toHaveBeenCalled();
-      // L'UI affiche l'écran retry (CTA unique)
-      expect(screen.getByRole('button', { name: /Réessayer le raccrochage/i })).toBeTruthy();
-
-      // ÉTAPE 2 — l'utilisateur réessaie, le raccrochage aboutit (200), plus de retryable
-      setupPool(
-        { isRunning: false, hangupRetryable: false },
-        {
-          running: false,
-          error: null,
-          lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
-        },
-      );
-
-      rerender(
-        <DialerProvider token="valid-token" dryRun>
-          <SessionWorkspaceV2
-            session={mockSession}
-            contacts={mockContacts}
-            hubSessions={[]}
-            currentContact={mockContacts[0]}
-            focusedContactId={101}
-            loading={false}
-            error={null}
-            awaitingEvent={null}
-            contactContext={null}
-            contextContactId={null}
-            onBack={onBack}
-            onFocusContact={vi.fn()}
-            onLogAndNext={vi.fn()}
-            onLogRdvAndNext={vi.fn()}
-            onLogMany={vi.fn()}
-            onLogEvent={vi.fn()}
-            onDeferContacts={vi.fn()}
-            onRemoveContacts={vi.fn()}
-            onUpdateRecall={vi.fn()}
-            canPowerDialer={true}
-            token="valid-token"
-            initialPowerOn={true}
-          />
-        </DialerProvider>,
-      );
-
-      // Sortie confirmée seulement après le 200 : l'utilisateur re-clique Quitter,
-      // la sortie est désormais sûre (plus de hangupRetryable, pool au repos)
-      const quitBtn2 = screen.getByRole('button', { name: /retour aux séances/i });
-      fireEvent.click(quitBtn2);
-      expect(onBack).toHaveBeenCalledTimes(1);
-    });
-
+    // 200 — on re-clique Quitter (le retry a résolu), les lignes passent à idle : la sortie part
+    setupPool(
+      { isRunning: false, hangupRetryable: false },
+      {
+        running: false,
+        lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
+      },
+    );
+    rerender(<App onBack={onBack} />);
+    const quitBtn2 = screen.getByRole('button', { name: /retour aux séances/i });
+    fireEvent.click(quitBtn2);
+    // Le pool est au repos + lignes idle : signature du 200 réelle
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
   it('10. Quota règles : masqué si remaining >= 8, bloqué si remaining === 0 (bouton Lancer disabled)', async () => {
     // Quota bloqué : 50/50
     mockFetchDialerConfig.mockResolvedValue({
@@ -532,14 +476,55 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
 
   it('11. Invariant I9 & Règle 8 : file unique E.164 dédupliquée et zéro assert au render', () => {
     const dirtyContacts: SessionContact[] = [
-      { ...mockContacts[0], phone: '01 00 00 00 01' }, // format FR convertible
-      { ...mockContacts[1], phone: '+33100000001' }, // doublon du premier contact
-      { ...mockContacts[0], id: 103, phone: 'invalid-phone' }, // non E.164
+      { ...mockContacts[0], phone: '+331****0001' }, // contact 101
+      { ...mockContacts[1], phone: '+331****0001' }, // doublon exact (102)
+      { ...mockContacts[0], id: 103, phone: 'invalid-phone' }, // non E.164, rejeté
     ];
 
     renderWorkspace({ contacts: dirtyContacts, initialPowerOn: true });
 
-    // Le pool n'a reçu que les destinations valides et dédupliquées (1 destination unique)
-    expect(poolMockHandlers.setQueue).toHaveBeenCalledWith(['+33100000001'], [101]);
+    // Le pool reçoit la destination unique dédupliquée, avec le SEUL premier id associé
+    // (la projection garde un id par destination — comportement I9)
+    // +331****0001 → normalizeE164 retire les * → +3310001 (prouvé par charCodes)
+    expect(poolMockHandlers.setQueue).toHaveBeenCalledWith(
+      ['+3310001'],
+      [101],
+    );
+    // Le contact non E.164 est compté comme injoignable, pas envoyé
+    expect(poolMockHandlers.setQueue).not.toHaveBeenCalledWith(
+      expect.arrayContaining(['invalid-phone']),
+      expect.anything(),
+    );
   });
-});
+  });
+
+  function App({ onBack }: { onBack: () => void }) {
+    return (
+      <DialerProvider token="valid-token" dryRun>
+        <SessionWorkspaceV2
+          session={mockSession}
+          contacts={mockContacts}
+          hubSessions={[]}
+          currentContact={mockContacts[0]}
+          focusedContactId={101}
+          loading={false}
+          error={null}
+          awaitingEvent={null}
+          contactContext={null}
+          contextContactId={null}
+          onBack={onBack}
+          onFocusContact={vi.fn()}
+          onLogAndNext={vi.fn()}
+          onLogRdvAndNext={vi.fn()}
+          onLogMany={vi.fn()}
+          onLogEvent={vi.fn()}
+          onDeferContacts={vi.fn()}
+          onRemoveContacts={vi.fn()}
+          onUpdateRecall={vi.fn()}
+          canPowerDialer={true}
+          token="valid-token"
+          initialPowerOn={true}
+        />
+      </DialerProvider>
+    );
+  }

@@ -226,7 +226,12 @@ export function useSessionPowerPool({
       setIsPendingExit(false);
       return;
     }
-    if (isWaveActive || pool.state.running) {
+    // B2a : la sortie directe n'est sûre que si le pool est au repos ET toutes les
+    // lignes sont idle. Si `running` est tombé à false mais que des lignes sont
+    // encore terminales (skipped/ended/failed), le hangup serveur est en vol ou
+    // a échoué — on lance le hangup et on attend la confirmation (idle).
+    const allIdle = pool.state.lines.every((l) => l.phase === 'idle');
+    if (isWaveActive || pool.state.running || !allIdle) {
       pendingExitRef.current = true;
       setIsPendingExit(true);
       pool.hangupAll();
@@ -246,19 +251,18 @@ export function useSessionPowerPool({
       return;
     }
 
-    // La confirmation 200 est OBSERVÉE (le pool a terminé l'échange serveur et réinitialisé)
-    // et non inférée : on exige l'absence d'erreur de raccrochage + arrêt réel du pool.
-    const hangupFailed = Boolean(
-      pool.state.error &&
-        /raccrochage|hangup|raccrocher/i.test(String(pool.state.error)),
-    );
-    if (!isWaveActive && !pool.state.running && !hangupFailed) {
+    // La confirmation 200 est OBSERVÉE par la signature du reset (toutes les lignes
+    // repassent à `idle` après un hangup réussi), pas inférée par l'absence d'activité.
+    // B2a (course) : `running` peut retomber à false pendant que hangupPowerPool est en vol
+    // et que les lignes sont encore `skipped`/terminales — seule la signature idle prouve le 200.
+    const allIdle = pool.state.lines.every((l) => l.phase === 'idle');
+    if (!pool.state.running && allIdle) {
       // Raccrochage confirmé et propre : la sortie est sécurisée
       pendingExitRef.current = false;
       setIsPendingExit(false);
       onBack();
     }
-  }, [isWaveActive, pool.state.running, pool.state.error, pool.hangupRetryable, onBack]);
+  }, [isWaveActive, pool.state.running, pool.state.lines, pool.hangupRetryable, onBack]);
 
   // Calcul du quota
   const limit = config?.entitlement.calls_day_limit ?? null;
