@@ -136,6 +136,8 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
   }
 
   const handleFocusContact = (id: number) => {
+    // I5 lock focus : pendant awaitingEvent, la file est inerte jusqu'à finalisation
+    if (awaitingEvent) return;
     setInternalFocusedId(id);
     onFocusContact(id);
   };

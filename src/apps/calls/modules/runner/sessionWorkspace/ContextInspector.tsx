@@ -28,7 +28,8 @@ export function ContextInspector({
   const contextApplies = Boolean(
     contact &&
       contactContext &&
-      (contextContactId == null || contextContactId === contact.id),
+      contextContactId != null &&
+      contextContactId === contact.id,
   );
   const contextBusy = Boolean(
     loading ||

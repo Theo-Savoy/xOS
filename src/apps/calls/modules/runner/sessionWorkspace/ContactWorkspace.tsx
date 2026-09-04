@@ -115,7 +115,8 @@ export function ContactWorkspace({
   const contextApplies = Boolean(
     contactContext &&
       contact &&
-      (contextContactId == null || contextContactId === contact.id),
+      contextContactId != null &&
+      contextContactId === contact.id,
   );
   const contextBusy = Boolean(
     loading ||
