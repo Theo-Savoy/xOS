@@ -1348,7 +1348,10 @@ describe('POST /api/calls action=list_contacts', () => {
       { sf_contact_id: '003000000000001AAA', in_session_of: 'Paul' },
     ]);
     expect(body.excluded_count).toBe(1);
-    expect(body.contacts).toEqual([]);
+    // Les contacts en séance active restent renvoyés (le front décide via
+    // dedupMode) — plus d'exclusion stricte côté serveur.
+    expect(body.contacts.length).toBeGreaterThan(0);
+    expect(body.contacts[0]?.sf_contact_id).toBe('003000000000001AAA');
   });
 
   it('sets Cache-Control: no-store on success', async () => {

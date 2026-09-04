@@ -310,21 +310,19 @@ export async function listContacts(client, userId, body) {
     maxPerCompany !== null
       ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
       : normalized.slice(0, requestedLimit);
-  // Exclusion stricte : les contacts déjà dans une séance active sont défiltrés
-  // du résultat, sans opt-in. `dedup` reste renvoyé pour rétro-compat.
+  // Les contacts déjà dans une séance active sont RENVOYÉS (pas exclus) :
+  // le front décide via dedupMode (avertir = montrer + banner, exclure =
+  // retirer de la sélection). L'exclusion stricte côté serveur empêchait
+  // l'utilisateur de voir/choisir et réduisait artificiellement la preview.
   const dedup = await findActiveSessionConflicts(
     client,
     contacts.map((contact) => contact.sf_contact_id),
     parisToday(),
   );
-  const excludedIds = new Set(dedup.map((entry) => entry.sf_contact_id));
-  const filteredContacts = contacts.filter(
-    (contact) => !excludedIds.has(contact.sf_contact_id),
-  );
   const truncated =
     search.truncated === true || opportunitySets?.truncated === true;
   return {
-    contacts: filteredContacts,
+    contacts,
     dedup,
     excluded_count: dedup.length,
     truncated,
