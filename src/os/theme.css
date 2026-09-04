@@ -70,9 +70,13 @@
   --xos-accent-salesforce: #00a1e0;
   --xos-accent-success: #6effbb;
   --xos-accent-highlight: #ffe566;
+  --xos-chart-current: var(--xos-accent);
+  --xos-chart-mid: color-mix(in srgb, var(--xos-accent) 70%, transparent);
+  --xos-chart-compare: color-mix(in srgb, var(--xos-accent) 40%, transparent);
   --xos-surface-plain: #fff;
 
   --xos-text: #f4f5fb;
+  --xos-text-secondary: rgba(244, 245, 251, 0.82);
   --xos-text-muted: rgba(244, 245, 251, 0.64);
 
   /* Fenêtres : coque translucide + contenu opaque */

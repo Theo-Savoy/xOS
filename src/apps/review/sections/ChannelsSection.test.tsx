@@ -56,15 +56,15 @@ describe('ChannelsSection', () => {
   it('affiche Top 15, le graphique et les libellés français', () => {
     render(<ChannelsSection data={payload} loading={false} />);
     expect(screen.getByText('Top 15')).toBeTruthy();
-    expect(screen.getByText('Canaux par CA')).toBeTruthy();
+    expect(screen.getByText('CA par canal')).toBeTruthy();
     expect(screen.getByText('Détail des canaux')).toBeTruthy();
     expect(screen.queryByText('Canaux NEW')).toBeNull();
     expect(screen.getByText(/Top 15 sur 40 comptes/)).toBeTruthy();
   });
 
-  it('bascule la métrique du graphique vers Signatures', () => {
+  it('bascule la métrique du graphique vers Closing', () => {
     render(<ChannelsSection data={payload} loading={false} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Signatures' }));
-    expect(screen.getByText('Canaux par signatures')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Closing' }));
+    expect(screen.getByText('Canaux par closing')).toBeTruthy();
   });
 });

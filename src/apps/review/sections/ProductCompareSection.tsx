@@ -123,13 +123,13 @@ export function ProductCompareSection({
             </thead>
             <tbody>
               <tr>
-                <td>Opportunités fermées (nouv. aff.)</td>
+                <td>Opportunités fermées (new)</td>
                 <td style={{ textAlign: 'right' }}>{prev ? prev.closed : '—'}</td>
                 <td style={{ textAlign: 'right' }}>{curr ? curr.closed : '—'}</td>
                 <td style={{ textAlign: 'right' }}>{prev && curr ? fmtDeltaNumber(curr.closed, prev.closed) : '—'}</td>
               </tr>
               <tr>
-                <td>Signatures (nouv. aff.)</td>
+                <td>Signatures (new)</td>
                 <td style={{ textAlign: 'right' }}>{prev ? prev.won : '—'}</td>
                 <td style={{ textAlign: 'right' }}>{curr ? curr.won : '—'}</td>
                 <td style={{ textAlign: 'right' }}>{prev && curr ? fmtDeltaNumber(curr.won, prev.won) : '—'}</td>

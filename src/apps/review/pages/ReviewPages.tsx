@@ -25,7 +25,6 @@ import type {
 import { ActivitySection } from '../sections/ActivitySection';
 import { BridgeNewSection } from '../sections/BridgeNewSection';
 import { CapacitySection } from '../sections/CapacitySection';
-import { CatalogueBridgeSection } from '../sections/CatalogueBridgeSection';
 import { ChannelsSection } from '../sections/ChannelsSection';
 import { CycleSection } from '../sections/CycleSection';
 import { DefinitionsSection } from '../sections/DefinitionsSection';
@@ -36,12 +35,15 @@ import { MarketSignalSection } from '../sections/MarketSignalSection';
 import { PatternsSection } from '../sections/PatternsSection';
 import { PerformanceSection } from '../sections/PerformanceSection';
 import { PortfolioSection } from '../sections/PortfolioSection';
-import { ProductCompareSection } from '../sections/ProductCompareSection';
 import { ProductHistorySection } from '../sections/ProductHistorySection';
+import { ProductSection } from '../sections/ProductSection';
+import { ProductTrendSection } from '../sections/ProductTrendSection';
 import { ProductivitySection } from '../sections/ProductivitySection';
 import { QualitySection } from '../sections/QualitySection';
+import { RenewTrendSection } from '../sections/RenewTrendSection';
 import { SalesComparisonSection } from '../sections/SalesComparisonSection';
 import { SynthesisSection } from '../sections/SynthesisSection';
+import { TotalBridgeSection } from '../sections/TotalBridgeSection';
 import { WinReasonsSection } from '../sections/WinReasonsSection';
 
 type Loadable<T> = { data: T | null; loading: boolean };
@@ -82,10 +84,12 @@ export function SummaryPage({
   period,
   synthesis,
   bridge,
+  product,
 }: {
   period: PeriodSelection;
   synthesis: Loadable<SynthesisPayload>;
   bridge: Loadable<BridgePayload>;
+  product: Loadable<ProductPayload>;
 }) {
   const narrativeAvailable = isAnnualOnlySelection(period);
   const hasNarrative = Boolean(synthesis.data?.patterns?.length);
@@ -97,12 +101,17 @@ export function SummaryPage({
         scopes={['total']}
       />
       <SynthesisSection data={synthesis.data} loading={synthesis.loading} />
-      <BridgeNewSection data={bridge.data} loading={bridge.loading} />
+      <TotalBridgeSection data={bridge.data} loading={bridge.loading} />
+      <ProductTrendSection
+        data={product.data}
+        loading={product.loading}
+        scope="total"
+      />
       {narrativeAvailable && hasNarrative ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
       ) : narrativeAvailable ? null : (
         <AnnualOnlyNotice>
-          {period.mode === 'semester'
+          {period.mode !== 'fy'
             ? `Le narratif n'est disponible que sur l'exercice ${ANNUAL_ONLY_FY} complet.`
             : `Le narratif et le verdict restent réservés à ${ANNUAL_ONLY_FY}.`}
         </AnnualOnlyNotice>
@@ -114,10 +123,14 @@ export function SummaryPage({
 export function TrajectoryPage({
   period,
   overview,
+  bridge,
+  product,
   portfolio,
 }: {
   period: PeriodSelection;
   overview: Loadable<OverviewPayload>;
+  bridge: Loadable<BridgePayload>;
+  product: Loadable<ProductPayload> | null;
   portfolio: Loadable<PortfolioPayload>;
 }) {
   const portfolioAvailable = isAnnualOnlySelection(period);
@@ -129,9 +142,19 @@ export function TrajectoryPage({
         scopes={['total']}
       />
       {period.mode === 'fy' ? (
-        <PerformanceSection data={overview.data} loading={overview.loading} />
+        <PerformanceSection
+          data={overview.data}
+          loading={overview.loading}
+          compare={period.compare || comparisonFy(period.fy)}
+        />
       ) : null}
+      <BridgeNewSection data={bridge.data} loading={bridge.loading} />
+      <RenewTrendSection data={overview.data} loading={overview.loading} />
       <HistorySection data={overview.data} loading={overview.loading} />
+      <ProductTrendSection
+        data={product?.data ?? null}
+        loading={product?.loading ?? false}
+      />
       {!portfolioAvailable ? (
         <AnnualOnlyNotice>
           {`Le portefeuille de référence reste arrêté au ${fyEndLabel(ANNUAL_ONLY_FY)}.`}
@@ -197,14 +220,12 @@ export function ProductPage({
         description="Comparer les offres sans perdre les volumes, les tickets ni la qualité des cycles."
         scopes={['new']}
       />
-      <div className="review-page-grid review-page-grid--balanced">
-        <ProductCompareSection
-          data={product.data}
-          loading={product.loading}
-          compare={period.compare || comparisonFy(period.fy)}
-        />
-        <CatalogueBridgeSection data={bridge.data} loading={bridge.loading} />
-      </div>
+      <ProductSection
+        product={product.data}
+        bridge={bridge.data}
+        loading={product.loading || bridge.loading}
+        compare={period.compare || comparisonFy(period.fy)}
+      />
       <CycleSection data={cycles.data} loading={cycles.loading} />
       <ProductHistorySection data={product.data} loading={product.loading} />
     </div>

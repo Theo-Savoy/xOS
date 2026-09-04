@@ -26,14 +26,25 @@ const idle = { data: null, loading: false };
 describe('pages du bilan', () => {
   it('affiche un titre sobre sans badge de périmètre dans chaque page (D7)', () => {
     const { unmount: unmountSummary } = render(
-      <SummaryPage period={period} synthesis={idle} bridge={idle} />,
+      <SummaryPage
+        period={period}
+        synthesis={idle}
+        bridge={idle}
+        product={idle}
+      />,
     );
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Synthèse');
     expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA total/);
     unmountSummary();
 
     const { unmount: unmountTrajectory } = render(
-      <TrajectoryPage period={period} overview={idle} portfolio={idle} />,
+      <TrajectoryPage
+        period={period}
+        overview={idle}
+        bridge={idle}
+        product={idle}
+        portfolio={idle}
+      />,
     );
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Trajectoire');
     expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/CA total/);
@@ -86,7 +97,13 @@ describe('pages du bilan', () => {
     unmountCommercial();
 
     const { unmount: unmountTrajectory } = render(
-      <TrajectoryPage period={period} overview={idle} portfolio={idle} />,
+      <TrajectoryPage
+        period={period}
+        overview={idle}
+        bridge={idle}
+        product={idle}
+        portfolio={idle}
+      />,
     );
     expect(screen.getByText('Historique indisponible')).toBeTruthy();
     unmountTrajectory();
@@ -159,6 +176,24 @@ describe('pages du bilan', () => {
         total: -150,
         conservation: { ok: true, delta_amount: 0 },
       },
+      catalogue: {
+        renew: -100,
+        volume: -100,
+        ticket: -50,
+        total: -250,
+        delta: -250,
+        share_renew: 0.4,
+        share_new: 0.6,
+        prev: {
+          new: { amount: 500, count: 10 },
+          renew: { amount: 300, count: 6 },
+        },
+        curr: {
+          new: { amount: 350, count: 8 },
+          renew: { amount: 200, count: 4 },
+        },
+        conservation: { ok: true, delta_amount: 0 },
+      },
     };
 
     const { container } = render(
@@ -166,6 +201,7 @@ describe('pages du bilan', () => {
         period={period}
         synthesis={{ data: synthesis, loading: false }}
         bridge={{ data: bridge, loading: false }}
+        product={idle}
       />,
     );
 
@@ -177,7 +213,8 @@ describe('pages du bilan', () => {
     expect(container.textContent).toMatch(
       /Cadrage/,
     );
-    expect(container.textContent).toMatch(/Waterfall nouvelles affaires/);
+    expect(container.textContent).toMatch(/Waterfall CA total/);
+    expect(container.textContent).not.toMatch(/Waterfall nouvelles affaires/);
     expect(container.querySelector('.review-kpi-grid--quad')).toBeTruthy();
 
     const patterns = container.querySelector('.review-patterns-grid');
@@ -215,6 +252,7 @@ describe('pages du bilan', () => {
         period={period}
         synthesis={{ data: synthesis, loading: false }}
         bridge={idle}
+        product={idle}
       />,
     );
 
@@ -280,6 +318,7 @@ describe('pages du bilan', () => {
         period={{ mode: 'semester', fy: 'FY26', semester: 'S1' }}
         synthesis={{ data: synthesis, loading: false }}
         bridge={idle}
+        product={idle}
       />,
     );
 

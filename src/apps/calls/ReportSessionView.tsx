@@ -901,6 +901,7 @@ export function ReportSessionView({
         <aside className="calls-abm-sidebar calls-wizard-sidebar">
           <AbmWizardRecap
             step={step}
+            composerSubStep="contacts"
             query={reportRun?.report_name || selectedReport?.name || ''}
             queryLabel="Rapport"
             ctaNoun="Rapport"

@@ -70,7 +70,7 @@ export function LeadershipSection({
           </h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            CA nouv. aff. · {seriesLabel(data.compare, data.period)}→
+            CA nouvelles affaires · {seriesLabel(data.compare, data.period)}→
             {seriesLabel(data.fy, data.period)} · pas d'objectif, pas de
             comparaison sales
           </p>
@@ -79,14 +79,14 @@ export function LeadershipSection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
+          label={`CA nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(curr.amountNew)}
           scope="new"
-          hint={`${curr.signaturesNew} signatures nouv. aff.`}
+          hint={`${curr.signaturesNew} signatures nouvelles affaires`}
         />
         <StatCard label="RDV" value={String(curr.rdv)} hint={data.rdv_limit} />
         <StatCard
-          label="Closing nouv. aff."
+          label="Closing nouvelles affaires"
           value={fmtPct1(curr.closing)}
           hint={`${curr.signaturesNew} / ${curr.closedNew} fermées`}
         />
@@ -104,34 +104,33 @@ export function LeadershipSection({
           curr={String(curr.detections)}
         />
         <Metric
-          label="Fermées nouv. aff."
+          label="Fermées nouvelles affaires"
           prev={String(prev.closedNew)}
           curr={String(curr.closedNew)}
         />
         <Metric
-          label="Signatures nouv. aff."
+          label="Signatures nouvelles affaires"
           prev={String(prev.signaturesNew)}
           curr={String(curr.signaturesNew)}
         />
         <Metric
-          label="Closing nouv. aff."
+          label="Closing nouvelles affaires"
           prev={fmtPct1(prev.closing)}
           curr={fmtPct1(curr.closing)}
         />
         <Metric
-          label="Ticket nouv. aff."
+          label="Ticket nouvelles affaires"
           prev={prev.ticket ? fmtEur(prev.ticket) : '—'}
           curr={curr.ticket ? fmtEur(curr.ticket) : '—'}
         />
         <Metric
-          label="CA nouv. aff."
+          label="CA nouvelles affaires"
           prev={fmtEur(prev.amountNew)}
           curr={fmtEur(curr.amountNew)}
         />
         <p className="review-section-note">
-          Identifié par le mode de suivi PDG, pas par le nom. Inclus dans les
-          totaux entreprise, exclu du classement sales et du dénominateur ETP.{' '}
-          {data.attribution_limit}
+          Inclus dans les totaux entreprise, exclu du classement sales et du
+          dénominateur ETP.
         </p>
       </GlassCard>
     </div>

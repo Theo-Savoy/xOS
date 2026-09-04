@@ -41,14 +41,12 @@ describe('PeriodSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
 
     expect(
-      screen
-        .getByRole('button', { name: 'Semestre' })
-        .getAttribute('aria-pressed'),
+      screen.getByRole('button', { name: 'Semestre' }).getAttribute('aria-pressed'),
     ).toBe('true');
     expect(
       screen.getByRole('button', { name: 'S1' }).getAttribute('aria-pressed'),
     ).toBe('true');
-    expect(screen.getByText('FY26')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exercice' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'S2' }));
     expect(
@@ -57,23 +55,56 @@ describe('PeriodSelector', () => {
     expect(screen.getByText('01/01/2026 → 30/06/2026')).toBeTruthy();
   });
 
+  it('bascule de FY vers Trimestre avec T1 à T4', () => {
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trimestre' }));
+
+    expect(
+      screen
+        .getByRole('button', { name: 'Trimestre' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Par défaut, quarter n'est pas défini dans le mode FY du Harness initial,
+    // mais on s'assure qu'on peut cliquer sur T2
+    fireEvent.click(screen.getByRole('button', { name: 'T2' }));
+    expect(
+      screen.getByRole('button', { name: 'T2' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(screen.getByText('01/10/2025 → 31/12/2025')).toBeTruthy();
+  });
+
   it('propose FY22 à FY26 dans le sélecteur d’exercice', () => {
     render(<Harness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Exercice' }));
 
-    expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
-    ).toEqual(['FY22', 'FY23', 'FY24', 'FY25', 'FY26']);
+    const menu = screen.getByRole('listbox', { name: 'Exercice' });
+    const options = Array.from(menu.querySelectorAll('button'));
+
+    expect(options.map((btn) => btn.textContent)).toEqual([
+      'FY22',
+      'FY23',
+      'FY24',
+      'FY25',
+      'FY26',
+    ]);
   });
   it('propose les exercices strictement antérieurs (min FY22) dans Comparer avec', () => {
     render(<Harness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Comparer avec' }));
+    fireEvent.click(screen.getByRole('button', { name: /Comparer avec/ }));
 
-    expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
-    ).toEqual(['FY22', 'FY23', 'FY24', 'FY25']);
+    const menu = screen.getByRole('listbox', { name: 'Comparer avec' });
+    const options = Array.from(menu.querySelectorAll('button'));
+
+    expect(options.map((btn) => btn.textContent)).toEqual([
+      'FY22',
+      'FY23',
+      'FY24',
+      'FY25',
+    ]);
   });
 
   it('affiche les bornes FY avant de basculer en semestre', () => {

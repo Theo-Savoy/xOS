@@ -2,25 +2,27 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   XAxis,
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
-import { fmtEur } from '../review.helpers';
+import { fmtEur, fmtPctDelta } from '../review.helpers';
 import { ANNUAL_ONLY_FY, FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function PerformanceSection({
   data,
   loading,
+  compare,
 }: {
   data: OverviewPayload | null;
   loading: boolean;
+  compare: string;
 }) {
   if (loading && !data) {
     return (
@@ -42,6 +44,14 @@ export function PerformanceSection({
 
   const current =
     data.series.find((row) => row.fy === data.fy) || data.series.at(-1);
+  const reference = data.series.find((row) => row.fy === compare);
+  const pctVsRef = (
+    value: number | undefined,
+    refValue: number | undefined,
+  ): string | undefined => {
+    if (value === undefined || !refValue) return undefined;
+    return fmtPctDelta(((value - refValue) / Math.abs(refValue)) * 100);
+  };
   const chartData = data.series.map((row, index) => {
     const previous = data.series[index - 1];
     return {
@@ -69,23 +79,25 @@ export function PerformanceSection({
           label={`CA total ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.total ?? 0)}
           scope="total"
-          hint={`Nouv. aff. ${fmtEur(current?.new ?? 0)} · Renouv. ${fmtEur(current?.renew ?? 0)}`}
+          hint={pctVsRef(current?.total, reference?.total)}
         />
         <StatCard
-          label={`CA nouv. aff. ${seriesLabel(data.fy, data.period)}`}
+          label={`Nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.new ?? 0)}
           scope="new"
+          hint={pctVsRef(current?.new, reference?.new)}
         />
         <StatCard
-          label={`CA renouv. ${seriesLabel(data.fy, data.period)}`}
+          label={`Renouvellements ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.renew ?? 0)}
           scope="total"
+          hint={pctVsRef(current?.renew, reference?.renew)}
         />
         {current && current.other.amount > 0 ? (
           <StatCard
             label={current.other.label}
             value={fmtEur(current.other.amount)}
-            hint={`${current.other.count} opp. hors catalogue / sur-mesure / conseil`}
+            hint={pctVsRef(current.other.amount, reference?.other.amount)}
           />
         ) : null}
       </div>
@@ -100,32 +112,37 @@ export function PerformanceSection({
             <XAxis
               dataKey="fy"
               stroke="var(--xos-border)"
-              tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+              tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
             />
             <YAxis
               stroke="var(--xos-border)"
               tickFormatter={(v: number) => fmtEur(v)}
-              tick={{ fontSize: 11, fill: 'var(--xos-text-muted)' }}
+              tick={{ fontSize: 11, fill: 'var(--xos-text-secondary)' }}
               width={72}
             />
             <ReviewChartTooltip
               content={<ChartTooltip valueFormatter={fmtEur} />}
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar
               dataKey="Nouvelles affaires"
               stackId="ca"
-              fill="var(--xos-accent)"
+              fill="var(--xos-chart-current)"
               radius={[0, 0, 0, 0]}
             />
             <Bar
               dataKey="Renouvellements"
               stackId="ca"
-              fill="#5b8def"
+              fill="var(--xos-chart-compare)"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Nouvelles affaires', color: 'var(--xos-chart-current)' },
+            { label: 'Renouvellements', color: 'var(--xos-chart-compare)' },
+          ]}
+        />
         <p className="review-section-note">
           Rien n'est causal : les deux composantes reculent, sans dire pourquoi.
           {data.truncated

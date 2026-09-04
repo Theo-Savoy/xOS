@@ -47,7 +47,7 @@ export function ActivitySection({
           </h3>
           <ScopeTag scope="new" />
           <p className="review-section-kicker">
-            CA nouv. aff. · {seriesLabel(data.fy, data.period)} · les totaux
+            CA nouvelles affaires · {seriesLabel(data.fy, data.period)} · les totaux
             entreprise ne se somment pas avec les lignes
           </p>
         </div>
@@ -64,10 +64,10 @@ export function ActivitySection({
               <th>RDV/sem</th>
               <th>Détections</th>
               <th>Taux dét.</th>
-              <th>Fermées nouv. aff.</th>
-              <th>Sign. nouv. aff.</th>
+              <th>Fermées nouvelles affaires</th>
+              <th>Signatures nouvelles affaires</th>
               <th>Closing</th>
-              <th>CA nouv. aff.</th>
+              <th>CA nouvelles affaires</th>
             </tr>
           </thead>
           <tbody>
@@ -90,8 +90,7 @@ export function ActivitySection({
         </table>
         <p className="review-section-note">{data.rdv_limit}</p>
         <p className="review-section-note">
-          On ne peut pas mesurer combien de ventes viennent du SDR : aucune clé
-          RDV → Opportunity. {data.attribution_limit}
+          On ne peut pas mesurer combien de ventes viennent du SDR.
         </p>
       </GlassCard>
     </div>

@@ -6,12 +6,20 @@ export type AccountRowProps = {
   account: AccountSearchHit;
   inTarget: boolean;
   onToggleTarget: (account: AccountSearchHit) => void;
+  isSubsidiary?: boolean;
+  onToggleGroup?: () => void;
+  allGroupSelected?: boolean;
+  groupSubsidiariesCount?: number;
 };
 
 export function AccountRow({
   account,
   inTarget,
   onToggleTarget,
+  isSubsidiary = false,
+  onToggleGroup,
+  allGroupSelected = false,
+  groupSubsidiariesCount = 0,
 }: AccountRowProps) {
   const hasContacts = account.contacts.length > 0;
   const contactsCount = account.contacts.length;
@@ -26,7 +34,7 @@ export function AccountRow({
 
   return (
     <div
-      className={`calls-abm-account-row ${inTarget ? 'calls-abm-account-row--in-target' : ''} ${!hasContacts ? 'calls-abm-account-row--disabled' : ''}`}
+      className={`calls-abm-account-row ${isSubsidiary ? 'calls-abm-account-row--subsidiary' : ''} ${account.is_group ? 'calls-abm-account-row--group' : ''} ${inTarget ? 'calls-abm-account-row--in-target' : ''} ${!hasContacts ? 'calls-abm-account-row--disabled' : ''}`}
       role="listitem"
     >
       <div
@@ -43,6 +51,16 @@ export function AccountRow({
 
       <div className="calls-abm-account-row__content">
         <div className="calls-abm-account-row__header">
+          {account.is_group && (
+            <Tag variant="accent" className="calls-abm-account-row__badge-group">
+              Groupe
+            </Tag>
+          )}
+          {isSubsidiary && (
+            <Tag variant="default" className="calls-abm-account-row__badge-subsidiary">
+              Filiale
+            </Tag>
+          )}
           <strong className="calls-abm-account-row__name">{account.name}</strong>
           {account.tier && (
             <Tag variant="accent" className="calls-abm-account-row__tier">
@@ -67,6 +85,23 @@ export function AccountRow({
       </div>
 
       <div className="calls-abm-account-row__action">
+        {account.is_group && onToggleGroup && groupSubsidiariesCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="calls-abm-group-select-btn"
+            onClick={onToggleGroup}
+            aria-label={
+              allGroupSelected
+                ? `Désélectionner tout le groupe ${account.name}`
+                : `Sélectionner tout le groupe ${account.name}`
+            }
+          >
+            {allGroupSelected
+              ? 'Désélectionner le groupe'
+              : `Tout le groupe (+${groupSubsidiariesCount})`}
+          </Button>
+        )}
         {hasContacts ? (
           inTarget ? (
             <Button
@@ -77,7 +112,7 @@ export function AccountRow({
               aria-label={`Retirer ${account.name} de la cible`}
             >
               <CheckIcon />
-              <span>Dans la cible</span>
+              <span>Ajouté</span>
             </Button>
           ) : (
             <Button

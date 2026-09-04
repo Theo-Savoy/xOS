@@ -51,6 +51,7 @@ import {
   recordSessionComplete,
 } from './modules/gamification/comboEvents';
 import { PilotageView } from './modules/pilotage/PilotageView';
+import { prefetchProspectionCockpit } from './modules/pilotage/pilotageApi';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerProvider } from './modules/dialer/DialerProvider';
 import { CallBar } from './modules/dialer/CallBar';
@@ -68,6 +69,8 @@ import {
 import { RunnerView } from './modules/runner/RunnerView';
 import type { LogPayload } from './modules/runner/RunnerView.types';
 import { SessionsView } from './modules/sessions/SessionsView';
+import { CalendarView } from './modules/sessions/CalendarView';
+import { ComboNav, type ComboNavView } from './ComboNav';
 import { PreSessionFlow } from './modules/runner/PreSessionFlow';
 import { ShareSessionPanel } from './modules/sessions/ShareSessionPanel';
 import {
@@ -110,6 +113,7 @@ type View =
   | 'runner'
   | 'recap'
   | 'recalls'
+  | 'calendar'
   | 'pilotage'
   | 'rdv-suivi'
   | 'loading-params';
@@ -121,14 +125,16 @@ function viewFromParams(view?: string, sessionId?: string): View {
       return 'pilotage';
     case 'session-type-select':
       return 'session-type-select';
-    case 'report':
-      return 'report';
     case 'new':
       return 'new';
+    case 'report':
+      return 'report';
     case 'abm':
       return 'account-search';
     case 'recalls':
       return 'recalls';
+    case 'calendar':
+      return 'calendar';
     case 'rdv-suivi':
       return 'rdv-suivi';
     case 'runner':
@@ -148,14 +154,18 @@ function navigationParamsForView(
       return { view: 'pilotage' };
     case 'session-type-select':
       return { view: 'session-type-select' };
-    case 'report':
-      return { view: 'report' };
     case 'new':
       return { view: 'new' };
+    case 'report':
+      return { view: 'report' };
     case 'account-search':
       return { view: 'abm' };
     case 'recalls':
       return { view: 'recalls' };
+    case 'calendar':
+      return { view: 'calendar' };
+    case 'rdv-suivi':
+      return { view: 'rdv-suivi' };
     case 'runner':
     case 'pre-session':
       return sessionId
@@ -430,9 +440,10 @@ export default function CallManagerApp({
           setFocusedContactId(focusContactId);
         }
         const isToday = sessionDayKey(data.session) === todayParisIso();
+        const isStale = isStaleSession(data.session, todayParisIso());
         if (data.session.status === 'completed') {
           setView('recap');
-        } else if (shouldShowPreSession(data.session) && isToday) {
+        } else if (shouldShowPreSession(data.session) && !isStale) {
           setView('pre-session');
         } else if (data.session.engaged_at === null && !isToday) {
           invalidateComboHubCache();
@@ -460,6 +471,11 @@ export default function CallManagerApp({
       void loadSessions();
     }
   }, [token, loadSessions]);
+  useEffect(() => {
+    if (token && canPilotage) {
+      prefetchProspectionCockpit(token, 'day', null);
+    }
+  }, [token, canPilotage]);
 
   useEffect(() => {
     if (!token || view !== 'sessions' || rollover || rolloverLoading) return;
@@ -1054,8 +1070,8 @@ export default function CallManagerApp({
   const openRecalls = useCallback(async () => {
     if (!token) return;
     setRunnerError(null);
+    setContacts([]);
     setFocusedContactId(null);
-    setAwaitingEvent(null);
     setContactContext(null);
     setContextContactId(null);
     setRecallsLoading(true);
@@ -1882,6 +1898,27 @@ export default function CallManagerApp({
     void loadSessions({ force: true });
   };
 
+  const handleComboNavigation = (nextView: ComboNavView) => {
+    if (nextView === 'sessions') {
+      goToSessions();
+      return;
+    }
+    if (nextView === 'recalls') {
+      void openRecalls();
+      return;
+    }
+    setView(nextView);
+  };
+
+  const activeNavView: ComboNavView | null =
+    view === 'sessions' ||
+    view === 'calendar' ||
+    view === 'recalls' ||
+    view === 'rdv-suivi' ||
+    view === 'pilotage'
+      ? view
+      : null;
+
   if (bridgeError && !session) {
     return (
       <div className="calls-app">
@@ -1912,275 +1949,305 @@ export default function CallManagerApp({
     <div className="calls-app">
       <DialerProvider token={token} dryRun={dialerDryRun}>
         <CallBar />
+        {activeNavView ? (
+          <ComboNav
+            activeView={activeNavView}
+            recallCount={recallCount}
+            recallsLoading={recallsLoading}
+            canPilotage={canPilotage}
+            onNavigate={handleComboNavigation}
+          />
+        ) : null}
         {view === 'loading-params' && (
           <WindowBootScreen label="Ouverture de la séance…" />
         )}
-      {rollover && view === 'sessions' && (
-        <RolloverDecisionView
-          session={rollover.session}
-          contacts={rollover.contacts}
-          loading={rolloverLoading}
-          error={rolloverError}
-          onApply={handleRolloverApply}
-          onCancel={goToSessions}
-        />
-      )}
-      {view === 'sessions' && !rollover && rolloverError && (
-        <p className="calls-state" role="alert">
-          {rolloverError}
-        </p>
-      )}
-      {view === 'sessions' && !rollover && (
-        <SessionsView
-          sessions={sessions}
-          stats={stats}
-          recallCount={recallCount}
-          recallsLoading={recallsLoading}
-          loading={sessionsLoading}
-          error={sessionsError}
-          canPilotage={canPilotage}
-          onRefresh={refreshSessions}
-          onNewSession={() => setView('session-type-select')}
-          onOpenSession={(id, contactId) => void openSession(id, contactId)}
-          onOpenRecalls={() => void openRecalls()}
-          onOpenPilotage={() => setView('pilotage')}
-          onOpenRdvSuivi={() => setView('rdv-suivi')}
-          onUpdateSession={handleUpdateSession}
-          onDeleteSession={handleDeleteSession}
-          onShareSession={(id) => setShareSessionId(id)}
-        />
-      )}
-
-      {view === 'pilotage' && (
-        <PilotageView
-          onBack={goToSessions}
-          onPin={handlePinPilotage}
-          onOpenSuivi={() => setView('rdv-suivi')}
-        />
-      )}
-
-      {view === 'rdv-suivi' && <RdvSuiviView onBack={goToSessions} />}
-
-      {view === 'session-type-select' && (
-        <SessionTypeSelect
-          onBack={goToSessions}
-          onSelectClassic={() => {
-            setView('new');
-            setFilters(emptyFilterTree());
-            setContactLimit(200);
-            setMaxPerCompany(null);
-            setPreview([]);
-            setDedup([]);
-            setMatchCount(null);
-            setMatchCountCapped(false);
-            setMatchCountError(null);
-            setNewError(null);
-            void loadPresets();
-          }}
-          onSelectAbm={() => setView('account-search')}
-          onSelectReport={() => setView('report')}
-          onSelectCsv={() => {}}
-          onSelectSurgical={() => {}}
-        />
-      )}
-
-      {view === 'new' && (
-        <NewSessionView
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          contactLimit={contactLimit}
-          onContactLimitChange={handleContactLimitChange}
-          maxPerCompany={maxPerCompany}
-          onMaxPerCompanyChange={handleMaxPerCompanyChange}
-          loading={createLoading}
-          previewLoading={previewLoading}
-          matchCount={matchCount}
-          matchCountCapped={matchCountCapped}
-          matchCountLoading={matchCountLoading}
-          matchCountError={matchCountError}
-          error={newError}
-          preview={preview}
-          dedup={dedup}
-          excludedCount={excludedCount}
-          previewTruncated={previewTruncated}
-          presets={presets}
-          presetsLoading={presetsLoading}
-          savingPreset={savingPreset}
-          currentUserId={session.user.id}
-          team={team}
-          onBack={goToSessions}
-          onOpenAccountSearch={() => setView('account-search')}
-          onLoadPreset={handleLoadPreset}
-          onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
-          onDeletePreset={(id) => void handleDeletePreset(id)}
-          onCreate={(name, list, scheduledFor, sessionType, memberUserIds) =>
-            void handleCreate(
-              name,
-              list,
-              scheduledFor,
-              sessionType,
-              memberUserIds,
-            )
-          }
-          onCreateAudience={(payload) => void handleCreateAudience(payload)}
-        />
-      )}
-
-      {view === 'account-search' && (
-        <AccountSearchView
-          token={token}
-          team={team}
-          onBack={() => setView('session-type-select')}
-          onCreateAudience={(payload) => void handleCreateAudience(payload)}
-          creating={audienceCreating}
-          createError={audienceError}
-        />
-      )}
-
-      {view === 'report' && (
-        <ReportSessionView
-          token={token}
-          team={team}
-          currentUserId={session.user.id}
-          onBack={() => setView('session-type-select')}
-          onCreateAudience={(payload) => void handleCreateAudience(payload)}
-          creating={audienceCreating}
-          createError={audienceError}
-          presets={presets}
-          savingPreset={savingPreset}
-          onLoadPreset={handleLoadPreset}
-          onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
-          onDeletePreset={(id) => void handleDeletePreset(id)}
-        />
-      )}
-
-      {view === 'pre-session' && activeSession && (
-        <PreSessionFlow
-          session={activeSession}
-          contacts={contacts}
-          loading={runnerLoading}
-          recallQueueCount={recallCount}
-          daysSinceLastSession={computeDaysSinceLastSession(sessions, {
-            excludeSessionId: activeSession.id,
-            today: todayParisIso(),
-          })}
-          onOpenRecalls={() => {
-            goToSessions();
-            void openRecalls();
-          }}
-          onLaunch={handleLaunchPreSession}
-          onCancel={goToSessions}
-        />
-      )}
-
-      {view === 'runner' &&
-        activeSession &&
-        audienceBanner &&
-        audienceBanner.sessionId === activeSession.id && (
-          <div className="calls-builder-excluded-banner" role="status">
-            {audienceBanner.createdCount} séance
-            {audienceBanner.createdCount > 1 ? 's' : ''} créée
-            {audienceBanner.createdCount > 1 ? 's' : ''}.
-            {audienceBanner.excludedCount > 0
-              ? ` ${audienceBanner.excludedCount} contact${audienceBanner.excludedCount > 1 ? 's' : ''} exclu${audienceBanner.excludedCount > 1 ? 's' : ''} car déjà en séance active.`
-              : ''}
-            <button
-              type="button"
-              className="calls-builder-excluded-banner__dismiss"
-              onClick={() => setAudienceBanner(null)}
-            >
-              ✕
-            </button>
-          </div>
+        {rollover && view === 'sessions' && (
+          <RolloverDecisionView
+            session={rollover.session}
+            contacts={rollover.contacts}
+            loading={rolloverLoading}
+            error={rolloverError}
+            onApply={handleRolloverApply}
+            onCancel={goToSessions}
+          />
         )}
-
-      {(view === 'runner' || view === 'recalls' || view === 'pre-session') &&
-        activeSession && (
-          <div
-            className={
-              view === 'pre-session' ? 'calls-pre-session__underlay' : undefined
-            }
-            aria-hidden={view === 'pre-session'}
-          >
-            <RunnerView
-              session={activeSession}
-              contacts={contacts}
-              hubSessions={sessions}
-              currentContact={findNextPending(contacts, session.user.id)}
-              focusedContactId={focusedContactId}
-              variant={view === 'recalls' ? 'recalls' : 'session'}
-              loading={runnerLoading || (view === 'recalls' && recallsLoading)}
-              error={runnerError}
-              awaitingEvent={awaitingEvent}
-              contactContext={contactContext}
-              contextContactId={contextContactId}
-              contextTargetContactId={contextTargetContactId}
-              team={team}
-              currentSfUserId={currentSfUserId}
-              currentUserId={session.user.id}
-              token={token}
-              canPowerDialer={canPowerDialer === true}
-              onBack={goToSessions}
-              onPin={handlePin}
-              onShareSession={
-                activeSession.is_owner !== false && view === 'runner'
-                  ? handleShareSession
-                  : undefined
-              }
-              onFocusContact={setFocusedContactId}
-              onLogAndNext={(contactId, payload) =>
-                void handleLogAndNext(contactId, payload)
-              }
-              onLogRdvAndNext={(contactId, payload, event) =>
-                void handleLogRdvAndNext(contactId, payload, event)
-              }
-              onLogEvent={(start, durationMin, meta) =>
-                void handleLogEvent(start, durationMin, meta)
-              }
-              onDeferContacts={(ids, payload) =>
-                void handleDeferContacts(ids, payload)
-              }
-              onRemoveContacts={(ids) => void handleRemoveContacts(ids)}
-              onUpdateRecall={(contactIds, recallAt) =>
-                void handleUpdateRecall(contactIds, recallAt)
-              }
-              onLogMany={(ids, payload) => void handleLogMany(ids, payload)}
-              onCelebrateGoal={handleCelebrateGoal}
+        {view === 'sessions' && !rollover && rolloverError && (
+          <p className="calls-state" role="alert">
+            {rolloverError}
+          </p>
+        )}
+        {view === 'sessions' && !rollover && (
+          <div className="calls-hub-transition" key="sessions">
+            <SessionsView
+              sessions={sessions}
+              stats={stats}
+              loading={sessionsLoading}
+              error={sessionsError}
+              onRefresh={refreshSessions}
+              onNewSession={() => setView('session-type-select')}
+              onOpenSession={(id, contactId) => void openSession(id, contactId)}
+              onUpdateSession={handleUpdateSession}
+              onDeleteSession={handleDeleteSession}
+              onShareSession={(id) => setShareSessionId(id)}
             />
           </div>
         )}
 
-      {view === 'recap' && activeSession && (
-        <RecapView
-          session={activeSession}
-          contacts={contacts}
-          followUpLoading={followUpLoading}
-          error={runnerError}
-          userId={session.user.id}
-          onBack={goToSessions}
-          onCreateFollowUp={(name, scheduledFor) =>
-            void handleCreateFollowUp(name, scheduledFor)
-          }
-        />
-      )}
+        {view === 'calendar' && (
+          <div className="calls-hub-transition" key="calendar">
+            <CalendarView
+              sessions={sessions}
+              loading={sessionsLoading}
+              error={sessionsError}
+              onRefresh={refreshSessions}
+              onNewSession={() => setView('session-type-select')}
+              onOpenSession={(id, contactId) => void openSession(id, contactId)}
+            />
+          </div>
+        )}
 
-      {shareTargetSession && (
-        <ShareSessionPanel
-          members={shareTargetSession.members ?? []}
-          team={team}
-          currentUserId={session.user.id}
-          saving={shareSaving}
-          onClose={() => setShareSessionId(null)}
-          onSave={async (ids) => {
-            setShareSaving(true);
-            try {
-              await handleHubShareSession(ids);
-            } finally {
-              setShareSaving(false);
+        {view === 'pilotage' && (
+          <div className="calls-hub-transition" key="pilotage">
+            <PilotageView
+              onPin={handlePinPilotage}
+              onOpenSuivi={() => setView('rdv-suivi')}
+            />
+          </div>
+        )}
+
+        {view === 'rdv-suivi' && (
+          <div className="calls-hub-transition" key="rdv-suivi">
+            <RdvSuiviView />
+          </div>
+        )}
+
+        {view === 'session-type-select' && (
+          <SessionTypeSelect
+            onBack={goToSessions}
+            onSelectClassic={() => {
+              setView('new');
+              setFilters(emptyFilterTree());
+              setContactLimit(200);
+              setMaxPerCompany(null);
+              setPreview([]);
+              setDedup([]);
+              setMatchCount(null);
+              setMatchCountCapped(false);
+              setMatchCountError(null);
+              setNewError(null);
+              void loadPresets();
+            }}
+            onSelectAbm={() => setView('account-search')}
+            onSelectReport={() => setView('report')}
+            onSelectCsv={() => {}}
+            onSelectSurgical={() => {}}
+          />
+        )}
+
+        {view === 'new' && (
+          <NewSessionView
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            contactLimit={contactLimit}
+            onContactLimitChange={handleContactLimitChange}
+            maxPerCompany={maxPerCompany}
+            onMaxPerCompanyChange={handleMaxPerCompanyChange}
+            loading={createLoading}
+            previewLoading={previewLoading}
+            matchCount={matchCount}
+            matchCountCapped={matchCountCapped}
+            matchCountLoading={matchCountLoading}
+            matchCountError={matchCountError}
+            error={newError}
+            preview={preview}
+            dedup={dedup}
+            excludedCount={excludedCount}
+            previewTruncated={previewTruncated}
+            presets={presets}
+            presetsLoading={presetsLoading}
+            savingPreset={savingPreset}
+            currentUserId={session.user.id}
+            team={team}
+            onBack={() => setView('session-type-select')}
+            onOpenAccountSearch={() => setView('account-search')}
+            onLoadPreset={handleLoadPreset}
+            onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
+            onDeletePreset={(id) => void handleDeletePreset(id)}
+            onCreate={(name, list, scheduledFor, sessionType, memberUserIds) =>
+              void handleCreate(
+                name,
+                list,
+                scheduledFor,
+                sessionType,
+                memberUserIds,
+              )
             }
-          }}
-        />
-      )}
+            onCreateAudience={(payload) => void handleCreateAudience(payload)}
+          />
+        )}
+
+        {view === 'account-search' && (
+          <AccountSearchView
+            token={token}
+            team={team}
+            onBack={() => setView('session-type-select')}
+            onCreateAudience={(payload) => void handleCreateAudience(payload)}
+            creating={audienceCreating}
+            createError={audienceError}
+          />
+        )}
+
+        {view === 'report' && (
+          <ReportSessionView
+            token={token}
+            team={team}
+            currentUserId={session.user.id}
+            onBack={() => setView('session-type-select')}
+            onCreateAudience={(payload) => void handleCreateAudience(payload)}
+            creating={audienceCreating}
+            createError={audienceError}
+            presets={presets}
+            savingPreset={savingPreset}
+            onLoadPreset={handleLoadPreset}
+            onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
+            onDeletePreset={(id) => void handleDeletePreset(id)}
+          />
+        )}
+
+        {view === 'pre-session' && activeSession && (
+          <PreSessionFlow
+            session={activeSession}
+            contacts={contacts}
+            loading={runnerLoading}
+            recallQueueCount={recallCount}
+            daysSinceLastSession={computeDaysSinceLastSession(sessions, {
+              excludeSessionId: activeSession.id,
+              today: todayParisIso(),
+            })}
+            onOpenRecalls={() => {
+              goToSessions();
+              void openRecalls();
+            }}
+            onLaunch={handleLaunchPreSession}
+            onCancel={goToSessions}
+          />
+        )}
+
+        {view === 'runner' &&
+          activeSession &&
+          audienceBanner &&
+          audienceBanner.sessionId === activeSession.id && (
+            <div className="calls-builder-excluded-banner" role="status">
+              {audienceBanner.createdCount} séance
+              {audienceBanner.createdCount > 1 ? 's' : ''} créée
+              {audienceBanner.createdCount > 1 ? 's' : ''}.
+              {audienceBanner.excludedCount > 0
+                ? ` ${audienceBanner.excludedCount} contact${audienceBanner.excludedCount > 1 ? 's' : ''} exclu${audienceBanner.excludedCount > 1 ? 's' : ''} car déjà en séance active.`
+                : ''}
+              <button
+                type="button"
+                className="calls-builder-excluded-banner__dismiss"
+                onClick={() => setAudienceBanner(null)}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+        {(view === 'runner' || view === 'recalls' || view === 'pre-session') &&
+          activeSession && (
+            <div
+              key={view === 'recalls' ? 'recalls' : 'runner-surface'}
+              className={
+                view === 'pre-session'
+                  ? 'calls-pre-session__underlay'
+                  : view === 'recalls'
+                    ? 'calls-hub-transition'
+                    : undefined
+              }
+              aria-hidden={view === 'pre-session'}
+            >
+              <RunnerView
+                session={activeSession}
+                contacts={contacts}
+                hubSessions={sessions}
+                currentContact={findNextPending(contacts, session.user.id)}
+                focusedContactId={focusedContactId}
+                variant={view === 'recalls' ? 'recalls' : 'session'}
+                loading={
+                  runnerLoading || (view === 'recalls' && recallsLoading)
+                }
+                error={runnerError}
+                awaitingEvent={awaitingEvent}
+                contactContext={contactContext}
+                contextContactId={contextContactId}
+                contextTargetContactId={contextTargetContactId}
+                team={team}
+                currentSfUserId={currentSfUserId}
+                currentUserId={session.user.id}
+                token={token}
+                canPowerDialer={canPowerDialer === true}
+                onBack={goToSessions}
+                onPin={handlePin}
+                onShareSession={
+                  activeSession.is_owner !== false && view === 'runner'
+                    ? handleShareSession
+                    : undefined
+                }
+                onFocusContact={setFocusedContactId}
+                onLogAndNext={(contactId, payload) =>
+                  void handleLogAndNext(contactId, payload)
+                }
+                onLogRdvAndNext={(contactId, payload, event) =>
+                  void handleLogRdvAndNext(contactId, payload, event)
+                }
+                onLogEvent={(start, durationMin, meta) =>
+                  void handleLogEvent(start, durationMin, meta)
+                }
+                onDeferContacts={(ids, payload) =>
+                  void handleDeferContacts(ids, payload)
+                }
+                onRemoveContacts={(ids) => void handleRemoveContacts(ids)}
+                onUpdateRecall={(contactIds, recallAt) =>
+                  void handleUpdateRecall(contactIds, recallAt)
+                }
+                onLogMany={(ids, payload) => void handleLogMany(ids, payload)}
+                onCelebrateGoal={handleCelebrateGoal}
+              />
+            </div>
+          )}
+
+        {view === 'recap' && activeSession && (
+          <RecapView
+            session={activeSession}
+            contacts={contacts}
+            followUpLoading={followUpLoading}
+            error={runnerError}
+            userId={session.user.id}
+            onBack={goToSessions}
+            onCreateFollowUp={(name, scheduledFor) =>
+              void handleCreateFollowUp(name, scheduledFor)
+            }
+          />
+        )}
+
+        {shareTargetSession && (
+          <ShareSessionPanel
+            members={shareTargetSession.members ?? []}
+            team={team}
+            currentUserId={session.user.id}
+            saving={shareSaving}
+            onClose={() => setShareSessionId(null)}
+            onSave={async (ids) => {
+              setShareSaving(true);
+              try {
+                await handleHubShareSession(ids);
+              } finally {
+                setShareSaving(false);
+              }
+            }}
+          />
+        )}
       </DialerProvider>
     </div>
   );

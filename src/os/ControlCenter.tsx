@@ -448,7 +448,7 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                 const goalHit = item.kind === 'session_goal_hit';
                 const bigEmoji = reactionEmoji(item);
                 const actionParams =
-                  item.payload?.action === 'open_session' &&
+                  item.payload &&
                   typeof item.payload.app_id === 'string' &&
                   item.payload.params &&
                   typeof item.payload.params === 'object'
@@ -628,7 +628,7 @@ export function ControlCenter({ accessToken, onOpenApp }: ControlCenterProps) {
                             );
                           }}
                         >
-                          Ouvrir la séance
+                          {typeof item.payload.action_label === 'string' ? item.payload.action_label : 'Ouvrir'}
                         </Button>
                       )}
                       {unreadItem && (

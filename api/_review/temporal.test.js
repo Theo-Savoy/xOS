@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   filterEventsBySemester,
   filterWindowBySemester,
+  filterEventsByQuarter,
+  filterWindowByQuarter,
   semesterBounds,
-} from './semester.js';
+} from './temporal.js';
 
 describe('fenêtres semestrielles FY juillet → juin', () => {
   it('définit S1 de juillet à décembre et S2 de janvier à juin', () => {
@@ -43,6 +45,41 @@ describe('fenêtres semestrielles FY juillet → juin', () => {
           { Id: 'created-s1', CreatedDate: '2025-10-02T10:00:00Z' },
         ],
       },
+    });
+  });
+
+  it('filtre par trimestre (Q2)', () => {
+    const window = {
+      FY26: {
+        won: [
+          { Id: 'won-q1', CloseDate: '2025-07-31' },
+          { Id: 'won-q2', CloseDate: '2025-11-01' },
+        ],
+      },
+    };
+
+    expect(filterWindowByQuarter(window, 'Q2')).toEqual({
+      FY26: {
+        won: [{ Id: 'won-q2', CloseDate: '2025-11-01' }],
+        closed: [],
+        created: [],
+      },
+    });
+  });
+
+  it('filtre les événements par trimestre (Q3)', () => {
+    expect(
+      filterEventsByQuarter(
+        {
+          FY26: [
+            { Subject: 'RDV Q2', ActivityDate: '2025-12-02' },
+            { Subject: 'RDV Q3', ActivityDate: '2026-02-02' },
+          ],
+        },
+        'Q3',
+      ),
+    ).toEqual({
+      FY26: [{ Subject: 'RDV Q3', ActivityDate: '2026-02-02' }],
     });
   });
 

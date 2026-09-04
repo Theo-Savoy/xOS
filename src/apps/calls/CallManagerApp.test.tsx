@@ -12,7 +12,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appRegistry, getAppManifest } from '../../os/registry';
 import { useSession } from '../../auth/useSession';
-import { todayParisIso } from './formControls.helpers';
+import { todayParisIso, tomorrowParisIso } from './formControls.helpers';
+import type * as pilotageApiModule from './modules/pilotage/pilotageApi';
 
 const testToday = todayParisIso();
 const mockSession = {
@@ -53,6 +54,13 @@ vi.mock('../../lib/supabase', () => ({
     }),
   },
 }));
+vi.mock('./modules/pilotage/pilotageApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof pilotageApiModule>();
+  return {
+    ...actual,
+    prefetchProspectionCockpit: vi.fn(),
+  };
+});
 
 import CallManagerApp from './CallManagerApp';
 import { invalidateComboHubCache } from './api';
@@ -132,8 +140,18 @@ beforeEach(() => {
   invalidateComboHubCache();
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
+    vi.fn((url: string, init?: RequestInit) => {
       if (url === '/api/calls?resource=hub') return hubResponse();
+      if (url === '/api/calls' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === 'list_rdvs') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ rdvs: [], pending_count: 0 }), {
+              status: 200,
+            }),
+          );
+        }
+      }
       if (url === '/api/calls') {
         return Promise.resolve(
           new Response(JSON.stringify(mockSessions), { status: 200 }),
@@ -207,7 +225,9 @@ describe('CallManagerApp component', () => {
     render(<CallManagerApp />);
 
     await waitFor(() => {
-      expect(screen.getByText('Prospection Lyon')).toBeTruthy();
+      expect(
+        screen.getByRole('heading', { name: 'Prospection Lyon' }),
+      ).toBeTruthy();
     });
     expect(screen.getByText('Nouvelle séance')).toBeTruthy();
   });
@@ -387,8 +407,10 @@ describe('CallManagerApp component', () => {
 
     render(<CallManagerApp params={{ view: 'abm' }} />);
 
-    await user.type(await screen.findByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await user.click(
+      await screen.findByRole('button', { name: /Rechercher par nom/ }),
+    );
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
@@ -537,8 +559,10 @@ describe('CallManagerApp component', () => {
     }
     render(<Harness />);
 
-    await user.type(await screen.findByLabelText('Nom du compte'), 'ACME');
-    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    await user.click(
+      await screen.findByRole('button', { name: /Rechercher par nom/ }),
+    );
+    await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
@@ -954,6 +978,56 @@ describe('CallManagerApp component', () => {
     expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
   });
 
+  it('ouvre aussi la préparation d’une séance active programmée', async () => {
+    const session = {
+      id: 2,
+      name: 'Séance de demain',
+      status: 'active',
+      created_at: `${testToday}T10:00:00Z`,
+      scheduled_for: tomorrowParisIso(),
+      rdv_goal: null,
+      engaged_at: null,
+    };
+    const contact = {
+      id: 201,
+      position: 0,
+      sf_contact_id: '003000000000002AAA',
+      sf_account_id: null,
+      contact_name: 'Bob Durand',
+      account_name: 'ACME',
+      phone: null,
+      title: null,
+      linkedin_url: null,
+      status: 'pending',
+      outcome: null,
+      comments: null,
+      sf_task_id: null,
+      sf_event_id: null,
+      called_at: null,
+    };
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/calls?resource=hub') return hubResponse();
+      if (url === '/api/calls?session_id=2') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ session, contacts: [contact] }), {
+            status: 200,
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'not_found' }), { status: 404 }),
+      );
+    });
+
+    render(<CallManagerApp params={{ session_id: '2' }} />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Séance de demain' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
+  });
+
   it('closes an overdue active session and opens a decision screen for pending contacts', async () => {
     const overdue = {
       id: 9,
@@ -1063,6 +1137,74 @@ describe('CallManagerApp component', () => {
     expect(onParamsChange).toHaveBeenCalledWith({ view: 'new' });
   });
 
+  it('restores the calendar view from persisted params', async () => {
+    const onParamsChange = vi.fn();
+    render(
+      <CallManagerApp
+        params={{ view: 'calendar' }}
+        onParamsChange={onParamsChange}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('region', { name: 'Calendrier des séances' }),
+    ).toBeTruthy();
+    expect(onParamsChange).toHaveBeenCalledWith({ view: 'calendar' });
+  });
+
+  it('navigates to the calendar from the app navigation', async () => {
+    const user = userEvent.setup();
+    const onParamsChange = vi.fn();
+    render(<CallManagerApp onParamsChange={onParamsChange} />);
+    await screen.findByText('Nouvelle séance');
+
+    const nav = screen.getByRole('navigation', { name: 'Navigation Combo' });
+    await user.click(within(nav).getByRole('button', { name: 'Calendrier' }));
+
+    expect(
+      await screen.findByRole('region', { name: 'Calendrier des séances' }),
+    ).toBeTruthy();
+    expect(
+      within(nav)
+        .getByRole('button', { name: 'Calendrier' })
+        .getAttribute('aria-current'),
+    ).toBe('page');
+    expect(onParamsChange).toHaveBeenCalledWith({ view: 'calendar' });
+  });
+
+  it('keeps the rdv-suivi view when navigating from pilotage through params', async () => {
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [params, setParams] = useState<
+        Record<string, string> | undefined
+      >();
+      return <CallManagerApp params={params} onParamsChange={setParams} />;
+    }
+
+    render(<Harness />);
+    await screen.findByText('Nouvelle séance');
+    const nav = screen.getByRole('navigation', { name: 'Navigation Combo' });
+
+    await user.click(within(nav).getByRole('button', { name: 'Pilotage' }));
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getByRole('button', { name: 'Pilotage' })
+          .getAttribute('aria-current'),
+      ).toBe('page'),
+    );
+
+    await user.click(within(nav).getByRole('button', { name: 'Suivi RDV' }));
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getByRole('button', { name: 'Suivi RDV' })
+          .getAttribute('aria-current'),
+      ).toBe('page'),
+    );
+  });
+
   it('navigates from session-type-select to ABM and returns back to session-type-select', async () => {
     const onParamsChange = vi.fn();
     const user = userEvent.setup();
@@ -1085,9 +1227,11 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('heading', { name: 'Définissez votre cible' }),
     ).toBeTruthy();
 
-    // Clic Retour depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
+    // Clic Quitter depuis ABM -> doit revenir à SessionTypeSelect (pas à 'new')
     onParamsChange.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
     expect(onParamsChange).toHaveBeenCalledWith({
       view: 'session-type-select',
     });
@@ -1110,7 +1254,34 @@ describe('CallManagerApp component', () => {
     ).toBeTruthy();
 
     onParamsChange.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
+    expect(onParamsChange).toHaveBeenCalledWith({
+      view: 'session-type-select',
+    });
+    expect(screen.getByText('Comptes précis (ABM)')).toBeTruthy();
+    expect(screen.getByText('Liste classique')).toBeTruthy();
+    expect(screen.queryByText('Définissez votre cible')).toBeNull();
+  });
+
+  it('returns to session-type-select when clicking Quitter from classic new session view', async () => {
+    const onParamsChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CallManagerApp
+        params={{ view: 'new' }}
+        onParamsChange={onParamsChange}
+      />,
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
+
+    onParamsChange.mockClear();
+    await user.click(
+      screen.getByRole('button', { name: 'Quitter la création de séance' }),
+    );
     expect(onParamsChange).toHaveBeenCalledWith({
       view: 'session-type-select',
     });

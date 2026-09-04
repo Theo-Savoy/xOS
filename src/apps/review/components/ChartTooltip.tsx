@@ -45,7 +45,8 @@ export function ChartTooltip({
   source?: string;
   compareLabel?: string;
   deltaKeys?: Record<string, string>;
-  valueFormatter: (value: number) => string;
+  /** `dataKey` permet de formater différemment les séries d'une double entrée. */
+  valueFormatter: (value: number, dataKey?: string) => string;
   deltaFormatter?: (value: number) => string;
 }) {
   if (!active || !payload?.length) return null;
@@ -64,7 +65,7 @@ export function ChartTooltip({
                 <i style={{ background: entry.color }} aria-hidden="true" />
                 {entry.name ?? key}
               </span>
-              <strong>{valueFormatter(Number(entry.value) || 0)}</strong>
+              <strong>{valueFormatter(Number(entry.value) || 0, key)}</strong>
             </div>
           );
         })}

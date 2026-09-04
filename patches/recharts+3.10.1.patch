@@ -1,0 +1,258 @@
+diff --git a/node_modules/recharts/es6/chart/RechartsWrapper.js b/node_modules/recharts/es6/chart/RechartsWrapper.js
+index 60f2294..120cdeb 100644
+--- a/node_modules/recharts/es6/chart/RechartsWrapper.js
++++ b/node_modules/recharts/es6/chart/RechartsWrapper.js
+@@ -231,9 +231,9 @@ export var RechartsWrapper = /*#__PURE__*/forwardRef((props, ref) => {
+     if (typeof ref === 'function') {
+       ref(node);
+     }
+-    setTooltipPortal(node);
+-    setLegendPortal(node);
+     if (node != null) {
++      setTooltipPortal(node);
++      setLegendPortal(node);
+       containerRef.current = node;
+     }
+   }, [setScaleRef, ref, setTooltipPortal, setLegendPortal]);
+diff --git a/node_modules/recharts/es6/util/useElementOffset.js b/node_modules/recharts/es6/util/useElementOffset.js
+index 23d7977..9add388 100644
+--- a/node_modules/recharts/es6/util/useElementOffset.js
++++ b/node_modules/recharts/es6/util/useElementOffset.js
+@@ -24,14 +24,14 @@ var EPS = 1;
+  */
+ 
+ /**
+- * Checks whether two ElementOffset values differ by more than `EPS` (1px) in any dimension.
++ * Checks whether two ElementOffset sizes differ by more than `EPS` (1px).
+  *
+  * @param a - the first ElementOffset to compare
+  * @param b - the second ElementOffset to compare
+- * @returns true if any dimension differs by more than 1px
++ * @returns true if width or height differs by more than 1px
+  */
+-function hasSignificantChange(a, b) {
+-  return Math.abs(a.height - b.height) > EPS || Math.abs(a.left - b.left) > EPS || Math.abs(a.top - b.top) > EPS || Math.abs(a.width - b.width) > EPS;
++function hasSignificantSizeChange(a, b) {
++  return Math.abs(a.height - b.height) > EPS || Math.abs(a.width - b.width) > EPS;
+ }
+ 
+ /**
+@@ -51,9 +51,10 @@ function readElementOffset(node) {
+ }
+ 
+ /**
+- * Use this to listen to element layout changes.
++ * Use this to listen to element size changes.
+  *
+- * Very useful for reading actual sizes of DOM elements relative to the viewport.
++ * Very useful for reading actual sizes of DOM elements. The returned position is a snapshot from the last size change;
++ * position changes alone do not update the returned value.
+  *
+  * Uses ResizeObserver to automatically detect size changes of the observed element.
+  *
+@@ -72,43 +73,44 @@ export function useElementOffset() {
+     lastBoundingBox = _useState2[0],
+     setLastBoundingBox = _useState2[1];
+   var observerRef = useRef(null);
++  var elementRef = useRef(null);
+   var lastBoundingBoxRef = useRef(lastBoundingBox);
+-  lastBoundingBoxRef.current = lastBoundingBox;
++
++  var measureElement = useCallback(() => {
++    var node = elementRef.current;
++    if (node == null) {
++      return;
++    }
++    var box = readElementOffset(node);
++    if (hasSignificantSizeChange(box, lastBoundingBoxRef.current)) {
++      lastBoundingBoxRef.current = box;
++      setLastBoundingBox(box);
++    }
++  }, []);
++
+   var updateBoundingBox = useCallback(node => {
++    elementRef.current = node;
++
+     // Disconnect any previously active ResizeObserver
+-    if (observerRef.current != null) {
+-      observerRef.current.disconnect();
+-      observerRef.current = null;
++    (observerRef.current === null || observerRef.current === void 0 ? void 0 : observerRef.current.disconnect());
++    observerRef.current = null;
++
++    if (node == null) {
++      return;
+     }
+-    if (node != null) {
+-      // Measure immediately on ref attach
+-      var box = readElementOffset(node);
+-      if (hasSignificantChange(box, lastBoundingBoxRef.current)) {
+-        setLastBoundingBox(box);
+-      }
+ 
+-      // Set up ResizeObserver for future size changes
+-      if (typeof ResizeObserver !== 'undefined') {
+-        var observer = new ResizeObserver(() => {
+-          var newBox = readElementOffset(node);
+-          if (hasSignificantChange(newBox, lastBoundingBoxRef.current)) {
+-            setLastBoundingBox(newBox);
+-          }
+-        });
+-        observer.observe(node);
+-        observerRef.current = observer;
+-      }
++    // Measure immediately on ref attach
++    measureElement();
++
++    // Set up ResizeObserver for future size changes
++    if (typeof ResizeObserver !== 'undefined') {
++      var observer = new ResizeObserver(measureElement);
++      observer.observe(node);
++      observerRef.current = observer;
+     }
+-  },
+-  // eslint-disable-next-line react-hooks/exhaustive-deps
+-  [...extraDependencies]);
++  }, [measureElement]);
++
++  useEffect(measureElement, [measureElement].concat(extraDependencies));
+ 
+-  // Cleanup on unmount
+-  useEffect(() => {
+-    return () => {
+-      var _observerRef$current;
+-      (_observerRef$current = observerRef.current) === null || _observerRef$current === void 0 || _observerRef$current.disconnect();
+-    };
+-  }, []);
+   return [lastBoundingBox, updateBoundingBox];
+ }
+\ No newline at end of file
+diff --git a/node_modules/recharts/lib/chart/RechartsWrapper.js b/node_modules/recharts/lib/chart/RechartsWrapper.js
+index 974c9ba..9e24d10 100644
+--- a/node_modules/recharts/lib/chart/RechartsWrapper.js
++++ b/node_modules/recharts/lib/chart/RechartsWrapper.js
+@@ -238,9 +238,9 @@ var RechartsWrapper = exports.RechartsWrapper = /*#__PURE__*/(0, _react.forwardR
+     if (typeof ref === 'function') {
+       ref(node);
+     }
+-    setTooltipPortal(node);
+-    setLegendPortal(node);
+     if (node != null) {
++      setTooltipPortal(node);
++      setLegendPortal(node);
+       containerRef.current = node;
+     }
+   }, [setScaleRef, ref, setTooltipPortal, setLegendPortal]);
+diff --git a/node_modules/recharts/lib/util/useElementOffset.js b/node_modules/recharts/lib/util/useElementOffset.js
+index 3ab9d0e..4937bb9 100644
+--- a/node_modules/recharts/lib/util/useElementOffset.js
++++ b/node_modules/recharts/lib/util/useElementOffset.js
+@@ -30,14 +30,14 @@ var EPS = 1;
+  */
+ 
+ /**
+- * Checks whether two ElementOffset values differ by more than `EPS` (1px) in any dimension.
++ * Checks whether two ElementOffset sizes differ by more than `EPS` (1px).
+  *
+  * @param a - the first ElementOffset to compare
+  * @param b - the second ElementOffset to compare
+- * @returns true if any dimension differs by more than 1px
++ * @returns true if width or height differs by more than 1px
+  */
+-function hasSignificantChange(a, b) {
+-  return Math.abs(a.height - b.height) > EPS || Math.abs(a.left - b.left) > EPS || Math.abs(a.top - b.top) > EPS || Math.abs(a.width - b.width) > EPS;
++function hasSignificantSizeChange(a, b) {
++  return Math.abs(a.height - b.height) > EPS || Math.abs(a.width - b.width) > EPS;
+ }
+ 
+ /**
+@@ -57,9 +57,10 @@ function readElementOffset(node) {
+ }
+ 
+ /**
+- * Use this to listen to element layout changes.
++ * Use this to listen to element size changes.
+  *
+- * Very useful for reading actual sizes of DOM elements relative to the viewport.
++ * Very useful for reading actual sizes of DOM elements. The returned position is a snapshot from the last size change;
++ * position changes alone do not update the returned value.
+  *
+  * Uses ResizeObserver to automatically detect size changes of the observed element.
+  *
+@@ -78,43 +79,44 @@ function useElementOffset() {
+     lastBoundingBox = _useState2[0],
+     setLastBoundingBox = _useState2[1];
+   var observerRef = (0, _react.useRef)(null);
++  var elementRef = (0, _react.useRef)(null);
+   var lastBoundingBoxRef = (0, _react.useRef)(lastBoundingBox);
+-  lastBoundingBoxRef.current = lastBoundingBox;
++
++  var measureElement = (0, _react.useCallback)(() => {
++    var node = elementRef.current;
++    if (node == null) {
++      return;
++    }
++    var box = readElementOffset(node);
++    if (hasSignificantSizeChange(box, lastBoundingBoxRef.current)) {
++      lastBoundingBoxRef.current = box;
++      setLastBoundingBox(box);
++    }
++  }, []);
++
+   var updateBoundingBox = (0, _react.useCallback)(node => {
++    elementRef.current = node;
++
+     // Disconnect any previously active ResizeObserver
+-    if (observerRef.current != null) {
+-      observerRef.current.disconnect();
+-      observerRef.current = null;
++    (observerRef.current === null || observerRef.current === void 0 ? void 0 : observerRef.current.disconnect());
++    observerRef.current = null;
++
++    if (node == null) {
++      return;
+     }
+-    if (node != null) {
+-      // Measure immediately on ref attach
+-      var box = readElementOffset(node);
+-      if (hasSignificantChange(box, lastBoundingBoxRef.current)) {
+-        setLastBoundingBox(box);
+-      }
+ 
+-      // Set up ResizeObserver for future size changes
+-      if (typeof ResizeObserver !== 'undefined') {
+-        var observer = new ResizeObserver(() => {
+-          var newBox = readElementOffset(node);
+-          if (hasSignificantChange(newBox, lastBoundingBoxRef.current)) {
+-            setLastBoundingBox(newBox);
+-          }
+-        });
+-        observer.observe(node);
+-        observerRef.current = observer;
+-      }
++    // Measure immediately on ref attach
++    measureElement();
++
++    // Set up ResizeObserver for future size changes
++    if (typeof ResizeObserver !== 'undefined') {
++      var observer = new ResizeObserver(measureElement);
++      observer.observe(node);
++      observerRef.current = observer;
+     }
+-  },
+-  // eslint-disable-next-line react-hooks/exhaustive-deps
+-  [...extraDependencies]);
++  }, [measureElement]);
++
++  (0, _react.useEffect)(measureElement, [measureElement].concat(extraDependencies));
+ 
+-  // Cleanup on unmount
+-  (0, _react.useEffect)(() => {
+-    return () => {
+-      var _observerRef$current;
+-      (_observerRef$current = observerRef.current) === null || _observerRef$current === void 0 || _observerRef$current.disconnect();
+-    };
+-  }, []);
+   return [lastBoundingBox, updateBoundingBox];
+ }
+\ No newline at end of file

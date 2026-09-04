@@ -60,7 +60,7 @@ export function ProductivitySection({
 
       <div className="review-kpi-grid">
         <StatCard
-          label="CA nouv. aff. / ETP"
+          label="CA nouvelles affaires / ETP"
           value={fmtEur(current.caPerFte || 0)}
           scope="new"
           delta={fmtPctDelta(evo.caPerFte)}
@@ -85,12 +85,12 @@ export function ProductivitySection({
             <tr>
               <th>Exercice</th>
               <th>ETP sales</th>
-              <th>CA nouv. aff. sales</th>
-              <th>Signatures nouv. aff.</th>
+              <th>CA nouvelles affaires sales</th>
+              <th>Signatures nouvelles affaires</th>
               <th>Détections</th>
               <th>CA / ETP</th>
-              <th>Sign. / ETP</th>
-              <th>Dét. / ETP</th>
+              <th>Signatures / ETP</th>
+              <th>Détections / ETP</th>
             </tr>
           </thead>
           <tbody>
@@ -114,8 +114,7 @@ export function ProductivitySection({
           </tbody>
         </table>
         <p className="review-section-note">
-          ETP fournis par la direction, non dérivés de Salesforce. Jérôme est
-          hors dénominateur. {data.attribution_limit}
+          ETP fournis par la direction, Jérôme hors dénominateur.
         </p>
       </GlassCard>
     </div>

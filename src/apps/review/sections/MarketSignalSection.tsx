@@ -2,7 +2,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -10,6 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -18,8 +18,8 @@ import { seriesLabel } from '../review.period';
 import type { MarketMixRow, MarketPayload } from '../review.types';
 
 const MIX_COLORS = {
-  marche: '#5b8def',
-  produit: 'var(--xos-accent)',
+  marche: 'var(--xos-chart-compare)',
+  produit: 'var(--xos-chart-current)',
   prix: '#f0a35e',
 };
 
@@ -85,13 +85,13 @@ export function MarketSignalSection({
           label={`Part marché / client ${seriesLabel(currentShare?.fy ?? '', data.period)}`}
           value={fmtPct1((currentShare?.pct ?? 0) / 100)}
           scope="new"
-          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes (nouv. aff.)`}
+          hint={`${currentShare?.n_marche ?? 0} / ${currentShare?.n_lost ?? 0} pertes (nouvelles affaires)`}
         />
       </div>
 
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Répartition des pertes nouv. aff. par offre
+          Répartition des pertes nouvelles affaires par offre
         </h3>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stacked} layout="vertical" margin={{ left: 24 }}>
@@ -119,7 +119,6 @@ export function MarketSignalSection({
                 />
               }
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar
               dataKey="Marché / client"
               stackId="mix"
@@ -133,6 +132,13 @@ export function MarketSignalSection({
             <Bar dataKey="Prix" stackId="mix" fill={MIX_COLORS.prix} />
           </BarChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Marché / client', color: MIX_COLORS.marche },
+            { label: 'Produit / réponse XOS', color: MIX_COLORS.produit },
+            { label: 'Prix', color: MIX_COLORS.prix },
+          ]}
+        />
         <p className="review-section-note">
           Chaque ligne totalise 100 % : marché, produit et prix couvrent toutes les pertes déclarées.
         </p>

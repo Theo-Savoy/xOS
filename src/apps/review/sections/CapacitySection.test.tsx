@@ -140,7 +140,7 @@ describe('CapacitySection', () => {
       <CapacitySection data={payload} loading={false} />,
     );
     const text = container.textContent || '';
-    const bridgeAt = text.indexOf('Cadrage Owner');
+    const bridgeAt = text.indexOf('Impact des mouvements d\'équipe');
     const compareAt = text.indexOf('Paul / Christophe');
     expect(bridgeAt).toBeGreaterThanOrEqual(0);
     expect(compareAt).toBeGreaterThan(bridgeAt);

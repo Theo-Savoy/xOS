@@ -91,7 +91,7 @@ export function NewSessionView({
   matchCountLoading,
   matchCountError,
   error,
-  preview,
+  preview: previewProp,
   dedup,
   excludedCount = 0,
   previewTruncated,
@@ -124,6 +124,17 @@ export function NewSessionView({
       setStep(initialStep);
     }
   }, [initialStep]);
+
+  const lastGoodPreviewRef = useRef<ContactPreview[]>([]);
+  if (previewProp.length > 0) {
+    lastGoodPreviewRef.current = previewProp;
+  }
+  const preview =
+    previewProp.length === 0 &&
+    previewLoading &&
+    lastGoodPreviewRef.current.length > 0
+      ? lastGoodPreviewRef.current
+      : previewProp;
 
   const shareableTeam = useMemo(
     () =>
@@ -601,8 +612,12 @@ export function NewSessionView({
 
                 {shareableTeam.length > 0 && (
                   <GlassCard className="calls-plan-card">
-                    <div className="calls-plan-card__head">
-                      <h3 className="calls-plan-card__title">Équipe</h3>
+                    <h3 className="calls-plan-card__title">Équipe</h3>
+                    <div
+                      className="calls-plan-card__chips"
+                      role="group"
+                      aria-label="Collègues"
+                    >
                       <Button
                         type="button"
                         variant="secondary"
@@ -613,12 +628,6 @@ export function NewSessionView({
                       >
                         Toute l&apos;équipe
                       </Button>
-                    </div>
-                    <div
-                      className="calls-plan-card__chips"
-                      role="group"
-                      aria-label="Collègues"
-                    >
                       {shareableTeam.map((member) => {
                         const checked = shareMemberIds.has(member.user_id);
                         return (

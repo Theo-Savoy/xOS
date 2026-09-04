@@ -13,6 +13,23 @@ export const CONCENTRATION_TOP_N = 15;
 const CONCENTRATION_TOP5 = 5;
 export const CHANNEL_NONE = 'Détecté/Signé hors action marketing';
 
+/** Catégories de canaux : mot-clé → libellé. Le premier match gagne. */
+const CHANNEL_CATEGORIES = [
+  [/salon/i, 'Salon'],
+  [/masterclass|learning\s*genius|webinar|webinaire|événement|evenement|event/i, 'Événement'],
+  [/site\s*web|formulaire/i, 'Site web'],
+  [/partenaire/i, 'Partenaires'],
+];
+
+export function channelCategory(name) {
+  const label = String(name || '').trim();
+  if (!label || label === CHANNEL_NONE) return 'Commerciaux';
+  for (const [pattern, category] of CHANNEL_CATEGORIES) {
+    if (pattern.test(label)) return category;
+  }
+  return 'Commerciaux';
+}
+
 function amountOf(record) {
   return Number(record?.[opp.fields.amount]) || 0;
 }
@@ -75,26 +92,55 @@ export function computeChannels(window, fy = 'FY26') {
     return current;
   }
 
+  const byCategory = new Map();
+  function touchCategory(category) {
+    const current = byCategory.get(category) || {
+      label: category,
+      closed: 0,
+      won: 0,
+      amount: 0,
+    };
+    byCategory.set(category, current);
+    return current;
+  }
+
   const closedIds = new Set(
     closedNew.map((record) => record?.[opp.fields.id]).filter(Boolean),
   );
   for (const record of closedNew) {
-    const row = touch(campaignNameOf(record));
+    const name = campaignNameOf(record);
+    const row = touch(name);
+    const cat = touchCategory(channelCategory(name));
     row.closed += 1;
+    cat.closed += 1;
     if (isWon(record)) {
       row.won += 1;
       row.amount += amountOf(record);
+      cat.won += 1;
+      cat.amount += amountOf(record);
     }
   }
   for (const record of wonNew) {
     const id = record?.[opp.fields.id];
     if (id && closedIds.has(id)) continue;
-    const row = touch(campaignNameOf(record));
+    const name = campaignNameOf(record);
+    const row = touch(name);
+    const cat = touchCategory(channelCategory(name));
     row.won += 1;
     row.amount += amountOf(record);
+    cat.won += 1;
+    cat.amount += amountOf(record);
   }
 
-  const items = [...byChannel.values()]
+  const items = [...byCategory.values()]
+    .map((row) => ({
+      ...row,
+      closing: row.closed > 0 ? row.won / row.closed : null,
+      closing_pct: roundPct1(row.won, row.closed),
+    }))
+    .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label, 'fr'));
+
+  const details = [...byChannel.values()]
     .map((row) => ({
       ...row,
       closing: row.closed > 0 ? row.won / row.closed : null,
@@ -135,6 +181,7 @@ export function computeChannels(window, fy = 'FY26') {
     fy,
     channels: {
       items,
+      details,
       n_displayed: Math.min(CHANNEL_SLIDE_N, items.length),
       n_total: items.length,
       truncated: items.length > CHANNEL_SLIDE_N,

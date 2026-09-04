@@ -26,7 +26,26 @@ export async function listShared(client, userId, role) {
 
   const { data, error } = await query;
   if (error) return { error: 'shared_lookup_failed', status: 500 };
-  return { analyses: data || [] };
+
+  if (!data || data.length === 0) return { analyses: [] };
+
+  const creatorIds = Array.from(new Set(data.map((a) => a.created_by)));
+  const { data: profiles } = await client
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', creatorIds);
+
+  const profileMap = (profiles || []).reduce((acc, p) => {
+    acc[p.id] = p.full_name || p.email;
+    return acc;
+  }, {});
+
+  const analyses = data.map((a) => ({
+    ...a,
+    created_by_label: profileMap[a.created_by] || 'Inconnu',
+  }));
+
+  return { analyses };
 }
 
 /**
@@ -51,6 +70,18 @@ export async function createShared({
   const { granularity, period } = config;
   if (!granularity || !period) {
     return { error: 'config_missing_granularity_or_period', status: 400 };
+  }
+
+  if (recipientId) {
+    const { data: recipientExists, error: profileErr } = await client
+      .from('profiles')
+      .select('id')
+      .eq('id', recipientId)
+      .single();
+
+    if (profileErr || !recipientExists) {
+      return { error: 'invalid_recipient', status: 400 };
+    }
   }
 
   const { data, error } = await client

@@ -21,14 +21,11 @@ describe.each([500, 800, 1200])('Combo at %ipx', (width) => {
         <SessionsView
           sessions={[]}
           stats={null}
-          recallCount={0}
-          recallsLoading={false}
           loading={false}
           error={null}
           onRefresh={vi.fn()}
           onNewSession={vi.fn()}
           onOpenSession={vi.fn()}
-          onOpenRecalls={vi.fn()}
           onUpdateSession={vi.fn().mockResolvedValue(undefined)}
           onDeleteSession={vi.fn().mockResolvedValue(undefined)}
         />
@@ -65,15 +62,15 @@ describe.each([320, 500, 800, 1200])('AccountSearchView at %ipx', (width) => {
 
     const viewport = container.firstElementChild as HTMLElement;
     expect(viewport.style.width).toBe(`${width}px`);
-    
+
     // DOM is structurally the same, visibility is CSS-driven
     expect(viewport.querySelector('.calls-abm-layout')).toBeTruthy();
-    
+
     // Ensure our new rules exist in the raw CSS
     expect(callsCss).toContain('.calls-abm-sidebar {');
     expect(callsCss).toContain('.calls-abm-bottom-bar {');
     expect(callsCss).toContain('@container calls-app (min-width: 900px)');
-    
+
     expect({
       width,
       layout: viewport.querySelector('.calls-abm-layout')?.className,

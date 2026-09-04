@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NewSessionView } from './NewSessionView';
@@ -162,6 +162,35 @@ describe('NewSessionView — UX writing & wizard (spec §4.3 & plan)', () => {
   it("shows a 'Mise à jour…' status while a refresh is in flight", () => {
     render(<NewSessionView {...baseProps([], true)} initialStep={1} />);
     expect(screen.getByText('Mise à jour…')).toBeTruthy();
+  });
+
+  it('keeps the preview table visible while a ceiling change reloads', () => {
+    const alice: ContactPreview = {
+      sf_contact_id: '003a',
+      sf_account_id: '001a',
+      contact_name: 'Alice Martin',
+      account_name: 'Acme',
+      phone: '0102030405',
+    };
+    const { rerender } = render(
+      <NewSessionView {...baseProps([alice])} initialStep={1} />,
+    );
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Aperçu — 1 contact trouvé' }),
+    ).toBeTruthy();
+
+    rerender(<NewSessionView {...baseProps([], true)} initialStep={1} />);
+
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Aperçu — 1 contact trouvé' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Mise à jour…')).toBeTruthy();
+    expect(screen.queryByText('Aucun contact trouvé')).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: 'Mise à jour…' }),
+    ).toBeNull();
   });
 
   it('keeps existing selections across a preview refresh and only drops contacts that disappeared', async () => {
@@ -484,5 +513,27 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
     expect(screen.getByRole('heading', { name: 'Découpage' })).toBeTruthy();
     expect(document.querySelector('.calls-name-form')).toBeNull();
     expect(screen.queryByText(/contacts? sélectionnés?/)).toBeNull();
+  });
+
+  it("places Toute l'équipe inside the team chips group, not the card header", () => {
+    render(
+      <NewSessionView
+        {...baseProps([contactA])}
+        team={[{ user_id: 'user-2', label: 'Alice', sf_user_id: '005A' }]}
+        onCreateAudience={vi.fn()}
+        initialStep={2}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Collègues' });
+    expect(
+      within(group).getByRole('button', { name: "Toute l'équipe" }),
+    ).toBeTruthy();
+    expect(document.querySelector('.calls-plan-card__head')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: "Toute l'équipe" }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('false');
   });
 });

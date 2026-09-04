@@ -49,7 +49,7 @@ export function QualitySection({
         <StatCard
           label="Cycles négatifs"
           value={String(data.negative_cycles)}
-          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures nouv. aff.`}
+          hint={`${data.n_valid} exploitables / ${data.n_won_new} signatures nouvelles affaires`}
         />
         <StatCard
           label="Cycles > 365 j"
@@ -66,8 +66,8 @@ export function QualitySection({
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">Volumétrie export</h3>
         <p className="review-section-kicker">
-          {data.created_rows} lignes CreatedDate · {data.closed_rows} lignes
-          CloseDate sur la fenêtre chargée
+          {data.created_rows} lignes par date de création · {data.closed_rows}{' '}
+          par date de clôture
         </p>
         <ul className="review-study-points">
           {data.limits.map((limit) => (

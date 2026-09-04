@@ -1,10 +1,18 @@
-export type ReviewPeriodMode = 'fy' | 'semester';
+export type ReviewPeriodMode = 'fy' | 'semester' | 'quarter';
 export type ReviewSemester = 'S1' | 'S2';
+export type ReviewQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+export const QUARTER_LABELS: Record<ReviewQuarter, string> = {
+  Q1: 'T1',
+  Q2: 'T2',
+  Q3: 'T3',
+  Q4: 'T4',
+};
 
 export type PeriodSelection = {
   mode: ReviewPeriodMode;
   fy: string;
   semester: ReviewSemester;
+  quarter?: ReviewQuarter;
   compare?: string;
 };
 
@@ -50,10 +58,29 @@ export function semesterBounds(
     : { from: mid, toExclusive: year.toExclusive };
 }
 
+export function quarterBoundsFront(
+  fy: string,
+  quarter: ReviewQuarter,
+): { from: string; toExclusive: string } {
+  const fyInt = fyIntFromLabel(fy);
+  const qNum = Number(quarter.slice(1));
+  const startMonth = ((qNum - 1) * 3 + 6) % 12; // July=6 → Q1 starts July
+  const startYear = 2000 + fyInt - 1 + (startMonth < 6 ? 1 : 0);
+  const endMonth = (startMonth + 3) % 12;
+  const endYear = startYear + (endMonth < startMonth ? 1 : 0);
+  return {
+    from: `${startYear}-${String(startMonth + 1).padStart(2, '0')}-01`,
+    toExclusive: `${endYear}-${String(endMonth + 1).padStart(2, '0')}-01`,
+  };
+}
+
 export function periodRange(selection: PeriodSelection): {
   from: string;
   toExclusive: string;
 } {
+  if (selection.mode === 'quarter' && selection.quarter) {
+    return quarterBoundsFront(selection.fy, selection.quarter);
+  }
   return selection.mode === 'semester'
     ? semesterBounds(selection.fy, selection.semester)
     : fyBounds(selection.fy);
@@ -90,9 +117,13 @@ export function periodQuery(selection: PeriodSelection): {
   fy: string;
   compare: string;
   semester?: ReviewSemester;
+  quarter?: ReviewQuarter;
 } {
   const compare = selection.compare || comparisonFy(selection.fy);
   const base = { fy: selection.fy, compare };
+  if (selection.mode === 'quarter' && selection.quarter) {
+    return { ...base, quarter: selection.quarter };
+  }
   return selection.mode === 'semester'
     ? { ...base, semester: selection.semester }
     : base;
@@ -100,7 +131,11 @@ export function periodQuery(selection: PeriodSelection): {
 
 export function periodTitle(selection: PeriodSelection): string {
   const compare = selection.compare || comparisonFy(selection.fy);
-  const suffix = selection.mode === 'semester' ? ` ${selection.semester}` : '';
+  const suffix = selection.mode === 'quarter' && selection.quarter
+    ? ` ${QUARTER_LABELS[selection.quarter]}`
+    : selection.mode === 'semester'
+    ? ` ${selection.semester}`
+    : '';
   return `${compare}${suffix} → ${selection.fy}${suffix}`;
 }
 
@@ -114,14 +149,16 @@ export function businessReviewPath(
     fy: query.fy,
     compare: query.compare,
   });
-  if (query.semester) params.set('semester', query.semester);
+  if (query.quarter) params.set('quarter', query.quarter);
+  else if (query.semester) params.set('semester', query.semester);
   return `/api/review?${params.toString()}`;
 }
 
 type SeriesPeriod = {
-  granularity?: 'year' | 'semester';
+  granularity?: 'year' | 'semester' | 'quarter';
   mode?: ReviewPeriodMode;
   semester?: ReviewSemester | null;
+  quarter?: ReviewQuarter | null;
 } | null;
 
 function periodSemester(period?: SeriesPeriod): ReviewSemester | null {
@@ -134,9 +171,21 @@ function periodSemester(period?: SeriesPeriod): ReviewSemester | null {
     : null;
 }
 
-/** FY26 en mode exercice, « FY26 · S1 » en mode semestre. */
+function periodQuarter(period?: SeriesPeriod): ReviewQuarter | null {
+  if (!period) return null;
+  const isQuarter =
+    period.granularity === 'quarter' || period.mode === 'quarter';
+  if (!isQuarter) return null;
+  return period.quarter && /^Q[1-4]$/.test(period.quarter)
+    ? period.quarter
+    : null;
+}
+
+/** FY26 en mode exercice, « FY26 · S1 » en mode semestre, « FY26 · T1 » en mode trimestre. */
 export function seriesLabel(fy: string, period?: SeriesPeriod): string {
   if (!fy) return fy;
+  const quarter = periodQuarter(period);
+  if (quarter) return `${fy} · ${QUARTER_LABELS[quarter]}`;
   const semester = periodSemester(period);
   return semester ? `${fy} · ${semester}` : fy;
 }
@@ -148,6 +197,8 @@ export function seriesSpanLabel(
   period?: SeriesPeriod,
 ): string {
   const span = `${fromFy}→${toFy}`;
+  const quarter = periodQuarter(period);
+  if (quarter) return `Série trimestrielle ${QUARTER_LABELS[quarter]} · ${span}`;
   const semester = periodSemester(period);
   return semester ? `Série semestrielle ${semester} · ${span}` : span;
 }

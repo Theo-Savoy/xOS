@@ -1853,4 +1853,258 @@ describe('POST /api/calls action=accounts_search', () => {
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe('sf_query_error');
   });
+
+  it('resolves compte_principal_name to parent accounts and queries both parents and subsidiaries', async () => {
+    const PARENT_RECORD = {
+      Id: '001PARENT000001AAA',
+      Name: 'Danone Groupe',
+      Industry: 'Biens de consommation alimentaires',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Client',
+      Tier__c: 'A',
+      Nombre_employes__c: '5000 et plus',
+      ParentId: null,
+    };
+    const SUBSIDIARY_RECORD = {
+      Id: '001CHILD0000001AAA',
+      Name: 'Danone Eaux France',
+      Industry: 'Biens de consommation alimentaires',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Client',
+      Tier__c: 'B',
+      Nombre_employes__c: '251 - 500',
+      ParentId: '001PARENT000001AAA',
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      // 1. SOQL to resolve parent name
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ records: [{ Id: '001PARENT000001AAA' }] }),
+          { status: 200 },
+        ),
+      )
+      // 1bis. SOQL child check: the parent has at least one child
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [{ ParentId: '001PARENT000001AAA' }],
+          }),
+          { status: 200 },
+        ),
+      )
+      // 2. SOQL account search
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ records: [PARENT_RECORD, SUBSIDIARY_RECORD] }),
+          { status: 200 },
+        ),
+      )
+      // 3. Contact hydration
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+
+    const res = await POST(
+      makeAccountsReq({ filters: { compte_principal_name: 'Danone' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.accounts).toHaveLength(2);
+    expect(body.accounts[0]).toMatchObject({
+      id: '001PARENT000001AAA',
+      name: 'Danone Groupe',
+      is_group: true,
+      parent_id: null,
+    });
+    expect(body.accounts[1]).toMatchObject({
+      id: '001CHILD0000001AAA',
+      name: 'Danone Eaux France',
+      is_group: false,
+      parent_id: '001PARENT000001AAA',
+    });
+
+    const parentResolveSoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[1][0]).replace(/\+/g, ' '),
+    );
+    expect(parentResolveSoql).toContain("Name LIKE '%Danone%' LIMIT 25");
+
+    const childCheckSoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[2][0]).replace(/\+/g, ' '),
+    );
+    expect(childCheckSoql).toContain("ParentId IN ('001PARENT000001AAA')");
+
+    const accountQuerySoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[3][0]).replace(/\+/g, ' '),
+    );
+    expect(accountQuerySoql).toContain(
+      "Id IN ('001PARENT000001AAA') OR ParentId IN ('001PARENT000001AAA')",
+    );
+  });
+
+  it('filters out name-matching accounts without children from compte_principal_name results (no ghost groups)', async () => {
+    // Cas LVMH : « LVMH » (groupe réel, a des enfants) et « LVMH CLIENT
+    // SERVICES » (nom matchant, sans enfant) résolus par le LIKE. Seul le
+    // groupe réel doit rester et porter is_group: true.
+    const REAL_GROUP_RECORD = {
+      Id: '001LVMHGROUP0001AAA',
+      Name: 'LVMH',
+      Industry: 'Luxe',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Prospect',
+      Tier__c: 'D',
+      Nombre_employes__c: '5000 et plus',
+      ParentId: null,
+    };
+    const GHOST_RECORD = {
+      Id: '001LVMHGHOST000AAA',
+      Name: 'LVMH CLIENT SERVICES',
+      Industry: 'Luxe',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Prospect',
+      Tier__c: 'D',
+      Nombre_employes__c: '1 - 10',
+      ParentId: null,
+    };
+    const SUBSIDIARY_RECORD = {
+      Id: '001LVMHSUB000001AAA',
+      Name: 'Louis Vuitton',
+      Industry: 'Luxe',
+      Owner: { Name: 'Paul Martin' },
+      Type_de_client__c: 'Prospect',
+      Tier__c: 'D',
+      Nombre_employes__c: '1001 - 5000',
+      ParentId: '001LVMHGROUP0001AAA',
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      // 1. SOQL to resolve parent names: both match by name
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [
+              { Id: '001LVMHGROUP0001AAA' },
+              { Id: '001LVMHGHOST000AAA' },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      // 1bis. SOQL child check: only the real group has children
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [{ ParentId: '001LVMHGROUP0001AAA' }],
+          }),
+          { status: 200 },
+        ),
+      )
+      // 2. SOQL account search: avec parentIds filtré, la clause IN ne
+      // référence plus le fantôme → Salesforce ne le retourne pas.
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            records: [REAL_GROUP_RECORD, SUBSIDIARY_RECORD],
+          }),
+          { status: 200 },
+        ),
+      )
+      // 3. Contact hydration
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+
+    const res = await POST(
+      makeAccountsReq({ filters: { compte_principal_name: 'LVMH' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.accounts).toHaveLength(2);
+    expect(body.accounts[0]).toMatchObject({
+      id: '001LVMHGROUP0001AAA',
+      name: 'LVMH',
+      is_group: true,
+    });
+    expect(body.accounts[1]).toMatchObject({
+      id: '001LVMHSUB000001AAA',
+      name: 'Louis Vuitton',
+      is_group: false,
+    });
+    // La clause de requête ne référence plus le compte sans enfant.
+    const accountQuerySoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[3][0]).replace(/\+/g, ' '),
+    );
+    expect(accountQuerySoql).toContain(
+      "Id IN ('001LVMHGROUP0001AAA') OR ParentId IN ('001LVMHGROUP0001AAA')",
+    );
+    expect(accountQuerySoql).not.toContain('001LVMHGHOST000AAA');
+  });
+
+  it('returns empty accounts list without crashing when compte_principal_name finds no parents', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      // 1. SOQL to resolve parent name returns 0 records
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      )
+      // 2. SOQL account query with Id = null returns 0 records
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+
+    const res = await POST(
+      makeAccountsReq({ filters: { compte_principal_name: 'Inconnu' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.accounts).toEqual([]);
+    expect(body.truncated).toBe(false);
+
+    const accountQuerySoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[2][0]).replace(/\+/g, ' '),
+    );
+    expect(accountQuerySoql).toContain('Id = null');
+  });
+
+  it('supports legacy compte_principal ID filter without breaking', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: ACCOUNT_RECORDS }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [] }), { status: 200 }),
+      );
+
+    const res = await POST(
+      makeAccountsReq({ filters: { compte_principal: '001LEGACY0001AAA' } }),
+    );
+    expect(res.status).toBe(200);
+    const accountQuerySoql = decodeURIComponent(
+      String(fetchSpy.mock.calls[1][0]).replace(/\+/g, ' '),
+    );
+    expect(accountQuerySoql).toContain("ParentId = '001LEGACY0001AAA'");
+  });
 });

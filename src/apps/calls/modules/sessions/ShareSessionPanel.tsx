@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, GlassCard } from '../../../../components/ui';
+import { Button } from '../../../../components/ui';
 import type { TeamMember } from '../../types';
 
 type ShareSessionPanelProps = {
@@ -55,7 +55,7 @@ export function ShareSessionPanel({
         aria-label="Fermer"
         onClick={onClose}
       />
-      <GlassCard className="calls-share-panel">
+      <div className="calls-share-panel">
         <header className="calls-share-panel__head">
           <div>
             <h3>Partager la séance</h3>
@@ -104,7 +104,7 @@ export function ShareSessionPanel({
             {saving ? 'Enregistrement…' : 'Enregistrer'}
           </Button>
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }

@@ -38,7 +38,6 @@ export function SessionTypeSelect({
             Retour
           </Button>
           <div className="calls-view__titleblock">
-            <Tag variant="accent">Nouvelle séance</Tag>
             <h2>Choisir le type de séance</h2>
           </div>
         </div>

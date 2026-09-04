@@ -1,6 +1,5 @@
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -8,6 +7,7 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -20,7 +20,7 @@ const PRODUCT_LABELS: Record<(typeof PRODUCT_ORDER)[number], string> = {
   catalogue: 'Catalogue',
   sur_mesure: 'Sur-mesure',
   conseil: 'Conseil',
-  autre: 'Autre / non défini',
+  autre: 'Autre',
 };
 
 export function CycleSection({
@@ -120,23 +120,28 @@ export function CycleSection({
                 <ChartTooltip valueFormatter={(value) => fmtDays(value)} />
               }
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Line
               type="monotone"
               dataKey="Médiane"
-              stroke="var(--xos-accent)"
+              stroke="var(--xos-chart-current)"
               strokeWidth={2}
               dot
             />
             <Line
               type="monotone"
               dataKey="Moyenne"
-              stroke="#5b8def"
+              stroke="var(--xos-chart-compare)"
               strokeWidth={2}
               dot
             />
           </LineChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Médiane', color: 'var(--xos-chart-current)' },
+            { label: 'Moyenne', color: 'var(--xos-chart-compare)' },
+          ]}
+        />
       </GlassCard>
 
       <GlassCard className="review-chart-card">
