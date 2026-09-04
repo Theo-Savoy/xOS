@@ -98,6 +98,17 @@
   color: var(--xos-text) !important;
 }
 
+.review-period-select {
+  width: auto;
+  min-width: 96px;
+}
+
+.review-period-select .xos-select__trigger {
+  min-height: 36px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .review-period-range {
   color: var(--xos-text-muted);
   font-size: 11px;
@@ -976,22 +987,42 @@ button.review-hint:focus-visible .review-hint__bubble {
 .review-share-banner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 12px 16px;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
   background-color: var(--xos-bg-card);
   border: 1px solid var(--xos-border);
   border-radius: var(--xos-radius-md);
 }
 
-.review-share-banner-fields {
-  display: flex;
-  gap: 12px;
+.review-share-select {
+  min-width: 240px;
+}
+
+.review-share-note {
   flex: 1;
+  min-width: 180px;
+  font-family: var(--xos-font-display);
+  font-size: 0.9rem;
+  color: var(--xos-text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xos-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.65rem;
+}
+
+.review-share-note::placeholder {
+  color: var(--xos-text-muted);
+}
+
+.review-share-note:focus {
+  outline: 2px solid color-mix(in srgb, var(--xos-accent) 50%, transparent);
+  outline-offset: 1px;
 }
 
 .review-share-banner-actions {
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }

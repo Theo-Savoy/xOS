@@ -30,14 +30,19 @@ describe('SharedSection', () => {
     // Ouvre le bandeau
     await user.click(screen.getByRole('button', { name: "Partager l'analyse" }));
 
-    // Seul le destinataire valide doit être dans le sélecteur (en plus du placeholder)
-    const options = screen.getAllByRole('option');
-    expect(options.length).toBe(2);
-    expect(options[0].textContent).toBe('Sélectionner un destinataire...');
-    expect(options[1].textContent).toBe('Destinataire valide');
+    // Ouvre le dropdown custom et vérifie les destinataires éligibles
+    await user.click(screen.getByRole('button', { name: 'Destinataire' }));
+    const menu = screen.getByRole('listbox', { name: 'Destinataire' });
+    const options = Array.from(menu.querySelectorAll('button'));
+    expect(options.map((btn) => btn.textContent)).toEqual([
+      'Sélectionner un destinataire…',
+      'Destinataire valide',
+    ]);
 
-    // Sélectionne et envoie
-    await user.selectOptions(screen.getByRole('combobox'), '789');
+    // Sélectionne, saisit la note et envoie
+    await user.click(
+      screen.getByRole('option', { name: 'Destinataire valide' }),
+    );
     await user.type(screen.getByPlaceholderText('Note optionnelle'), 'Super analyse');
     await user.click(screen.getByRole('button', { name: 'Envoyer' }));
 
