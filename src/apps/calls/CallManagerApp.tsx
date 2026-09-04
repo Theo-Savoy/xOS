@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '../../auth/useSession';
 import { WindowBootScreen } from '../../components/WindowBootScreen';
+import { Button, EmptyState } from '../../components/ui';
 import {
   emptyFilterTree,
   normalizeFilterTree,
@@ -104,6 +105,7 @@ type View =
   | 'session-type-select'
   | 'new'
   | 'account-search'
+  | 'report'
   | 'pre-session'
   | 'runner'
   | 'recap'
@@ -119,6 +121,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
       return 'pilotage';
     case 'session-type-select':
       return 'session-type-select';
+    case 'report':
+      return 'report';
     case 'new':
       return 'new';
     case 'abm':
@@ -144,6 +148,8 @@ function navigationParamsForView(
       return { view: 'pilotage' };
     case 'session-type-select':
       return { view: 'session-type-select' };
+    case 'report':
+      return { view: 'report' };
     case 'new':
       return { view: 'new' };
     case 'account-search':
@@ -1972,6 +1978,7 @@ export default function CallManagerApp({
             void loadPresets();
           }}
           onSelectAbm={() => setView('account-search')}
+          onSelectReport={() => setView('report')}
           onSelectCsv={() => {}}
           onSelectSurgical={() => {}}
         />
@@ -2028,6 +2035,34 @@ export default function CallManagerApp({
           creating={audienceCreating}
           createError={audienceError}
         />
+      )}
+
+      {view === 'report' && (
+        <div className="calls-view">
+          <header className="calls-view__header calls-view__header--runner">
+            <div className="calls-view__nav">
+              <Button
+                variant="secondary"
+                className="calls-view__back"
+                onClick={() => setView('session-type-select')}
+              >
+                Retour
+              </Button>
+            </div>
+          </header>
+          <EmptyState
+            title="Mode Rapport Salesforce — bientôt disponible"
+            description="La création de séances depuis un rapport Salesforce sera disponible prochainement."
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => setView('session-type-select')}
+              >
+                Retour
+              </Button>
+            }
+          />
+        </div>
       )}
 
       {view === 'pre-session' && activeSession && (

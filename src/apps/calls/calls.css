@@ -5953,12 +5953,8 @@ a.calls-contact-card__peer:hover {
   margin-top: 0.5rem;
 }
 
-/* Bento : hero span 2, ABM span 1, CSV span 1, chir span 2 */
+/* Bento : hero span 2, ABM span 1, Rapport span 1, CSV span 1, chir span 1 */
 .calls-session-type-card--hero {
-  grid-column: span 2;
-}
-
-.calls-session-type-card--wide {
   grid-column: span 2;
 }
 
@@ -6050,8 +6046,7 @@ a.calls-contact-card__peer:hover {
     grid-template-columns: 1fr;
     gap: 0.85rem;
   }
-  .calls-session-type-card--hero,
-  .calls-session-type-card--wide {
+  .calls-session-type-card--hero {
     grid-column: span 1;
   }
 }
@@ -6061,8 +6056,7 @@ a.calls-contact-card__peer:hover {
     grid-template-columns: 1fr;
     gap: 0.85rem;
   }
-  .calls-session-type-card--hero,
-  .calls-session-type-card--wide {
+  .calls-session-type-card--hero {
     grid-column: span 1;
   }
 }
