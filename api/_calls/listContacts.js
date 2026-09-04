@@ -79,7 +79,7 @@ function targetFilterChunks(filters) {
   }));
 }
 
-async function searchTargetContacts(token, filters, sfUserId, includeTasks) {
+async function searchTargetContacts(token, filters, sfUserId, includeTasks, options = {}) {
   const filterChunks = targetFilterChunks(filters);
   const searches = [];
   let nextChunk = 0;
@@ -91,7 +91,11 @@ async function searchTargetContacts(token, filters, sfUserId, includeTasks) {
       const chunkFilters = filterChunks[chunkIndex];
       const search = await searchContacts(
         token,
-        buildTargetQuery(chunkFilters, mapping, sfUserId, { includeTasks }),
+        buildTargetQuery(chunkFilters, mapping, sfUserId, {
+          includeTasks,
+          ...(options.fetchLimit ? { fetchLimit: options.fetchLimit } : {}),
+        }),
+        options,
       );
       if (search.error) {
         failed = true;
@@ -123,9 +127,10 @@ async function searchTargetContacts(token, filters, sfUserId, includeTasks) {
   }
 
   const records = [...recordsById.values()];
+  const fetchCap = options.fetchCap ?? SOQL_FETCH_CAP;
   return {
-    records: records.slice(0, SOQL_FETCH_CAP),
-    truncated: truncated || records.length > SOQL_FETCH_CAP,
+    records: records.slice(0, fetchCap),
+    truncated: truncated || records.length > fetchCap,
   };
 }
 
@@ -256,60 +261,85 @@ export async function listContacts(client, userId, body) {
     : parsed.filters;
   const includeTasks = !countOnly || hasRelanceQueryFilters(parsed.filters);
 
-  const [search, opportunitySetsResult] = await Promise.all([
-    searchTargetContacts(
-      tokenResult.accessToken,
-      queryFilters,
-      profile.sfUserId,
-      includeTasks,
-    ),
-    opportunityFilters
-      ? fetchOpportunityAccountIdSets(
-          tokenResult.accessToken,
-          mapping,
-          parsed.filters,
-        )
-      : Promise.resolve(null),
-  ]);
-  if (search.error) {
-    return { error: search.error, message: search.message, status: 502 };
-  }
-
-  let opportunitySets = null;
-  if (opportunitySetsResult) {
-    if (opportunitySetsResult.error) {
-      return {
-        error: opportunitySetsResult.error,
-        message: opportunitySetsResult.message,
-        status: 502,
-      };
+  const fetchAndFilter = async (fetchLimit) => {
+    const [search, opportunitySetsResult] = await Promise.all([
+      searchTargetContacts(
+        tokenResult.accessToken,
+        fetchLimit ? { ...queryFilters, limit: fetchLimit } : queryFilters,
+        profile.sfUserId,
+        includeTasks,
+        fetchLimit ? { fetchLimit, fetchCap: fetchLimit } : {},
+      ),
+      opportunityFilters
+        ? fetchOpportunityAccountIdSets(
+            tokenResult.accessToken,
+            mapping,
+            parsed.filters,
+          )
+        : Promise.resolve(null),
+    ]);
+    if (search.error) {
+      return { error: search.error, message: search.message };
     }
-    opportunitySets = opportunitySetsResult;
-  }
+    let opportunitySets = null;
+    if (opportunitySetsResult) {
+      if (opportunitySetsResult.error) {
+        return {
+          error: opportunitySetsResult.error,
+          message: opportunitySetsResult.message,
+        };
+      }
+      opportunitySets = opportunitySetsResult;
+    }
+    let filtered = filterTargetContacts(search.records, parsed.filters, mapping);
+    if (opportunitySets) {
+      filtered = filterByOpportunityAccounts(
+        filtered,
+        parsed.filters,
+        mapping,
+        opportunitySets,
+      );
+    }
+    const normalized = normalizeContacts(filtered);
+    const contacts =
+      maxPerCompany !== null
+        ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
+        : normalized.slice(0, requestedLimit);
+    return {
+      contacts,
+      normalizedLength: filtered.length,
+      truncated: search.truncated === true || opportunitySets?.truncated === true,
+    };
+  };
 
-  let filtered = filterTargetContacts(search.records, parsed.filters, mapping);
-  if (opportunitySets) {
-    filtered = filterByOpportunityAccounts(
-      filtered,
-      parsed.filters,
-      mapping,
-      opportunitySets,
-    );
-  }
+  const first = await fetchAndFilter(null);
+  if (first.error) return { error: first.error, message: first.message, status: 502 };
+
   if (countOnly) {
     return {
-      count: filtered.length,
+      count: first.normalizedLength,
       capped:
-        filtered.length >= SOQL_FETCH_CAP ||
-        (search.records?.length ?? 0) >= SOQL_FETCH_CAP,
+        first.normalizedLength >= SOQL_FETCH_CAP || first.truncated,
     };
   }
 
-  const normalized = normalizeContacts(filtered);
-  const contacts =
-    maxPerCompany !== null
-      ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
-      : normalized.slice(0, requestedLimit);
+  // Diversification : quand maxPerCompany est actif et que la preview n'est pas
+  // pleine, le fetch SOQL initial (borné à SOQL_FETCH_CAP) peut être concentré
+  // sur peu d'entreprises. On relance avec un fetch plus profond jusqu'à
+  // couvrir `requestedLimit` contacts distincts (1/entreprise) ou un plafond.
+  const DIVERSIFY_LIMITS = [SOQL_FETCH_CAP * 2, SOQL_FETCH_CAP * 5, SOQL_FETCH_CAP * 10];
+  let contacts = first.contacts;
+  let truncated = first.truncated;
+  if (maxPerCompany !== null && contacts.length < requestedLimit) {
+    for (const fetchLimit of DIVERSIFY_LIMITS) {
+      const attempt = await fetchAndFilter(fetchLimit);
+      if (attempt.error) break;
+      contacts = attempt.contacts;
+      truncated = attempt.truncated;
+      if (contacts.length >= requestedLimit || !truncated) break;
+    }
+  }
+
   // Les contacts déjà dans une séance active sont RENVOYÉS (pas exclus) :
   // le front décide via dedupMode (avertir = montrer + banner, exclure =
   // retirer de la sélection). L'exclusion stricte côté serveur empêchait
@@ -319,8 +349,6 @@ export async function listContacts(client, userId, body) {
     contacts.map((contact) => contact.sf_contact_id),
     parisToday(),
   );
-  const truncated =
-    search.truncated === true || opportunitySets?.truncated === true;
   return {
     contacts,
     dedup,

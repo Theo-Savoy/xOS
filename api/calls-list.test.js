@@ -697,6 +697,70 @@ describe('POST /api/calls action=list_contacts', () => {
     });
   });
 
+  it('diversifies the fetch when max_per_company leaves the preview under the limit', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    // 1er fetch : 2000 contacts concentrés sur 59 comptes (pool non diversifié).
+    const concentrated = [];
+    for (let index = 0; index < 2000; index += 1) {
+      const accountId = `001${String(index % 59).padStart(12, '0')}`;
+      concentrated.push({
+        Id: `003${String(index).padStart(12, '0')}`,
+        Name: `Contact ${index}`,
+        MobilePhone: '+336****0000',
+        NPA__c: false,
+        Inactif__c: false,
+        AccountId: accountId,
+        Account: { Id: accountId, Name: `Account ${index % 59}` },
+        Tasks: { totalSize: 0, records: [] },
+      });
+    }
+    // 2e fetch (diversifié) : 4000 contacts répartis sur 400 comptes.
+    const diversified = [];
+    for (let index = 0; index < 4000; index += 1) {
+      const accountId = `001${String(index % 400).padStart(12, '0')}`;
+      diversified.push({
+        Id: `003${String(index).padStart(12, '0')}`,
+        Name: `Contact ${index}`,
+        MobilePhone: '+336****0000',
+        NPA__c: false,
+        Inactif__c: false,
+        AccountId: accountId,
+        Account: { Id: accountId, Name: `Account ${index % 400}` },
+        Tasks: { totalSize: 0, records: [] },
+      });
+    }
+
+    let queryCount = 0;
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      queryCount += 1;
+      // Chaque fetch relancé interroge 2 chunks ? Non — pas de chunk ici :
+      // 1 requête SOQL par fetchAndFilter. Le 1er appel renvoie le pool
+      // concentré, le 2e (diversification) le pool diversifié.
+      return new Response(JSON.stringify({ records: queryCount === 1 ? concentrated : diversified, done: true }), {
+        status: 200,
+      });
+    });
+    stubEmptyActiveSessions();
+
+    const res = await POST(
+      makeReq({ filters: baseFilters, limit: 200, max_per_company: 1 }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts).toHaveLength(200);
+    // 200 contacts = 200 entreprises distinctes (cap 1 respecté).
+    const accounts = new Set(body.contacts.map((c) => c.sf_account_id));
+    expect(accounts.size).toBe(200);
+    expect(queryCount).toBeGreaterThanOrEqual(2);
+  });
+
   it('returns count_only without contact payloads', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy

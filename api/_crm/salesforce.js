@@ -203,9 +203,12 @@ export function buildTargetQuery(
     ...(includeTasks ? [taskSubquery(mapping)] : []),
   ].join(', ');
   const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
-  const limit = needsWideContactFetch(filters)
-    ? SOQL_FETCH_CAP
-    : boundedLimit(filters.limit);
+  const limit =
+    options.fetchLimit && options.fetchLimit > 0
+      ? options.fetchLimit
+      : needsWideContactFetch(filters)
+        ? SOQL_FETCH_CAP
+        : boundedLimit(filters.limit);
   return `SELECT ${select} FROM ${contact.name}${where} LIMIT ${limit}`;
 }
 
@@ -560,10 +563,11 @@ export async function searchContacts(token, soql, options = {}) {
   let page = await response.json();
   let currentToken = result.token;
   const records = [...(page.records || [])];
+  const fetchCap = options.fetchCap ?? SOQL_FETCH_CAP;
   while (
     page.done === false &&
     page.nextRecordsUrl &&
-    records.length < SOQL_FETCH_CAP &&
+    records.length < fetchCap &&
     !(typeof options.stopWhen === 'function' && options.stopWhen(records))
   ) {
     const nextRequest = (requestToken) =>
