@@ -23,7 +23,7 @@ const CHANNEL_CATEGORIES = [
 
 export function channelCategory(name) {
   const label = String(name || '').trim();
-  if (!label || label === CHANNEL_NONE) return CHANNEL_NONE;
+  if (!label || label === CHANNEL_NONE) return 'Commerciaux';
   for (const [pattern, category] of CHANNEL_CATEGORIES) {
     if (pattern.test(label)) return category;
   }

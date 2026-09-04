@@ -100,7 +100,7 @@ export function WinReasonsSection({
         </div>
       </header>
 
-      <div className="review-compare-grid">
+      <div className="review-compare-grid review-compare-grid--two-col">
         <ProductReasonsCard
           title="Catalogue"
           winTable={data.win_by_offer.catalogue}
@@ -111,6 +111,8 @@ export function WinReasonsSection({
           winTable={data.win_by_offer.sur_mesure}
           lossTable={data.loss_by_offer?.sur_mesure}
         />
+      </div>
+      <div className="review-compare-grid">
         <ProductReasonsCard
           title="Conseil"
           winTable={data.win_by_offer.conseil}
