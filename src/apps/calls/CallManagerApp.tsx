@@ -97,6 +97,7 @@ import type {
 import { todayParisIso } from './formControls.helpers';
 import './calls.css';
 import './calls-dialer.css';
+import './calls-workspace-v2.css';
 
 const CONTEXT_PREFETCH_AHEAD = 3;
 const CONTEXT_CACHE_MAX = 32;

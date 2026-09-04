@@ -1,5 +1,10 @@
 export { SessionWorkspace } from './SessionWorkspace';
 export { SessionWorkspaceV2 } from './SessionWorkspaceV2';
+export { SessionHeader } from './SessionHeader';
+export { SessionQueue } from './SessionQueue';
+export { ContactWorkspace } from './ContactWorkspace';
+export { ContextInspector } from './ContextInspector';
+export { PowerWorkspace } from './PowerWorkspace';
 export {
   RUNNER_V2_STORAGE_KEY,
   readRunnerV2Flag,
