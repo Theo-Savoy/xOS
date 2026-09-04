@@ -536,4 +536,50 @@ describe('NewSessionView — 3-step wizard workflow & reversibility', () => {
       ),
     ).toBe('false');
   });
+
+  it('recomputes the selection from scratch when maxPerCompany changes', () => {
+    // Scénario : 100 contacts présélectionnés (sans cap), puis l'utilisateur
+    // passe à 1/entreprise. La preview est refetchée (1 contact par entreprise)
+    // et la sélection doit être recalculée sur la NOUVELLE preview — pas
+    // filtrée sur l'ancienne.
+    const contactOf = (index: number): ContactPreview => ({
+      sf_contact_id: `003${String(index).padStart(12, '0')}`,
+      sf_account_id: `001${String(index).padStart(12, '0')}`,
+      contact_name: `Contact ${index}`,
+      account_name: `Account ${index}`,
+      title: 'Directeur',
+      phone: '+33600000000',
+    });
+    const oldPreview = Array.from({ length: 100 }, (_, index) => ({
+      ...contactOf(Math.floor(index / 1.7)),
+      sf_contact_id: `003${String(index).padStart(12, '0')}`,
+    }));
+    const newPreview = Array.from({ length: 100 }, (_, index) => contactOf(index));
+
+    const { rerender } = render(
+      <NewSessionView
+        {...baseProps(oldPreview)}
+        maxPerCompany={null}
+        initialStep={1}
+      />,
+    );
+    // 100 sélectionnés au premier chargement (pas de cap).
+    const checked = () =>
+      screen
+        .getAllByRole('checkbox')
+        .filter((el) => (el as HTMLInputElement).checked).length;
+    expect(checked()).toBe(100);
+
+    // Le cap change : le parent refetch et passe la nouvelle preview.
+    rerender(
+      <NewSessionView
+        {...baseProps(newPreview)}
+        maxPerCompany={1}
+        initialStep={1}
+      />,
+    );
+    // La sélection est recalculée : 100 contacts = 100 entreprises distinctes,
+    // tous sélectionnés (et non 59 restants de l'ancienne sélection).
+    expect(checked()).toBe(100);
+  });
 });

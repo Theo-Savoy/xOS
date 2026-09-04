@@ -177,6 +177,12 @@ export function NewSessionView({
   // contacts qui ont disparu de la nouvelle liste — le reste de la
   // sélection manuelle de l'utilisateur survit au refresh.
   const hadPreviewRef = useRef(false);
+  // Changer la limite ou le cap/entreprise doit régénérer la sélection selon
+  // le nouveau plafond (le refresh de preview re-déclenchera la sélection) —
+  // sinon la sélection reste calée sur l'ancienne preview (ex : 200 → 59).
+  useEffect(() => {
+    hadPreviewRef.current = false;
+  }, [contactLimit, maxPerCompany]);
 
   useEffect(() => {
     if (preview.length === 0) {
