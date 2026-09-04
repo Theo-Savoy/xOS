@@ -976,6 +976,11 @@ describe('CallManagerApp component', () => {
       await screen.findByRole('heading', { name: 'Jamais engagée' }),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Choisir le cap' })).toBeTruthy();
+
+    const underlay = document.querySelector('.calls-pre-session__underlay');
+    expect(underlay).toBeTruthy();
+    expect(underlay?.hasAttribute('inert')).toBe(true);
+    expect(underlay?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('ouvre aussi la préparation d’une séance active programmée', async () => {
