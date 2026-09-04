@@ -75,7 +75,7 @@ export interface PowerViewModel {
   canHangupAll: boolean;
   /** Indique si le bouton de retry raccrochage est actif */
   canRetryHangup: boolean;
-  /** En conversation Power, le rail de file se replie pour libérer l'espace (D6) */
+  /** En conversation Power ou en acw, le rail de file se replie pour libérer l'espace (D6 + Grok note b) */
   isQueueCollapsed: boolean;
 }
 

@@ -255,7 +255,7 @@ describe('powerUiState - getPowerPrimaryCta & derivePowerViewModel', () => {
       variant: 'primary',
       location: 'contact-acw',
     });
-    expect(acwVm.isQueueCollapsed).toBe(false);
+    expect(acwVm.isQueueCollapsed).toBe(true); // Rail replié en ACW (Grok note b)
 
     // 6. HANGUP RETRY
     const retryVm = derivePowerViewModel({

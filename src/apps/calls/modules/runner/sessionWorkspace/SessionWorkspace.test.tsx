@@ -128,6 +128,20 @@ describe('SessionWorkspace - Façade de migration (Plan §5)', () => {
     // Le header legacy avec ses sous-composants n'est pas monté
     expect(screen.queryByRole('group', { name: "Mode d'affichage" })).toBeNull();
   });
+  it('force la vue legacy quand variant="recalls" même avec runnerVersion="v2" (Grok note a)', () => {
+    const { container } = renderWithDialer(
+      <SessionWorkspace
+        {...baseProps}
+        variant="recalls"
+        runnerVersion="v2"
+      />,
+    );
+
+    // RunnerView historique monté (la file de rappels n'est pas paritaire en V2)
+    expect(container.querySelector('.calls-view--runner')).toBeTruthy();
+    expect(screen.queryByTestId('session-workspace-v2')).toBeNull();
+  });
+
 
   it('garantit qu’une seule surface est montée à la fois (pas de double listeners/effets)', () => {
     // 1. Rendu legacy

@@ -205,8 +205,8 @@ export function derivePowerViewModel(
     canRelaunch: state === 'ready',
     canHangupAll: state === 'wave',
     canRetryHangup: state === 'hangupRetry',
-    // En conversation, repli automatique du rail de file pour priorité à la fiche (D6)
-    isQueueCollapsed: state === 'conversation',
+    // En conversation ou en acw, repli automatique du rail de file pour priorité à la fiche (D6 + Grok note b)
+    isQueueCollapsed: state === 'conversation' || state === 'acw',
   };
 }
 

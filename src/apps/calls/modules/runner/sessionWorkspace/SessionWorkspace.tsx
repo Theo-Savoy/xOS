@@ -19,6 +19,11 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
     props.runnerVersion,
   );
 
+  // La file de rappels n'est pas paritaire en V2 : forcer le legacy (Grok note a)
+  if (props.variant === 'recalls') {
+    return <RunnerView {...props} />;
+  }
+
   if (version === 'v2') {
     return <SessionWorkspaceV2 {...props} />;
   }
