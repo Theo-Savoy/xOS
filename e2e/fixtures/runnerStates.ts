@@ -158,7 +158,17 @@ const fixtureCss = `
 `;
 
 function button(label: string, extra = '') {
-  return `<button type="button" class="xos-btn xos-btn--secondary xos-btn--sm" ${extra}>${label}</button>`;
+  const classAttribute = extra.match(/\bclass="([^"]*)"/i);
+  const classNames = new Set([
+    'xos-btn',
+    'xos-btn--secondary',
+    'xos-btn--sm',
+    ...(classAttribute?.[1]?.split(/\s+/).filter(Boolean) ?? []),
+  ]);
+  const attributes = classAttribute
+    ? extra.replace(classAttribute[0], '').trim()
+    : extra.trim();
+  return `<button type="button" class="${[...classNames].join(' ')}"${attributes ? ` ${attributes}` : ''}>${label}</button>`;
 }
 
 function modeToggle(active: 'list' | 'detail' = 'list') {
