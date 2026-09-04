@@ -119,6 +119,24 @@ function renderWorkspace(overrides: Partial<SessionWorkspaceProps> = {}) {
   return props;
 }
 
+function openQueueTool() {
+  fireEvent.click(
+    screen.getByRole('button', { name: /ouvrir la file étendue/i }),
+  );
+  return screen.getByRole('dialog', { name: /file étendue/i });
+}
+
+function selectContact(
+  tool: HTMLElement,
+  contactName: string,
+) {
+  fireEvent.click(
+    within(tool).getByRole('checkbox', {
+      name: new RegExp(`sélectionner ${contactName}`, 'i'),
+    }),
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -130,11 +148,7 @@ describe('SessionWorkspaceV2 — L5A file étendue', () => {
     renderWorkspace();
 
     expect(screen.queryByRole('dialog', { name: /file étendue/i })).toBeNull();
-    fireEvent.click(
-      screen.getByRole('button', { name: /ouvrir la file étendue/i }),
-    );
-
-    const tool = screen.getByRole('dialog', { name: /file étendue/i });
+    const tool = openQueueTool();
     expect(tool).toBeTruthy();
     expect(within(tool).getByRole('list', { name: /file étendue/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^liste$/i })).toBeNull();
@@ -143,10 +157,7 @@ describe('SessionWorkspaceV2 — L5A file étendue', () => {
 
   it('recherche et filtre les contacts dans la surface outil', () => {
     renderWorkspace();
-    fireEvent.click(
-      screen.getByRole('button', { name: /ouvrir la file étendue/i }),
-    );
-    const tool = screen.getByRole('dialog', { name: /file étendue/i });
+    const tool = openQueueTool();
 
     const search = within(tool).getByRole('searchbox', {
       name: /rechercher dans la file/i,
@@ -164,14 +175,9 @@ describe('SessionWorkspaceV2 — L5A file étendue', () => {
   it('maintient focus et sélection exclusifs, puis confirme l’abandon d’un formulaire dirty', () => {
     const props = renderWorkspace();
     const queue = screen.getByRole('region', { name: /file d'attente/i });
-    fireEvent.click(
-      screen.getByRole('button', { name: /ouvrir la file étendue/i }),
-    );
-    const tool = screen.getByRole('dialog', { name: /file étendue/i });
+    const tool = openQueueTool();
 
-    fireEvent.click(
-      within(tool).getByRole('checkbox', { name: /sélectionner alice/i }),
-    );
+    selectContact(tool, 'Alice Martin');
     expect(within(tool).getByText('1 sélectionné')).toBeTruthy();
 
     fireEvent.change(
@@ -195,5 +201,163 @@ describe('SessionWorkspaceV2 — L5A file étendue', () => {
     fireEvent.click(screen.getByRole('button', { name: /abandonner/i }));
     expect(props.onFocusContact).toHaveBeenCalledWith(102);
     expect(screen.queryByRole('dialog', { name: /file étendue/i })).toBeNull();
+  });
+});
+
+describe('SessionWorkspaceV2 — L5B actions bulk', () => {
+  it('branche la consignation bulk sur onLogMany avec toute la sélection', () => {
+    const onLogMany = vi.fn();
+    const props = renderWorkspace({ onLogMany });
+    const tool = openQueueTool();
+
+    selectContact(tool, 'Alice Martin');
+    selectContact(tool, 'Bob Durand');
+    fireEvent.click(
+      within(tool).getByRole('button', { name: 'Message répondeur' }),
+    );
+    fireEvent.change(
+      within(tool).getByRole('textbox', { name: /commentaire groupé/i }),
+      { target: { value: 'Note commune' } },
+    );
+    fireEvent.click(
+      within(tool).getByRole('button', { name: /consigner pour 2/i }),
+    );
+
+    expect(onLogMany).toHaveBeenCalledTimes(1);
+    expect(onLogMany).toHaveBeenCalledWith(
+      [101, 102],
+      expect.objectContaining({
+        resultat: 'Message répondeur',
+        comments: 'Note commune',
+        doNotCall: false,
+        recallAt: expect.any(String),
+      }),
+    );
+    expect(within(tool).getByText('0 sélectionné')).toBeTruthy();
+    expect(props.onFocusContact).not.toHaveBeenCalledWith(102);
+  });
+
+  it('désactive RDV pour une sélection multiple et expose les erreurs partielles', () => {
+    renderWorkspace();
+    const tool = openQueueTool();
+    selectContact(tool, 'Alice Martin');
+    selectContact(tool, 'Bob Durand');
+
+    expect(
+      within(tool).getByRole('button', { name: 'RDV planifié' }),
+    ).toHaveProperty('disabled', true);
+  });
+
+  it('branche le report sur onDeferContacts avec la séance de continuation', () => {
+    const onDeferContacts = vi.fn();
+    const props = makeProps({ onDeferContacts });
+    render(
+      <DialerProvider token="mock-token" dryRun>
+        <SessionWorkspaceV2 {...props} />
+      </DialerProvider>,
+    );
+    const tool = openQueueTool();
+    selectContact(tool, 'Alice Martin');
+    selectContact(tool, 'Bob Durand');
+    fireEvent.click(within(tool).getByRole('button', { name: /^Reporter$/i }));
+
+    const defer = within(tool).getByRole('region', {
+      name: /reporter les contacts/i,
+    });
+    fireEvent.click(
+      within(defer).getByRole('button', {
+        name: /créer séance file v2 #2/i,
+      }),
+    );
+
+    expect(onDeferContacts).toHaveBeenCalledWith(
+      [101, 102],
+      expect.objectContaining({
+        scheduledFor: expect.any(String),
+        targetSessionId: null,
+        name: 'Séance File V2 #2',
+      }),
+    );
+    expect(props.onFocusContact).not.toHaveBeenCalledWith(102);
+  });
+
+  it('applique les rappels rapides et date via onUpdateRecall', () => {
+    const recallContacts = contacts.map((contact) => ({
+      ...contact,
+      status: 'called' as const,
+      outcome: 'Appel argumenté' as const,
+      recall_at: '2026-09-10',
+      claim_active: false,
+    }));
+    const onUpdateRecall = vi.fn();
+    renderWorkspace({
+      contacts: recallContacts,
+      currentContact: recallContacts[0]!,
+      focusedContactId: recallContacts[0]!.id,
+      onUpdateRecall,
+    });
+    const tool = openQueueTool();
+    selectContact(tool, 'Alice Martin');
+    fireEvent.click(
+      within(tool).getByRole('button', { name: /rappel aujourd'hui/i }),
+    );
+    expect(onUpdateRecall).toHaveBeenCalledWith(
+      [101],
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    );
+
+    selectContact(tool, 'Bob Durand');
+    fireEvent.click(
+      within(tool).getByRole('button', { name: /date du rappel groupé/i }),
+    );
+    const calendar = within(tool).getByRole('dialog', {
+      name: /date du rappel groupé/i,
+    });
+    fireEvent.click(within(calendar).getByRole('button', { name: /aujourd'hui/i }));
+    expect(onUpdateRecall).toHaveBeenLastCalledWith(
+      [102],
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    );
+  });
+
+  it('empêche le retrait d’un contact claimé par un autre agent', () => {
+    const claimedContacts = contacts.map((contact, index) => ({
+      ...contact,
+      claim_active: index === 0,
+      claimed_by: index === 0 ? 'user-other' : null,
+      claimed_by_label: index === 0 ? 'Maya' : null,
+    }));
+    const onRemoveContacts = vi.fn();
+    renderWorkspace({
+      contacts: claimedContacts,
+      currentContact: claimedContacts[0]!,
+      focusedContactId: claimedContacts[0]!.id,
+      currentUserId: 'user-me',
+      onRemoveContacts,
+    });
+    const tool = openQueueTool();
+    expect(
+      within(tool).getByRole('checkbox', {
+        name: /sélectionner alice martin/i,
+      }),
+    ).toHaveProperty('disabled', true);
+    selectContact(tool, 'Bob Durand');
+    fireEvent.click(
+      within(tool).getByRole('button', { name: /retirer la sélection/i }),
+    );
+    expect(onRemoveContacts).toHaveBeenCalledWith([102]);
+    expect(onRemoveContacts).not.toHaveBeenCalledWith(
+      expect.arrayContaining([101]),
+    );
+  });
+
+  it('affiche l’erreur partielle fournie par CallManagerApp dans l’overlay', () => {
+    renderWorkspace({
+      error: '1 consigné, 1 en échec — liste actualisée',
+    });
+    const tool = openQueueTool();
+    expect(within(tool).getByRole('alert').textContent).toContain(
+      '1 consigné, 1 en échec — liste actualisée',
+    );
   });
 });

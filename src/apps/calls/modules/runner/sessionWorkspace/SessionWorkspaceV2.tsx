@@ -41,7 +41,10 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     onFocusContact,
     onLogAndNext,
     onLogRdvAndNext,
+    onLogMany,
     onLogEvent,
+    onDeferContacts,
+    onRemoveContacts,
     onUpdateRecall,
     onCelebrateGoal,
     team = [],
@@ -454,11 +457,20 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       <QueueToolOverlay
         open={isQueueToolOpen}
         contacts={contacts}
+        sessionId={session.id}
+        sessionName={session.name}
+        hubSessions={props.hubSessions}
         currentUserId={currentUserId}
+        loading={loading}
+        error={error}
         isPowerConversation={isPowerConversation}
         onClose={closeQueueTool}
         onRequestFocus={handleFocusContact}
         onStateChange={handleQueueToolStateChange}
+        onLogMany={onLogMany}
+        onDeferContacts={onDeferContacts}
+        onRemoveContacts={onRemoveContacts}
+        onUpdateRecall={onUpdateRecall}
       />
 
       <ConfirmDialog
