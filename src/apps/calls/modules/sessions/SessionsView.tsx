@@ -242,15 +242,9 @@ export function SessionsView({
   const openSession = (sessionId: number) => onOpenSession(sessionId);
 
   return (
-    <div className="calls-view calls-hub">
+    <div role="region" aria-label="Séances" className="calls-view calls-hub">
       <header className="calls-view__header">
-        <div>
-          <h2>Séances</h2>
-        </div>
         <div className="calls-view__actions">
-          <Button variant="secondary" onClick={onRefresh} disabled={loading}>
-            <span aria-hidden="true">⋯</span> Actualiser
-          </Button>
           <Button onClick={onNewSession}>Nouvelle séance</Button>
         </div>
       </header>

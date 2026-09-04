@@ -50,6 +50,7 @@ import {
   recordSessionComplete,
 } from './modules/gamification/comboEvents';
 import { PilotageView } from './modules/pilotage/PilotageView';
+import { prefetchProspectionCockpit } from './modules/pilotage/pilotageApi';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerProvider } from './modules/dialer/DialerProvider';
 import { CallBar } from './modules/dialer/CallBar';
@@ -464,6 +465,11 @@ export default function CallManagerApp({
       void loadSessions();
     }
   }, [token, loadSessions]);
+  useEffect(() => {
+    if (token && canPilotage) {
+      prefetchProspectionCockpit(token, 'day', null);
+    }
+  }, [token, canPilotage]);
 
   useEffect(() => {
     if (!token || view !== 'sessions' || rollover || rolloverLoading) return;
@@ -1058,8 +1064,8 @@ export default function CallManagerApp({
   const openRecalls = useCallback(async () => {
     if (!token) return;
     setRunnerError(null);
+    setContacts([]);
     setFocusedContactId(null);
-    setAwaitingEvent(null);
     setContactContext(null);
     setContextContactId(null);
     setRecallsLoading(true);
@@ -1997,7 +2003,6 @@ export default function CallManagerApp({
         {view === 'pilotage' && (
           <div className="calls-hub-transition" key="pilotage">
             <PilotageView
-              onBack={goToSessions}
               onPin={handlePinPilotage}
               onOpenSuivi={() => setView('rdv-suivi')}
             />
@@ -2006,7 +2011,7 @@ export default function CallManagerApp({
 
         {view === 'rdv-suivi' && (
           <div className="calls-hub-transition" key="rdv-suivi">
-            <RdvSuiviView onBack={goToSessions} />
+            <RdvSuiviView />
           </div>
         )}
 

@@ -46,7 +46,9 @@ describe('CalendarView', () => {
     const onOpenSession = vi.fn();
     renderCalendar(undefined, onOpenSession);
 
-    expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy();
+    expect(
+      screen.getByRole('region', { name: 'Calendrier des séances' }),
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mois précédent' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mois suivant' })).toBeTruthy();
     expect(screen.getByRole('button', { name: "Aujourd'hui" })).toBeTruthy();

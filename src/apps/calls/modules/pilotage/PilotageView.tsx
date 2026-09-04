@@ -8,8 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useSession } from '../../../../auth/useSession';
-import { WindowBootScreen } from '../../../../components/WindowBootScreen';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, EmptyState, Skeleton, Tag } from '../../../../components/ui';
 import { todayParisIso as todayParisDate } from '../../../../lib/dates';
 import { CallFunnelCard } from './CallFunnelCard';
 import { stagesFromPeriodKpis } from './CallFunnelCard.helpers';
@@ -66,7 +65,9 @@ function cockpitSliceReducer(
       // En vue « jour », les séances sans activité ne sont pas affichées :
       // la sélection ne doit contenir que les séances visibles.
       const visible = (action.cockpit.sessions ?? []).filter(
-        (s) => action.cockpit.period !== 'day' || sessionHasActivity(s.kpis),
+        (s) =>
+          action.cockpit.period !== 'day' ||
+          (Boolean(s?.kpis) && sessionHasActivity(s.kpis)),
       );
       const nextIds = visible.map((s) => normalizeSessionId(s.id));
       const nextSet = new Set(nextIds);
@@ -233,31 +234,52 @@ function dayCallersToCards(
     );
 }
 
-function FunnelStrip({ kpis }: { kpis: PeriodKpis }) {
+function FunnelStrip({ kpis, loading }: { kpis: PeriodKpis; loading?: boolean }) {
+  if (loading) {
+    return (
+      <section className="pilotage-kpis" aria-label="Indicateurs">
+        <div className="pilotage-stat">
+          <Skeleton height={42} />
+        </div>
+        <div className="pilotage-stat">
+          <Skeleton height={42} />
+        </div>
+        <div className="pilotage-stat">
+          <Skeleton height={42} />
+        </div>
+        <div className="pilotage-stat">
+          <Skeleton height={42} />
+        </div>
+        <div className="pilotage-stat pilotage-stat--accent">
+          <Skeleton height={42} />
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="pilotage-kpis" aria-label="Indicateurs">
-      <GlassCard className="pilotage-stat">
+      <div className="pilotage-stat">
         <span>Appels</span>
         <strong className="xos-numeric">{kpis.calls}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>Taux décroché</span>
         <strong className="xos-numeric">{pct(kpis.rate_decroche)}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>Taux argumenté</span>
         <strong className="xos-numeric">{pct(kpis.rate_argumente)}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>RDV / décroché</span>
         <strong className="xos-numeric">
           {pct(kpis.rate_rdv_per_decroche)}
         </strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat pilotage-stat--accent">
+      </div>
+      <div className="pilotage-stat pilotage-stat--accent">
         <span>RDV pris</span>
         <strong className="xos-numeric">{kpis.rdv}</strong>
-      </GlassCard>
+      </div>
     </section>
   );
 }
@@ -443,15 +465,13 @@ function CommercialCard({
 }
 
 export function PilotageView({
-  onBack,
   onPin,
   onOpenSuivi,
 }: {
-  onBack: () => void;
   onPin?: () => Promise<void>;
   onOpenSuivi?: () => void;
 }) {
-  const { session, loading: sessionLoading } = useSession();
+  const { session } = useSession();
   const token = session?.access_token ?? null;
   const [period, setPeriod] = useState<CockpitPeriod>('day');
   const [anchor, setAnchor] = useState<string | null>(null);
@@ -590,6 +610,8 @@ export function PilotageView({
 
   const sessions = data?.sessions ?? EMPTY_SESSIONS;
   const byDay = data?.by_day ?? EMPTY_DAYS;
+  /** Premier chargement : structure affichée, données en skeleton, zéro EmptyState. */
+  const coldLoading = loading && !data && !error;
 
   /**
    * Les KPIs d'une séance sont relatifs à la période active : en vue « jour »,
@@ -597,7 +619,7 @@ export function PilotageView({
    */
   const visibleSessions = useMemo(() => {
     if (period !== 'day') return sessions;
-    return sessions.filter((s) => sessionHasActivity(s.kpis));
+    return sessions.filter((s) => Boolean(s?.kpis) && sessionHasActivity(s.kpis));
   }, [sessions, period]);
 
   const teamNameMap = useMemo(() => buildTeamNameMap(team), [team]);
@@ -704,23 +726,13 @@ export function PilotageView({
     dispatchCockpit({ type: 'toggle', id });
   };
 
-  if (sessionLoading || (loading && !data && !error)) {
-    return <WindowBootScreen label="Pilotage" />;
-  }
 
   if (!token) {
     return (
-      <div className="pilotage-app pilotage-app__state">Session requise.</div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="pilotage-app pilotage-app__state">
-        <p>{error}</p>
-        <Button variant="secondary" onClick={() => void load({ force: true })}>
-          Réessayer
-        </Button>
+      <div role="region" aria-label="Pilotage" className="calls-view pilotage-app">
+        <div className="calls-error" role="alert">
+          <p>Session requise.</p>
+        </div>
       </div>
     );
   }
@@ -762,15 +774,8 @@ export function PilotageView({
   };
 
   return (
-    <div className="calls-view pilotage-app">
+    <div role="region" aria-label="Pilotage" className="calls-view pilotage-app">
       <header className="calls-view__header pilotage-header">
-        <div>
-          <Tag variant="accent">Combo</Tag>
-          <h2>Pilotage</h2>
-          <p className="pilotage-header__sub">
-            L’équipe en un coup d’œil · {periodLabel}
-          </p>
-        </div>
         <div className="calls-view__actions pilotage-header__actions">
           <div
             className="pilotage-period-nav"
@@ -900,19 +905,20 @@ export function PilotageView({
               {pinned ? 'Épinglé ✓' : 'Épingler au bureau'}
             </Button>
           )}
-          <Button variant="secondary" onClick={onBack}>
-            Retour
-          </Button>
         </div>
       </header>
 
       {error && (
-        <p className="pilotage-error" role="alert">
-          {error}
-        </p>
+        <div className="calls-error pilotage-error" role="alert">
+          <p>{error}</p>
+          <Button variant="secondary" onClick={() => void load({ force: true })}>
+            Réessayer
+          </Button>
+        </div>
       )}
 
-      <FunnelStrip kpis={kpis} />
+      <div className="pilotage-app__content" aria-busy={loading && !data}>
+        <FunnelStrip kpis={kpis} loading={loading && !data} />
 
       <div className="pilotage-compact-row">
         <PilotageHeatmap
@@ -921,10 +927,15 @@ export function PilotageView({
           onSelectDay={selectHeatmapDay}
           onPrefetchDay={prefetchDay}
         />
+        {heatmapDays.length === 0 && coldLoading && (
+          <section className="calls-section" aria-hidden="true">
+            <Skeleton height="8rem" />
+          </section>
+        )}
 
         {detailMode === 'sessions' && (
           <section
-            className="pilotage-compact-card pilotage-sessions-compact"
+            className="calls-section pilotage-compact-card pilotage-sessions-compact"
             aria-label="Séances"
           >
             <div className="pilotage-compact-card__head">
@@ -966,12 +977,21 @@ export function PilotageView({
               </div>
             </div>
 
-            {visibleSessions.length === 0 ? (
-              <p className="pilotage-empty">
-                {period === 'day'
-                  ? 'Aucune séance active sur ce jour.'
-                  : 'Aucune séance sur la période.'}
-              </p>
+            {visibleSessions.length === 0 && !coldLoading ? (
+              <EmptyState
+                title="Aucune séance"
+                description={
+                  period === 'day'
+                    ? 'Aucune séance active sur ce jour.'
+                    : 'Aucune séance sur la période.'
+                }
+              />
+            ) : visibleSessions.length === 0 ? (
+              <div className="calls-recalls-skeleton" aria-hidden="true">
+                <Skeleton height="3.2rem" />
+                <Skeleton height="3.2rem" />
+                <Skeleton height="3.2rem" />
+              </div>
             ) : (
               <ul className="pilotage-session-list pilotage-sessions-compact__list">
                 {visibleSessions.map((session) => {
@@ -1024,7 +1044,7 @@ export function PilotageView({
       </div>
 
       {detailMode === 'days' && (
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <div className="pilotage-panel__toolbar">
             <div>
               <h3>Par jour</h3>
@@ -1045,8 +1065,17 @@ export function PilotageView({
             )}
           </div>
 
-          {byDay.length === 0 ? (
-            <p className="pilotage-empty">Aucune activité sur la période.</p>
+          {byDay.length === 0 && !coldLoading ? (
+            <EmptyState
+              title="Aucune activité"
+              description="Aucune activité sur la période."
+            />
+          ) : byDay.length === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <ul className="pilotage-day-list">
               {byDay.map((day) => {
@@ -1101,7 +1130,7 @@ export function PilotageView({
               })}
             </ul>
           )}
-        </GlassCard>
+        </section>
       )}
 
       <div className="pilotage-funnel-block">
@@ -1139,14 +1168,23 @@ export function PilotageView({
         />
       )}
 
-      <GlassCard className="pilotage-panel">
+      <section className="calls-section pilotage-panel">
         <h3>Équipe</h3>
         <p className="pilotage-panel__hint">
           Répartition par commercial — cliquez pour le détail.
         </p>
 
-        {filtered.callers.length === 0 ? (
-          <p className="pilotage-empty">Aucune activité sur la période.</p>
+        {filtered.callers.length === 0 && !coldLoading ? (
+          <EmptyState
+            title="Aucune activité"
+            description="Aucune activité sur la période."
+          />
+        ) : filtered.callers.length === 0 ? (
+          <div className="calls-recalls-skeleton" aria-hidden="true">
+            <Skeleton height="3.2rem" />
+            <Skeleton height="3.2rem" />
+            <Skeleton height="3.2rem" />
+          </div>
         ) : (
           <div className="pilotage-caller-grid">
             {filtered.callers.map((caller) => (
@@ -1203,16 +1241,25 @@ export function PilotageView({
             />
           </div>
         )}
-      </GlassCard>
+      </section>
 
       <div className="pilotage-grid">
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <h3>RDV par commercial</h3>
           <p className="pilotage-panel__hint">
             Chez qui le RDV est au calendrier.
           </p>
-          {(data?.by_rdv_owner.length ?? 0) === 0 ? (
-            <p className="pilotage-empty">Aucun RDV sur la période.</p>
+          {(data?.by_rdv_owner.length ?? 0) === 0 && !coldLoading ? (
+            <EmptyState
+              title="Aucun RDV"
+              description="Aucun RDV sur la période."
+            />
+          ) : (data?.by_rdv_owner.length ?? 0) === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <table className="pilotage-table">
               <thead>
@@ -1237,9 +1284,9 @@ export function PilotageView({
               </tbody>
             </table>
           )}
-        </GlassCard>
+        </section>
 
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <div className="pilotage-panel__toolbar">
             <div>
               <h3>Derniers RDV</h3>
@@ -1260,8 +1307,17 @@ export function PilotageView({
               </Button>
             )}
           </div>
-          {rdvAttributions.length === 0 ? (
-            <p className="pilotage-empty">Aucun RDV sur la période.</p>
+          {rdvAttributions.length === 0 && !coldLoading ? (
+            <EmptyState
+              title="Aucun RDV"
+              description="Aucun RDV sur la période."
+            />
+          ) : rdvAttributions.length === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <table className="pilotage-table">
               <thead>
@@ -1313,7 +1369,8 @@ export function PilotageView({
               </tbody>
             </table>
           )}
-        </GlassCard>
+        </section>
+      </div>
       </div>
     </div>
   );

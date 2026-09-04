@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, GlassCard, Skeleton, Tag } from '../../../../components/ui';
 import {
   RECALL_ELIGIBLE_RESULTATS,
   RELANCE_DEFAULT_RESULTATS,
@@ -1375,6 +1375,8 @@ export function RunnerView({
 
   return (
     <div
+      role="region"
+      aria-label={isRecallQueue ? 'Rappels' : undefined}
       className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
     >
       {toast?.kind === 'plain' && (
@@ -1425,46 +1427,46 @@ export function RunnerView({
         goalHit={goalBurst}
       />
       <header className="calls-view__header calls-view__header--runner">
-        <div className="calls-view__nav">
-          <Button
-            variant="secondary"
-            className="calls-view__back"
-            onClick={onBack}
-          >
-            Quitter
-          </Button>
-          <div className="calls-view__titleblock">
-            {isPowerActive ? (
-              <h2>
-                {isRecallQueue ? 'Rappels' : session.name}
-                <span
-                  className="calls-power-indicator"
-                  aria-label="Mode Power actif"
-                >
+        {!isRecallQueue && (
+          <div className="calls-view__nav">
+            <Button
+              variant="secondary"
+              className="calls-view__back"
+              onClick={onBack}
+            >
+              Quitter
+            </Button>
+            <div className="calls-view__titleblock">
+              {isPowerActive ? (
+                <h2>
+                  {session.name}
                   <span
-                    className="calls-power-indicator__dot"
-                    aria-hidden="true"
-                  />
-                  Power
-                </span>
-              </h2>
-            ) : (
-              <>
-                <div className="calls-view__title-tags">
-                  <Tag variant="accent">
-                    {isRecallQueue ? 'File de rappels' : 'Cockpit'}
-                  </Tag>
-                </div>
-                <h2>{isRecallQueue ? 'Rappels' : session.name}</h2>
-              </>
-            )}
-            {!isRecallQueue && (session.members?.length ?? 0) > 0 && (
-              <p className="calls-muted calls-share-hint">
-                Partagée avec {session.members!.map((m) => m.label).join(', ')}
-              </p>
-            )}
+                    className="calls-power-indicator"
+                    aria-label="Mode Power actif"
+                  >
+                    <span
+                      className="calls-power-indicator__dot"
+                      aria-hidden="true"
+                    />
+                    Power
+                  </span>
+                </h2>
+              ) : (
+                <>
+                  <div className="calls-view__title-tags">
+                    <Tag variant="accent">Cockpit</Tag>
+                  </div>
+                  <h2>{session.name}</h2>
+                </>
+              )}
+              {(session.members?.length ?? 0) > 0 && (
+                <p className="calls-muted calls-share-hint">
+                  Partagée avec {session.members!.map((m) => m.label).join(', ')}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         <div className="calls-view__actions">
           {(!isPowerActive ||
             (!powerRunning && !powerConversation && !powerHangupRetryable)) && (
@@ -1818,22 +1820,10 @@ export function RunnerView({
         </GlassCard>
       )}
 
-      {isRecallQueue && contacts.length === 0 && !loading ? (
-        <GlassCard className="calls-empty calls-empty--hero">
-          <EmptyState
-            title="Rien à rappeler"
-            description="Aucun rappel en attente — dès qu'un appel planifie un rappel, il atterrit ici."
-            action={
-              <Button variant="secondary" onClick={onBack}>
-                Retour au hub
-              </Button>
-            }
-          />
-        </GlassCard>
-      ) : mode === 'list' ? (
+      {mode === 'list' ? (
         isPowerConversationActive ? null : isPowerActive ? (
           <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
-            <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
+            <section className="calls-cockpit-list calls-cockpit-list--power">
               <div className="calls-cockpit-list__toolbar calls-cockpit-list__toolbar--power">
                 <span className="calls-power-queue-summary__text">
                   File d&apos;appel ·{' '}
@@ -1950,12 +1940,15 @@ export function RunnerView({
                   })}
                   {filteredContacts.length === 0 && (
                     <li className="calls-cockpit-list__empty">
-                      Aucun contact pour ce filtre.
+                      <EmptyState
+                        title="Aucun contact"
+                        description="Aucun contact pour ce filtre."
+                      />
                     </li>
                   )}
                 </ul>
               </div>
-            </GlassCard>
+            </section>
           </div>
         ) : (
           <div className="calls-cockpit-list-wrap">
@@ -2274,7 +2267,9 @@ export function RunnerView({
               </div>
             )}
 
-            <GlassCard className="calls-cockpit-list">
+            <section
+              className={`calls-cockpit-list${isRecallQueue ? ' calls-section' : ''}`}
+            >
               <div className="calls-cockpit-list__toolbar">
                 <h3>
                   {isRecallQueue ? 'Contacts à rappeler' : 'Liste de la séance'}
@@ -2336,7 +2331,7 @@ export function RunnerView({
                   aria-label="Filtrer la liste"
                 />
               </div>
-              <div className="calls-cockpit-list__scroll">
+              <div className="calls-cockpit-list__scroll" aria-busy={isRecallQueue && loading}>
                 <ul
                   className={`calls-cockpit-list__rows${isRecallQueue ? ' calls-cockpit-list__rows--recalls' : ''}`}
                 >
@@ -2490,18 +2485,29 @@ export function RunnerView({
                   {filteredContacts.length === 0 && (
                     <li className="calls-cockpit-list__empty">
                       {isRecallQueue ? (
-                        <EmptyState
-                          title="Calme plat sur ce filtre"
-                          description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
-                        />
+                        loading ? (
+                          <div className="calls-recalls-skeleton" aria-hidden="true">
+                            <Skeleton height={42} />
+                            <Skeleton height={42} />
+                            <Skeleton height={42} />
+                          </div>
+                        ) : (
+                          <EmptyState
+                            title="Calme plat sur ce filtre"
+                            description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
+                          />
+                        )
                       ) : (
-                        'Aucun contact pour ce filtre.'
+                        <EmptyState
+                          title="Aucun contact"
+                          description="Aucun contact pour ce filtre."
+                        />
                       )}
                     </li>
                   )}
                 </ul>
               </div>
-            </GlassCard>
+            </section>
           </div>
         )
       ) : focusedContact ? (
