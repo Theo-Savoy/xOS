@@ -258,6 +258,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
   useSessionWorkspaceShortcuts({
     active: props.active !== false && variant !== 'recalls',
     bulkOpen: isQueueToolOpen,
+    queueOpen: isQueueToolOpen,
     isPowerConversation,
     onOpenQueue: openQueueTool,
     onOpenContact: handleOpenContactShortcut,

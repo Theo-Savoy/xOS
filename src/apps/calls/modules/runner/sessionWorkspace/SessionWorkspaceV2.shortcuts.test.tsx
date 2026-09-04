@@ -166,11 +166,9 @@ describe('SessionWorkspaceV2 — L5C raccourcis V2', () => {
     fireEvent.keyDown(document, { key: 'l', code: 'KeyL' });
     expect(screen.getByRole('dialog', { name: /file étendue/i })).toBeTruthy();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /fermer la file étendue/i }),
-    );
     fireEvent.keyDown(document, { key: 'f', code: 'KeyF' });
     expect(props.onFocusContact).toHaveBeenCalledWith(contact.id);
+    expect(screen.queryByRole('dialog', { name: /file étendue/i })).toBeNull();
 
     const resultLabels = [
       'Appel non décroché',
