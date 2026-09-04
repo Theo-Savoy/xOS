@@ -214,13 +214,21 @@
   min-height: 8.5rem;
   border-radius: 12px !important;
   border: 1px solid var(--xos-border) !important;
-  background: color-mix(in srgb, var(--xos-surface) 60%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--xos-surface) 60%,
+    transparent
+  ) !important;
   cursor: pointer;
   transition: all 0.15s ease !important;
 }
 
 .calls-abm-choice-card:hover {
-  background: color-mix(in srgb, var(--xos-surface) 90%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--xos-surface) 90%,
+    transparent
+  ) !important;
   border-color: var(--xos-accent) !important;
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
@@ -274,6 +282,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* Les deux cards peuvent avoir des descriptions de longueurs différentes :
+   on cale le champ en bas pour que les inputs restent alignés. */
+.calls-abm-name-card .calls-field {
+  margin-top: auto;
 }
 
 .calls-abm-name-card__header {
@@ -423,7 +437,8 @@
 
 .calls-abm-account-row--subsidiary {
   padding-left: 2.25rem;
-  border-left: 3px solid color-mix(in srgb, var(--xos-accent) 40%, var(--xos-border));
+  border-left: 3px solid
+    color-mix(in srgb, var(--xos-accent) 40%, var(--xos-border));
   background: color-mix(in srgb, var(--xos-surface) 40%, transparent);
 }
 
@@ -781,7 +796,8 @@
 
 .calls-warn-banner {
   background: color-mix(in srgb, var(--xos-warn, #f5c542) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--xos-warn, #f5c542) 35%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--xos-warn, #f5c542) 35%, transparent);
   color: var(--xos-warn, #f5c542);
   border-radius: var(--xos-radius-md, 8px);
   padding: 0.65rem 0.85rem;
@@ -915,6 +931,48 @@
 
 .calls-wizard-target .calls-abm-composer__accounts {
   max-height: none;
+}
+
+/* Comptes retirés (suppression douce, réversible) */
+.calls-abm-composer__removed {
+  border: 1px dashed var(--xos-border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  opacity: 0.75;
+}
+
+.calls-abm-composer__removed-title {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-abm-composer__removed-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.calls-abm-composer__removed-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--xos-text-muted);
+  text-decoration: line-through;
+  min-width: 0;
+}
+
+.calls-abm-composer__removed-count {
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 :root {
@@ -6293,7 +6351,11 @@ a.calls-contact-card__peer:hover {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    background: color-mix(in srgb, var(--xos-window-content-bg, #0f172a) 92%, black);
+    background: color-mix(
+      in srgb,
+      var(--xos-window-content-bg, #0f172a) 92%,
+      black
+    );
     border: 1px solid var(--xos-border);
     padding: 0.75rem 1.25rem;
     border-radius: var(--xos-radius-lg, 16px);
@@ -6347,7 +6409,10 @@ a.calls-contact-card__peer:hover {
   cursor: pointer;
   background: transparent;
   color: var(--xos-text-muted);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
   text-align: left;
   width: 100%;
   font-family: inherit;
@@ -6467,7 +6532,8 @@ a.calls-contact-card__peer:hover {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--xos-border) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--xos-border) 60%, transparent);
 }
 
 .calls-wizard-recap__title {
@@ -6482,7 +6548,8 @@ a.calls-contact-card__peer:hover {
   flex-direction: column;
   gap: 0.4rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--xos-border) 40%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--xos-border) 40%, transparent);
 }
 
 .calls-wizard-recap__section-header {
@@ -6610,7 +6677,9 @@ a.calls-contact-card__peer:hover {
   border-radius: 9999px;
   font-size: 0.78rem;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .calls-wizard-active-filter-chip:hover {
@@ -6655,13 +6724,21 @@ a.calls-contact-card__peer:hover {
   border-radius: var(--xos-radius, 8px) !important;
   text-align: left !important;
   height: auto !important;
-  background: color-mix(in srgb, var(--xos-surface) 60%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--xos-surface) 60%,
+    transparent
+  ) !important;
   border: 1px solid var(--xos-border) !important;
   transition: all 0.15s ease !important;
 }
 
 .calls-fb-starter-card:hover {
-  background: color-mix(in srgb, var(--xos-surface) 90%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--xos-surface) 90%,
+    transparent
+  ) !important;
   border-color: var(--xos-accent) !important;
 }
 

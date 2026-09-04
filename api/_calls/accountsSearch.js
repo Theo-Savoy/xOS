@@ -101,9 +101,26 @@ async function accountRefineConditions(token, filters, account) {
     if (parentIds.length === 0) {
       conditions.push(`${account.fields.id} = null`);
     } else {
-      conditions.push(
-        `(${account.fields.id} IN (${escapedList(parentIds)}) OR ${account.fields.parentId} IN (${escapedList(parentIds)}))`,
+      // Ne garder que les parents réels : un compte dont le nom matche mais qui
+      // n'a aucun enfant (ex. « LVMH CLIENT SERVICES ») n'est pas un groupe —
+      // sinon il s'affiche avec un badge Groupe fantôme côté front.
+      const childSoql = `SELECT ${account.fields.parentId} FROM ${account.name} WHERE ${account.fields.parentId} IN (${escapedList(parentIds)})`;
+      const childRes = await searchContacts(token, childSoql);
+      if (childRes.error) return { error: childRes.error, status: 502 };
+      const realParentIds = new Set(
+        (childRes.records || [])
+          .map((r) => r[account.fields.parentId])
+          .filter(Boolean),
       );
+      parentIds = parentIds.filter((id) => realParentIds.has(id));
+      if (parentIds.length === 0) {
+        conditions.push(`${account.fields.id} = null`);
+      } else {
+        // Condition construite APRÈS filtrage : les faux parents n'y figurent pas.
+        conditions.push(
+          `(${account.fields.id} IN (${escapedList(parentIds)}) OR ${account.fields.parentId} IN (${escapedList(parentIds)}))`,
+        );
+      }
     }
   }
   return { conditions, parentIds };
@@ -142,7 +159,11 @@ export async function searchAccounts(client, userId, body) {
   let parentIdsSet = new Set();
   if (parsed.q.length === 0) {
     // Recherche filtres seuls : pas de FIND SOSL (plante sur une chaîne vide), on va direct en SOQL.
-    const refine = await accountRefineConditions(token, parsed.filters, account);
+    const refine = await accountRefineConditions(
+      token,
+      parsed.filters,
+      account,
+    );
     if (refine.error) return { error: refine.error, status: 502 };
     if (refine.parentIds) parentIdsSet = new Set(refine.parentIds);
     const conditions = refine.conditions;
@@ -165,10 +186,12 @@ export async function searchAccounts(client, userId, body) {
 
   if (!alreadyRefined && hasAnyRefineFilter(parsed.filters)) {
     const accountIds = accountRecords.map((record) => record[af.id]);
-    const conditions = [
-      `${af.id} IN (${escapedList(accountIds)})`,
-    ];
-    const refine = await accountRefineConditions(token, parsed.filters, account);
+    const conditions = [`${af.id} IN (${escapedList(accountIds)})`];
+    const refine = await accountRefineConditions(
+      token,
+      parsed.filters,
+      account,
+    );
     if (refine.error) return { error: refine.error, status: 502 };
     if (refine.parentIds) parentIdsSet = new Set(refine.parentIds);
     conditions.push(...refine.conditions);

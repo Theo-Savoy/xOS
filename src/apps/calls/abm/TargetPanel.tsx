@@ -1,8 +1,5 @@
-import { useState } from 'react';
-import {
-  FONCTION_PRESETS,
-  type FonctionPresetId,
-} from '../../../crm';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FONCTION_PRESETS, type FonctionPresetId } from '../../../crm';
 import { Button, GlassCard, SegmentedControl } from '../../../components/ui';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { ChipGroup } from '../filterControls';
@@ -12,7 +9,6 @@ import { contactMatchesFonctionPresets } from './fonctionPresetMatch';
 import { CloseIcon } from './icons';
 
 const CHANNEL_FILTER_OPTIONS = [
-  { value: 'all', label: 'Tous' },
   { value: 'phone', label: 'A téléphone' },
   { value: 'email', label: 'A email' },
 ] as const;
@@ -29,12 +25,20 @@ function contactHasEmail(contact: AccountSearchContact): boolean {
 
 function matchesContactView(
   contact: AccountSearchContact,
-  channel: ContactChannelFilter,
+  channels: ContactChannelFilter[],
   search: string,
   fonctionIds: readonly FonctionPresetId[],
 ): boolean {
-  if (channel === 'phone' && !contactHasPhone(contact)) return false;
-  if (channel === 'email' && !contactHasEmail(contact)) return false;
+  // Cumulatif : si plusieurs canaux sont cochés, le contact doit en avoir au
+  // moins un (OU). Aucun canal coché = aucun filtrage.
+  if (
+    channels.length > 0 &&
+    !channels.some((channel) =>
+      channel === 'phone' ? contactHasPhone(contact) : contactHasEmail(contact),
+    )
+  ) {
+    return false;
+  }
   const query = search.trim().toLowerCase();
   if (query) {
     const name = contact.contact_name.toLowerCase();
@@ -52,7 +56,9 @@ export type TargetEntry = {
 export type TargetPanelProps = {
   targetList: Map<string, TargetEntry>;
   onToggleContact: (accountId: string, contactId: string) => void;
+  onSetRetainedContacts?: (accountId: string, contactIds: Set<string>) => void;
   onRemoveAccount: (accountId: string) => void;
+  onRestoreAccount?: (entry: TargetEntry) => void;
   onClearTarget: () => void;
   onPrepareSessions?: () => void;
   isMobileDrawer?: boolean;
@@ -62,17 +68,27 @@ export type TargetPanelProps = {
 export function TargetPanel({
   targetList,
   onToggleContact,
+  onSetRetainedContacts,
   onRemoveAccount,
+  onRestoreAccount,
   onClearTarget,
   onPrepareSessions,
   isMobileDrawer = false,
   hideFooter = false,
 }: TargetPanelProps) {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
-  const [contactFilter, setContactFilter] =
-    useState<ContactChannelFilter>('all');
+  const [channelFilters, setChannelFilters] = useState<ContactChannelFilter[]>(
+    [],
+  );
   const [contactSearch, setContactSearch] = useState('');
   const [fonctionIds, setFonctionIds] = useState<FonctionPresetId[]>([]);
+
+  // Comptes retirés (suppression douce) : on garde l'entrée complète en
+  // local pour pouvoir remettre le compte sans perdre la sélection de
+  // contacts, même si la recherche a changé entre-temps.
+  const [removedEntriesById, setRemovedEntriesById] = useState<
+    Map<string, TargetEntry>
+  >(() => new Map());
 
   const entries = Array.from(targetList.values());
   const totalAccounts = targetList.size;
@@ -80,30 +96,61 @@ export function TargetPanel({
     (sum, entry) => sum + entry.contactIds.size,
     0,
   );
-  const hiddenRetainedCount = entries.reduce((sum, { account, contactIds }) => {
+
+  // Une entrée rempile via les résultats de recherche : elle quitte la
+  // liste des « retirés ». Panier vidé : la liste est purgée.
+  const removedEntries = useMemo(() => {
+    const visible: TargetEntry[] = [];
+    for (const [id, entry] of removedEntriesById) {
+      if (!targetList.has(id)) visible.push(entry);
+    }
+    return visible;
+  }, [removedEntriesById, targetList]);
+
+  const activeEntries = useMemo(
+    () => entries.filter((entry) => !removedEntriesById.has(entry.account.id)),
+    [entries, removedEntriesById],
+  );
+
+  const hiddenRetainedCount = useMemo(() => {
     let hidden = 0;
-    for (const contact of account.contacts) {
-      if (
-        contactIds.has(contact.sf_contact_id) &&
-        !matchesContactView(
-          contact,
-          contactFilter,
-          contactSearch,
-          fonctionIds,
-        )
-      ) {
-        hidden += 1;
+    for (const { account, contactIds } of activeEntries) {
+      for (const contact of account.contacts) {
+        if (
+          contactIds.has(contact.sf_contact_id) &&
+          !matchesContactView(
+            contact,
+            channelFilters,
+            contactSearch,
+            fonctionIds,
+          )
+        ) {
+          hidden += 1;
+        }
       }
     }
-    return sum + hidden;
-  }, 0);
+    return hidden;
+  }, [activeEntries, channelFilters, contactSearch, fonctionIds]);
 
-  const handleChannelChange = (next: ContactChannelFilter[]) => {
-    const selected =
-      next.find((value) => value !== contactFilter) ??
-      next[0] ??
-      contactFilter;
-    setContactFilter(selected);
+  const handleRemoveAccount = (accountId: string) => {
+    const entry = targetList.get(accountId);
+    if (entry) {
+      setRemovedEntriesById((prev) => {
+        const next = new Map(prev);
+        next.set(accountId, entry);
+        return next;
+      });
+    }
+    onRemoveAccount(accountId);
+  };
+
+  const handleRestoreAccount = (entry: TargetEntry) => {
+    setRemovedEntriesById((prev) => {
+      const next = new Map(prev);
+      next.delete(entry.account.id);
+      return next;
+    });
+    onRestoreAccount?.(entry);
   };
 
   const handleConfirmClear = () => {
@@ -111,7 +158,47 @@ export function TargetPanel({
     setConfirmClearOpen(false);
   };
 
-  if (totalAccounts === 0) {
+  // Un preset coché = on retient uniquement les contacts qui matchent, pour
+  // tous les comptes actifs. Plus aucun preset = tout est resélectionné.
+  const previousFonctionIds = useRef<readonly FonctionPresetId[]>([]);
+  useEffect(() => {
+    const hadPresets = previousFonctionIds.current.length > 0;
+    previousFonctionIds.current = fonctionIds;
+    if (!onSetRetainedContacts) return;
+    if (fonctionIds.length > 0) {
+      let changed = false;
+      const replacements: { accountId: string; contactIds: Set<string> }[] = [];
+      for (const { account, contactIds } of activeEntries) {
+        const next = new Set(
+          account.contacts
+            .filter((c) => contactMatchesFonctionPresets(c.title, fonctionIds))
+            .map((c) => c.sf_contact_id),
+        );
+        if (
+          next.size !== contactIds.size ||
+          [...next].some((id) => !contactIds.has(id))
+        ) {
+          changed = true;
+          replacements.push({ accountId: account.id, contactIds: next });
+        }
+      }
+      if (changed) {
+        for (const { accountId, contactIds: ids } of replacements) {
+          onSetRetainedContacts(accountId, ids);
+        }
+      }
+    } else if (hadPresets) {
+      for (const { account } of activeEntries) {
+        onSetRetainedContacts(
+          account.id,
+          new Set(account.contacts.map((c) => c.sf_contact_id)),
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fonctionIds]);
+
+  if (totalAccounts === 0 && removedEntries.length === 0) {
     return null;
   }
 
@@ -144,19 +231,20 @@ export function TargetPanel({
         <div className="calls-abm-composer__filters">
           <SegmentedControl
             label="Avec canal"
+            hint="Cumulable : cochez plusieurs canaux"
             options={CHANNEL_FILTER_OPTIONS}
-            value={[contactFilter]}
-            onChange={handleChannelChange}
+            value={channelFilters}
+            onChange={setChannelFilters}
           />
           <ChipGroup
             label="Fonction"
-            hint="Presets sur le poste (OR entre les cases cochées)"
+            hint="Cochez pour ne retenir que ces fonctions"
             options={FONCTION_PRESETS.map((preset) => ({
               value: preset.id,
               label: preset.label,
             }))}
             value={fonctionIds}
-            onChange={(next) => setFonctionIds(next)}
+            onChange={setFonctionIds}
           />
           <input
             type="text"
@@ -177,13 +265,13 @@ export function TargetPanel({
       </GlassCard>
 
       <div className="calls-abm-composer__accounts" role="list">
-        {entries.map(({ account, contactIds }) => {
+        {activeEntries.map(({ account, contactIds }) => {
           const retainedCount = contactIds.size;
           const totalCount = account.contacts.length;
           const visibleContacts = account.contacts.filter((contact) =>
             matchesContactView(
               contact,
-              contactFilter,
+              channelFilters,
               contactSearch,
               fonctionIds,
             ),
@@ -209,7 +297,7 @@ export function TargetPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onRemoveAccount(account.id)}
+                    onClick={() => handleRemoveAccount(account.id)}
                     aria-label={`Retirer ${account.name} de la cible`}
                   >
                     <CloseIcon />
@@ -244,6 +332,37 @@ export function TargetPanel({
             </div>
           );
         })}
+
+        {removedEntries.length > 0 && (
+          <div className="calls-abm-composer__removed" role="list">
+            <p className="calls-abm-composer__removed-title">
+              Comptes retirés — remettez-les si vous changez d'avis
+            </p>
+            {removedEntries.map((entry) => (
+              <div
+                key={entry.account.id}
+                className="calls-abm-composer__removed-account"
+                role="listitem"
+              >
+                <span className="calls-abm-composer__removed-name">
+                  {entry.account.name}
+                  <span className="calls-abm-composer__removed-count xos-numeric">
+                    {entry.contactIds.size} contact
+                    {entry.contactIds.size > 1 ? 's' : ''}
+                  </span>
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleRestoreAccount(entry)}
+                  aria-label={`Remettre ${entry.account.name} dans la cible`}
+                >
+                  Remettre
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {!hideFooter && onPrepareSessions && (

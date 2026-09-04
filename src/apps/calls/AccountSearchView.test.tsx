@@ -812,9 +812,7 @@ describe('AccountSearchView', () => {
     await screen.findByText('ACME');
 
     // Sélectionner les 6 comptes (> 5, seuil de confirmation).
-    await user.click(
-      screen.getByRole('button', { name: 'Tout sélectionner' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Tout sélectionner' }));
 
     // Au-dessus du seuil : confirm s'affiche. Annuler préserve la sélection.
     await user.click(
@@ -1217,10 +1215,10 @@ describe('AccountSearchView — wizard 3 étapes', () => {
       'Comité DAF',
     );
 
-     await user.click(screen.getByRole('button', { name: /Étape 1: Cibler/ }));
-     expect(
-       screen.getByRole('heading', { name: 'Définissez votre cible' }),
-     ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Étape 1: Cibler/ }));
+    expect(
+      screen.getByRole('heading', { name: 'Définissez votre cible' }),
+    ).toBeTruthy();
     expect(
       (
         screen.getByRole('checkbox', {
@@ -1229,7 +1227,7 @@ describe('AccountSearchView — wizard 3 étapes', () => {
       ).checked,
     ).toBe(true);
 
-     await user.click(screen.getByRole('button', { name: /Étape 2: Composer/ }));
+    await user.click(screen.getByRole('button', { name: /Étape 2: Composer/ }));
     // En étape 2 mode nom, on est directement sur TargetPanel (contacts direct)
     expect(
       (
@@ -1342,7 +1340,9 @@ describe('AccountSearchView — flux v2', () => {
     });
 
     // 2. Basculer en mode nom -> le compteur sous Filtres actifs disparaît
-    await user.click(screen.getByRole('button', { name: /Rechercher par nom/ }));
+    await user.click(
+      screen.getByRole('button', { name: /Rechercher par nom/ }),
+    );
     expect(screen.queryByText(/comptes ciblés/)).toBeNull();
   });
 
@@ -1454,10 +1454,7 @@ describe('AccountSearchView — flux v2', () => {
     // Vider le nom et renseigner un compte principal -> débloqué
     await user.clear(screen.getByLabelText('Nom du compte'));
     expect(continueBtn).toHaveProperty('disabled', true);
-    await user.type(
-      screen.getByLabelText('Nom du compte principal'),
-      'Danone',
-    );
+    await user.type(screen.getByLabelText('Nom du compte principal'), 'Danone');
     expect(continueBtn).toHaveProperty('disabled', false);
   });
 
@@ -1485,10 +1482,7 @@ describe('AccountSearchView — flux v2', () => {
     renderView();
 
     await chooseNameSearch(user);
-    await user.type(
-      screen.getByLabelText('Nom du compte principal'),
-      'Danone',
-    );
+    await user.type(screen.getByLabelText('Nom du compte principal'), 'Danone');
 
     await waitFor(() =>
       expect(fetchAccountsSearch).toHaveBeenCalledWith(
@@ -1527,12 +1521,18 @@ describe('AccountSearchView — flux v2', () => {
     expect(screen.getByText('Comptes trouvés')).toBeTruthy();
 
     // Sélection du compte directement à l'étape 1
-    await user.click(screen.getByRole('checkbox', { name: 'Sélectionner ACME' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Sélectionner ACME' }),
+    );
 
     // Passer à l'étape 2 : contacts direct (pas de sous-stepper comptes/contacts)
     await goToComposer(user);
-    expect(screen.queryByRole('tab', { name: /Sélectionner les comptes/ })).toBeNull();
-    expect(screen.queryByRole('tab', { name: /Affiner les contacts/ })).toBeNull();
+    expect(
+      screen.queryByRole('tab', { name: /Sélectionner les comptes/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('tab', { name: /Affiner les contacts/ }),
+    ).toBeNull();
     expect(
       screen.getByRole('checkbox', { name: 'Retenir Marie Dupont' }),
     ).toBeTruthy();
@@ -1597,10 +1597,7 @@ describe('AccountSearchView — flux v2', () => {
     renderView();
 
     await chooseNameSearch(user);
-    await user.type(
-      screen.getByLabelText('Nom du compte principal'),
-      'Danone',
-    );
+    await user.type(screen.getByLabelText('Nom du compte principal'), 'Danone');
 
     // Vérifier l'affichage du groupe avec le badge Groupe
     expect(await screen.findByText('Danone SA')).toBeTruthy();
@@ -1609,8 +1606,12 @@ describe('AccountSearchView — flux v2', () => {
     expect(screen.getByText('Filiale')).toBeTruthy();
 
     // Vérifier l'indentation de la filiale
-    const filialeRow = screen.getByText('Danone Eaux France').closest('.calls-abm-account-row');
-    expect(filialeRow?.classList.contains('calls-abm-account-row--subsidiary')).toBe(true);
+    const filialeRow = screen
+      .getByText('Danone Eaux France')
+      .closest('.calls-abm-account-row');
+    expect(
+      filialeRow?.classList.contains('calls-abm-account-row--subsidiary'),
+    ).toBe(true);
 
     // Sélection libre : cocher uniquement la filiale
     const filialeCheck = screen.getByRole('checkbox', {
