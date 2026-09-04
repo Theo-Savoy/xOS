@@ -75,27 +75,28 @@ export function CapacitySection({
         </div>
       </header>
 
+      <div className="review-kpi-grid">
+        <StatCard
+          label={bridge.active.label}
+          value={fmtEur(bridge.active.delta)}
+          hint={`${fmtEur(bridge.active.prev)} → ${fmtEur(bridge.active.curr)}`}
+        />
+        <StatCard
+          label={bridge.dg.label}
+          value={fmtEur(bridge.dg.delta)}
+          hint={`${fmtEur(bridge.dg.prev)} → ${fmtEur(bridge.dg.curr)}`}
+        />
+        <StatCard
+          label={bridge.departed.label}
+          value={fmtEur(bridge.departed.delta)}
+          hint={`${fmtEur(bridge.departed.prev)} → ${fmtEur(bridge.departed.curr)}`}
+        />
+      </div>
+
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">
-          Cadrage Owner
+          Impact des mouvements d'équipe
         </h3>
-        <div className="review-kpi-grid">
-          <StatCard
-            label={bridge.active.label}
-            value={fmtEur(bridge.active.delta)}
-            hint={`${fmtEur(bridge.active.prev)} → ${fmtEur(bridge.active.curr)}`}
-          />
-          <StatCard
-            label={bridge.dg.label}
-            value={fmtEur(bridge.dg.delta)}
-            hint={`${fmtEur(bridge.dg.prev)} → ${fmtEur(bridge.dg.curr)}`}
-          />
-          <StatCard
-            label={bridge.departed.label}
-            value={fmtEur(bridge.departed.delta)}
-            hint={`${fmtEur(bridge.departed.prev)} → ${fmtEur(bridge.departed.curr)}`}
-          />
-        </div>
         <WaterfallChart
           steps={steps}
           scope="new"
