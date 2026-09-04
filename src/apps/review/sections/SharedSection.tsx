@@ -58,7 +58,7 @@ export function SharedSection({
         </div>
         {isManager ? (
           <Button size="sm" onClick={onShare}>
-            Partager la période
+            Partager l'analyse
           </Button>
         ) : null}
       </header>
