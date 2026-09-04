@@ -432,7 +432,7 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
         lines: [{ slot: 0, phase: 'failed', destination: '+331****0001', error: 'Raccrochage serveur impossible' }],
       },
     );
-    rerender(<App onBack={onBack} />);
+    rerender(<WorkspaceTree onBack={onBack} />);
     expect(onBack).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Réessayer le raccrochage/i })).toBeTruthy();
 
@@ -444,11 +444,72 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
         lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
       },
     );
-    rerender(<App onBack={onBack} />);
+    rerender(<WorkspaceTree onBack={onBack} />);
     const quitBtn2 = screen.getByRole('button', { name: /retour aux séances/i });
     fireEvent.click(quitBtn2);
     // Le pool est au repos + lignes idle : signature du 200 réelle
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('9b. Sortie transactionnelle I10 — chemin nominal (N-B Opus) : reset observé libère la sortie automatiquement', async () => {
+    // Vague active : un appel en composition
+    setupPool(
+      { isRunning: true },
+      {
+        running: true,
+        lines: [{ slot: 0, phase: 'dialing', destination: '+331****0001', error: null }],
+      },
+    );
+
+    const onBack = vi.fn();
+    const { rerender } = renderWorkspace({ onBack, initialPowerOn: true });
+
+    // Clic Quitter pendant la vague
+    fireEvent.click(screen.getByRole('button', { name: /retour aux séances/i }));
+    expect(onBack).not.toHaveBeenCalled();
+    expect(poolMockHandlers.hangupAll).toHaveBeenCalled();
+
+    // Le 200 revient : reset → toutes lignes idle, running false.
+    // MÊME arbre racine que renderWorkspace (DialerProvider > SessionWorkspaceV2) :
+    // changer de type racine (App) remonterait le hook et perdrait pendingExitRef.
+    setupPool(
+      { isRunning: false, hangupRetryable: false },
+      {
+        running: false,
+        lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
+      },
+    );
+    rerender(
+      <DialerProvider token="valid-token" dryRun>
+        <SessionWorkspaceV2
+          session={mockSession}
+          contacts={mockContacts}
+          hubSessions={[]}
+          currentContact={mockContacts[0]}
+          focusedContactId={101}
+          loading={false}
+          error={null}
+          awaitingEvent={null}
+          contactContext={null}
+          contextContactId={null}
+          onBack={onBack}
+          onFocusContact={vi.fn()}
+          onLogAndNext={vi.fn()}
+          onLogRdvAndNext={vi.fn()}
+          onLogMany={vi.fn()}
+          onLogEvent={vi.fn()}
+          onDeferContacts={vi.fn()}
+          onRemoveContacts={vi.fn()}
+          onUpdateRecall={vi.fn()}
+          canPowerDialer={true}
+          token="valid-token"
+          initialPowerOn={true}
+        />
+      </DialerProvider>,
+    );
+
+    // La sortie part AUTOMATIQUEMENT (watcher), sans re-clic
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
   });
   it('10. Quota règles : masqué si remaining >= 8, bloqué si remaining === 0 (bouton Lancer disabled)', async () => {
     // Quota bloqué : 50/50
@@ -498,7 +559,7 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
   });
   });
 
-  function App({ onBack }: { onBack: () => void }) {
+  function WorkspaceTree({ onBack }: { onBack: () => void }) {
     return (
       <DialerProvider token="valid-token" dryRun>
         <SessionWorkspaceV2

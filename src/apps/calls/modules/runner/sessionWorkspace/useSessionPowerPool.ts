@@ -303,9 +303,12 @@ export function useSessionPowerPool({
   const onRetryHangup = pool.hangupAll;
   const togglePower = useCallback(() => {
     // Interdire la désactivation brutale en plein milieu d'une vague active
-    if (powerOn && isWaveActive) return;
+    // OU quand un raccrochage serveur est en échec (N-A Opus) : sans ce garde,
+    // l'état 'off' masquerait le CTA « Réessayer » et l'agent ne pourrait
+    // plus ni quitter la séance ni relancer le raccrochage.
+    if (powerOn && (isWaveActive || pool.hangupRetryable)) return;
     setPowerOn((prev) => !prev);
-  }, [powerOn, isWaveActive]);
+  }, [powerOn, isWaveActive, pool.hangupRetryable]);
   return {
     isPowerActive: powerViewModel.state !== 'off',
     powerOn,
