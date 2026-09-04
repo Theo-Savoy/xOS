@@ -72,12 +72,22 @@ export function ChannelsSection({
   const topN = data.concentration.n_displayed;
   const topNPct =
     data.concentration.topN_pct ?? data.concentration.top5_pct;
-  const chartData = data.channels.items.map((row) => ({
-    canal: row.label,
-    valeur: channelValue(row, metric),
-  }));
-  const chartHeight = Math.max(220, data.channels.items.length * 28);
+  // Graphe = catégories de canaux, lignes à 0 exclues.
+  const chartData = data.channels.items
+    .filter((row) =>
+      metric === 'amount'
+        ? row.amount > 0
+        : metric === 'won'
+          ? row.won > 0
+          : true,
+    )
+    .map((row) => ({
+      canal: row.label,
+      valeur: channelValue(row, metric),
+    }));
+  const chartHeight = Math.max(220, chartData.length * 28);
   const metricMeta = METRICS.find((item) => item.key === metric) || METRICS[0];
+  const detailRows = data.channels.details ?? data.channels.items;
 
   return (
     <div className="review-section">
@@ -201,7 +211,7 @@ export function ChannelsSection({
                 </tr>
               </thead>
               <tbody>
-                {data.channels.items.map((row) => (
+                {detailRows.map((row) => (
                   <tr key={row.label}>
                     <td>{row.label}</td>
                     <td>{row.closed}</td>

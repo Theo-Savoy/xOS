@@ -97,6 +97,7 @@ export function ProductSection({
   const gap =
     bridge?.by_product?.[selected] ??
     (selected === 'catalogue' ? bridge?.catalogue : undefined);
+  const hasRenew = selected !== 'sur_mesure';
   const gapSteps: WaterfallStep[] = gap
     ? [
         {
@@ -104,20 +105,24 @@ export function ProductSection({
           amount: gap.prev.new.amount + gap.prev.renew.amount,
           kind: 'total',
         },
-        {
-          name: 'Delta renew',
-          amount: gap.renew,
-          kind: gap.renew >= 0 ? 'up' : 'down',
-        },
+        ...(hasRenew
+          ? [
+              {
+                name: 'Delta renew',
+                amount: gap.renew,
+                kind: gap.renew >= 0 ? ('up' as const) : ('down' as const),
+              },
+            ]
+          : []),
         {
           name: 'Volume new',
           amount: gap.volume,
-          kind: gap.volume >= 0 ? 'up' : 'down',
+          kind: gap.volume >= 0 ? ('up' as const) : ('down' as const),
         },
         {
           name: 'Ticket new',
           amount: gap.ticket,
-          kind: gap.ticket >= 0 ? 'up' : 'down',
+          kind: gap.ticket >= 0 ? ('up' as const) : ('down' as const),
         },
         {
           name: seriesLabel(bridge?.fy || product.fy, bridge?.period),
@@ -262,11 +267,13 @@ export function ProductSection({
       {gap ? (
         <>
           <div className="review-kpi-grid">
-            <StatCard
-              label="Delta renouvellements"
-              value={fmtEur(gap.renew)}
-              hint={fmtPct1(gap.share_renew)}
-            />
+            {hasRenew ? (
+              <StatCard
+                label="Delta renouvellements"
+                value={fmtEur(gap.renew)}
+                hint={fmtPct1(gap.share_renew)}
+              />
+            ) : null}
             <StatCard
               label="Volume nouvelles affaires"
               value={fmtEur(gap.volume)}
@@ -291,23 +298,31 @@ export function ProductSection({
               scope="total"
               source={`Salesforce · CA total ${offer}`}
             />
-            <div className="review-split-bar" aria-hidden="true">
-              <span
-                className="review-split-bar__renew"
-                style={{ width: `${gap.share_renew * 100}%` }}
-              />
-              <span
-                className="review-split-bar__new"
-                style={{ width: `${gap.share_new * 100}%` }}
-              />
-            </div>
-            <p className="review-split-legend">
-              <span>{fmtPct1(gap.share_renew)} renouvellements</span>
-              <span>{fmtPct1(gap.share_new)} nouvelles affaires</span>
-            </p>
+            {hasRenew ? (
+              <>
+                <div className="review-split-bar" aria-hidden="true">
+                  <span
+                    className="review-split-bar__renew"
+                    style={{ width: `${gap.share_renew * 100}%` }}
+                  />
+                  <span
+                    className="review-split-bar__new"
+                    style={{ width: `${gap.share_new * 100}%` }}
+                  />
+                </div>
+                <p className="review-split-legend">
+                  <span>
+                    CA {seriesLabel(bridge?.fy || product.fy, bridge?.period)} :{' '}
+                    {fmtPct1(gap.share_renew)} renouvellements
+                  </span>
+                  <span>{fmtPct1(gap.share_new)} nouvelles affaires</span>
+                </p>
+              </>
+            ) : null}
             <p className="review-section-note">
-              Stock ARR et flux signé : deux lectures distinctes, à ne pas
-              additionner.
+              {hasRenew
+                ? 'Stock ARR et flux signé : deux lectures distinctes, à ne pas additionner.'
+                : `Lecture sur les seules nouvelles affaires — pas de renouvellements sur ${offer}.`}
             </p>
           </GlassCard>
         </>
