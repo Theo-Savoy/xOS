@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import {
   Button,
   EmptyState,
@@ -241,16 +241,6 @@ export function SessionsView({
 
   const openSession = (sessionId: number) => onOpenSession(sessionId);
 
-  const handleCardKeyDown = (
-    sessionId: number,
-    event: KeyboardEvent<HTMLElement>,
-  ) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    openSession(sessionId);
-  };
-
   return (
     <div className="calls-view calls-hub">
       <header className="calls-view__header">
@@ -359,50 +349,51 @@ export function SessionsView({
                     <li key={session.id}>
                       <article
                         className={`calls-session-card calls-session-card--${session.session_type}${session.status === 'completed' ? ' calls-session-card--done' : ''}`}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Ouvrir ${session.name}`}
-                        onClick={() => openSession(session.id)}
-                        onKeyDown={(event) =>
-                          handleCardKeyDown(session.id, event)
-                        }
                       >
                         <div className="calls-session-card__body">
-                          <div className="calls-session-card__top">
-                            <div className="calls-session-card__title">
-                              <strong>{session.name}</strong>
-                              <span className="calls-session-card__date">
-                                {session.scheduled_for
-                                  ? `Séance du ${formatScheduledDate(session.scheduled_for)}`
-                                  : formatDate(session.created_at)}
-                              </span>
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            className="calls-session-card__open"
+                            aria-label={`Ouvrir ${session.name}`}
+                            onClick={() => openSession(session.id)}
+                          >
+                            <div className="calls-session-card__top">
+                              <div className="calls-session-card__title">
+                                <strong>{session.name}</strong>
+                                <span className="calls-session-card__date">
+                                  {session.scheduled_for
+                                    ? `Séance du ${formatScheduledDate(session.scheduled_for)}`
+                                    : formatDate(session.created_at)}
+                                </span>
+                              </div>
+                              <div className="calls-session-card__tags">
+                                <Tag variant="muted">
+                                  {sessionTypeLabel(session.session_type)}
+                                </Tag>
+                                <Tag
+                                  variant={
+                                    session.status === 'active'
+                                      ? 'accent'
+                                      : 'default'
+                                  }
+                                >
+                                  {sessionStatusLabel(session, today)}
+                                </Tag>
+                                {session.shared ? (
+                                  <Tag variant="muted">Partagée</Tag>
+                                ) : null}
+                                {session.is_owner === false ? (
+                                  <Tag variant="muted">Invité</Tag>
+                                ) : null}
+                              </div>
                             </div>
-                            <div className="calls-session-card__tags">
-                              <Tag variant="muted">
-                                {sessionTypeLabel(session.session_type)}
-                              </Tag>
-                              <Tag
-                                variant={
-                                  session.status === 'active'
-                                    ? 'accent'
-                                    : 'default'
-                                }
-                              >
-                                {sessionStatusLabel(session, today)}
-                              </Tag>
-                              {session.shared ? (
-                                <Tag variant="muted">Partagée</Tag>
-                              ) : null}
-                              {session.is_owner === false ? (
-                                <Tag variant="muted">Invité</Tag>
-                              ) : null}
-                            </div>
-                          </div>
-                          <ProgressBar
-                            called={session.called}
-                            total={session.total}
-                            label={`Progression de ${session.name} : ${session.called} sur ${session.total}`}
-                          />
+                            <ProgressBar
+                              called={session.called}
+                              total={session.total}
+                              label={`Progression de ${session.name} : ${session.called} sur ${session.total}`}
+                            />
+                          </Button>
                         </div>
 
                         <div

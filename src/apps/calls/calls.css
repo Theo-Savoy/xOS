@@ -7186,7 +7186,32 @@ a.calls-contact-card__peer:hover {
 .calls-session-card__body {
   min-width: 0;
   gap: 0.7rem;
+  padding: 0;
+}
+
+.calls-session-card__open {
+  display: grid;
+  align-items: stretch;
+  justify-content: initial;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 0;
   padding: 1rem;
+  border: 0;
+  border-radius: var(--xos-radius-md, 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.calls-session-card__open:hover {
+  background: color-mix(in srgb, var(--xos-accent) 5%, transparent);
+}
+
+.calls-session-card__open:focus-visible {
+  outline: 2px solid var(--xos-accent);
+  outline-offset: -2px;
 }
 
 .calls-session-card__top {
