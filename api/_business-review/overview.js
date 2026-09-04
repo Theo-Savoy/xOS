@@ -29,7 +29,7 @@ function otherBucket(newRecords) {
     count += 1;
     amount += Number(record?.[opp.fields.amount]) || 0;
   }
-  return { count, amount, label: 'Autre / non défini' };
+  return { count, amount, label: 'Autre' };
 }
 
 function countNew(records) {
