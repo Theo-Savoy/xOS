@@ -80,10 +80,10 @@ export function ProductTrendSection({
             <Bar dataKey="Catalogue" fill="var(--xos-chart-current)" radius={[4, 4, 0, 0]} />
             <Bar
               dataKey="Sur-mesure"
-              fill="var(--xos-chart-compare)"
+              fill="var(--xos-chart-mid)"
               radius={[4, 4, 0, 0]}
             />
-            <Bar dataKey="Conseil" fill="var(--xos-accent-success)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Conseil" fill="var(--xos-chart-compare)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
         <p className="review-section-note">

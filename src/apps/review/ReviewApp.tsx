@@ -129,7 +129,9 @@ export default function ReviewApp({
   );
   const product = useBusinessReview<ProductPayload>(
     token,
-    canFetch && (nav === 'summary' || nav === 'product') ? 'product' : null,
+    canFetch && (nav === 'summary' || nav === 'product' || nav === 'trajectory')
+      ? 'product'
+      : null,
     period,
   );
   const cycles = useBusinessReview<CyclesPayload>(
