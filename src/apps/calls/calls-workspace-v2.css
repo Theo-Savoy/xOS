@@ -1,0 +1,837 @@
+/**
+ * SessionWorkspace V2 — Styles scoped under .calls-workspace--v2 (Issue #119)
+ *
+ * Règles impératives (Plan §6) :
+ * 1. Tokens existants uniquement : --xos-space-* (1 à 8), --xos-radius-* (sm, md, lg, 9999px)
+ * 2. ZÉRO token fantôme (pas de --xos-radius-pill inventé, pas de --xos-surface-3)
+ * 3. ZÉRO valeur ad-hoc (0.35rem, 0.75rem, etc.) -> échelle --xos-space-*
+ * 4. Responsive piloté par container queries sur .calls-app (pas uniquement viewport)
+ *    - ≥ 900px : 3 colonnes (Queue | Contact | Inspecteur)
+ *    - 720-899px : 2 colonnes (Queue | Contact ; Inspecteur en sheet)
+ *    - < 720px : 1 zone (Contact par défaut ; File / Contexte / Power en sheets ; CTA sticky)
+ * 5. Importé APRÈS calls.css et calls-dialer.css
+ */
+
+.calls-workspace--v2 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-4);
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: var(--xos-space-4);
+}
+
+/* ==========================================================================
+   1. SessionHeader
+   ========================================================================== */
+
+.calls-workspace__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xos-space-4);
+  padding: var(--xos-space-3) var(--xos-space-4);
+  background: var(--xos-surface-2);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+  backdrop-filter: blur(12px);
+}
+
+.calls-workspace__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-3);
+  min-width: 0;
+}
+
+.calls-workspace__title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-3);
+  min-width: 0;
+}
+
+.calls-workspace__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--xos-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calls-workspace__progress-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--xos-space-1) var(--xos-space-3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--xos-surface-2);
+  border: 1px solid var(--xos-border);
+  border-radius: 9999px;
+  color: var(--xos-text-muted);
+  white-space: nowrap;
+}
+
+.calls-workspace__header-right {
+  display: flex;
+  gap: var(--xos-space-2);
+}
+
+.calls-workspace__sheet-toggle--power {
+  display: none;
+}
+.calls-workspace__menu-container {
+  position: relative;
+}
+
+.calls-workspace__menu-dropdown {
+  position: absolute;
+  top: calc(100% + var(--xos-space-2));
+  right: 0;
+  z-index: 50;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  padding: var(--xos-space-2);
+  background: var(--xos-bg);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+}
+
+.calls-workspace__menu-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 0.875rem;
+  padding: var(--xos-space-2) var(--xos-space-3);
+}
+
+/* ==========================================================================
+   2. Main Layout & Container Queries
+   ========================================================================== */
+
+.calls-workspace__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.calls-workspace__layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  gap: var(--xos-space-4);
+  align-items: start;
+  flex: 1;
+}
+
+/* Rail replié en conversation Power ou en ACW (Plan §1 & Grok note b) */
+.calls-workspace--queue-collapsed .calls-workspace__layout {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+/* ==========================================================================
+   3. SessionQueue
+   ========================================================================== */
+
+.calls-workspace__queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-3);
+  background: var(--xos-surface-2);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+  max-height: calc(100vh - 160px);
+  overflow: hidden;
+}
+
+.calls-workspace__queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--xos-space-2);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-trigger {
+  white-space: nowrap;
+}
+
+.calls-workspace__queue-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-workspace__queue-scrollable {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.calls-workspace__queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calls-workspace__queue-item {
+  display: flex;
+}
+
+.calls-workspace__queue-item-btn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  width: 100%;
+  padding: var(--xos-space-2) var(--xos-space-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--xos-radius-sm);
+  color: var(--xos-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.calls-workspace__queue-item-btn:hover {
+  background: var(--xos-surface-1);
+  border-color: var(--xos-border);
+}
+
+.calls-workspace__queue-item--focused .calls-workspace__queue-item-btn {
+  background: var(--xos-surface-2);
+  border-color: var(--xos-accent);
+}
+
+/* ==========================================================================
+   3b. QueueToolOverlay — surface outil bulk, jamais un second mode de liste
+   ========================================================================== */
+
+.calls-workspace--v2 .calls-workspace__queue-tool-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--xos-space-4);
+  background: color-mix(in srgb, var(--xos-bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool {
+  display: flex;
+  flex-direction: column;
+  width: min(68rem, 100%);
+  max-height: min(48rem, 100%);
+  overflow: hidden;
+  background: var(--xos-surface-1);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-lg);
+  box-shadow: 0 var(--xos-space-4) var(--xos-space-8)
+    color-mix(in srgb, var(--xos-bg) 72%, transparent);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header,
+.calls-workspace--v2 .calls-workspace__queue-tool-toolbar,
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk {
+  padding: var(--xos-space-4);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xos-space-4);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-header h2,
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk h3 {
+  margin: 0;
+  color: var(--xos-text);
+}
+
+.calls-workspace--v2 .calls-workspace__eyebrow {
+  margin: 0 0 var(--xos-space-1);
+  color: var(--xos-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--xos-space-4);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-search {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-filter--active {
+  color: var(--xos-accent);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(16rem, 0.8fr);
+  min-height: 0;
+  overflow: auto;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--xos-space-4);
+  list-style: none;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-2) var(--xos-space-3);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-row--selected {
+  border-color: var(--xos-accent);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-contact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-contact-link {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  color: var(--xos-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-account {
+  overflow: hidden;
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk {
+  border-left: 1px solid var(--xos-border);
+  background: var(--xos-surface-2);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-bulk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xos-space-2);
+  margin-bottom: var(--xos-space-3);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-error {
+  margin: 0;
+  padding: var(--xos-space-3) var(--xos-space-4);
+  border-bottom: 1px solid var(--xos-danger);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-form,
+.calls-workspace--v2 .calls-workspace__queue-tool-recalls,
+.calls-workspace--v2 .calls-workspace__queue-tool-defer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-wave-hint {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-recalls {
+  padding-top: var(--xos-space-3);
+  border-top: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-recalls > strong {
+  color: var(--xos-text);
+  font-size: 0.875rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-recalls .calls-recall__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xos-space-1);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-date {
+  min-height: 2rem;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-defer {
+  padding-top: var(--xos-space-3);
+  border-top: 1px solid var(--xos-border);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-defer > strong {
+  color: var(--xos-text);
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calls-workspace--v2 .calls-workspace__queue-tool-candidates .xos-btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.calls-workspace__queue-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xos-space-2);
+}
+
+.calls-workspace__queue-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calls-workspace__queue-subline {
+  font-size: 0.8rem;
+  color: var(--xos-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calls-workspace__queue-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-1);
+  flex-wrap: wrap;
+  margin-top: var(--xos-space-1);
+}
+
+/* ==========================================================================
+   4. ContactWorkspace
+   ========================================================================== */
+
+.calls-workspace__contact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-4);
+  min-width: 0;
+}
+
+.calls-workspace__contact-card-wrapper {
+  width: 100%;
+}
+
+.calls-workspace__acw {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+}
+
+.calls-acw-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-4);
+}
+
+.calls-acw__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-acw__control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-2);
+}
+
+.calls-acw__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--xos-text-muted);
+}
+
+.calls-acw__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+  cursor: pointer;
+}
+
+.calls-acw__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+}
+
+.calls-acw__textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calls-acw__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--xos-space-2);
+}
+
+.calls-acw__actions.calls-workspace__sticky-bar {
+  position: sticky;
+  bottom: var(--xos-space-2);
+  z-index: 30;
+  align-items: center;
+  margin-top: var(--xos-space-3);
+  gap: var(--xos-space-2);
+  padding: var(--xos-space-2) var(--xos-space-3);
+  background: var(--xos-bg);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+}
+
+.calls-acw__submit-cta {
+  min-width: 180px;
+}
+
+.calls-acw-card--done {
+  padding: var(--xos-space-3) var(--xos-space-4);
+}
+
+.calls-acw__done-header {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-3);
+}
+
+.calls-acw__done-outcome {
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-acw__done-comments {
+  margin: var(--xos-space-2) 0 0 0;
+  font-size: 0.875rem;
+  color: var(--xos-text-muted);
+}
+
+/* ==========================================================================
+   5. ContextInspector
+   ========================================================================== */
+
+.calls-workspace__inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-3);
+  background: var(--xos-surface-2);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.calls-workspace__inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--xos-space-2);
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-workspace__inspector-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-workspace__inspector-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+}
+
+.calls-context-panel__title {
+  margin: 0 0 var(--xos-space-2) 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--xos-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calls-context-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xos-space-2);
+  padding: var(--xos-space-2) 0;
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-context-list__item:last-child {
+  border-bottom: none;
+}
+
+.calls-context-list__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-1);
+}
+
+/* ==========================================================================
+   6. PowerWorkspace
+   ========================================================================== */
+
+.calls-workspace__power {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-3);
+  background: var(--xos-surface-2);
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md);
+}
+
+.calls-workspace__power-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calls-workspace__power-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+}
+
+.calls-workspace__power-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-workspace__power-card {
+  padding: var(--xos-space-3);
+}
+
+.calls-workspace__power-off,
+.calls-workspace__power-active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+}
+
+.calls-workspace__power-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.calls-workspace__power-settings {
+  display: flex;
+  gap: var(--xos-space-2);
+  flex-wrap: wrap;
+}
+
+.calls-workspace__power-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+  flex-wrap: wrap;
+}
+/* ==========================================================================
+   7. Responsive Layout Breakpoints (Container queries sur .calls-app)
+   ========================================================================== */
+
+/* 720px - 899px : 2 colonnes Queue | Contact ; Inspecteur en sheet */
+@container calls-app (max-width: 899px) and (min-width: 720px) {
+  .calls-workspace__layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .calls-workspace__inspector:not(.calls-workspace__inspector--sheet) {
+    display: none;
+  }
+}
+
+/* < 720px : 1 zone Contact par défaut ; File / Contexte / Power en sheets ; CTA sticky */
+@container calls-app (max-width: 719px) {
+  .calls-workspace__layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .calls-workspace__queue:not(.calls-workspace__queue--sheet) {
+    display: none;
+  }
+
+  .calls-workspace__inspector:not(.calls-workspace__inspector--sheet) {
+    display: none;
+  }
+
+  .calls-workspace__power:not(.calls-workspace__power--sheet) {
+    display: none;
+  }
+
+  .calls-workspace__power-toggle-btn {
+    display: none;
+  }
+
+  .calls-workspace__sheet-toggle--power {
+    display: inline-flex;
+  }
+
+  .calls-workspace--v2 .calls-workspace__queue-tool-backdrop {
+    align-items: stretch;
+    padding: var(--xos-space-2);
+  }
+
+  .calls-workspace--v2 .calls-workspace__queue-tool {
+    max-height: 100%;
+  }
+
+  .calls-workspace--v2 .calls-workspace__queue-tool-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calls-workspace--v2 .calls-workspace__queue-tool-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .calls-workspace--v2 .calls-workspace__queue-tool-bulk {
+    border-top: 1px solid var(--xos-border);
+    border-left: 0;
+  }
+}
+
+/* ==========================================================================
+   8. Sheet Overlays (<900px et <720px)
+   ========================================================================== */
+
+.calls-workspace__sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: flex-end;
+  backdrop-filter: blur(4px);
+}
+
+.calls-workspace__queue--sheet,
+.calls-workspace__inspector--sheet,
+.calls-workspace__power--sheet {
+  width: min(380px, 90vw);
+  height: 100%;
+  max-height: 100vh;
+  border-radius: 0;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  background: var(--xos-bg);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
+  z-index: 61;
+}
+
+/* ==========================================================================
+   9. Loading & Error & Empty States
+   ========================================================================== */
+
+.calls-workspace__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xos-space-3);
+  padding: var(--xos-space-4);
+}
+
+.calls-workspace__error {
+  padding: var(--xos-space-4);
+  color: var(--xos-danger);
+  border-color: var(--xos-danger);
+}

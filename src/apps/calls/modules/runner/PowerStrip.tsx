@@ -5,35 +5,7 @@ import { readSoundsEnabled } from '../gamification/comboKeyboard';
 import type { SessionContact } from '../../types';
 import { useDialerPool } from '../dialer/application/useDialerPool';
 import { fetchDialerConfig, type DialerConfig } from '../dialer/dialerApi';
-
-/** Le serveur refuse tout le lot si un seul numéro n'est pas E.164 (pool.js). */
-const E164 = /^\+[1-9]\d{6,14}$/;
-
-/**
- * Normalise un numéro de fiche en E.164 avant envoi au pool.
- * Tous les contacts ont un numéro loggé → tous doivent être composables :
- * - retire tout sauf chiffres et `+` (espaces, tirets, parenthèses, points)
- * - `+33 (0)6…` → `+336…` (notation française, le (0) ne se compose pas)
- * - `00…` → `+…` (préfixe international)
- * - `0X XX XX XX XX` / `06…` (national FR) → `+33X…`
- * Retourne `null` uniquement si le numéro est inutilisable
- * (vide, sans chiffre, trop court).
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function normalizeE164(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const compact = raw.replace(/[^\d+]/g, '');
-  if (!compact) return null;
-  let candidate = compact;
-  // `+33 (0)6…` : le (0) est une notation française où le 0 ne se compose pas.
-  if (candidate.startsWith('+330')) candidate = `+33${candidate.slice(4)}`;
-  else if (candidate.startsWith('00')) candidate = `+${candidate.slice(2)}`;
-  else if (candidate.startsWith('0') && candidate.length === 10) {
-    candidate = `+33${candidate.slice(1)}`;
-  }
-  return E164.test(candidate) ? candidate : null;
-}
-
+import { projectPowerQueue } from './sessionWorkspace/powerUiState';
 /** Durée du sweep lumineux au lancement (miroir de --xos-power-launch en CSS). */
 const LAUNCH_MS = 900;
 
@@ -126,34 +98,12 @@ export function PowerStrip({
   // déduplication par numéro (un standard partagé rendrait l'association
   // numéro↔fiche ambiguë au retour du gagnant).
   const { queue, contactIds, byPhone, unreachable } = useMemo(() => {
-    const known = new Map<string, SessionContact>();
-    const destinations: string[] = [];
-    const ids: number[] = [];
-    let skipped = 0;
-    contacts.forEach((contact) => {
-      if (contact.status !== 'pending') return;
-      if (
-        contact.claim_active &&
-        contact.claimed_by &&
-        currentUserId &&
-        contact.claimed_by !== currentUserId
-      )
-        return;
-      const phone = normalizeE164(contact.phone);
-      if (!phone) {
-        skipped += 1;
-        return;
-      }
-      if (known.has(phone)) return;
-      known.set(phone, contact);
-      destinations.push(phone);
-      ids.push(contact.id);
-    });
+    const projection = projectPowerQueue(contacts, currentUserId);
     return {
-      queue: destinations,
-      contactIds: ids,
-      byPhone: known,
-      unreachable: skipped,
+      queue: projection.queue,
+      contactIds: projection.contactIds,
+      byPhone: projection.byPhone,
+      unreachable: projection.unreachableCount,
     };
   }, [contacts, currentUserId]);
 

@@ -66,7 +66,7 @@ import {
   RECALL_QUEUE_SESSION,
   recallsToSessionContacts,
 } from './modules/rdv/recallQueue';
-import { RunnerView } from './modules/runner/RunnerView';
+import { SessionWorkspace } from './modules/runner/sessionWorkspace';
 import type { LogPayload } from './modules/runner/RunnerView.types';
 import { SessionsView } from './modules/sessions/SessionsView';
 import { CalendarView } from './modules/sessions/CalendarView';
@@ -98,6 +98,7 @@ import type {
 import { todayParisIso } from './formControls.helpers';
 import './calls.css';
 import './calls-dialer.css';
+import './calls-workspace-v2.css';
 
 const CONTEXT_PREFETCH_AHEAD = 3;
 const CONTEXT_CACHE_MAX = 32;
@@ -2166,8 +2167,10 @@ export default function CallManagerApp({
                     : undefined
               }
               aria-hidden={view === 'pre-session'}
+              inert={view === 'pre-session'}
             >
-              <RunnerView
+              <SessionWorkspace
+                active={view !== 'pre-session'}
                 session={activeSession}
                 contacts={contacts}
                 hubSessions={sessions}

@@ -18,6 +18,8 @@ export type ContactCardPanelProps = {
   isRecallQueue: boolean;
   onUpdateRecall: (ids: number[], date: string) => void;
   'aria-hidden'?: boolean;
+  /** Masquage de l'action d'appel séquentiel / CallBar (actif en mode Power) */
+  isCallBarHidden?: boolean;
 };
 
 export function ContactCardPanel({
@@ -33,6 +35,7 @@ export function ContactCardPanel({
   isRecallQueue,
   onUpdateRecall,
   'aria-hidden': ariaHidden,
+  isCallBarHidden = false,
 }: ContactCardPanelProps) {
   const dialer = useDialer();
   const phone = contact.phone ?? null;
@@ -175,7 +178,7 @@ export function ContactCardPanel({
               <p className="calls-contact-card__no-email">Aucun email</p>
             )}
           </div>
-          {phone && (
+          {!isCallBarHidden && phone && (
             <Button
               variant={dialer.isActive ? 'danger' : 'primary'}
               onClick={handleCall}
