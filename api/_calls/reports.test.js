@@ -143,7 +143,7 @@ describe('listReportsAction', () => {
           id: '00OSb00000C6fZRMAZ',
           name: 'XOS — Opps créées par semaine',
           folder_name: 'Public Reports',
-          last_run_date: '2026-09-03T08:00:00.000+0000',
+          created_date: '2026-09-03T08:00:00.000+0000',
         },
       ],
     });
@@ -156,7 +156,7 @@ describe('listReportsAction', () => {
           id: '00OSb00000C6fZRMAZ',
           name: 'XOS — Opps créées par semaine',
           folder_name: 'Public Reports',
-          last_run_date: '2026-09-03T08:00:00.000+0000',
+          created_date: '2026-09-03T08:00:00.000+0000',
         },
       ],
     });
