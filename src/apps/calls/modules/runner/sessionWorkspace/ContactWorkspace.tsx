@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, EmptyState, GlassCard, Tag } from '../../../../../components/ui';
+import { Button, Checkbox, EmptyState, GlassCard, Tag } from '../../../../../components/ui';
 import type { ResultatCall } from '../../../../../crm';
 import { RESULTAT_OPTIONS } from '../../../types';
 import type {
@@ -234,15 +234,13 @@ export function ContactWorkspace({
                   onDefaultRecallDaysChange={() => {}}
                 />
 
-                <label className="calls-checkbox calls-acw__checkbox">
-                  <input
-                    type="checkbox"
-                    checked={doNotCall}
-                    onChange={(e) => setDoNotCall(e.target.checked)}
-                    aria-label="Ne pas rappeler (NPA)"
-                  />
-                  <span>Ne pas rappeler (NPA)</span>
-                </label>
+                <Checkbox
+                  checked={doNotCall}
+                  onChange={setDoNotCall}
+                  aria-label="Ne pas rappeler (NPA)"
+                  label="Ne pas rappeler (NPA)"
+                  className="calls-checkbox calls-acw__checkbox"
+                />
 
                 <div className="calls-acw__field">
                   <label htmlFor="acw-comments" className="calls-acw__label">
@@ -258,8 +256,8 @@ export function ContactWorkspace({
                   />
                 </div>
 
-                {/* Un CTA primaire unique par état (Plan §1 & D4) */}
-                <div className="calls-acw__actions">
+                {/* Un CTA primaire unique par état (Plan §1 & D4) — sticky CTA mobile (calls-workspace__sticky-bar) */}
+                <div className="calls-acw__actions calls-workspace__sticky-bar">
                   <Button
                     variant="primary"
                     size="lg"
