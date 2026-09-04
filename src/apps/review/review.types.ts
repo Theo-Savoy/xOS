@@ -422,6 +422,7 @@ export type ChannelsPayload = {
   conservation: Conservation;
   channels: {
     items: ChannelRow[];
+    details?: ChannelRow[];
     n_displayed: number;
     n_total: number;
     truncated: boolean;
