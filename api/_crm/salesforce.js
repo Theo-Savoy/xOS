@@ -593,7 +593,9 @@ export async function searchContacts(token, soql, options = {}) {
 export async function listReports(token, { q = '', limit = 50 } = {}) {
   const reportLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
   const where = q ? ` WHERE Name LIKE '%${escapeSOQL(q)}%'` : '';
-  const soql = `SELECT Id, Name, FolderName, LastRunDate FROM Report${where} ORDER BY LastRunDate DESC NULLS LAST LIMIT ${reportLimit}`;
+  // Seuls les rapports Tabular exposent des colonnes brutes exploitables
+  // (ids Contact/Account dans dataCells). Summary/Matrix sont agrégeats.
+  const soql = `SELECT Id, Name, FolderName, CreatedDate FROM Report WHERE Format = 'Tabular'${where} ORDER BY CreatedDate DESC NULLS LAST LIMIT ${reportLimit}`;
   const result = await searchContacts(token, soql);
   if (result.error) return result;
 
@@ -602,7 +604,7 @@ export async function listReports(token, { q = '', limit = 50 } = {}) {
       id: record.Id,
       name: record.Name,
       folder_name: record.FolderName ?? null,
-      last_run_date: record.LastRunDate ?? null,
+      created_date: record.CreatedDate ?? null,
     })),
   };
 }

@@ -153,7 +153,7 @@ export type SalesforceReport = {
   id: string;
   name: string;
   folder_name: string | null;
-  last_run_date: string | null;
+  created_date: string | null;
 };
 
 export type SalesforceReportRun = {
