@@ -212,6 +212,8 @@ export type AccountSearchHit = {
   type_client: TypeClient | null;
   tier: Tier | null;
   effectif: EffectifTranche | null;
+  parent_id?: string | null;
+  is_group?: boolean;
   contacts: AccountSearchContact[];
 };
 

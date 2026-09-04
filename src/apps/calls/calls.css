@@ -268,6 +268,44 @@
   line-height: 1.4;
 }
 
+/* ABM Name Mode Cards */
+.calls-abm-name-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@container calls-app (min-width: 640px) {
+  .calls-abm-name-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.calls-abm-name-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.calls-abm-name-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.calls-abm-name-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--xos-text);
+}
+
+.calls-abm-name-card__desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--xos-text-muted);
+}
+
 /* ABM Sub-stepper (Step 1 : Comptes / Contacts) */
 .calls-abm-substepper {
   display: flex;
@@ -388,6 +426,34 @@
 
 .calls-abm-account-row--disabled {
   opacity: 0.6;
+}
+
+.calls-abm-account-row--group {
+  background: color-mix(in srgb, var(--xos-surface) 90%, transparent);
+}
+
+.calls-abm-account-row--subsidiary {
+  padding-left: 2.25rem;
+  border-left: 3px solid color-mix(in srgb, var(--xos-accent) 40%, var(--xos-border));
+  background: color-mix(in srgb, var(--xos-surface) 40%, transparent);
+}
+
+.calls-abm-account-row__badge-group {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calls-abm-account-row__badge-subsidiary {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.calls-abm-group-select-btn {
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
 }
 
 .calls-abm-account-row__check {
