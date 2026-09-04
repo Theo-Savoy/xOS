@@ -282,6 +282,23 @@ describe('RunnerView — caractérisation de navigation et de saisie', () => {
 
 describe('RunnerView — défauts connus à protéger pendant la migration', () => {
   it.fails(
+    'does not call onBack directly while a Power wave is active',
+    async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      renderRunner({ token: 'power-token', canPowerDialer: true, onBack });
+
+      await user.click(screen.getByRole('button', { name: 'Fiche' }));
+      await user.click(screen.getByRole('switch', { name: 'Power' }));
+      act(() => powerMock.props?.onRunningChange?.(true));
+      await user.click(screen.getByRole('button', { name: 'Quitter' }));
+
+      // The migration must make exit transactional (hangup 200, then leave).
+      expect(onBack).not.toHaveBeenCalled();
+    },
+  );
+
+  it.fails(
     'does not leave the contact sheet when L is pressed during a Power conversation',
     async () => {
       const user = userEvent.setup();

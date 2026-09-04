@@ -250,6 +250,41 @@ describe('CallManagerApp — caractérisation du runner legacy', () => {
     ).toEqual([10]);
   });
 
+  it('refreshes the session after a concurrent claim wins elsewhere', async () => {
+    const session = makeSession();
+    const contacts = [makeContact(1, { contact_name: 'Contact disputé' })];
+    const claimed = makeContact(1, {
+      contact_name: 'Contact disputé',
+      claim_active: true,
+      claimed_by: 'other-user',
+      claimed_by_label: 'Camille',
+    });
+    const router = installRunnerApi({
+      session,
+      contacts,
+      sessionResponses: [
+        { session, contacts },
+        { session, contacts: [claimed] },
+      ],
+      onAction: (request) =>
+        request.body?.action === 'claim_contact'
+          ? jsonResponse({ error: 'contact_claimed' }, 409)
+          : jsonResponse({ ok: true }),
+    });
+    const user = userEvent.setup();
+
+    render(<CallManagerApp params={{ session_id: '1' }} />);
+    await screen.findByRole('heading', { name: session.name });
+    await waitFor(() => {
+      expect(
+        router.requests.filter((request) => request.url === '/api/calls?session_id=1'),
+      ).toHaveLength(2);
+    });
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    await screen.findByText('Pris · Camille');
+    expect(actionBodies(router.requests, 'claim_contact')).toHaveLength(1);
+  });
+
   it('prefetches the current context and the next three pending contacts', async () => {
     const session = makeSession();
     const contacts = [
