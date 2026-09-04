@@ -28,11 +28,11 @@ function stringList(value) {
 }
 
 function hasAnyRefineFilter(filters) {
-  return Object.values(filters).some((value) =>
-    Array.isArray(value)
-      ? value.length > 0
-      : value !== null && value !== undefined && value !== '',
-  );
+  return Object.values(filters).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return value !== null && value !== undefined && value !== '';
+  });
 }
 
 export function parseAccountsSearchBody(body) {
@@ -57,7 +57,7 @@ export function parseAccountsSearchBody(body) {
 }
 
 /** Conditions Account.<field> à partir d'un sous-arbre FilterTree["entreprise"]. */
-function accountRefineConditions(filters, account) {
+async function accountRefineConditions(token, filters, account) {
   const conditions = [];
   const sectors = stringList(filters.secteurs);
   if (sectors.length)
@@ -86,7 +86,27 @@ function accountRefineConditions(filters, account) {
       `${account.fields.parentId} = '${escapeSOQL(filters.compte_principal)}'`,
     );
   }
-  return conditions;
+  let parentIds = null;
+  if (
+    typeof filters.compte_principal_name === 'string' &&
+    filters.compte_principal_name.trim()
+  ) {
+    const parentName = escapeSOQL(filters.compte_principal_name.trim());
+    const soql = `SELECT ${account.fields.id} FROM ${account.name} WHERE ${account.fields.name} LIKE '%${parentName}%' LIMIT 25`;
+    const res = await searchContacts(token, soql);
+    if (res.error) return { error: res.error };
+    parentIds = (res.records || [])
+      .map((r) => r[account.fields.id])
+      .filter(Boolean);
+    if (parentIds.length === 0) {
+      conditions.push(`${account.fields.id} = null`);
+    } else {
+      conditions.push(
+        `(${account.fields.id} IN (${escapedList(parentIds)}) OR ${account.fields.parentId} IN (${escapedList(parentIds)}))`,
+      );
+    }
+  }
+  return { conditions, parentIds };
 }
 
 function filterByOpenLost(ids, sets, filters) {
@@ -115,14 +135,21 @@ export async function searchAccounts(client, userId, body) {
 
   const account = mapping.objects.account;
   const af = account.fields;
-  const selectFields = `${af.id}, ${af.name}, ${af.industry}, Owner.Name, ${af.customerType}, ${af.tier}, ${af.employeeCount}`;
+  const selectFields = `${af.id}, ${af.name}, ${af.industry}, Owner.Name, ${af.customerType}, ${af.tier}, ${af.employeeCount}, ${af.parentId}`;
 
   let accountRecords;
   let alreadyRefined = false;
+  let parentIdsSet = new Set();
   if (parsed.q.length === 0) {
     // Recherche filtres seuls : pas de FIND SOSL (plante sur une chaîne vide), on va direct en SOQL.
-    const conditions = accountRefineConditions(parsed.filters, account);
-    const soql = `SELECT ${selectFields} FROM ${account.name} WHERE ${conditions.join(' AND ')} LIMIT ${parsed.limit}`;
+    const refine = await accountRefineConditions(token, parsed.filters, account);
+    if (refine.error) return { error: refine.error, status: 502 };
+    if (refine.parentIds) parentIdsSet = new Set(refine.parentIds);
+    const conditions = refine.conditions;
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
+    const soql = `SELECT ${selectFields} FROM ${account.name} ${whereClause} LIMIT ${parsed.limit}`;
     const soqlResult = await searchContacts(token, soql);
     if (soqlResult.error) return { error: soqlResult.error, status: 502 };
     accountRecords = soqlResult.records || [];
@@ -140,8 +167,11 @@ export async function searchAccounts(client, userId, body) {
     const accountIds = accountRecords.map((record) => record[af.id]);
     const conditions = [
       `${af.id} IN (${escapedList(accountIds)})`,
-      ...accountRefineConditions(parsed.filters, account),
     ];
+    const refine = await accountRefineConditions(token, parsed.filters, account);
+    if (refine.error) return { error: refine.error, status: 502 };
+    if (refine.parentIds) parentIdsSet = new Set(refine.parentIds);
+    conditions.push(...refine.conditions);
     const refineSoql = `SELECT ${af.id} FROM ${account.name} WHERE ${conditions.join(' AND ')}`;
     const refineResult = await searchContacts(token, refineSoql);
     if (refineResult.error) return { error: refineResult.error, status: 502 };
@@ -199,16 +229,23 @@ export async function searchAccounts(client, userId, body) {
     });
   }
 
-  const accounts = accountRecords.map((record) => ({
-    id: record[af.id],
-    name: record[af.name] || '',
-    industry: record[af.industry] ?? null,
-    owner_name: record.Owner?.Name ?? null,
-    type_client: record[af.customerType] ?? null,
-    tier: record[af.tier] ?? null,
-    effectif: record[af.employeeCount] ?? null,
-    contacts: contactsByAccount.get(record[af.id]) || [],
-  }));
+  const accounts = accountRecords.map((record) => {
+    const recordId = record[af.id];
+    const parentId = record[af.parentId] ?? null;
+    const isGroup = parentIdsSet.has(recordId);
+    return {
+      id: recordId,
+      name: record[af.name] || '',
+      industry: record[af.industry] ?? null,
+      owner_name: record.Owner?.Name ?? null,
+      type_client: record[af.customerType] ?? null,
+      tier: record[af.tier] ?? null,
+      effectif: record[af.employeeCount] ?? null,
+      parent_id: parentId,
+      is_group: isGroup,
+      contacts: contactsByAccount.get(recordId) || [],
+    };
+  });
 
   // Exclusion stricte : les contacts déjà dans une séance active sont défiltrés
   // du résultat, sans opt-in. Un compte qui perd tous ses contacts est gardé
