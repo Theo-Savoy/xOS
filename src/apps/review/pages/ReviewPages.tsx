@@ -142,7 +142,11 @@ export function TrajectoryPage({
         scopes={['total']}
       />
       {period.mode === 'fy' ? (
-        <PerformanceSection data={overview.data} loading={overview.loading} />
+        <PerformanceSection
+          data={overview.data}
+          loading={overview.loading}
+          compare={period.compare || comparisonFy(period.fy)}
+        />
       ) : null}
       <BridgeNewSection data={bridge.data} loading={bridge.loading} />
       <RenewTrendSection data={overview.data} loading={overview.loading} />

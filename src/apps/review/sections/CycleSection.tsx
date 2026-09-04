@@ -20,7 +20,7 @@ const PRODUCT_LABELS: Record<(typeof PRODUCT_ORDER)[number], string> = {
   catalogue: 'Catalogue',
   sur_mesure: 'Sur-mesure',
   conseil: 'Conseil',
-  autre: 'Autre / non défini',
+  autre: 'Autre',
 };
 
 export function CycleSection({

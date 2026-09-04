@@ -11,16 +11,18 @@ import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
-import { fmtEur } from '../review.helpers';
+import { fmtEur, fmtPctDelta } from '../review.helpers';
 import { ANNUAL_ONLY_FY, FY_OPTIONS, seriesLabel, seriesSpanLabel } from '../review.period';
 import type { OverviewPayload } from '../review.types';
 
 export function PerformanceSection({
   data,
   loading,
+  compare,
 }: {
   data: OverviewPayload | null;
   loading: boolean;
+  compare: string;
 }) {
   if (loading && !data) {
     return (
@@ -42,6 +44,14 @@ export function PerformanceSection({
 
   const current =
     data.series.find((row) => row.fy === data.fy) || data.series.at(-1);
+  const reference = data.series.find((row) => row.fy === compare);
+  const pctVsRef = (
+    value: number | undefined,
+    refValue: number | undefined,
+  ): string | undefined => {
+    if (value === undefined || !refValue) return undefined;
+    return fmtPctDelta((value - refValue) / refValue);
+  };
   const chartData = data.series.map((row, index) => {
     const previous = data.series[index - 1];
     return {
@@ -69,23 +79,25 @@ export function PerformanceSection({
           label={`CA total ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.total ?? 0)}
           scope="total"
-          hint={`Nouvelles affaires ${fmtEur(current?.new ?? 0)} · Renouvellements ${fmtEur(current?.renew ?? 0)}`}
+          hint={pctVsRef(current?.total, reference?.total)}
         />
         <StatCard
-          label={`CA nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
+          label={`Nouvelles affaires ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.new ?? 0)}
           scope="new"
+          hint={pctVsRef(current?.new, reference?.new)}
         />
         <StatCard
-          label={`CA renouvellements ${seriesLabel(data.fy, data.period)}`}
+          label={`Renouvellements ${seriesLabel(data.fy, data.period)}`}
           value={fmtEur(current?.renew ?? 0)}
           scope="total"
+          hint={pctVsRef(current?.renew, reference?.renew)}
         />
         {current && current.other.amount > 0 ? (
           <StatCard
             label={current.other.label}
             value={fmtEur(current.other.amount)}
-            hint={`${current.other.count} opportunités hors catalogue / sur-mesure / conseil`}
+            hint={pctVsRef(current.other.amount, reference?.other.amount)}
           />
         ) : null}
       </div>
