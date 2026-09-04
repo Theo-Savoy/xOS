@@ -208,7 +208,9 @@ export function AccountSearchView({
   initialStep,
 }: AccountSearchViewProps) {
   const [step, setStep] = useState<WizardStep>(initialStep ?? 0);
-  const [composerSubStep, setComposerSubStep] = useState<'accounts' | 'contacts'>('accounts');
+  const [composerSubStep, setComposerSubStep] = useState<
+    'accounts' | 'contacts'
+  >('accounts');
   const initialPrefs = useRef(readPrefs()).current;
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<AbmFilters>(emptyAbmFilters);
@@ -228,6 +230,10 @@ export function AccountSearchView({
     new Map(),
   );
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  // Dernier compte retiré depuis le composer (suppression douce) : permet
+  // d'adapter le message de l'étape 2 tant que la section « retirés » du
+  // TargetPanel peut encore proposer de le remettre.
+  const lastRemovedRef = useRef<string | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
   const [targetSize, setTargetSize] = useState(initialPrefs.targetSize ?? 50);
@@ -442,27 +448,25 @@ export function AccountSearchView({
     [targetList],
   );
 
-  const nonTargetAccounts = useMemo(() => {
-    if (!canSearch) return [];
-    return accounts.filter((a) => !targetList.has(a.id));
-  }, [accounts, targetList, canSearch]);
-
   const sortedTargetAccounts = useMemo(
     () => sortAccountList(targetAccounts, sortBy),
     [targetAccounts, sortBy],
   );
 
-  const sortedNonTargetAccounts = useMemo(
-    () => sortAccountList(nonTargetAccounts, sortBy),
-    [nonTargetAccounts, sortBy],
+  const hasActiveSearch = query.trim().length > 0 || hasAnyFilter(filters);
+
+  const searchResults = useMemo(
+    () => sortAccountList(accounts, sortBy),
+    [accounts, sortBy],
   );
 
   const displayedAccounts = useMemo(() => {
-    if (query.trim().length === 0 && !hasAnyFilter(filters)) {
-      return sortedTargetAccounts;
-    }
-    return [...sortedTargetAccounts, ...sortedNonTargetAccounts];
-   }, [query, filters, sortedTargetAccounts, sortedNonTargetAccounts]);
+    if (!hasActiveSearch) return sortedTargetAccounts;
+    // Pendant une recherche, les comptes déjà ciblés restent dans la liste à
+    // leur place (badge « Ajouté ») au lieu d'être épinglés en tête, ce qui
+    // perturbait la lecture des résultats au fil de la frappe.
+    return searchResults;
+  }, [hasActiveSearch, searchResults, sortedTargetAccounts]);
 
   const hierarchicalAccounts = useMemo<
     {
@@ -475,7 +479,10 @@ export function AccountSearchView({
       displayedAccounts.filter((a) => a.is_group).map((a) => a.id),
     );
     if (groupIds.size === 0) {
-      return displayedAccounts.map((a) => ({ account: a, isSubsidiary: false }));
+      return displayedAccounts.map((a) => ({
+        account: a,
+        isSubsidiary: false,
+      }));
     }
 
     const subsidiariesByGroup = new Map<string, AccountSearchHit[]>();
@@ -516,8 +523,7 @@ export function AccountSearchView({
       (a) => a.contacts.length > 0,
     );
     const allSelected =
-      allAccounts.length > 0 &&
-      allAccounts.every((a) => targetList.has(a.id));
+      allAccounts.length > 0 && allAccounts.every((a) => targetList.has(a.id));
     setTargetList((prev) => {
       const next = new Map(prev);
       if (allSelected) {
@@ -560,6 +566,20 @@ export function AccountSearchView({
       return next;
     });
   };
+
+  const handleSetRetainedContacts = (
+    accId: string,
+    contactIds: Set<string>,
+  ) => {
+    setTargetList((prev) => {
+      const next = new Map(prev);
+      const entry = next.get(accId);
+      if (!entry) return prev;
+      next.set(accId, { ...entry, contactIds });
+      return next;
+    });
+  };
+
   const handleSelectAll = () => {
     setTargetList((prev) => {
       const next = new Map(prev);
@@ -618,9 +638,7 @@ export function AccountSearchView({
   );
 
   const canProceedToStep2 =
-    query.trim().length >= 2 ||
-    hasAnyFilter(filters) ||
-    targetList.size > 0;
+    query.trim().length >= 2 || hasAnyFilter(filters) || targetList.size > 0;
   const canProceedToStep3 = targetList.size > 0 && totalRetainedInTarget > 0;
   const canLaunchSession =
     groups.length > 0 && (!scheduledFor || scheduledFor >= tomorrowParisIso());
@@ -714,8 +732,8 @@ export function AccountSearchView({
             <Tag>
               {displayedAccounts.length} compte
               {displayedAccounts.length > 1 ? 's' : ''} trouvé
-              {displayedAccounts.length > 1 ? 's' : ''} ·{' '}
-              {totalContactsCount} contact
+              {displayedAccounts.length > 1 ? 's' : ''} · {totalContactsCount}{' '}
+              contact
               {totalContactsCount > 1 ? 's' : ''} au total
             </Tag>
           </div>
@@ -850,30 +868,33 @@ export function AccountSearchView({
             role="list"
             aria-label="Comptes trouvés"
           >
-            {hierarchicalAccounts.map(({ account, isSubsidiary, subsidiaries }) => {
-              const allGroupSelected =
-                subsidiaries && subsidiaries.length > 0
-                  ? [account.id, ...subsidiaries.map((s: AccountSearchHit) => s.id)].every((id) =>
-                      targetList.has(id),
-                    )
-                  : false;
-              return (
-                <AccountRow
-                  key={account.id}
-                  account={account}
-                  inTarget={targetList.has(account.id)}
-                  onToggleTarget={handleToggleTarget}
-                  isSubsidiary={isSubsidiary}
-                  allGroupSelected={allGroupSelected}
-                  groupSubsidiariesCount={subsidiaries?.length ?? 0}
-                  onToggleGroup={
-                    subsidiaries && subsidiaries.length > 0
-                      ? () => handleToggleGroup(account, subsidiaries)
-                      : undefined
-                  }
-                />
-              );
-            })}
+            {hierarchicalAccounts.map(
+              ({ account, isSubsidiary, subsidiaries }) => {
+                const allGroupSelected =
+                  subsidiaries && subsidiaries.length > 0
+                    ? [
+                        account.id,
+                        ...subsidiaries.map((s: AccountSearchHit) => s.id),
+                      ].every((id) => targetList.has(id))
+                    : false;
+                return (
+                  <AccountRow
+                    key={account.id}
+                    account={account}
+                    inTarget={targetList.has(account.id)}
+                    onToggleTarget={handleToggleTarget}
+                    isSubsidiary={isSubsidiary}
+                    allGroupSelected={allGroupSelected}
+                    groupSubsidiariesCount={subsidiaries?.length ?? 0}
+                    onToggleGroup={
+                      subsidiaries && subsidiaries.length > 0
+                        ? () => handleToggleGroup(account, subsidiaries)
+                        : undefined
+                    }
+                  />
+                );
+              },
+            )}
           </div>
         </>
       )}
@@ -955,7 +976,8 @@ export function AccountSearchView({
                           Rechercher par nom
                         </span>
                         <span className="calls-abm-choice-card__desc">
-                          Saisissez le nom d&apos;une entreprise ou son compte principal
+                          Saisissez le nom d&apos;une entreprise ou son compte
+                          principal
                         </span>
                       </span>
                     </Button>
@@ -972,7 +994,8 @@ export function AccountSearchView({
                           Rechercher par filtres
                         </span>
                         <span className="calls-abm-choice-card__desc">
-                          Secteurs, effectifs, type de client, tier, propriétaires
+                          Secteurs, effectifs, type de client, tier,
+                          propriétaires
                         </span>
                       </span>
                     </Button>
@@ -1034,7 +1057,8 @@ export function AccountSearchView({
                               Nom du compte principal
                             </h3>
                             <p className="calls-abm-name-card__desc">
-                              Rechercher le groupe et ses filiales par le nom du compte principal
+                              Rechercher le groupe et ses filiales par le nom du
+                              compte principal
                             </p>
                           </div>
                           <label className="calls-field">
@@ -1185,9 +1209,7 @@ export function AccountSearchView({
                               label="Effectifs"
                               options={asOptions(EFFECTIF_TRANCHES)}
                               value={filters.effectifs}
-                              onChange={(effectifs) =>
-                                setFilter({ effectifs })
-                              }
+                              onChange={(effectifs) => setFilter({ effectifs })}
                             />
                             <ChipGroup
                               label="Type de client"
@@ -1206,48 +1228,48 @@ export function AccountSearchView({
                             {ownerOptions.length > 0 && (
                               <ChipGroup
                                 label="Propriétaire du compte"
-                                 hint="Commercial propriétaire du compte Salesforce"
-                                 options={ownerOptions}
-                                 value={filters.proprietaires}
-                                 onChange={(proprietaires) =>
-                                   setFilter({ proprietaires })
-                                 }
-                               />
-                             )}
-                             <label className="calls-field">
-                               <span>Compte principal (ID CRM)</span>
-                               <input
-                                 type="text"
-                                 className="calls-input"
-                                 value={filters.compte_principal ?? ''}
-                                 onChange={(e) =>
-                                   setFilter({
-                                     compte_principal: e.target.value || null,
-                                   })
-                                 }
-                                 placeholder="001…"
-                                 aria-label="Compte principal (ID CRM)"
-                               />
-                             </label>
-                           </div>
-                         </details>
-                         {(query.trim() || hasAnyFilter(filters)) && (
-                           <div className="calls-fb-actions">
-                             <Button
-                               variant="secondary"
-                               onClick={handleResetAll}
-                               disabled={loading}
-                               aria-label="Réinitialiser la recherche"
-                             >
-                               Réinitialiser
-                             </Button>
-                           </div>
-                         )}
-                       </GlassCard>
-                     </div>
-                   )}
-                 </div>
-               )}
+                                hint="Commercial propriétaire du compte Salesforce"
+                                options={ownerOptions}
+                                value={filters.proprietaires}
+                                onChange={(proprietaires) =>
+                                  setFilter({ proprietaires })
+                                }
+                              />
+                            )}
+                            <label className="calls-field">
+                              <span>Compte principal (ID CRM)</span>
+                              <input
+                                type="text"
+                                className="calls-input"
+                                value={filters.compte_principal ?? ''}
+                                onChange={(e) =>
+                                  setFilter({
+                                    compte_principal: e.target.value || null,
+                                  })
+                                }
+                                placeholder="001…"
+                                aria-label="Compte principal (ID CRM)"
+                              />
+                            </label>
+                          </div>
+                        </details>
+                        {(query.trim() || hasAnyFilter(filters)) && (
+                          <div className="calls-fb-actions">
+                            <Button
+                              variant="secondary"
+                              onClick={handleResetAll}
+                              disabled={loading}
+                              aria-label="Réinitialiser la recherche"
+                            >
+                              Réinitialiser
+                            </Button>
+                          </div>
+                        )}
+                      </GlassCard>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1297,16 +1319,26 @@ export function AccountSearchView({
                 </div>
               )}
 
-              {searchMode === 'filters' && composerSubStep === 'accounts' && (
-                renderAccountResults(true)
-              )}
+              {searchMode === 'filters' &&
+                composerSubStep === 'accounts' &&
+                renderAccountResults(true)}
 
-              {(searchMode === 'name' || (searchMode === 'filters' && composerSubStep === 'contacts')) && (
+              {(searchMode === 'name' ||
+                (searchMode === 'filters' &&
+                  composerSubStep === 'contacts')) && (
                 <div className="calls-abm-composer-contacts">
                   {targetList.size === 0 ? (
                     <EmptyState
-                      title="Votre cible est vide"
-                      description="Recherchez et sélectionnez des comptes dans l'étape précédente pour composer votre cible."
+                      title={
+                        lastRemovedRef.current !== null
+                          ? 'Comptes retirés'
+                          : 'Votre cible est vide'
+                      }
+                      description={
+                        lastRemovedRef.current !== null
+                          ? 'Remettez un compte depuis le panneau ci-dessus si vous changez d’avis, ou revenez à la recherche.'
+                          : "Recherchez et sélectionnez des comptes dans l'étape précédente pour composer votre cible."
+                      }
                       action={
                         <Button
                           variant="secondary"
@@ -1326,13 +1358,24 @@ export function AccountSearchView({
                       <TargetPanel
                         targetList={targetList}
                         onToggleContact={handleToggleContact}
-                        onRemoveAccount={(id) =>
+                        onSetRetainedContacts={handleSetRetainedContacts}
+                        onRemoveAccount={(id) => {
+                          lastRemovedRef.current = id;
                           setTargetList((prev) => {
                             const n = new Map(prev);
                             n.delete(id);
                             return n;
-                          })
-                        }
+                          });
+                        }}
+                        onRestoreAccount={(entry) => {
+                          lastRemovedRef.current = null;
+                          setTargetList((prev) => {
+                            const n = new Map(prev);
+                            if (n.has(entry.account.id)) return prev;
+                            n.set(entry.account.id, entry);
+                            return n;
+                          });
+                        }}
                         onClearTarget={() => setTargetList(new Map())}
                         hideFooter
                       />
@@ -1469,7 +1512,9 @@ export function AccountSearchView({
           <AbmWizardRecap
             step={step}
             searchMode={searchMode}
-            matchAccountsCount={searchMode === 'filters' ? accounts.length : null}
+            matchAccountsCount={
+              searchMode === 'filters' ? accounts.length : null
+            }
             matchAccountsCapped={searchMode === 'filters' ? truncated : false}
             composerSubStep={composerSubStep}
             query={query}

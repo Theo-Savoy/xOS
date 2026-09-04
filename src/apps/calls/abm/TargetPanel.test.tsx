@@ -70,9 +70,7 @@ function makeTargetList(
 ): Map<string, TargetEntry> {
   const account = makeAccount(contacts);
   const ids = selectedIds ?? contacts.map((c) => c.sf_contact_id);
-  return new Map([
-    [account.id, { account, contactIds: new Set(ids) }],
-  ]);
+  return new Map([[account.id, { account, contactIds: new Set(ids) }]]);
 }
 
 function serializeTarget(list: Map<string, TargetEntry>) {
@@ -105,13 +103,37 @@ function Harness({
     });
   };
 
+  const handleSetRetained = (accountId: string, contactIds: Set<string>) => {
+    setTargetList((prev) => {
+      const next = new Map(prev);
+      const entry = next.get(accountId);
+      if (!entry) return prev;
+      next.set(accountId, { ...entry, contactIds });
+      return next;
+    });
+  };
+
   return (
     <>
       <TargetPanel
         targetList={targetList}
         onToggleContact={handleToggle}
-        onRemoveAccount={vi.fn()}
-        onClearTarget={vi.fn()}
+        onSetRetainedContacts={handleSetRetained}
+        onRemoveAccount={(accountId) =>
+          setTargetList((prev) => {
+            const next = new Map(prev);
+            next.delete(accountId);
+            return next;
+          })
+        }
+        onRestoreAccount={(entry) =>
+          setTargetList((prev) => {
+            const next = new Map(prev);
+            next.set(entry.account.id, entry);
+            return next;
+          })
+        }
+        onClearTarget={() => setTargetList(new Map())}
         onPrepareSessions={vi.fn()}
       />
       <pre data-testid="selection-dump">
@@ -129,10 +151,10 @@ describe('TargetPanel — filtres de contacts', () => {
   it('never deselects contacts when the channel filter changes', async () => {
     const user = userEvent.setup();
     const onToggleContact = vi.fn();
-    const initial = makeTargetList([marie, alice], [
-      marie.sf_contact_id,
-      alice.sf_contact_id,
-    ]);
+    const initial = makeTargetList(
+      [marie, alice],
+      [marie.sf_contact_id, alice.sf_contact_id],
+    );
 
     render(<Harness initial={initial} onToggleContact={onToggleContact} />);
 
@@ -151,6 +173,7 @@ describe('TargetPanel — filtres de contacts', () => {
       ).checked,
     ).toBe(true);
 
+    // Aucun canal coché = aucun filtre : les deux contacts sont visibles.
     await user.click(screen.getByRole('button', { name: 'A téléphone' }));
 
     expect(onToggleContact).not.toHaveBeenCalled();
@@ -168,7 +191,8 @@ describe('TargetPanel — filtres de contacts', () => {
       screen.queryByRole('checkbox', { name: 'Retenir Alice Martin' }),
     ).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Tous' }));
+    // Décocher le canal ré-affiche tout, sans toucher à la sélection.
+    await user.click(screen.getByRole('button', { name: 'A téléphone' }));
 
     expect(onToggleContact).not.toHaveBeenCalled();
     expect(
@@ -183,15 +207,37 @@ describe('TargetPanel — filtres de contacts', () => {
     );
   });
 
+  it('combines phone AND email channel filters cumulatively (OR)', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={makeTargetList([marie, jean, alice])} />);
+
+    // Marie : téléphone + email, Jean : téléphone seul, Alice : email seule.
+    await user.click(screen.getByRole('button', { name: 'A téléphone' }));
+    expect(screen.queryByText('Alice Martin')).toBeNull();
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
+
+    // Cumul : téléphone OU email → les trois contacts sont visibles.
+    await user.click(screen.getByRole('button', { name: 'A email' }));
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+
+    // Décocher téléphone : ne restent que les contacts avec email.
+    await user.click(screen.getByRole('button', { name: 'A téléphone' }));
+    expect(screen.queryByText('Jean Petit')).toBeNull();
+    expect(screen.getByText('Marie Dupont')).toBeTruthy();
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+  });
+
   it('keeps the retained-contacts counter stable across filters', async () => {
     const user = userEvent.setup();
     render(
       <Harness
-        initial={makeTargetList([marie, jean, alice], [
-          marie.sf_contact_id,
-          jean.sf_contact_id,
-          alice.sf_contact_id,
-        ])}
+        initial={makeTargetList(
+          [marie, jean, alice],
+          [marie.sf_contact_id, jean.sf_contact_id, alice.sf_contact_id],
+        )}
       />,
     );
 
@@ -203,9 +249,19 @@ describe('TargetPanel — filtres de contacts', () => {
     expect(summary()).toBeTruthy();
     expect(screen.getByText('1 contact masqué par le filtre')).toBeTruthy();
 
+    // Cumul téléphone + email : les trois contacts sont visibles, plus de masquage.
     await user.click(screen.getByRole('button', { name: 'A email' }));
     expect(summary()).toBeTruthy();
-    expect(screen.getByText('1 contact masqué par le filtre')).toBeTruthy();
+    expect(screen.queryByText(/masqué/)).toBeNull();
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
+
+    // Plus aucun canal coché : plus de masquage par canal.
+    await user.click(screen.getByRole('button', { name: 'A téléphone' }));
+    await user.click(screen.getByRole('button', { name: 'A email' }));
+    expect(summary()).toBeTruthy();
+    expect(screen.queryByText(/masqué/)).toBeNull();
+    expect(screen.getByText('Jean Petit')).toBeTruthy();
 
     await user.type(
       screen.getByPlaceholderText('Rechercher un contact…'),
@@ -276,32 +332,31 @@ describe('TargetPanel — filtres de contacts', () => {
     ).toBeTruthy();
   });
 
-  it('filters contacts by fonction preset without deselecting them', async () => {
+  it('selecting a fonction preset retains only matching contacts', async () => {
     const user = userEvent.setup();
-    const onToggleContact = vi.fn();
-    const initial = makeTargetList([marie, jean, alice], [
-      marie.sf_contact_id,
-      jean.sf_contact_id,
-      alice.sf_contact_id,
-    ]);
+    const initial = makeTargetList(
+      [marie, jean, alice],
+      [marie.sf_contact_id, jean.sf_contact_id, alice.sf_contact_id],
+    );
 
-    render(<Harness initial={initial} onToggleContact={onToggleContact} />);
+    render(<Harness initial={initial} />);
 
+    // Cocher « Responsable formation » : seule Marie (titre matchant) reste retenue.
     await user.click(
       screen.getByRole('button', { name: 'Responsable formation' }),
     );
 
-    expect(onToggleContact).not.toHaveBeenCalled();
     expect(screen.getByTestId('selection-dump').textContent).toBe(
-      JSON.stringify(serializeTarget(initial)),
+      JSON.stringify([
+        {
+          accountId: '001acme',
+          contactIds: ['003marie'],
+        },
+      ]),
     );
-    expect(screen.getByText('Marie Dupont')).toBeTruthy();
-    expect(screen.queryByText('Jean Petit')).toBeNull();
-    expect(screen.queryByText('Alice Martin')).toBeNull();
     expect(
-      within(panel()).getByText(/1 compte · 3 contacts retenus/),
+      within(panel()).getByText(/1 compte · 1 contact retenu/),
     ).toBeTruthy();
-    expect(screen.getByText('2 contacts masqués par le filtre')).toBeTruthy();
     expect(
       (
         screen.getByRole('checkbox', {
@@ -309,15 +364,62 @@ describe('TargetPanel — filtres de contacts', () => {
         }) as HTMLInputElement
       ).checked,
     ).toBe(true);
+    expect(
+      screen.queryByRole('checkbox', { name: 'Retenir Jean Petit' }),
+    ).toBeNull();
 
+    // Décocher le preset : tout est resélectionné.
     await user.click(
-      screen.getByRole('button', { name: 'Chargé de formation' }),
+      screen.getByRole('button', { name: 'Responsable formation' }),
     );
 
-    expect(onToggleContact).not.toHaveBeenCalled();
-    expect(screen.getByText('Marie Dupont')).toBeTruthy();
-    expect(screen.getByText('Alice Martin')).toBeTruthy();
-    expect(screen.queryByText('Jean Petit')).toBeNull();
-    expect(screen.getByText('1 contact masqué par le filtre')).toBeTruthy();
+    expect(screen.getByTestId('selection-dump').textContent).toBe(
+      JSON.stringify(serializeTarget(initial)),
+    );
+    expect(
+      within(panel()).getByText(/1 compte · 3 contacts retenus/),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Retenir Jean Petit',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+  });
+
+  it('soft-removes an account into a restorable section, preserving its contact selection', async () => {
+    const user = userEvent.setup();
+    const initial = makeTargetList([marie, jean], [marie.sf_contact_id]);
+
+    render(<Harness initial={initial} />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Retirer ACME de la cible' }),
+    );
+
+    // Le compte sort du récap (plus compté comme ciblé)…
+    expect(
+      within(panel()).getByText(/0 compte · 0 contact retenu/),
+    ).toBeTruthy();
+    // …mais reste listé comme retiré, grisé, avec sa sélection conservée.
+    expect(screen.getByText('ACME')).toBeTruthy();
+    expect(screen.getByText('1 contact')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Remettre ACME dans la cible' }),
+    ).toBeTruthy();
+
+    // Remettre : le compte revient avec sa sélection d'origine (Marie only).
+    await user.click(
+      screen.getByRole('button', { name: 'Remettre ACME dans la cible' }),
+    );
+
+    expect(screen.getByTestId('selection-dump').textContent).toBe(
+      JSON.stringify(serializeTarget(initial)),
+    );
+    expect(
+      within(panel()).getByText(/1 compte · 1 contact retenu/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Comptes retirés/)).toBeNull();
   });
 });
