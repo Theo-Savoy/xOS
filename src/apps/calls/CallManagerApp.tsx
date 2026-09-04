@@ -1058,8 +1058,8 @@ export default function CallManagerApp({
   const openRecalls = useCallback(async () => {
     if (!token) return;
     setRunnerError(null);
+    setContacts([]);
     setFocusedContactId(null);
-    setAwaitingEvent(null);
     setContactContext(null);
     setContextContactId(null);
     setRecallsLoading(true);

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, GlassCard, Skeleton, Tag } from '../../../../components/ui';
 import {
   RECALL_ELIGIBLE_RESULTATS,
   RELANCE_DEFAULT_RESULTATS,
@@ -1819,19 +1819,7 @@ export function RunnerView({
         </GlassCard>
       )}
 
-      {isRecallQueue && contacts.length === 0 && !loading ? (
-        <GlassCard className="calls-empty calls-empty--hero">
-          <EmptyState
-            title="Rien à rappeler"
-            description="Aucun rappel en attente — dès qu'un appel planifie un rappel, il atterrit ici."
-            action={
-              <Button variant="secondary" onClick={onBack}>
-                Retour au hub
-              </Button>
-            }
-          />
-        </GlassCard>
-      ) : mode === 'list' ? (
+      {mode === 'list' ? (
         isPowerConversationActive ? null : isPowerActive ? (
           <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
             <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
@@ -2337,7 +2325,7 @@ export function RunnerView({
                   aria-label="Filtrer la liste"
                 />
               </div>
-              <div className="calls-cockpit-list__scroll">
+              <div className="calls-cockpit-list__scroll" aria-busy={isRecallQueue && loading}>
                 <ul
                   className={`calls-cockpit-list__rows${isRecallQueue ? ' calls-cockpit-list__rows--recalls' : ''}`}
                 >
@@ -2491,10 +2479,18 @@ export function RunnerView({
                   {filteredContacts.length === 0 && (
                     <li className="calls-cockpit-list__empty">
                       {isRecallQueue ? (
-                        <EmptyState
-                          title="Calme plat sur ce filtre"
-                          description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
-                        />
+                        loading ? (
+                          <div className="calls-recalls-skeleton" aria-hidden="true">
+                            <Skeleton height={42} />
+                            <Skeleton height={42} />
+                            <Skeleton height={42} />
+                          </div>
+                        ) : (
+                          <EmptyState
+                            title="Calme plat sur ce filtre"
+                            description="Aucun rappel ici — essayez « En retard », « À venir » ou « Tous »."
+                          />
+                        )
                       ) : (
                         'Aucun contact pour ce filtre.'
                       )}

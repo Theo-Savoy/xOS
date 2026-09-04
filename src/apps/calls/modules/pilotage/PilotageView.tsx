@@ -8,8 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useSession } from '../../../../auth/useSession';
-import { WindowBootScreen } from '../../../../components/WindowBootScreen';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, GlassCard, Skeleton, Tag } from '../../../../components/ui';
 import { todayParisIso as todayParisDate } from '../../../../lib/dates';
 import { CallFunnelCard } from './CallFunnelCard';
 import { stagesFromPeriodKpis } from './CallFunnelCard.helpers';
@@ -233,7 +232,28 @@ function dayCallersToCards(
     );
 }
 
-function FunnelStrip({ kpis }: { kpis: PeriodKpis }) {
+function FunnelStrip({ kpis, loading }: { kpis: PeriodKpis; loading?: boolean }) {
+  if (loading) {
+    return (
+      <section className="pilotage-kpis" aria-label="Indicateurs">
+        <GlassCard className="pilotage-stat">
+          <Skeleton height={42} />
+        </GlassCard>
+        <GlassCard className="pilotage-stat">
+          <Skeleton height={42} />
+        </GlassCard>
+        <GlassCard className="pilotage-stat">
+          <Skeleton height={42} />
+        </GlassCard>
+        <GlassCard className="pilotage-stat">
+          <Skeleton height={42} />
+        </GlassCard>
+        <GlassCard className="pilotage-stat pilotage-stat--accent">
+          <Skeleton height={42} />
+        </GlassCard>
+      </section>
+    );
+  }
   return (
     <section className="pilotage-kpis" aria-label="Indicateurs">
       <GlassCard className="pilotage-stat">
@@ -449,7 +469,7 @@ export function PilotageView({
   onPin?: () => Promise<void>;
   onOpenSuivi?: () => void;
 }) {
-  const { session, loading: sessionLoading } = useSession();
+  const { session } = useSession();
   const token = session?.access_token ?? null;
   const [period, setPeriod] = useState<CockpitPeriod>('day');
   const [anchor, setAnchor] = useState<string | null>(null);
@@ -702,9 +722,6 @@ export function PilotageView({
     dispatchCockpit({ type: 'toggle', id });
   };
 
-  if (sessionLoading || (loading && !data && !error)) {
-    return <WindowBootScreen label="Pilotage" />;
-  }
 
   if (!token) {
     return (
@@ -900,7 +917,8 @@ export function PilotageView({
         </p>
       )}
 
-      <FunnelStrip kpis={kpis} />
+      <div className="pilotage-app__content" aria-busy={loading && !data}>
+        <FunnelStrip kpis={kpis} loading={loading && !data} />
 
       <div className="pilotage-compact-row">
         <PilotageHeatmap
@@ -1302,6 +1320,7 @@ export function PilotageView({
             </table>
           )}
         </GlassCard>
+      </div>
       </div>
     </div>
   );

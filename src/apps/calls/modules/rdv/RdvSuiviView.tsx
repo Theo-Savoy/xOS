@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from '../../../../auth/useSession';
-import { WindowBootScreen } from '../../../../components/WindowBootScreen';
 import {
   Button,
   DatePicker,
   EmptyState,
+  Skeleton,
   TimePicker,
 } from '../../../../components/ui';
 import { todayParisIso } from '../../../../lib/dates';
@@ -273,15 +273,6 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
 
   const hasData = rdvs.length > 0;
 
-  // Chargement initial uniquement — les changements de période restent in-place
-  if (initialLoading) {
-    return (
-      <div className="calls-app">
-        <WindowBootScreen label="Chargement du suivi RDV…" />
-      </div>
-    );
-  }
-
   return (
     <div className="rdv-suivi" aria-label="Suivi des rendez-vous">
       <header className="rdv-suivi__header">
@@ -319,73 +310,86 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
         </div>
       )}
 
-      {/* Past / À renseigner */}
-      {sections.past.length > 0 && (
-        <section className="rdv-suivi__section">
-          <h2 className="rdv-suivi__section-title">À renseigner</h2>
-          {sections.past.map((rdv) => (
-            <RdvRow
-              key={rdv.sf_event_id}
-              rdv={rdv}
-              expanded={expandedId === rdv.sf_event_id}
-              onExpand={() => handleExpand(rdv)}
-              formStatus={formStatus}
-              formNotes={formNotes}
-              formNewDate={formNewDate}
-              formNewTime={formNewTime}
-              saving={saving}
-              saveError={saveError}
-              sfWarning={sfWarning}
-              onStatusChange={setFormStatus}
-              onNotesChange={setFormNotes}
-              onNewDateChange={setFormNewDate}
-              onNewTimeChange={setFormNewTime}
-              onSubmit={() => void handleSubmit(rdv)}
-            />
-          ))}
-        </section>
-      )}
+      <div className="rdv-suivi__content" aria-busy={initialLoading}>
+        {initialLoading ? (
+          <section className="rdv-suivi__section">
+            <h2 className="rdv-suivi__section-title">À renseigner</h2>
+            <Skeleton height={44} />
+            <Skeleton height={44} />
+            <Skeleton height={44} />
+          </section>
+        ) : (
+          <>
+            {/* Past / À renseigner */}
+            {sections.past.length > 0 && (
+              <section className="rdv-suivi__section">
+                <h2 className="rdv-suivi__section-title">À renseigner</h2>
+                {sections.past.map((rdv) => (
+                  <RdvRow
+                    key={rdv.sf_event_id}
+                    rdv={rdv}
+                    expanded={expandedId === rdv.sf_event_id}
+                    onExpand={() => handleExpand(rdv)}
+                    formStatus={formStatus}
+                    formNotes={formNotes}
+                    formNewDate={formNewDate}
+                    formNewTime={formNewTime}
+                    saving={saving}
+                    saveError={saveError}
+                    sfWarning={sfWarning}
+                    onStatusChange={setFormStatus}
+                    onNotesChange={setFormNotes}
+                    onNewDateChange={setFormNewDate}
+                    onNewTimeChange={setFormNewTime}
+                    onSubmit={() => void handleSubmit(rdv)}
+                  />
+                ))}
+              </section>
+            )}
 
-      {/* Upcoming by day */}
-      {sections.upcoming.map(([key, items]) => (
-        <section key={key} className="rdv-suivi__section">
-          <h2 className="rdv-suivi__section-title">
-            {sectionLabel(key, today)}
-          </h2>
-          {items.map((rdv) => (
-            <RdvRow
-              key={rdv.sf_event_id}
-              rdv={rdv}
-              expanded={expandedId === rdv.sf_event_id}
-              onExpand={() => handleExpand(rdv)}
-              formStatus={formStatus}
-              formNotes={formNotes}
-              formNewDate={formNewDate}
-              formNewTime={formNewTime}
-              saving={saving}
-              saveError={saveError}
-              sfWarning={sfWarning}
-              onStatusChange={setFormStatus}
-              onNotesChange={setFormNotes}
-              onNewDateChange={setFormNewDate}
-              onNewTimeChange={setFormNewTime}
-              onSubmit={() => void handleSubmit(rdv)}
-            />
-          ))}
-        </section>
-      ))}
+            {/* Upcoming by day */}
+            {sections.upcoming.map(([key, items]) => (
+              <section key={key} className="rdv-suivi__section">
+                <h2 className="rdv-suivi__section-title">
+                  {sectionLabel(key, today)}
+                </h2>
+                {items.map((rdv) => (
+                  <RdvRow
+                    key={rdv.sf_event_id}
+                    rdv={rdv}
+                    expanded={expandedId === rdv.sf_event_id}
+                    onExpand={() => handleExpand(rdv)}
+                    formStatus={formStatus}
+                    formNotes={formNotes}
+                    formNewDate={formNewDate}
+                    formNewTime={formNewTime}
+                    saving={saving}
+                    saveError={saveError}
+                    sfWarning={sfWarning}
+                    onStatusChange={setFormStatus}
+                    onNotesChange={setFormNotes}
+                    onNewDateChange={setFormNewDate}
+                    onNewTimeChange={setFormNewTime}
+                    onSubmit={() => void handleSubmit(rdv)}
+                  />
+                ))}
+              </section>
+            ))}
 
-      {/* Empty state — composant standard */}
-      {!error && !hasData && (
-        <EmptyState
-          title={`Aucun RDV ${period === 'week' ? 'cette semaine' : period === 'month' ? 'ce mois' : ''}`}
-          description={
-            period === 'all'
-              ? 'Les RDV créés dans Combo ou Salesforce apparaîtront ici.'
-              : "Changez de période ou créez un RDV depuis une session d'appel."
-          }
-        />
-      )}
+            {/* Empty state — composant standard */}
+            {!error && !hasData && (
+              <EmptyState
+                title={`Aucun RDV ${period === 'week' ? 'cette semaine' : period === 'month' ? 'ce mois' : ''}`}
+                description={
+                  period === 'all'
+                    ? 'Les RDV créés dans Combo ou Salesforce apparaîtront ici.'
+                    : "Changez de période ou créez un RDV depuis une session d'appel."
+                }
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

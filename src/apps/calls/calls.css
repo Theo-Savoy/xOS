@@ -1134,16 +1134,9 @@
   text-align: center;
   padding: 1.25rem;
 }
-
-.calls-empty--hero {
-  padding: 2rem 1.5rem;
-  justify-items: center;
-}
-
-.calls-empty--hero h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  letter-spacing: -0.02em;
+.calls-recalls-skeleton {
+  display: grid;
+  gap: 0.5rem;
 }
 
 .calls-error p,
