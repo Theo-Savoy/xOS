@@ -90,8 +90,7 @@ export function ActivitySection({
         </table>
         <p className="review-section-note">{data.rdv_limit}</p>
         <p className="review-section-note">
-          On ne peut pas mesurer combien de ventes viennent du SDR : aucune clé
-          RDV → Opportunity. {data.attribution_limit}
+          On ne peut pas mesurer combien de ventes viennent du SDR.
         </p>
       </GlassCard>
     </div>

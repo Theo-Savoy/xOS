@@ -66,8 +66,8 @@ export function QualitySection({
       <GlassCard className="review-chart-card">
         <h3 className="review-card-title">Volumétrie export</h3>
         <p className="review-section-kicker">
-          {data.created_rows} lignes CreatedDate · {data.closed_rows} lignes
-          CloseDate sur la fenêtre chargée
+          {data.created_rows} lignes par date de création · {data.closed_rows}{' '}
+          par date de clôture
         </p>
         <ul className="review-study-points">
           {data.limits.map((limit) => (

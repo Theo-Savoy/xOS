@@ -114,8 +114,7 @@ export function ProductivitySection({
           </tbody>
         </table>
         <p className="review-section-note">
-          ETP fournis par la direction, non dérivés de Salesforce. Jérôme est
-          hors dénominateur. {data.attribution_limit}
+          ETP fournis par la direction, Jérôme hors dénominateur.
         </p>
       </GlassCard>
     </div>

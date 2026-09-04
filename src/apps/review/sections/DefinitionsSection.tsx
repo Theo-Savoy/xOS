@@ -34,7 +34,7 @@ export function DefinitionsSection({
           </h3>
           <ScopeTag scope="total" />
           <p className="review-section-kicker">
-            Neuf règles métier affichables — source de vérité du bilan
+            Les règles de calcul du bilan, en un coup d'œil
           </p>
         </div>
       </header>
