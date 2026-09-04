@@ -351,7 +351,7 @@ describe('RunnerView — défauts connus à protéger pendant la migration', () 
     },
   );
 
-  it.fails(
+  it(
     'does not leave the contact sheet when L is pressed during a Power conversation',
     async () => {
       const user = userEvent.setup();
