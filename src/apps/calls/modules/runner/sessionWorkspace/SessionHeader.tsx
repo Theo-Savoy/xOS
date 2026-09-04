@@ -20,6 +20,15 @@ export interface SessionHeaderProps {
   /** Déclencheur optionnel pour la sheet File d'attente en responsive (<720px) */
   onToggleQueueSheet?: () => void;
   isQueueSheetOpen?: boolean;
+  /** Droits Power Dialer disponibles */
+  canPowerDialer?: boolean;
+  /** État d'activation du mode Power */
+  isPowerActive?: boolean;
+  /** Bascule l'activation du mode Power */
+  onTogglePower?: () => void;
+  /** Déclencheur pour ouvrir la sheet Power en affichage mobile (<720px) */
+  onTogglePowerSheet?: () => void;
+  isPowerSheetOpen?: boolean;
 }
 
 export function SessionHeader({
@@ -35,6 +44,11 @@ export function SessionHeader({
   isInspectorSheetOpen,
   onToggleQueueSheet,
   isQueueSheetOpen,
+  canPowerDialer = false,
+  isPowerActive = false,
+  onTogglePower,
+  onTogglePowerSheet,
+  isPowerSheetOpen = false,
 }: SessionHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -147,6 +161,32 @@ export function SessionHeader({
           </Button>
         )}
 
+        {/* Toggle Power : activation desktop et ouverture sheet mobile */}
+        {canPowerDialer && onTogglePower && (
+          <Button
+            variant={isPowerActive ? 'primary' : 'ghost'}
+            size="md"
+            className="calls-workspace__power-toggle-btn"
+            onClick={onTogglePower}
+            aria-pressed={isPowerActive}
+            aria-label={isPowerActive ? 'Désactiver le mode Power' : 'Activer le mode Power'}
+          >
+            ⚡ Power
+          </Button>
+        )}
+
+        {canPowerDialer && onTogglePowerSheet && (
+          <Button
+            variant={isPowerActive ? 'primary' : 'ghost'}
+            size="md"
+            className="calls-workspace__sheet-toggle calls-workspace__sheet-toggle--power"
+            onClick={onTogglePowerSheet}
+            aria-expanded={isPowerSheetOpen}
+            aria-label="Ouvrir la console Power"
+          >
+            ⚡ Power
+          </Button>
+        )}
         {/* Menu utilitaires de la séance (partage, épinglage, aide, commandes AU MENU uniquement) */}
         <div className="calls-workspace__menu-container" ref={menuRef}>
           <Button

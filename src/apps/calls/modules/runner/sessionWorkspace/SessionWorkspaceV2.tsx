@@ -3,11 +3,11 @@ import { EmptyState, GlassCard, Skeleton } from '../../../../../components/ui';
 import { RunnerView } from '../RunnerView';
 import { ContactWorkspace } from './ContactWorkspace';
 import { ContextInspector } from './ContextInspector';
-import { derivePowerViewModel, projectPowerQueue } from './powerUiState';
 import { PowerWorkspace } from './PowerWorkspace';
 import { SessionHeader } from './SessionHeader';
 import { SessionQueue } from './SessionQueue';
 import type { SessionWorkspaceProps } from './types';
+import { useSessionPowerPool } from './useSessionPowerPool';
 
 /**
  * Surface SessionWorkspace V2 complète (Issue #119 - Lot L2).
@@ -105,25 +105,45 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     return currentContact ?? contacts[0] ?? null;
   }, [awaitingEvent, contacts, currentContact, internalFocusedId]);
 
-  // Gestion du mode Power (placeholder L2)
-  const [isPowerActive, setIsPowerActive] = useState(false);
+  // Machine Power réelle dérivée des booléens du pool (Lot L4)
+  const powerPool = useSessionPowerPool({
+    token: props.token,
+    sessionId: session.id,
+    contacts,
+    currentUserId,
+    canPowerDialer,
+    onFocusContact: (id) => {
+      if (awaitingEvent) return;
+      setInternalFocusedId(id);
+      onFocusContact(id);
+    },
+    onBack,
+  });
 
-  // Projection unique de la file Power (Plan §2 & I9)
-  const projectedQueue = useMemo(() => {
-    return projectPowerQueue(contacts, currentUserId);
-  }, [contacts, currentUserId]);
-
-  // Vue modèle pure dérivée (Grok note c : pas d'assertValidPowerUiTransition au render)
-  const powerViewModel = useMemo(() => {
-    return derivePowerViewModel({
-      powerOn: isPowerActive,
-      powerAvailable: canPowerDialer,
-      hasConnectedLine: false,
-      isAcw: false, // L3 : restera false tant que la machine Power L4 n'existe pas (repli rail ACW = L4)
-      isRunning: false,
-      hangupRetryable: false,
-    });
-  }, [isPowerActive, canPowerDialer]);
+  const {
+    isPowerActive,
+    togglePower,
+    powerViewModel,
+    projectedQueue,
+    parallelism,
+    setParallelism,
+    callerNumber,
+    setCallerNumber,
+    callerNumbers,
+    quota,
+    lines,
+    byPhone,
+    error: powerError,
+    agentConnected,
+    launching,
+    hasAttempted,
+    onLaunch,
+    onHangupAll,
+    onSkip,
+    onRetryHangup,
+    notifyLogged,
+    requestExit,
+  } = powerPool;
 
   // Sheets responsive pour <900px et <720px
   const [isInspectorSheetOpen, setIsInspectorSheetOpen] = useState(false);
@@ -155,17 +175,21 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       <SessionHeader
         session={session}
         contacts={contacts}
-        onBack={onBack}
+        onBack={requestExit}
         onPin={onPin}
         onShareSession={onShareSession}
         team={team}
         currentUserId={currentUserId}
+        canPowerDialer={canPowerDialer}
+        isPowerActive={isPowerActive}
+        onTogglePower={togglePower}
+        onTogglePowerSheet={() => setIsPowerSheetOpen(true)}
+        isPowerSheetOpen={isPowerSheetOpen}
         onToggleInspectorSheet={() => setIsInspectorSheetOpen(true)}
         isInspectorSheetOpen={isInspectorSheetOpen}
         onToggleQueueSheet={() => setIsQueueSheetOpen(true)}
         isQueueSheetOpen={isQueueSheetOpen}
       />
-
       {/* 2. Corps du workspace */}
       <div className="calls-workspace__body">
         {loading && contacts.length === 0 ? (
@@ -192,6 +216,32 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
                 <p aria-live="assertive">{error}</p>
               </GlassCard>
             )}
+
+            {/* Console opérationnelle Power sur desktop */}
+            <PowerWorkspace
+              isPowerActive={isPowerActive}
+              powerUiState={powerViewModel.state}
+              projectedQueue={projectedQueue}
+              canPowerDialer={canPowerDialer}
+              onTogglePower={togglePower}
+              parallelism={parallelism}
+              onParallelismChange={setParallelism}
+              callerNumber={callerNumber}
+              onCallerNumberChange={setCallerNumber}
+              callerNumbers={callerNumbers}
+              quota={quota}
+              lines={lines}
+              byPhone={byPhone}
+              error={powerError}
+              agentConnected={agentConnected}
+              launching={launching}
+              hasAttempted={hasAttempted}
+              onLaunch={onLaunch}
+              onHangupAll={onHangupAll}
+              onSkip={onSkip}
+              onRetryHangup={onRetryHangup}
+            />
+
             <div className="calls-workspace__layout">
             {/* Colonne 1 : File persistante (Queue) */}
             <SessionQueue
@@ -211,8 +261,14 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               contextTargetContactId={contextTargetContactId}
               loading={loading}
               onFocusContact={handleFocusContact}
-              onLogAndNext={onLogAndNext}
-              onLogRdvAndNext={onLogRdvAndNext}
+              onLogAndNext={(contactId, payload) => {
+                notifyLogged();
+                onLogAndNext(contactId, payload);
+              }}
+              onLogRdvAndNext={(contactId, payload, event) => {
+                notifyLogged();
+                onLogRdvAndNext?.(contactId, payload, event);
+              }}
               onLogEvent={onLogEvent}
               onCelebrateGoal={onCelebrateGoal}
               onUpdateRecall={onUpdateRecall}
@@ -220,6 +276,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               currentSfUserId={currentSfUserId}
               sessionType={session.session_type}
               awaitingEvent={awaitingEvent}
+              isCallBarHidden={powerViewModel.isCallBarHidden}
             />
 
             {/* Colonne 3 : Contexte CRM en lecture */}
@@ -289,8 +346,24 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               isPowerActive={isPowerActive}
               powerUiState={powerViewModel.state}
               projectedQueue={projectedQueue}
-              onTogglePower={() => setIsPowerActive((prev) => !prev)}
               canPowerDialer={canPowerDialer}
+              onTogglePower={togglePower}
+              parallelism={parallelism}
+              onParallelismChange={setParallelism}
+              callerNumber={callerNumber}
+              onCallerNumberChange={setCallerNumber}
+              callerNumbers={callerNumbers}
+              quota={quota}
+              lines={lines}
+              byPhone={byPhone}
+              error={powerError}
+              agentConnected={agentConnected}
+              launching={launching}
+              hasAttempted={hasAttempted}
+              onLaunch={onLaunch}
+              onHangupAll={onHangupAll}
+              onSkip={onSkip}
+              onRetryHangup={onRetryHangup}
               isSheet
               onCloseSheet={() => setIsPowerSheetOpen(false)}
             />

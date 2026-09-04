@@ -77,10 +77,12 @@
 
 .calls-workspace__header-right {
   display: flex;
-  align-items: center;
   gap: var(--xos-space-2);
 }
 
+.calls-workspace__sheet-toggle--power {
+  display: none;
+}
 .calls-workspace__menu-container {
   position: relative;
 }
@@ -465,12 +467,18 @@
   align-items: baseline;
 }
 
-.calls-workspace__power-placeholder-actions {
+.calls-workspace__power-settings {
   display: flex;
-  flex-direction: column;
   gap: var(--xos-space-2);
+  flex-wrap: wrap;
 }
 
+.calls-workspace__power-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xos-space-2);
+  flex-wrap: wrap;
+}
 /* ==========================================================================
    7. Responsive Layout Breakpoints (Container queries sur .calls-app)
    ========================================================================== */
@@ -503,6 +511,14 @@
 
   .calls-workspace__power:not(.calls-workspace__power--sheet) {
     display: none;
+  }
+
+  .calls-workspace__power-toggle-btn {
+    display: none;
+  }
+
+  .calls-workspace__sheet-toggle--power {
+    display: inline-flex;
   }
 }
 
