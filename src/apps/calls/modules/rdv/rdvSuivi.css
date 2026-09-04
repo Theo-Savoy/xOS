@@ -10,23 +10,8 @@
 
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px;
-  max-width: 860px;
-  margin: 0 auto;
+  gap: 1rem;
   width: 100%;
-}
-
-.rdv-suivi__header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* Sélecteur de période — positionnement (styles via calls-seg) */
-.rdv-suivi__periods {
-  margin-left: auto;
 }
 
 .rdv-suivi__error {
@@ -38,8 +23,8 @@
   background: color-mix(in srgb, var(--rdv-status-pending) 10%, transparent);
   border: 1px solid
     color-mix(in srgb, var(--rdv-status-pending) 35%, transparent);
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: var(--xos-radius-md);
+  padding: 0.6rem 0.9rem;
   font-size: 0.85rem;
   color: var(--rdv-status-pending);
 }
@@ -49,7 +34,7 @@
 .rdv-suivi__section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .rdv-suivi__section-title {
@@ -58,16 +43,16 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--xos-text-muted);
-  margin: 0 0 4px;
-  padding-left: 2px;
+  margin: 0 0 0.25rem;
+  padding-left: 0.15rem;
 }
 
 /* ─── Row ──────────────────────────────────────────────────────────────────── */
 
 .rdv-row {
-  border-radius: 8px;
+  border-radius: var(--xos-radius-md);
   border: 1px solid var(--xos-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--xos-window-content-bg);
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -88,11 +73,11 @@
 
 .rdv-row__main {
   display: grid;
-  grid-template-columns: 48px 1fr 1fr auto auto auto;
+  grid-template-columns: 3rem 1fr 1fr auto auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 0.65rem;
   width: 100%;
-  padding: 10px 14px;
+  padding: 0.65rem 0.9rem;
   background: none;
   border: none;
   cursor: pointer;
@@ -132,8 +117,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
   background: color-mix(in srgb, var(--xos-accent) 15%, transparent);
   color: var(--rdv-status-upcoming);
 }
@@ -147,22 +132,22 @@
 /* ─── Detail panel ─────────────────────────────────────────────────────────── */
 
 .rdv-row__detail {
-  padding: 12px 14px 16px;
+  padding: 0.75rem 0.9rem 1rem;
   border-top: 1px solid var(--xos-border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .rdv-row__status-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .rdv-row__status-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--xos-radius-sm);
   border: 1px solid var(--xos-border);
   background: transparent;
   color: var(--xos-text);
@@ -188,7 +173,7 @@
 .rdv-row__reschedule {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
@@ -219,7 +204,7 @@
 
 @media (max-width: 700px) {
   .rdv-row__main {
-    grid-template-columns: 44px 1fr auto;
+    grid-template-columns: 2.75rem 1fr auto;
     grid-template-rows: auto auto;
   }
 
@@ -242,17 +227,17 @@
 /* Barre de répartition empilée */
 .rdv-status-bar {
   display: flex;
-  height: 12px;
-  border-radius: 6px;
+  height: 0.75rem;
+  border-radius: 0.375rem;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  margin: 4px 0 14px;
+  background: var(--xos-surface-2);
+  margin: 0.25rem 0 0.9rem;
 }
 
 .rdv-status-bar__seg {
   display: block;
   height: 100%;
-  min-width: 3px;
+  min-width: 0.2rem;
   transition:
     width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.15s;
@@ -278,14 +263,14 @@
 .rdv-status-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
-  margin-bottom: 16px;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .rdv-status-legend__item {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 0.45rem;
   font-size: 0.82rem;
 }
 
@@ -295,8 +280,8 @@
 }
 
 .rdv-status-legend__dot {
-  width: 9px;
-  height: 9px;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -323,7 +308,7 @@
 }
 
 .rdv-status-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--xos-surface-1);
 }
 
 .rdv-status-row--pending {
@@ -332,7 +317,7 @@
 
 .rdv-status-badge {
   display: inline-block;
-  padding: 2px 9px;
+  padding: 0.15rem 0.55rem;
   border-radius: 999px;
   border: 1px solid;
   font-size: 0.72rem;
@@ -343,5 +328,5 @@
 
 .rdv-status-more {
   font-size: 0.78rem;
-  margin-top: 10px;
+  margin-top: 0.65rem;
 }

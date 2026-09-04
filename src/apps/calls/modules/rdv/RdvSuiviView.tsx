@@ -272,28 +272,28 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
   };
 
   const hasData = rdvs.length > 0;
-
   return (
-    <div className="rdv-suivi" aria-label="Suivi des rendez-vous">
-      <header className="rdv-suivi__header">
-        {/* Sélecteur de période — pattern standard calls-seg */}
-        <div
-          className="calls-seg rdv-suivi__periods"
-          role="group"
-          aria-label="Période"
-        >
-          {PERIOD_OPTIONS.map((opt) => (
-            <Button
-              key={opt.value}
-              variant="ghost"
-              type="button"
-              className={`calls-seg__btn${period === opt.value ? ' calls-seg__btn--active' : ''}`}
-              aria-pressed={period === opt.value}
-              onClick={() => setPeriod(opt.value)}
-            >
-              {opt.label}
-            </Button>
-          ))}
+    <div className="calls-view rdv-suivi" aria-label="Suivi des rendez-vous">
+      <header className="calls-view__header">
+        <div className="calls-view__actions">
+          <div
+            className="calls-seg"
+            role="group"
+            aria-label="Période"
+          >
+            {PERIOD_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                variant="ghost"
+                type="button"
+                className={`calls-seg__btn${period === opt.value ? ' calls-seg__btn--active' : ''}`}
+                aria-pressed={period === opt.value}
+                onClick={() => setPeriod(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -312,7 +312,7 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
 
       <div className="rdv-suivi__content" aria-busy={initialLoading}>
         {initialLoading ? (
-          <section className="rdv-suivi__section">
+          <section className="calls-section rdv-suivi__section">
             <h2 className="rdv-suivi__section-title">À renseigner</h2>
             <Skeleton height={44} />
             <Skeleton height={44} />
@@ -322,7 +322,7 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
           <>
             {/* Past / À renseigner */}
             {sections.past.length > 0 && (
-              <section className="rdv-suivi__section">
+              <section className="calls-section rdv-suivi__section">
                 <h2 className="rdv-suivi__section-title">À renseigner</h2>
                 {sections.past.map((rdv) => (
                   <RdvRow
@@ -349,7 +349,7 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
 
             {/* Upcoming by day */}
             {sections.upcoming.map(([key, items]) => (
-              <section key={key} className="rdv-suivi__section">
+              <section key={key} className="calls-section rdv-suivi__section">
                 <h2 className="rdv-suivi__section-title">
                   {sectionLabel(key, today)}
                 </h2>

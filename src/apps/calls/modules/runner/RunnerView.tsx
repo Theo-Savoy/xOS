@@ -1822,7 +1822,7 @@ export function RunnerView({
       {mode === 'list' ? (
         isPowerConversationActive ? null : isPowerActive ? (
           <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
-            <GlassCard className="calls-cockpit-list calls-cockpit-list--power">
+            <section className="calls-section calls-cockpit-list calls-cockpit-list--power">
               <div className="calls-cockpit-list__toolbar calls-cockpit-list__toolbar--power">
                 <span className="calls-power-queue-summary__text">
                   File d&apos;appel ·{' '}
@@ -1939,12 +1939,15 @@ export function RunnerView({
                   })}
                   {filteredContacts.length === 0 && (
                     <li className="calls-cockpit-list__empty">
-                      Aucun contact pour ce filtre.
+                      <EmptyState
+                        title="Aucun contact"
+                        description="Aucun contact pour ce filtre."
+                      />
                     </li>
                   )}
                 </ul>
               </div>
-            </GlassCard>
+            </section>
           </div>
         ) : (
           <div className="calls-cockpit-list-wrap">
@@ -2263,7 +2266,7 @@ export function RunnerView({
               </div>
             )}
 
-            <GlassCard className="calls-cockpit-list">
+            <section className="calls-section calls-cockpit-list">
               <div className="calls-cockpit-list__toolbar">
                 <h3>
                   {isRecallQueue ? 'Contacts à rappeler' : 'Liste de la séance'}
@@ -2492,13 +2495,16 @@ export function RunnerView({
                           />
                         )
                       ) : (
-                        'Aucun contact pour ce filtre.'
+                        <EmptyState
+                          title="Aucun contact"
+                          description="Aucun contact pour ce filtre."
+                        />
                       )}
                     </li>
                   )}
                 </ul>
               </div>
-            </GlassCard>
+            </section>
           </div>
         )
       ) : focusedContact ? (

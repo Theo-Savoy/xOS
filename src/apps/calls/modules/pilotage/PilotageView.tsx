@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useSession } from '../../../../auth/useSession';
-import { Button, GlassCard, Skeleton, Tag } from '../../../../components/ui';
+import { Button, EmptyState, Skeleton, Tag } from '../../../../components/ui';
 import { todayParisIso as todayParisDate } from '../../../../lib/dates';
 import { CallFunnelCard } from './CallFunnelCard';
 import { stagesFromPeriodKpis } from './CallFunnelCard.helpers';
@@ -238,48 +238,48 @@ function FunnelStrip({ kpis, loading }: { kpis: PeriodKpis; loading?: boolean })
   if (loading) {
     return (
       <section className="pilotage-kpis" aria-label="Indicateurs">
-        <GlassCard className="pilotage-stat">
+        <div className="pilotage-stat">
           <Skeleton height={42} />
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
+        </div>
+        <div className="pilotage-stat">
           <Skeleton height={42} />
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
+        </div>
+        <div className="pilotage-stat">
           <Skeleton height={42} />
-        </GlassCard>
-        <GlassCard className="pilotage-stat">
+        </div>
+        <div className="pilotage-stat">
           <Skeleton height={42} />
-        </GlassCard>
-        <GlassCard className="pilotage-stat pilotage-stat--accent">
+        </div>
+        <div className="pilotage-stat pilotage-stat--accent">
           <Skeleton height={42} />
-        </GlassCard>
+        </div>
       </section>
     );
   }
   return (
     <section className="pilotage-kpis" aria-label="Indicateurs">
-      <GlassCard className="pilotage-stat">
+      <div className="pilotage-stat">
         <span>Appels</span>
         <strong className="xos-numeric">{kpis.calls}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>Taux décroché</span>
         <strong className="xos-numeric">{pct(kpis.rate_decroche)}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>Taux argumenté</span>
         <strong className="xos-numeric">{pct(kpis.rate_argumente)}</strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat">
+      </div>
+      <div className="pilotage-stat">
         <span>RDV / décroché</span>
         <strong className="xos-numeric">
           {pct(kpis.rate_rdv_per_decroche)}
         </strong>
-      </GlassCard>
-      <GlassCard className="pilotage-stat pilotage-stat--accent">
+      </div>
+      <div className="pilotage-stat pilotage-stat--accent">
         <span>RDV pris</span>
         <strong className="xos-numeric">{kpis.rdv}</strong>
-      </GlassCard>
+      </div>
     </section>
   );
 }
@@ -727,17 +727,10 @@ export function PilotageView({
 
   if (!token) {
     return (
-      <div className="pilotage-app pilotage-app__state">Session requise.</div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="pilotage-app pilotage-app__state">
-        <p>{error}</p>
-        <Button variant="secondary" onClick={() => void load({ force: true })}>
-          Réessayer
-        </Button>
+      <div className="calls-view pilotage-app" aria-label="Pilotage">
+        <div className="calls-error" role="alert">
+          <p>Session requise.</p>
+        </div>
       </div>
     );
   }
@@ -914,9 +907,12 @@ export function PilotageView({
       </header>
 
       {error && (
-        <p className="pilotage-error" role="alert">
-          {error}
-        </p>
+        <div className="calls-error pilotage-error" role="alert">
+          <p>{error}</p>
+          <Button variant="secondary" onClick={() => void load({ force: true })}>
+            Réessayer
+          </Button>
+        </div>
       )}
 
       <div className="pilotage-app__content" aria-busy={loading && !data}>
@@ -932,7 +928,7 @@ export function PilotageView({
 
         {detailMode === 'sessions' && (
           <section
-            className="pilotage-compact-card pilotage-sessions-compact"
+            className="calls-section pilotage-compact-card pilotage-sessions-compact"
             aria-label="Séances"
           >
             <div className="pilotage-compact-card__head">
@@ -975,11 +971,14 @@ export function PilotageView({
             </div>
 
             {visibleSessions.length === 0 ? (
-              <p className="pilotage-empty">
-                {period === 'day'
-                  ? 'Aucune séance active sur ce jour.'
-                  : 'Aucune séance sur la période.'}
-              </p>
+              <EmptyState
+                title="Aucune séance"
+                description={
+                  period === 'day'
+                    ? 'Aucune séance active sur ce jour.'
+                    : 'Aucune séance sur la période.'
+                }
+              />
             ) : (
               <ul className="pilotage-session-list pilotage-sessions-compact__list">
                 {visibleSessions.map((session) => {
@@ -1032,7 +1031,7 @@ export function PilotageView({
       </div>
 
       {detailMode === 'days' && (
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <div className="pilotage-panel__toolbar">
             <div>
               <h3>Par jour</h3>
@@ -1054,7 +1053,10 @@ export function PilotageView({
           </div>
 
           {byDay.length === 0 ? (
-            <p className="pilotage-empty">Aucune activité sur la période.</p>
+            <EmptyState
+              title="Aucune activité"
+              description="Aucune activité sur la période."
+            />
           ) : (
             <ul className="pilotage-day-list">
               {byDay.map((day) => {
@@ -1109,7 +1111,7 @@ export function PilotageView({
               })}
             </ul>
           )}
-        </GlassCard>
+        </section>
       )}
 
       <div className="pilotage-funnel-block">
@@ -1147,14 +1149,17 @@ export function PilotageView({
         />
       )}
 
-      <GlassCard className="pilotage-panel">
+      <section className="calls-section pilotage-panel">
         <h3>Équipe</h3>
         <p className="pilotage-panel__hint">
           Répartition par commercial — cliquez pour le détail.
         </p>
 
         {filtered.callers.length === 0 ? (
-          <p className="pilotage-empty">Aucune activité sur la période.</p>
+          <EmptyState
+            title="Aucune activité"
+            description="Aucune activité sur la période."
+          />
         ) : (
           <div className="pilotage-caller-grid">
             {filtered.callers.map((caller) => (
@@ -1211,16 +1216,19 @@ export function PilotageView({
             />
           </div>
         )}
-      </GlassCard>
+      </section>
 
       <div className="pilotage-grid">
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <h3>RDV par commercial</h3>
           <p className="pilotage-panel__hint">
             Chez qui le RDV est au calendrier.
           </p>
           {(data?.by_rdv_owner.length ?? 0) === 0 ? (
-            <p className="pilotage-empty">Aucun RDV sur la période.</p>
+            <EmptyState
+              title="Aucun RDV"
+              description="Aucun RDV sur la période."
+            />
           ) : (
             <table className="pilotage-table">
               <thead>
@@ -1245,9 +1253,9 @@ export function PilotageView({
               </tbody>
             </table>
           )}
-        </GlassCard>
+        </section>
 
-        <GlassCard className="pilotage-panel">
+        <section className="calls-section pilotage-panel">
           <div className="pilotage-panel__toolbar">
             <div>
               <h3>Derniers RDV</h3>
@@ -1269,7 +1277,10 @@ export function PilotageView({
             )}
           </div>
           {rdvAttributions.length === 0 ? (
-            <p className="pilotage-empty">Aucun RDV sur la période.</p>
+            <EmptyState
+              title="Aucun RDV"
+              description="Aucun RDV sur la période."
+            />
           ) : (
             <table className="pilotage-table">
               <thead>
@@ -1321,7 +1332,7 @@ export function PilotageView({
               </tbody>
             </table>
           )}
-        </GlassCard>
+        </section>
       </div>
       </div>
     </div>

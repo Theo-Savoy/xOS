@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, GlassCard } from '../../../../components/ui';
+import { Button, EmptyState } from '../../../../components/ui';
 import {
   fetchRdvSuivi,
   type RdvSuiviItem,
@@ -155,7 +155,7 @@ export function RdvStatusPanel({
     isPending(r) ? 'pending' : r.status;
 
   return (
-    <GlassCard className="pilotage-panel rdv-status-panel">
+    <section className="calls-section pilotage-panel rdv-status-panel">
       <div className="pilotage-panel__toolbar">
         <div>
           <h3>Statut des RDV</h3>
@@ -173,13 +173,17 @@ export function RdvStatusPanel({
       </div>
 
       {error && (
-        <p className="pilotage-empty" role="alert">
-          Impossible de charger les statuts RDV.
-        </p>
+        <EmptyState
+          title="Erreur"
+          description="Impossible de charger les statuts RDV."
+        />
       )}
 
       {!error && !loading && total === 0 && (
-        <p className="pilotage-empty">Aucun RDV sur la période.</p>
+        <EmptyState
+          title="Aucun RDV"
+          description="Aucun RDV sur la période."
+        />
       )}
 
       {!error && total > 0 && (
@@ -275,6 +279,6 @@ export function RdvStatusPanel({
           )}
         </>
       )}
-    </GlassCard>
+    </section>
   );
 }
