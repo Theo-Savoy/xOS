@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react';
-import { Button, GlassCard, Tag } from '../../../components/ui';
+import { Button, GlassCard } from '../../../components/ui';
 import { formatIsoDateFr } from '../formControls.helpers';
 import type { WizardStep } from '../modules/sessions/WizardStepper';
 
 export type AbmWizardRecapProps = {
   step: WizardStep;
-  stepNumber?: number;
-  stepCount?: number;
   searchMode?: 'name' | 'filters' | null;
   matchAccountsCount?: number | null;
   matchAccountsCapped?: boolean;
@@ -61,8 +59,6 @@ function EditStepIcon(): ReactNode {
 
 export function AbmWizardRecap({
   step,
-  stepNumber,
-  stepCount = 3,
   searchMode = null,
   matchAccountsCount = null,
   matchAccountsCapped = false,
@@ -105,7 +101,6 @@ export function AbmWizardRecap({
               ? `Créer ${sessionsCount} séance${sessionsCount > 1 ? 's' : ''} ${ctaNoun}`
               : `Créer séance ${ctaNoun}`;
   const visibleCtaLabel = nextCtaLabel ?? computedNextCtaLabel;
-  const visibleStepNumber = stepNumber ?? step + 1;
 
   const nextDisabled =
     step === 0
@@ -120,9 +115,6 @@ export function AbmWizardRecap({
     >
       <div className="calls-wizard-recap__header">
         <h3 className="calls-wizard-recap__title">Votre sélection</h3>
-        <Tag variant="accent">
-          Étape {visibleStepNumber} / {stepCount}
-        </Tag>
       </div>
 
       {/* Section 1 : Cible (Filtres & Recherche) */}
