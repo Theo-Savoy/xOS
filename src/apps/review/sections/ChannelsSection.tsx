@@ -17,8 +17,7 @@ import type { ChannelsPayload } from '../review.types';
 type ChannelMetric = 'amount' | 'won' | 'closing';
 
 const METRICS: { key: ChannelMetric; label: string; title: string }[] = [
-  { key: 'amount', label: 'CA', title: 'Canaux par CA' },
-  { key: 'won', label: 'Signatures', title: 'Canaux par signatures' },
+  { key: 'amount', label: 'CA', title: 'CA par canal' },
   { key: 'closing', label: 'Closing', title: 'Canaux par closing' },
 ];
 

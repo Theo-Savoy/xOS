@@ -76,7 +76,17 @@ export function PeriodSelector({
               value.mode === mode.value ? 'review-period-button--active' : ''
             }
             aria-pressed={value.mode === mode.value}
-            onClick={() => onChange({ ...value, mode: mode.value })}
+            onClick={() =>
+              onChange({
+                ...value,
+                mode: mode.value,
+                // Sous-période par défaut dès le changement de granularité :
+                // les données s'actualisent immédiatement.
+                semester: mode.value === 'fy' ? value.semester : value.semester || 'S1',
+                quarter:
+                  mode.value === 'quarter' ? value.quarter || 'Q1' : value.quarter,
+              })
+            }
           >
             {mode.label}
           </Button>
