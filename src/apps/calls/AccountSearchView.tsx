@@ -1511,6 +1511,7 @@ export function AccountSearchView({
         <aside className="calls-abm-sidebar calls-wizard-sidebar">
           <AbmWizardRecap
             step={step}
+            planVisible={step >= 2}
             searchMode={searchMode}
             matchAccountsCount={
               searchMode === 'filters' ? accounts.length : null

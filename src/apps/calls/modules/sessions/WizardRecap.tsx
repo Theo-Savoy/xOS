@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, GlassCard, Tag } from '../../../../components/ui';
+import { Button, GlassCard } from '../../../../components/ui';
 import type { FilterTree } from '../../../../crm';
 import {
   countContactFilters,
@@ -30,6 +30,10 @@ export type WizardRecapProps = {
   primaryDisabled: boolean;
   loading?: boolean;
   className?: string;
+  /** Afficher l'Audience (résultats sélection) — à partir de l'étape Composer. */
+  audienceVisible?: boolean;
+  /** Afficher la Planification — à partir de l'étape Planifier. */
+  planVisible?: boolean;
 };
 
 function EditStepIcon(): ReactNode {
@@ -71,6 +75,8 @@ export function WizardRecap({
   primaryDisabled,
   loading = false,
   className = '',
+  audienceVisible = true,
+  planVisible = true,
 }: WizardRecapProps) {
   const entrepriseCount = countEntrepriseFilters(filters.entreprise);
   const contactCount = countContactFilters(filters.contact);
@@ -90,7 +96,6 @@ export function WizardRecap({
     >
       <div className="calls-wizard-recap__header">
         <h3 className="calls-wizard-recap__title">Votre sélection</h3>
-        <Tag variant="accent">Étape {step + 1} / 3</Tag>
       </div>
 
       {/* Section 1 : Cible */}
@@ -133,7 +138,8 @@ export function WizardRecap({
         </div>
       </section>
 
-      {/* Section 2 : Résultat & Sélection */}
+      {/* Section 2 : Résultat & Sélection — visible à partir de Composer */}
+      {audienceVisible && (
       <section
         className="calls-wizard-recap__section"
         aria-label="Résultats et sélection"
@@ -180,8 +186,10 @@ export function WizardRecap({
           </div>
         </div>
       </section>
+      )}
 
-      {/* Section 3 : Planification */}
+      {/* Section 3 : Planification — visible à partir de Planifier */}
+      {planVisible && (
       <section
         className="calls-wizard-recap__section"
         aria-label="Détails de planification"
@@ -229,6 +237,7 @@ export function WizardRecap({
           )}
         </div>
       </section>
+      )}
 
       <div className="calls-wizard-recap__cta">
         <Button

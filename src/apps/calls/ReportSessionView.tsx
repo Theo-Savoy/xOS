@@ -356,14 +356,20 @@ export function ReportSessionView({
     [dedup],
   );
 
+  const visiblePreview = useMemo(() => {
+    if (dedupMode !== 'exclure') return preview;
+    const dedupSet = new Set(dedup.map((entry) => entry.sf_contact_id));
+    return preview.filter((contact) => !dedupSet.has(contact.sf_contact_id));
+  }, [preview, dedup, dedupMode]);
+
   const eligibleIds = useMemo(() => {
     const dedupSet = new Set(dedup.map((entry) => entry.sf_contact_id));
     return new Set(
-      preview
+      visiblePreview
         .map((contact) => contact.sf_contact_id)
         .filter((id) => dedupMode !== 'exclure' || !dedupSet.has(id)),
     );
-  }, [dedup, dedupMode, preview]);
+  }, [dedup, dedupMode, visiblePreview]);
 
   useEffect(() => {
     if (!token || !reportFilters || !reportRun) return;
@@ -442,8 +448,11 @@ export function ReportSessionView({
   }, [contactLimit, eligibleIds, maxPerCompany, preview]);
 
   const selectedContacts = useMemo(
-    () => preview.filter((contact) => selectedIds.has(contact.sf_contact_id)),
-    [preview, selectedIds],
+    () =>
+      visiblePreview.filter((contact) =>
+        selectedIds.has(contact.sf_contact_id),
+      ),
+    [visiblePreview, selectedIds],
   );
 
   const packableAccounts = useMemo(() => {
@@ -563,7 +572,7 @@ export function ReportSessionView({
         setCapHint(null);
         return next;
       }
-      if (!canSelectContact(preview, current, contactId, maxPerCompany)) {
+      if (!canSelectContact(visiblePreview, current, contactId, maxPerCompany)) {
         setCapHint(
           maxPerCompany
             ? `Maximum ${maxPerCompany} contact${maxPerCompany > 1 ? 's' : ''} par entreprise.`
@@ -579,7 +588,7 @@ export function ReportSessionView({
 
   const selectAll = () => {
     setSelectedIds(
-      selectIdsWithCompanyCap(preview, maxPerCompany, eligibleIds),
+      selectIdsWithCompanyCap(visiblePreview, maxPerCompany, eligibleIds),
     );
     setCapHint(
       maxPerCompany
@@ -835,7 +844,7 @@ export function ReportSessionView({
 
       {preview.length > 0 && (
         <ContactPreviewCard
-          preview={preview}
+          preview={visiblePreview}
           selectedIds={selectedIds}
           selectedCount={selectedContacts.length}
           maxPerCompany={maxPerCompany}

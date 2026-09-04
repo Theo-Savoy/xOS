@@ -2257,7 +2257,7 @@ describe('dedup modes in preview selection', () => {
     expect(screen.getByText('2 sélectionnés / 2')).toBeTruthy();
   });
 
-  it('unchecks duplicates by default but keeps the warning tag in Exclure mode', async () => {
+  it('excludes duplicates from the preview in Exclure mode with an explicit banner', async () => {
     const user = userEvent.setup();
     render(<NewSessionView {...baseProps} />);
 
@@ -2265,13 +2265,15 @@ describe('dedup modes in preview selection', () => {
       screen.getAllByRole('button', { name: /Continuer vers Composer/i })[0],
     );
 
+    // Mode Avertir (défaut) : le contact dédup est visible mais décoché.
+    expect(screen.getByText('Alice Martin')).toBeTruthy();
+
     await user.click(screen.getByRole('button', { name: 'Exclure' }));
-    expect(screen.getByText('Déjà en séance — Paul')).toBeTruthy();
-    const aliceRow = screen.getByText('Alice Martin').closest('li');
-    expect(
-      (within(aliceRow!).getByRole('checkbox') as HTMLInputElement).checked,
-    ).toBe(false);
-    expect(screen.getByText('1 sélectionné / 2')).toBeTruthy();
+    // Le contact dédup disparaît de la preview (exclu « à la source »).
+    expect(screen.queryByText('Alice Martin')).toBeNull();
+    // Le banner reste et explique l'exclusion.
+    expect(screen.getByText(/Ils sont exclus de la sélection/)).toBeTruthy();
+    expect(screen.getByText(/déjà dans une séance à venir/)).toBeTruthy();
   });
 });
 

@@ -18,8 +18,11 @@ export function DedupBanner({ dedup, mode, onModeChange }: DedupBannerProps) {
         <Tag variant="alert">Doublons</Tag>
         <p>
           <strong>{dedup.length}</strong> contact
-          {dedup.length > 1 ? 's sont' : ' est'} déjà dans une séance (dont
-          celles de collègues).
+          {dedup.length > 1 ? 's sont' : ' est'} déjà dans une séance à venir
+          (dont celles de collègues).{' '}
+          {mode === 'exclure'
+            ? 'Ils sont exclus de la sélection.'
+            : 'Ils sont visibles mais non sélectionnés.'}
         </p>
       </div>
       <div className="calls-tristate calls-dedup__toggle">

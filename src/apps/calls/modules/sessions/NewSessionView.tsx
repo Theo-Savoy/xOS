@@ -156,14 +156,20 @@ export function NewSessionView({
     [dedup],
   );
 
+  const visiblePreview = useMemo(() => {
+    if (dedupMode !== 'exclure') return preview;
+    const dedupSet = new Set(dedup.map((entry) => entry.sf_contact_id));
+    return preview.filter((contact) => !dedupSet.has(contact.sf_contact_id));
+  }, [preview, dedup, dedupMode]);
+
   const eligibleIds = useMemo(() => {
     const dedupSet = new Set(dedup.map((entry) => entry.sf_contact_id));
     return new Set(
-      preview
+      visiblePreview
         .map((contact) => contact.sf_contact_id)
         .filter((id) => dedupMode !== 'exclure' || !dedupSet.has(id)),
     );
-  }, [preview, dedup, dedupMode]);
+  }, [preview, dedup, dedupMode, visiblePreview]);
 
   // La preview se recalcule automatiquement à chaque changement de filtre :
   // on ne réinitialise la sélection qu'au tout premier chargement (cap par
@@ -201,8 +207,11 @@ export function NewSessionView({
   }, [preview, eligibleIds, maxPerCompany, contactLimit]);
 
   const selectedContacts = useMemo(
-    () => preview.filter((contact) => selectedIds.has(contact.sf_contact_id)),
-    [preview, selectedIds],
+    () =>
+      visiblePreview.filter((contact) =>
+        selectedIds.has(contact.sf_contact_id),
+      ),
+    [visiblePreview, selectedIds],
   );
 
   const packableAccounts = useMemo(() => {
@@ -233,7 +242,7 @@ export function NewSessionView({
         setCapHint(null);
         return next;
       }
-      if (!canSelectContact(preview, current, contactId, maxPerCompany)) {
+      if (!canSelectContact(visiblePreview, current, contactId, maxPerCompany)) {
         setCapHint(
           maxPerCompany
             ? `Maximum ${maxPerCompany} contact${maxPerCompany > 1 ? 's' : ''} par entreprise.`
@@ -249,7 +258,7 @@ export function NewSessionView({
 
   const selectAll = () => {
     setSelectedIds(
-      selectIdsWithCompanyCap(preview, maxPerCompany, eligibleIds),
+      selectIdsWithCompanyCap(visiblePreview, maxPerCompany, eligibleIds),
     );
     setCapHint(
       maxPerCompany
@@ -531,7 +540,7 @@ export function NewSessionView({
 
               {preview.length > 0 && (
                 <ContactPreviewCard
-                  preview={preview}
+                  preview={visiblePreview}
                   selectedIds={selectedIds}
                   selectedCount={selectedContacts.length}
                   maxPerCompany={maxPerCompany}
@@ -711,6 +720,7 @@ export function NewSessionView({
         <aside className="calls-wizard-sidebar">
           <WizardRecap
             step={step}
+            planVisible={step >= 2}
             filters={filters}
             matchCount={matchCount}
             matchCountCapped={matchCountCapped}
