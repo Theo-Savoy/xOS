@@ -1,3 +1,19 @@
+diff --git a/node_modules/recharts/es6/chart/RechartsWrapper.js b/node_modules/recharts/es6/chart/RechartsWrapper.js
+index 60f2294..120cdeb 100644
+--- a/node_modules/recharts/es6/chart/RechartsWrapper.js
++++ b/node_modules/recharts/es6/chart/RechartsWrapper.js
+@@ -231,9 +231,9 @@ export var RechartsWrapper = /*#__PURE__*/forwardRef((props, ref) => {
+     if (typeof ref === 'function') {
+       ref(node);
+     }
+-    setTooltipPortal(node);
+-    setLegendPortal(node);
+     if (node != null) {
++      setTooltipPortal(node);
++      setLegendPortal(node);
+       containerRef.current = node;
+     }
+   }, [setScaleRef, ref, setTooltipPortal, setLegendPortal]);
 diff --git a/node_modules/recharts/es6/util/useElementOffset.js b/node_modules/recharts/es6/util/useElementOffset.js
 index 23d7977..9add388 100644
 --- a/node_modules/recharts/es6/util/useElementOffset.js
@@ -111,6 +127,22 @@ index 23d7977..9add388 100644
    return [lastBoundingBox, updateBoundingBox];
  }
 \ No newline at end of file
+diff --git a/node_modules/recharts/lib/chart/RechartsWrapper.js b/node_modules/recharts/lib/chart/RechartsWrapper.js
+index 974c9ba..9e24d10 100644
+--- a/node_modules/recharts/lib/chart/RechartsWrapper.js
++++ b/node_modules/recharts/lib/chart/RechartsWrapper.js
+@@ -238,9 +238,9 @@ var RechartsWrapper = exports.RechartsWrapper = /*#__PURE__*/(0, _react.forwardR
+     if (typeof ref === 'function') {
+       ref(node);
+     }
+-    setTooltipPortal(node);
+-    setLegendPortal(node);
+     if (node != null) {
++      setTooltipPortal(node);
++      setLegendPortal(node);
+       containerRef.current = node;
+     }
+   }, [setScaleRef, ref, setTooltipPortal, setLegendPortal]);
 diff --git a/node_modules/recharts/lib/util/useElementOffset.js b/node_modules/recharts/lib/util/useElementOffset.js
 index 3ab9d0e..4937bb9 100644
 --- a/node_modules/recharts/lib/util/useElementOffset.js
