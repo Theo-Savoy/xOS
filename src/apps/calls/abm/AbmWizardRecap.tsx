@@ -5,6 +5,9 @@ import type { WizardStep } from '../modules/sessions/WizardStepper';
 
 export type AbmWizardRecapProps = {
   step: WizardStep;
+  searchMode?: 'name' | 'filters' | null;
+  matchAccountsCount?: number | null;
+  matchAccountsCapped?: boolean;
   composerSubStep?: 'accounts' | 'contacts';
   query: string;
   activeFiltersCount: number;
@@ -50,6 +53,9 @@ function EditStepIcon(): ReactNode {
 
 export function AbmWizardRecap({
   step,
+  searchMode = null,
+  matchAccountsCount = null,
+  matchAccountsCapped = false,
   composerSubStep = 'accounts',
   query,
   activeFiltersCount,
@@ -137,6 +143,13 @@ export function AbmWizardRecap({
               {activeFiltersCount}
             </span>
           </div>
+          {searchMode === 'filters' && matchAccountsCount !== undefined && matchAccountsCount !== null && (
+            <div className="calls-wizard-recap__item calls-wizard-recap__item--matches">
+              <span className="calls-wizard-recap__item-label">
+                {matchAccountsCapped ? '≥ ' : ''}{matchAccountsCount} compte{matchAccountsCount > 1 ? 's' : ''} ciblé{matchAccountsCount > 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
           {activeFiltersCount > 0 && (
             <div className="calls-wizard-recap__subitems">
               {secteursCount > 0 && (

@@ -1352,6 +1352,37 @@ describe('AccountSearchView — flux v2', () => {
     expect(screen.getByText('Comptes ciblés et trouvés')).toBeTruthy();
   });
 
+  it('compteur de comptes ciblés dans le récapitulatif : affiché en mode filtres, absent en mode nom', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAccountsSearch).mockResolvedValue({
+      accounts: [acme, acmeSubsidiary],
+      truncated: false,
+    });
+    renderView();
+
+    // 1. Mode filtres avec 2 comptes trouvés -> affiche "2 comptes ciblés"
+    await chooseFiltersSearch(user);
+    await user.click(screen.getByRole('button', { name: 'A' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('2 comptes ciblés')).toBeTruthy();
+    });
+
+    // Cas truncated -> préfixe "≥"
+    vi.mocked(fetchAccountsSearch).mockResolvedValueOnce({
+      accounts: [acme, acmeSubsidiary],
+      truncated: true,
+    });
+    await user.click(screen.getByRole('button', { name: 'B' }));
+    await waitFor(() => {
+      expect(screen.getByText('≥ 2 comptes ciblés')).toBeTruthy();
+    });
+
+    // 2. Basculer en mode nom -> le compteur sous Filtres actifs disparaît
+    await user.click(screen.getByRole('button', { name: /Rechercher par nom/ }));
+    expect(screen.queryByText(/comptes ciblés/)).toBeNull();
+  });
+
   it('étape 2 : sélection en deux temps (Comptes cochables → Contacts / TargetPanel)', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
