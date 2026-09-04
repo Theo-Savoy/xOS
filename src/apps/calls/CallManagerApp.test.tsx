@@ -392,13 +392,10 @@ describe('CallManagerApp component', () => {
     );
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
-    );
-    await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers les contacts →' }),
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
     );
     await user.click(
       screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
@@ -547,13 +544,10 @@ describe('CallManagerApp component', () => {
     );
     await user.type(screen.getByLabelText('Nom du compte'), 'ACME');
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
-    );
-    await user.click(
       await screen.findByRole('checkbox', { name: 'Sélectionner ACME' }),
     );
     await user.click(
-      screen.getByRole('button', { name: 'Continuer vers les contacts →' }),
+      screen.getByRole('button', { name: 'Continuer vers Composer →' }),
     );
     await user.click(
       screen.getByRole('button', { name: 'Continuer vers Planifier →' }),
