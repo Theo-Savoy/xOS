@@ -14,6 +14,7 @@ import {
   fetchContactList,
   fetchReports,
   fetchRunReport,
+  CallsApiError,
   type SalesforceReportRun,
 } from './api';
 import type { ContactPreview, TeamMember } from './types';
@@ -113,6 +114,55 @@ async function chooseAndLoadReport(
 }
 
 describe('ReportSessionView', () => {
+  it('désactive le bouton de chargement pendant le run Salesforce', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchReports).mockResolvedValue({ reports: [report] });
+    vi.mocked(fetchRunReport).mockReturnValue(new Promise(() => {}));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(fetchReports).toHaveBeenCalledWith('token-123', ''),
+    );
+    await user.click(await screen.findByRole('radio', { name: report.name }));
+    const loadButton = screen.getByRole('button', {
+      name: 'Charger le rapport',
+    }) as HTMLButtonElement;
+
+    await user.click(loadButton);
+
+    expect(loadButton.disabled).toBe(true);
+    expect(loadButton.textContent).toContain('Chargement du rapport…');
+  });
+
+  it('traduit l’erreur de recherche du rapport en message utilisateur', async () => {
+    vi.mocked(fetchReports).mockRejectedValue(
+      new CallsApiError(400, 'invalid_query'),
+    );
+
+    renderView();
+
+    expect(
+      await screen.findByText(
+        'Réduisez la recherche du rapport à 100 caractères maximum.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Erreur API \(invalid_query\)/)).toBeNull();
+  });
+
+  it('n’affiche pas de code API pour une erreur technique inconnue', async () => {
+    vi.mocked(fetchReports).mockRejectedValue(
+      new CallsApiError(500, 'server_error'),
+    );
+
+    renderView();
+
+    expect(
+      await screen.findByText('Une erreur est survenue. Réessayez.'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Erreur API \(server_error\)/)).toBeNull();
+  });
+
   it('bloque la première étape sans rapport chargé avec des contacts', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchReports).mockResolvedValue({ reports: [report] });

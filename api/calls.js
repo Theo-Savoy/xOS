@@ -9,6 +9,8 @@ import { handleSessionWrite } from './_calls/sessionsWrite.js';
 import { listReportsAction, runReportAction } from './_calls/reports.js';
 import { getServiceClient, jsonResponse } from './_calls/http.js';
 
+export const config = { maxDuration: 30 };
+
 export {
   SESSION_TYPES,
   SF_ID,

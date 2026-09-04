@@ -83,6 +83,9 @@ function errorMessage(err: unknown): string {
     if (err.status === 401 || err.code === 'sf_auth_error') {
       return 'Salesforce a refusé l’authentification — reconnectez-vous.';
     }
+    if (err.code === 'invalid_query') {
+      return 'Réduisez la recherche du rapport à 100 caractères maximum.';
+    }
     if (err.code === 'sf_query_error') {
       return 'Salesforce a refusé la requête du rapport.';
     }
@@ -95,7 +98,7 @@ function errorMessage(err: unknown): string {
     if (err.code === 'invalid_contacts_cibles') {
       return 'Le rapport contient trop de contacts — affinez-le dans Salesforce.';
     }
-    return `Erreur API (${err.code})`;
+    return 'Une erreur est survenue. Réessayez.';
   }
   return 'Une erreur est survenue. Réessayez.';
 }

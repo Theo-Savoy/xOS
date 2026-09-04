@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  config,
   GET,
   POST,
   computeHubKpis,
@@ -123,6 +124,12 @@ const PGRST116 = {
   code: 'PGRST116',
   message: 'JSON object requested, multiple (or no) rows returned',
 };
+
+describe('Vercel route config', () => {
+  it('allows Salesforce report runs up to 30 seconds', () => {
+    expect(config).toEqual({ maxDuration: 30 });
+  });
+});
 
 function makeReq(method, body, url = 'http://localhost/api/calls') {
   const headers = new Headers();
