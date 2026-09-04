@@ -131,6 +131,8 @@ export type FilterTree = {
     niveau_decision: NiveauDecision[];
     exclure_npa: boolean;
     fonctions: FonctionPresetId[];
+    /** Contacts présélectionnés par un rapport Salesforce (Contact.Id). */
+    contacts_cibles?: string[];
   };
   relance: {
     jamais_appele: boolean | null;
@@ -159,6 +161,7 @@ export function emptyFilterTree(): FilterTree {
       niveau_decision: [],
       exclure_npa: true,
       fonctions: [],
+      contacts_cibles: [],
     },
     relance: {
       jamais_appele: null,
@@ -261,6 +264,7 @@ export function normalizeFilterTree(raw: unknown): FilterTree {
       niveau_decision: stringArray(contact.niveau_decision) as NiveauDecision[],
       exclure_npa: booleanOr(defaults.contact.exclure_npa, contact.exclure_npa),
       fonctions: stringArray(contact.fonctions) as FonctionPresetId[],
+      contacts_cibles: stringArray(contact.contacts_cibles),
     },
     relance: {
       jamais_appele: triStateOr(

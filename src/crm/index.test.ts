@@ -15,6 +15,15 @@ describe('emptyFilterTree', () => {
     expect(emptyFilterTree().contact.a_telephone).toBe(true);
   });
 
+  it('preserves contact target ids in defaults and normalized presets', () => {
+    expect(emptyFilterTree().contact.contacts_cibles).toEqual([]);
+    expect(
+      normalizeFilterTree({
+        contact: { contacts_cibles: ['003CONTACT00001', 42] },
+      }).contact.contacts_cibles,
+    ).toEqual(['003CONTACT00001']);
+  });
+
   it('has no active OU-lists by default', () => {
     const tree = emptyFilterTree();
     expect(tree.entreprise.secteurs).toEqual([]);

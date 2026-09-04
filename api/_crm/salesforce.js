@@ -162,6 +162,11 @@ export function buildTargetQuery(
     conditions.push(
       `${contact.fields.accountId} IN (${escapedList(comptesCibles)})`,
     );
+  const contactsCibles = stringList(contactFilters.contacts_cibles);
+  if (contactsCibles.length)
+    conditions.push(
+      `${contact.fields.id} IN (${escapedList(contactsCibles)})`,
+    );
 
   if (contactFilters.a_telephone === true)
     conditions.push(`${contact.fields.mobilePhone} != null`);
