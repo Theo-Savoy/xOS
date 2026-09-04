@@ -221,6 +221,11 @@ export function useSessionPowerPool({
   const pendingExitRef = useRef(false);
 
   const requestExit = useCallback(() => {
+    // I10 correctif B2 Opus : ne JAMAIS quitter si un raccrochage serveur est en échec connu
+    if (pool.hangupRetryable) {
+      setIsPendingExit(false);
+      return;
+    }
     if (isWaveActive || pool.state.running) {
       pendingExitRef.current = true;
       setIsPendingExit(true);
@@ -235,19 +240,25 @@ export function useSessionPowerPool({
     if (!pendingExitRef.current) return;
 
     if (pool.hangupRetryable) {
-      // Échec du raccrochage : la sortie est bloquée, l'UI montre l'écran retry
+      // Échec du raccrochage (confirmé serveur) : la sortie est bloquée, l'UI montre l'écran retry
       pendingExitRef.current = false;
       setIsPendingExit(false);
       return;
     }
 
-    if (!isWaveActive && !pool.state.running) {
-      // Raccrochage confirmé (200) : la sortie est sécurisée
+    // La confirmation 200 est OBSERVÉE (le pool a terminé l'échange serveur et réinitialisé)
+    // et non inférée : on exige l'absence d'erreur de raccrochage + arrêt réel du pool.
+    const hangupFailed = Boolean(
+      pool.state.error &&
+        /raccrochage|hangup|raccrocher/i.test(String(pool.state.error)),
+    );
+    if (!isWaveActive && !pool.state.running && !hangupFailed) {
+      // Raccrochage confirmé et propre : la sortie est sécurisée
       pendingExitRef.current = false;
       setIsPendingExit(false);
       onBack();
     }
-  }, [isWaveActive, pool.state.running, pool.hangupRetryable, onBack]);
+  }, [isWaveActive, pool.state.running, pool.state.error, pool.hangupRetryable, onBack]);
 
   // Calcul du quota
   const limit = config?.entitlement.calls_day_limit ?? null;

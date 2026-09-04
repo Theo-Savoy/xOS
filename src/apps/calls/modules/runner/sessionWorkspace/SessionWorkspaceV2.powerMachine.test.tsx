@@ -237,8 +237,8 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
     // Quota contraint (<8 restant : 45/50) affiché
     expect(screen.getByText(/45\/50/)).toBeTruthy();
 
-    // CTA primaire : Lancer 3 appels
-    const launchBtn = screen.getByRole('button', { name: /Lancer 3 appels/i });
+    // CTA primaire : Lancer min(file prête=2, parallélisme=3) = 2 appels
+    const launchBtn = screen.getByRole('button', { name: /Lancer 2 appels/i });
     expect(launchBtn).toBeTruthy();
 
     // Bouton de désactivation disponible
@@ -399,64 +399,112 @@ describe('SessionWorkspaceV2 — Machine Power V2 (Lot L4 #119)', () => {
     expect(quitBtn).toBeTruthy();
   });
 
-  it('9. Sortie transactionnelle I10 : hangup 200 autorise la sortie et appelle onBack', async () => {
-    setupPool(
-      { isRunning: true },
-      {
-        running: true,
-        lines: [{ slot: 0, phase: 'dialing', destination: '+33100000001', error: null }],
-      },
-    );
+  it('9. Sortie transactionnelle I10 : hangup 200 autorise la sortie, échec la bloque (B2 Opus)', async () => {
+      setupPool(
+        { isRunning: true },
+        {
+          running: true,
+          lines: [{ slot: 0, phase: 'dialing', destination: '+331****0001', error: null }],
+        },
+      );
 
-    const onBack = vi.fn();
-    const { rerender } = renderWorkspace({ onBack, initialPowerOn: true });
+      const onBack = vi.fn();
+      const { rerender } = renderWorkspace({ onBack, initialPowerOn: true });
 
-    // Clic sur Quitter pendant la vague
-    const quitBtn = screen.getByRole('button', { name: /retour aux séances/i });
-    fireEvent.click(quitBtn);
-    expect(onBack).not.toHaveBeenCalled();
+      // Clic sur Quitter pendant la vague
+      const quitBtn = screen.getByRole('button', { name: /retour aux séances/i });
+      fireEvent.click(quitBtn);
+      expect(onBack).not.toHaveBeenCalled();
+      expect(poolMockHandlers.hangupAll).toHaveBeenCalled();
 
-    // Simuler la fin propre du hangup (arrêt du pool, 200 serveur)
-    setupPool(
-      { isRunning: false },
-      {
-        running: false,
-        lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
-      },
-    );
+      // ÉTAPE 1 — raccrochage en échec serveur (hangupRetryable) : la sortie RESTE bloquée
+      setupPool(
+        { isRunning: false, hangupRetryable: true },
+        {
+          running: false,
+          lines: [{ slot: 0, phase: 'failed', destination: '+331****0001', error: 'Raccrochage serveur impossible' }],
+        },
+      );
 
-    rerender(
-      <DialerProvider token="valid-token" dryRun>
-        <SessionWorkspaceV2
-          session={mockSession}
-          contacts={mockContacts}
-          hubSessions={[]}
-          currentContact={mockContacts[0]}
-          focusedContactId={101}
-          loading={false}
-          error={null}
-          awaitingEvent={null}
-          contactContext={null}
-          contextContactId={null}
-          onBack={onBack}
-          onFocusContact={vi.fn()}
-          onLogAndNext={vi.fn()}
-          onLogRdvAndNext={vi.fn()}
-          onLogMany={vi.fn()}
-          onLogEvent={vi.fn()}
-          onDeferContacts={vi.fn()}
-          onRemoveContacts={vi.fn()}
-          onUpdateRecall={vi.fn()}
-          canPowerDialer={true}
-          token="valid-token"
-          initialPowerOn={true}
-        />
-      </DialerProvider>,
-    );
+      rerender(
+        <DialerProvider token="valid-token" dryRun>
+          <SessionWorkspaceV2
+            session={mockSession}
+            contacts={mockContacts}
+            hubSessions={[]}
+            currentContact={mockContacts[0]}
+            focusedContactId={101}
+            loading={false}
+            error={null}
+            awaitingEvent={null}
+            contactContext={null}
+            contextContactId={null}
+            onBack={onBack}
+            onFocusContact={vi.fn()}
+            onLogAndNext={vi.fn()}
+            onLogRdvAndNext={vi.fn()}
+            onLogMany={vi.fn()}
+            onLogEvent={vi.fn()}
+            onDeferContacts={vi.fn()}
+            onRemoveContacts={vi.fn()}
+            onUpdateRecall={vi.fn()}
+            canPowerDialer={true}
+            token="valid-token"
+            initialPowerOn={true}
+          />
+        </DialerProvider>,
+      );
 
-    // Sortie confirmée
-    expect(onBack).toHaveBeenCalledTimes(1);
-  });
+      // La sortie est BLOQUÉE tant que le raccrochage serveur n'est pas confirmé
+      expect(onBack).not.toHaveBeenCalled();
+      // L'UI affiche l'écran retry (CTA unique)
+      expect(screen.getByRole('button', { name: /Réessayer le raccrochage/i })).toBeTruthy();
+
+      // ÉTAPE 2 — l'utilisateur réessaie, le raccrochage aboutit (200), plus de retryable
+      setupPool(
+        { isRunning: false, hangupRetryable: false },
+        {
+          running: false,
+          error: null,
+          lines: [{ slot: 0, phase: 'idle', destination: '', error: null }],
+        },
+      );
+
+      rerender(
+        <DialerProvider token="valid-token" dryRun>
+          <SessionWorkspaceV2
+            session={mockSession}
+            contacts={mockContacts}
+            hubSessions={[]}
+            currentContact={mockContacts[0]}
+            focusedContactId={101}
+            loading={false}
+            error={null}
+            awaitingEvent={null}
+            contactContext={null}
+            contextContactId={null}
+            onBack={onBack}
+            onFocusContact={vi.fn()}
+            onLogAndNext={vi.fn()}
+            onLogRdvAndNext={vi.fn()}
+            onLogMany={vi.fn()}
+            onLogEvent={vi.fn()}
+            onDeferContacts={vi.fn()}
+            onRemoveContacts={vi.fn()}
+            onUpdateRecall={vi.fn()}
+            canPowerDialer={true}
+            token="valid-token"
+            initialPowerOn={true}
+          />
+        </DialerProvider>,
+      );
+
+      // Sortie confirmée seulement après le 200 : l'utilisateur re-clique Quitter,
+      // la sortie est désormais sûre (plus de hangupRetryable, pool au repos)
+      const quitBtn2 = screen.getByRole('button', { name: /retour aux séances/i });
+      fireEvent.click(quitBtn2);
+      expect(onBack).toHaveBeenCalledTimes(1);
+    });
 
   it('10. Quota règles : masqué si remaining >= 8, bloqué si remaining === 0 (bouton Lancer disabled)', async () => {
     // Quota bloqué : 50/50

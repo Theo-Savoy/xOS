@@ -54,6 +54,10 @@ export interface ContactWorkspaceProps {
   onCelebrateGoal?: (payload: { goal: number; count: number }) => void;
   /** Masquage de l'action d'appel séquentiel / CallBar quand Power est actif */
   isCallBarHidden?: boolean;
+  /** Raccrochage Power (correctif B3 Opus) : rendu disponible en conversation, hors panel démonté */
+  onHangupAll?: () => void;
+  /** État conversation Power : expose le Raccrocher danger à côté de la consignation */
+  isPowerConversation?: boolean;
 }
 
 export function ContactWorkspace({
@@ -72,6 +76,8 @@ export function ContactWorkspace({
   onFinalizeEvent,
   onLogEvent,
   isCallBarHidden = false,
+  onHangupAll,
+  isPowerConversation = false,
 }: ContactWorkspaceProps) {
   const [resultat, setResultat] = useState<ResultatCall>(
     RESULTAT_OPTIONS[0].value,
@@ -315,6 +321,16 @@ export function ContactWorkspace({
 
                 {/* Un CTA primaire unique par état (Plan §1 & D4) — sticky CTA mobile (calls-workspace__sticky-bar) */}
                 <div className="calls-acw__actions calls-workspace__sticky-bar">
+                  {isPowerConversation && onHangupAll && (
+                    <Button
+                      variant="danger"
+                      size="md"
+                      className="calls-acw__hangup-cta"
+                      onClick={onHangupAll}
+                    >
+                      Raccrocher
+                    </Button>
+                  )}
                   <Button
                     variant="primary"
                     size="lg"

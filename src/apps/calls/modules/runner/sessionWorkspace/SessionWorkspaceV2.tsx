@@ -173,6 +173,16 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       aria-label={`Séance V2 : ${session.name}`}
     >
       {/* 1. HUD Séance condensé */}
+      {/* Audio RTC agent Telnyx : hissé à ce niveau, instance unique toujours montée
+          tant que Power est actif — indépendant des états conversation/acw (correctif B1 Opus) */}
+      {isPowerActive && (
+        <audio
+          data-rtc-agent=""
+          autoPlay
+          muted={!agentConnected}
+          className="calls-dialer__rtc-audio"
+        />
+      )}
       <SessionHeader
         session={session}
         contacts={contacts}
@@ -234,7 +244,6 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               lines={lines}
               byPhone={byPhone}
               error={powerError}
-              agentConnected={agentConnected}
               launching={launching}
               hasAttempted={hasAttempted}
               onLaunch={onLaunch}
@@ -278,6 +287,8 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               sessionType={session.session_type}
               awaitingEvent={awaitingEvent}
               isCallBarHidden={powerViewModel.isCallBarHidden}
+              onHangupAll={onHangupAll}
+              isPowerConversation={powerViewModel.state === 'conversation'}
             />
 
             {/* Colonne 3 : Contexte CRM en lecture */}
@@ -358,7 +369,6 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
               lines={lines}
               byPhone={byPhone}
               error={powerError}
-              agentConnected={agentConnected}
               launching={launching}
               hasAttempted={hasAttempted}
               onLaunch={onLaunch}

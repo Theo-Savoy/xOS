@@ -39,7 +39,6 @@ export interface PowerWorkspaceProps {
   lines?: PoolLine[];
   byPhone?: Map<string, SessionContact>;
   error?: string | null;
-  agentConnected?: boolean;
   launching?: boolean;
   hasAttempted?: boolean;
   onLaunch?: () => void;
@@ -65,7 +64,6 @@ export function PowerWorkspace({
   lines = [],
   byPhone = new Map(),
   error = null,
-  agentConnected = false,
   launching = false,
   hasAttempted = false,
   onLaunch,
@@ -82,6 +80,8 @@ export function PowerWorkspace({
 
   const readyCount = projectedQueue?.readyCount ?? 0;
   const unreachableCount = projectedQueue?.unreachableCount ?? 0;
+  // Nombre réellement lancé par la vague = min(file prête, parallélisme) — libellé CTA unique
+  const launchCount = Math.min(readyCount, parallelism);
   const activeLines = lines.filter((l) => l.phase !== 'idle');
 
   return (
@@ -90,15 +90,8 @@ export function PowerWorkspace({
       role="region"
       aria-label="Console Power"
     >
-      {/* Élément audio RTC pour le flux agent Telnyx */}
-      {isPowerActive && (
-        <audio
-          data-rtc-agent=""
-          autoPlay
-          muted={!agentConnected}
-          className="calls-dialer__rtc-audio"
-        />
-      )}
+      {/* Élément audio RTC déplacé dans SessionWorkspaceV2 (correctif B1 Opus) —
+          instance unique, toujours montée tant que Power est actif */}
 
       <div className="calls-workspace__power-header">
         <div className="calls-workspace__power-title-group">
@@ -280,7 +273,7 @@ export function PowerWorkspace({
                   }
                 >
                   <span aria-hidden="true">▶ </span>
-                  {hasAttempted ? 'Relancer' : `Lancer ${parallelism} appels`}
+                  {hasAttempted ? 'Relancer' : `Lancer ${launchCount} appel${launchCount > 1 ? 's' : ''}`}
                 </Button>
               )}
 
