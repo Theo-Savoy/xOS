@@ -39,10 +39,153 @@ import { canSelectContact, selectIdsWithCompanyCap } from './selection';
 import type { ContactPreview, SessionType, TeamMember } from './types';
 import { AbmWizardRecap } from './abm/AbmWizardRecap';
 import { ContactPreviewCard } from './modules/sessions/ContactPreviewCard';
-import {
-  WizardStepper,
-  type WizardStep,
-} from './modules/sessions/WizardStepper';
+
+type ReportStep = 0 | 1 | 2 | 3;
+type ReportRecapStep = 0 | 1 | 2;
+
+type ReportStepDefinition = {
+  id: ReportStep;
+  number: string;
+  label: string;
+  desc: string;
+};
+
+const REPORT_STEPS: readonly ReportStepDefinition[] = [
+  { id: 0, number: '1', label: 'Cibler', desc: 'Rapport Salesforce' },
+  { id: 1, number: '2', label: 'Filtrer', desc: 'Filtres & critères' },
+  { id: 2, number: '3', label: 'Composer', desc: 'Sélection des contacts' },
+  { id: 3, number: '4', label: 'Planifier', desc: 'Nom, date & options' },
+];
+
+type ReportWizardStepperProps = {
+  currentStep: ReportStep;
+  onStepChange: (step: ReportStep) => void;
+  canProceedToStep1: boolean;
+  canProceedToStep2: boolean;
+  canProceedToStep3: boolean;
+};
+
+function ReportStepCheckIcon(): ReactNode {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="calls-wizard-step__check-icon"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function ReportStepChevron(): ReactNode {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="calls-wizard-stepper__chevron"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function ReportWizardStepper({
+  currentStep,
+  onStepChange,
+  canProceedToStep1,
+  canProceedToStep2,
+  canProceedToStep3,
+}: ReportWizardStepperProps) {
+  const isStepAccessible = (stepId: ReportStep): boolean => {
+    if (stepId === 0) return true;
+    if (stepId === 1) return canProceedToStep1;
+    if (stepId === 2) return canProceedToStep2;
+    return canProceedToStep3;
+  };
+
+  const isStepCompleted = (stepId: ReportStep): boolean => {
+    if (stepId === 0) return canProceedToStep1 && currentStep > 0;
+    if (stepId === 1) return canProceedToStep2 && currentStep > 1;
+    if (stepId === 2) return canProceedToStep3 && currentStep > 2;
+    return false;
+  };
+
+  return (
+    <nav
+      className="calls-wizard-stepper"
+      aria-label="Étapes de composition de la séance"
+    >
+      <ol className="calls-wizard-stepper__list">
+        {REPORT_STEPS.map((step, index) => {
+          const isActive = currentStep === step.id;
+          const isCompleted = isStepCompleted(step.id);
+          const accessible = isStepAccessible(step.id);
+          const itemClasses = [
+            'calls-wizard-step',
+            isActive && 'calls-wizard-step--active',
+            isCompleted && 'calls-wizard-step--completed',
+            !accessible && 'calls-wizard-step--disabled',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <li key={step.id} className={itemClasses}>
+              <Button
+                type="button"
+                variant="ghost"
+                className="calls-wizard-step__btn"
+                onClick={() => accessible && onStepChange(step.id)}
+                disabled={!accessible}
+                aria-current={isActive ? 'step' : undefined}
+                aria-label={`Étape ${step.number}: ${step.label} (${step.desc})`}
+              >
+                <span className="calls-wizard-step__indicator">
+                  {isCompleted ? <ReportStepCheckIcon /> : step.number}
+                </span>
+                <span className="calls-wizard-step__content">
+                  <span className="calls-wizard-step__label">{step.label}</span>
+                  <span className="calls-wizard-step__desc">{step.desc}</span>
+                </span>
+              </Button>
+              {index < REPORT_STEPS.length - 1 && (
+                <span
+                  className="calls-wizard-stepper__divider"
+                  aria-hidden="true"
+                >
+                  <ReportStepChevron />
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="calls-wizard-stepper__mobile" aria-hidden="true">
+        <span className="calls-wizard-stepper__mobile-badge">
+          {currentStep + 1} / {REPORT_STEPS.length}
+        </span>
+        <span className="calls-wizard-stepper__mobile-text">
+          {REPORT_STEPS[currentStep].label}
+        </span>
+      </div>
+    </nav>
+  );
+}
 
 export type ReportAudiencePayload = {
   groups: AudienceSessionGroup[];
@@ -62,7 +205,7 @@ export type ReportSessionViewProps = {
   onCreateAudience: (payload: ReportAudiencePayload) => void;
   creating: boolean;
   createError: string | null;
-  initialStep?: WizardStep;
+  initialStep?: ReportStep;
   presets?: CallTargetPreset[];
   savingPreset?: boolean;
   onLoadPreset?: (preset: CallTargetPreset) => void;
@@ -70,10 +213,11 @@ export type ReportSessionViewProps = {
   onDeletePreset?: (id: number) => void;
 };
 
-const STEP_TITLES: Record<WizardStep, string> = {
+const STEP_TITLES: Record<ReportStep, string> = {
   0: 'Choisissez un rapport Salesforce',
-  1: 'Filtrez et sélectionnez les contacts',
-  2: 'Planifiez et répartissez vos séances',
+  1: 'Filtrez les contacts du rapport',
+  2: 'Sélectionnez les contacts à appeler',
+  3: 'Planifiez et répartissez vos séances',
 };
 
 const NO_CONTACTS_ERROR = 'Ce rapport n’expose ni contact ni compte';
@@ -127,7 +271,7 @@ export function ReportSessionView({
   onSavePreset,
   onDeletePreset,
 }: ReportSessionViewProps) {
-  const [step, setStep] = useState<WizardStep>(initialStep ?? 0);
+  const [step, setStep] = useState<ReportStep>(initialStep ?? 0);
   const [query, setQuery] = useState('');
   const [reports, setReports] = useState<SalesforceReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -261,6 +405,12 @@ export function ReportSessionView({
     return () => window.clearTimeout(timer);
   }, [contactLimit, maxPerCompany, reportFilters, reportRun, token]);
 
+  // Changer la limite ou le cap/entreprise doit régénérer la sélection selon
+  // le nouveau plafond (le refresh de preview re-déclenchera la sélection).
+  useEffect(() => {
+    hadPreviewRef.current = false;
+  }, [contactLimit, maxPerCompany]);
+
   // Le premier résultat initialise la sélection selon le cap ; les refreshs
   // ne retirent que les contacts absents de la nouvelle preview.
   useEffect(() => {
@@ -317,6 +467,20 @@ export function ReportSessionView({
   );
   const droppedAccounts = packedGroups.dropped;
 
+  // Tous les contacts sélectionnés doivent être inclus. Si le nombre max de
+  // séances (ou la taille) ne suffit pas, on augmente automatiquement le
+  // nombre de séances — jamais de perte silencieuse.
+  const droppedChangedRef = useRef(false);
+  useEffect(() => {
+    if (droppedAccounts.length === 0) return;
+    if (droppedChangedRef.current) return;
+    droppedChangedRef.current = true;
+    setMaxSessions((current) => current + 1);
+  }, [droppedAccounts.length]);
+  useEffect(() => {
+    droppedChangedRef.current = false;
+  }, [maxSessions]);
+
   const activeFilters = useMemo(
     () => ({
       total:
@@ -343,27 +507,16 @@ export function ReportSessionView({
     [selectedContacts],
   );
 
-  const canProceedToStep2 = Boolean(
+  const canProceedToStep1 = Boolean(
     reportRun && reportRun.contact_ids.length > 0,
   );
+  const canProceedToStep2 = canProceedToStep1;
   const canProceedToStep3 = selectedContacts.length > 0;
   const canLaunchSession =
     Boolean(sessionName.trim()) && canProceedToStep3 && packedGroups.length > 0;
 
-  const handleSelectReport = (reportId: string) => {
-    setSelectedReportId(reportId);
-    setReportRun(null);
-    setRunError(null);
-    setPreview([]);
-    setPreviewError(null);
-    setDedup([]);
-    setExcludedCount(0);
-    setPreviewTruncated(false);
-    hadPreviewRef.current = false;
-  };
-
-  const handleLoadReport = async () => {
-    if (!selectedReportId) return;
+  const handleLoadReport = async (reportId: string) => {
+    if (!reportId) return;
     setRunLoading(true);
     setRunError(null);
     setReportRun(null);
@@ -374,7 +527,7 @@ export function ReportSessionView({
     setPreviewTruncated(false);
     hadPreviewRef.current = false;
     try {
-      const data = await fetchRunReport(token, selectedReportId);
+      const data = await fetchRunReport(token, reportId);
       setReportRun(data.run);
       if (data.run.contact_ids.length === 0) setRunError(NO_CONTACTS_ERROR);
       // Garde-fou : le backend rejette les listes > 2000 ids (SOQL_FETCH_CAP).
@@ -387,6 +540,19 @@ export function ReportSessionView({
     } finally {
       setRunLoading(false);
     }
+  };
+
+  const handleSelectReport = (reportId: string) => {
+    setSelectedReportId(reportId);
+    setReportRun(null);
+    setRunError(null);
+    setPreview([]);
+    setPreviewError(null);
+    setDedup([]);
+    setExcludedCount(0);
+    setPreviewTruncated(false);
+    hadPreviewRef.current = false;
+    void handleLoadReport(reportId);
   };
 
   const toggleContact = (contactId: string) => {
@@ -454,15 +620,17 @@ export function ReportSessionView({
   };
 
   const handleNext = () => {
-    if (step === 0 && canProceedToStep2) setStep(1);
-    else if (step === 1 && canProceedToStep3) setStep(2);
-    else if (step === 2 && canLaunchSession) handleCreateClick();
+    if (step === 0 && canProceedToStep1) setStep(1);
+    else if (step === 1 && canProceedToStep2) setStep(2);
+    else if (step === 2 && canProceedToStep3) setStep(3);
+    else if (step === 3 && canLaunchSession) handleCreateClick();
   };
 
-  const handleStepChange = (next: WizardStep) => {
+  const handleStepChange = (next: ReportStep) => {
     if (next === 0) setStep(0);
-    else if (next === 1 && canProceedToStep2) setStep(1);
-    else if (next === 2 && canProceedToStep2 && canProceedToStep3) setStep(2);
+    else if (next === 1 && canProceedToStep1) setStep(1);
+    else if (next === 2 && canProceedToStep2) setStep(2);
+    else if (next === 3 && canProceedToStep3) setStep(3);
   };
 
   const renderReportStep = () => (
@@ -475,7 +643,6 @@ export function ReportSessionView({
               Sélectionnez un rapport pour récupérer ses contacts et comptes.
             </p>
           </div>
-          {selectedReport && <Tag variant="accent">Rapport sélectionné</Tag>}
         </div>
 
         <label className="calls-field">
@@ -556,7 +723,7 @@ export function ReportSessionView({
                     <span className="calls-report-option__meta">
                       {report.folder_name || 'Dossier non renseigné'}
                       <span aria-hidden="true"> · </span>
-                      Dernier run : {formatActivityDateFr(report.last_run_date)}
+                      Créé le : {formatActivityDateFr(report.created_date)}
                     </span>
                   </span>
                 </label>
@@ -621,14 +788,7 @@ export function ReportSessionView({
           </div>
         )}
 
-        <div className="calls-report-selection__actions">
-          <Button
-            onClick={() => void handleLoadReport()}
-            disabled={!selectedReportId || runLoading}
-          >
-            {runLoading ? 'Chargement du rapport…' : 'Charger le rapport'}
-          </Button>
-        </div>
+        {runLoading && <p className="calls-muted">Chargement du rapport…</p>}
       </GlassCard>
     </div>
   );
@@ -713,6 +873,17 @@ export function ReportSessionView({
     </>
   );
 
+  const recapStep: ReportRecapStep =
+    step < 2 ? 0 : step === 2 ? 1 : 2;
+  const recapCtaLabel =
+    step === 0
+      ? 'Continuer vers Filtrer →'
+      : step === 1
+        ? 'Continuer vers Composer →'
+        : step === 2
+          ? 'Continuer vers Planifier →'
+          : undefined;
+
   return (
     <div className="calls-view">
       <header className="calls-view__header calls-view__header--runner">
@@ -729,9 +900,10 @@ export function ReportSessionView({
             <h2>{STEP_TITLES[step]}</h2>
           </div>
         </div>
-        <WizardStepper
+        <ReportWizardStepper
           currentStep={step}
           onStepChange={handleStepChange}
+          canProceedToStep1={canProceedToStep1}
           canProceedToStep2={canProceedToStep2}
           canProceedToStep3={canProceedToStep3}
         />
@@ -750,7 +922,7 @@ export function ReportSessionView({
           {step === 0 && renderReportStep()}
 
           {step === 1 && (
-            <div className="calls-wizard-step-pane" data-step="composer">
+            <div className="calls-wizard-step-pane" data-step="filtrer">
               <FilterBuilder
                 filters={filters}
                 onChange={handleFiltersChange}
@@ -780,7 +952,6 @@ export function ReportSessionView({
                   </span>
                 </div>
               )}
-              {renderPreview()}
               <div className="calls-wizard-nav">
                 <Button variant="secondary" onClick={() => setStep(0)}>
                   ← Précédent : Rapport
@@ -790,6 +961,17 @@ export function ReportSessionView({
           )}
 
           {step === 2 && (
+            <div className="calls-wizard-step-pane" data-step="composer">
+              {renderPreview()}
+              <div className="calls-wizard-nav">
+                <Button variant="secondary" onClick={() => setStep(1)}>
+                  ← Précédent : Filtrer
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
             <div className="calls-wizard-step-pane" data-step="planifier">
               <div className="calls-plan">
                 <GlassCard className="calls-plan-card">
@@ -857,14 +1039,23 @@ export function ReportSessionView({
                   <p className="calls-muted calls-fb-hint" role="status">
                     Les contacts d&apos;un même compte restent ensemble.
                   </p>
-                  {droppedAccounts.length > 0 && (
+                  {selectedContacts.length < (reportRun?.contact_ids.length ?? 0) && (
                     <div className="calls-warn-banner" role="alert">
-                      {droppedAccounts.length} compte
-                      {droppedAccounts.length > 1 ? 's' : ''} écarté
-                      {droppedAccounts.length > 1 ? 's' : ''} :{' '}
-                      {droppedAccounts
-                        .map((account) => account.name)
-                        .join(', ')}
+                      {(reportRun?.contact_ids.length ?? 0) -
+                        selectedContacts.length}{' '}
+                      contact
+                      {(reportRun?.contact_ids.length ?? 0) -
+                        selectedContacts.length >
+                      1
+                        ? 's'
+                        : ''}{' '}
+                      du rapport non sélectionné
+                      {(reportRun?.contact_ids.length ?? 0) -
+                        selectedContacts.length >
+                      1
+                        ? 's'
+                        : ''}{' '}
+                      — ils ne seront pas inclus dans les séances.
                     </div>
                   )}
                   <div className="calls-abm-plan-groups">
@@ -900,7 +1091,10 @@ export function ReportSessionView({
 
         <aside className="calls-abm-sidebar calls-wizard-sidebar">
           <AbmWizardRecap
-            step={step}
+            step={recapStep}
+            stepNumber={step + 1}
+            stepCount={4}
+            nextCtaLabel={recapCtaLabel}
             composerSubStep="contacts"
             query={reportRun?.report_name || selectedReport?.name || ''}
             queryLabel="Rapport"
@@ -918,12 +1112,16 @@ export function ReportSessionView({
             sessionsCount={packedGroups.length}
             targetSize={targetSize}
             droppedAccountsCount={droppedAccounts.length}
-            canProceedToStep2={canProceedToStep2}
+            canProceedToStep2={canProceedToStep1}
             canProceedToStep3={canProceedToStep3}
             canLaunchSession={canLaunchSession}
             creating={creating}
             onNext={handleNext}
-            onStepClick={handleStepChange}
+            onStepClick={(targetStep) => {
+              if (targetStep === 0) setStep(1);
+              else if (targetStep === 1) setStep(2);
+              else if (targetStep === 2) setStep(3);
+            }}
           />
         </aside>
       </div>

@@ -5,6 +5,8 @@ import type { WizardStep } from '../modules/sessions/WizardStepper';
 
 export type AbmWizardRecapProps = {
   step: WizardStep;
+  stepNumber?: number;
+  stepCount?: number;
   searchMode?: 'name' | 'filters' | null;
   matchAccountsCount?: number | null;
   matchAccountsCapped?: boolean;
@@ -34,6 +36,8 @@ export type AbmWizardRecapProps = {
   ctaNoun?: string;
   /** Libellé de la ligne de requête/source (défaut : Recherche). */
   queryLabel?: string;
+  /** Libellé personnalisé du CTA de progression. */
+  nextCtaLabel?: string;
 };
 
 function EditStepIcon(): ReactNode {
@@ -57,6 +61,8 @@ function EditStepIcon(): ReactNode {
 
 export function AbmWizardRecap({
   step,
+  stepNumber,
+  stepCount = 3,
   searchMode = null,
   matchAccountsCount = null,
   matchAccountsCapped = false,
@@ -84,8 +90,9 @@ export function AbmWizardRecap({
   className = '',
   ctaNoun = 'ABM',
   queryLabel = 'Recherche',
+  nextCtaLabel,
 }: AbmWizardRecapProps) {
-  const nextCtaLabel =
+  const computedNextCtaLabel =
     step === 0
       ? 'Continuer vers Composer →'
       : step === 1
@@ -94,9 +101,11 @@ export function AbmWizardRecap({
           : 'Continuer vers Planifier →'
         : creating
           ? 'Création en cours…'
-          : sessionsCount > 0
-            ? `Créer ${sessionsCount} séance${sessionsCount > 1 ? 's' : ''} ${ctaNoun}`
-            : `Créer séance ${ctaNoun}`;
+            : sessionsCount > 0
+              ? `Créer ${sessionsCount} séance${sessionsCount > 1 ? 's' : ''} ${ctaNoun}`
+              : `Créer séance ${ctaNoun}`;
+  const visibleCtaLabel = nextCtaLabel ?? computedNextCtaLabel;
+  const visibleStepNumber = stepNumber ?? step + 1;
 
   const nextDisabled =
     step === 0
@@ -111,7 +120,9 @@ export function AbmWizardRecap({
     >
       <div className="calls-wizard-recap__header">
         <h3 className="calls-wizard-recap__title">Votre sélection</h3>
-        <Tag variant="accent">Étape {step + 1} / 3</Tag>
+        <Tag variant="accent">
+          Étape {visibleStepNumber} / {stepCount}
+        </Tag>
       </div>
 
       {/* Section 1 : Cible (Filtres & Recherche) */}
@@ -283,7 +294,7 @@ export function AbmWizardRecap({
           onClick={onNext}
           disabled={nextDisabled}
         >
-          {nextCtaLabel}
+          {visibleCtaLabel}
         </Button>
       </div>
     </GlassCard>
