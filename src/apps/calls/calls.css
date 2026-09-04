@@ -6730,3 +6730,160 @@ a.calls-contact-card__peer:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------------------- */
+/* Rapport Salesforce : choix, résumé du run et source de la preview       */
+/* ---------------------------------------------------------------------- */
+
+.calls-report-selection {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.calls-report-selection__header,
+.calls-report-run__header,
+.calls-report-selection__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.calls-report-selection h3,
+.calls-report-run h3 {
+  margin: 0;
+}
+
+.calls-report-selection__header p,
+.calls-report-run__header p {
+  margin: 0.3rem 0 0;
+}
+
+.calls-report-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.calls-report-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md, 8px);
+  background: color-mix(in srgb, var(--xos-surface) 55%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.calls-report-option:hover,
+.calls-report-option--selected {
+  border-color: color-mix(in srgb, var(--xos-accent) 55%, var(--xos-border));
+  background: color-mix(in srgb, var(--xos-accent) 10%, transparent);
+}
+
+.calls-report-option:focus-within {
+  outline: 2px solid var(--xos-accent);
+  outline-offset: 2px;
+}
+
+.calls-report-option input {
+  margin-top: 0.2rem;
+  accent-color: var(--xos-accent);
+}
+
+.calls-report-option__body {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.calls-report-option__meta {
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.calls-report-run {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--xos-accent) 35%, var(--xos-border));
+  border-radius: var(--xos-radius-md, 8px);
+  background: color-mix(in srgb, var(--xos-accent) 6%, transparent);
+}
+
+.calls-report-run__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.calls-report-run__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--xos-radius, 8px);
+  background: color-mix(in srgb, var(--xos-surface) 70%, transparent);
+}
+
+.calls-report-run__metric dt {
+  color: var(--xos-text-muted);
+  font-size: 0.78rem;
+}
+
+.calls-report-run__metric dd {
+  margin: 0;
+  color: var(--xos-text);
+  font-weight: 600;
+}
+
+.calls-report-preview-summary {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--xos-accent) 25%, var(--xos-border));
+  border-radius: var(--xos-radius, 8px);
+  background: color-mix(in srgb, var(--xos-accent) 7%, transparent);
+  color: var(--xos-text-muted);
+}
+
+.calls-report-preview-summary strong {
+  color: var(--xos-text);
+}
+
+.calls-report-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  color: var(--xos-text-muted);
+  font-size: 0.85rem;
+}
+
+.calls-truncated-banner {
+  border: 1px solid;
+  border-color: color-mix(
+    in srgb,
+    var(--xos-warn, #f5c542) 35%,
+    var(--xos-border)
+  );
+  border-radius: var(--xos-radius, 0.75rem);
+  padding: 0.75rem 0.9rem;
+  background: color-mix(in srgb, var(--xos-warn, #f5c542) 9%, transparent);
+}
+
+.calls-truncated-banner p {
+  margin: 0;
+  color: var(--xos-warn, #f5c542);
+}
+
+@container calls-app (max-width: 719px) {
+  .calls-report-run__grid {
+    grid-template-columns: 1fr;
+  }
+}

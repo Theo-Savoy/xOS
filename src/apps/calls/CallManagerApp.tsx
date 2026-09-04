@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '../../auth/useSession';
 import { WindowBootScreen } from '../../components/WindowBootScreen';
-import { Button, EmptyState } from '../../components/ui';
 import {
   emptyFilterTree,
   normalizeFilterTree,
@@ -12,6 +11,7 @@ import {
   type MaxPerCompany,
 } from '../../crm';
 import { AccountSearchView } from './AccountSearchView';
+import { ReportSessionView } from './ReportSessionView';
 import {
   completeSession,
   createFollowUpSession,
@@ -2038,31 +2038,20 @@ export default function CallManagerApp({
       )}
 
       {view === 'report' && (
-        <div className="calls-view">
-          <header className="calls-view__header calls-view__header--runner">
-            <div className="calls-view__nav">
-              <Button
-                variant="secondary"
-                className="calls-view__back"
-                onClick={() => setView('session-type-select')}
-              >
-                Retour
-              </Button>
-            </div>
-          </header>
-          <EmptyState
-            title="Mode Rapport Salesforce — bientôt disponible"
-            description="La création de séances depuis un rapport Salesforce sera disponible prochainement."
-            action={
-              <Button
-                variant="secondary"
-                onClick={() => setView('session-type-select')}
-              >
-                Retour
-              </Button>
-            }
-          />
-        </div>
+        <ReportSessionView
+          token={token}
+          team={team}
+          currentUserId={session.user.id}
+          onBack={() => setView('session-type-select')}
+          onCreateAudience={(payload) => void handleCreateAudience(payload)}
+          creating={audienceCreating}
+          createError={audienceError}
+          presets={presets}
+          savingPreset={savingPreset}
+          onLoadPreset={handleLoadPreset}
+          onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
+          onDeletePreset={(id) => void handleDeletePreset(id)}
+        />
       )}
 
       {view === 'pre-session' && activeSession && (
