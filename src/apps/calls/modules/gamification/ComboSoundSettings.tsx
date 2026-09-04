@@ -1,4 +1,4 @@
-import { Button } from '../../../../components/ui';
+import { Button, Checkbox } from '../../../../components/ui';
 import {
   COMBO_SOUND_GROUP_HINTS,
   COMBO_SOUND_GROUP_LABELS,
@@ -89,11 +89,11 @@ export function ComboSoundSettings({
         {GROUP_ORDER.map((group) => (
           <li key={group}>
             <label className="calls-sound-prefs__row">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={masterEnabled && prefs[group]}
                 disabled={!masterEnabled}
-                onChange={(e) => setGroup(group, e.target.checked)}
+                onChange={(checked) => setGroup(group, checked)}
+                aria-label={COMBO_SOUND_GROUP_LABELS[group]}
               />
               <span className="calls-sound-prefs__copy">
                 <span className="calls-sound-prefs__label">
