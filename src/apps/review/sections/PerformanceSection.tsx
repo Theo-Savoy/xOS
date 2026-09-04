@@ -50,7 +50,7 @@ export function PerformanceSection({
     refValue: number | undefined,
   ): string | undefined => {
     if (value === undefined || !refValue) return undefined;
-    return fmtPctDelta((value - refValue) / refValue);
+    return fmtPctDelta(((value - refValue) / Math.abs(refValue)) * 100);
   };
   const chartData = data.series.map((row, index) => {
     const previous = data.series[index - 1];
