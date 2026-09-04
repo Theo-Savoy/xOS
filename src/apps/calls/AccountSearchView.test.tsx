@@ -427,7 +427,7 @@ describe('AccountSearchView', () => {
     );
   });
 
-  it('rejects an ABM date that is not in the future', async () => {
+  it('accepts today as an ABM session date (only the past is rejected)', async () => {
     const user = userEvent.setup();
     vi.mocked(fetchAccountsSearch).mockResolvedValue({
       accounts: [acme],
@@ -447,7 +447,7 @@ describe('AccountSearchView', () => {
     const todayBtn = screen.getByRole('button', {
       name: "Aujourd'hui",
     }) as HTMLButtonElement;
-    expect(todayBtn.disabled).toBe(true);
+    expect(todayBtn.disabled).toBe(false);
   });
 
   it('live preview: debounces rapid filter changes into a single request 300ms later', async () => {

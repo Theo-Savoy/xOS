@@ -29,7 +29,7 @@ import {
 import { packAccountsIntoSessions } from './audienceBinPacking';
 import { PicklistMultiSelect, ChipGroup } from './filterControls';
 import { asOptions } from './filterControls.helpers';
-import { tomorrowParisIso } from './formControls.helpers';
+import { todayParisIso } from './formControls.helpers';
 import type { AccountSearchHit, ContactPreview, TeamMember } from './types';
 import { AccountRow } from './abm/AccountRow';
 import { TargetPanel, type TargetEntry } from './abm/TargetPanel';
@@ -641,7 +641,7 @@ export function AccountSearchView({
     query.trim().length >= 2 || hasAnyFilter(filters) || targetList.size > 0;
   const canProceedToStep3 = targetList.size > 0 && totalRetainedInTarget > 0;
   const canLaunchSession =
-    groups.length > 0 && (!scheduledFor || scheduledFor >= tomorrowParisIso());
+    groups.length > 0 && (!scheduledFor || scheduledFor >= todayParisIso());
 
   const handleCreateClick = () => {
     if (!canLaunchSession) return;
@@ -1425,7 +1425,7 @@ export function AccountSearchView({
                   label="Date de la séance"
                   value={scheduledFor}
                   onChange={setScheduledFor}
-                  min={tomorrowParisIso()}
+                  min={todayParisIso()}
                 />
               </GlassCard>
 
