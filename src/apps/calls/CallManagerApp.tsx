@@ -50,6 +50,7 @@ import {
   recordSessionComplete,
 } from './modules/gamification/comboEvents';
 import { PilotageView } from './modules/pilotage/PilotageView';
+import { prefetchProspectionCockpit } from './modules/pilotage/pilotageApi';
 import { RdvSuiviView } from './modules/rdv/RdvSuiviView';
 import { DialerProvider } from './modules/dialer/DialerProvider';
 import { CallBar } from './modules/dialer/CallBar';
@@ -464,6 +465,11 @@ export default function CallManagerApp({
       void loadSessions();
     }
   }, [token, loadSessions]);
+  useEffect(() => {
+    if (token && canPilotage) {
+      prefetchProspectionCockpit(token, 'day', null);
+    }
+  }, [token, canPilotage]);
 
   useEffect(() => {
     if (!token || view !== 'sessions' || rollover || rolloverLoading) return;

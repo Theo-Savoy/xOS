@@ -65,7 +65,9 @@ function cockpitSliceReducer(
       // En vue « jour », les séances sans activité ne sont pas affichées :
       // la sélection ne doit contenir que les séances visibles.
       const visible = (action.cockpit.sessions ?? []).filter(
-        (s) => action.cockpit.period !== 'day' || sessionHasActivity(s.kpis),
+        (s) =>
+          action.cockpit.period !== 'day' ||
+          (Boolean(s?.kpis) && sessionHasActivity(s.kpis)),
       );
       const nextIds = visible.map((s) => normalizeSessionId(s.id));
       const nextSet = new Set(nextIds);
@@ -615,7 +617,7 @@ export function PilotageView({
    */
   const visibleSessions = useMemo(() => {
     if (period !== 'day') return sessions;
-    return sessions.filter((s) => sessionHasActivity(s.kpis));
+    return sessions.filter((s) => Boolean(s?.kpis) && sessionHasActivity(s.kpis));
   }, [sessions, period]);
 
   const teamNameMap = useMemo(() => buildTeamNameMap(team), [team]);

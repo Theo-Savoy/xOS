@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appRegistry, getAppManifest } from '../../os/registry';
 import { useSession } from '../../auth/useSession';
 import { todayParisIso, tomorrowParisIso } from './formControls.helpers';
+import type * as pilotageApiModule from './modules/pilotage/pilotageApi';
 
 const testToday = todayParisIso();
 const mockSession = {
@@ -53,6 +54,13 @@ vi.mock('../../lib/supabase', () => ({
     }),
   },
 }));
+vi.mock('./modules/pilotage/pilotageApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof pilotageApiModule>();
+  return {
+    ...actual,
+    prefetchProspectionCockpit: vi.fn(),
+  };
+});
 
 import CallManagerApp from './CallManagerApp';
 import { invalidateComboHubCache } from './api';
