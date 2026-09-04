@@ -581,12 +581,12 @@ button.review-hint:focus-visible .review-hint__bubble {
 }
 
 .review-split-bar__renew {
-  background: #5b8def;
+  background: var(--xos-chart-compare);
 }
 
 .review-split-bar__new,
-.review-funnel-bar {
-  background: var(--xos-accent);
+.review-split-bar__won {
+  background: var(--xos-chart-current);
 }
 
 .review-split-legend {

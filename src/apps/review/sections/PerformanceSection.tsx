@@ -115,13 +115,13 @@ export function PerformanceSection({
             <Bar
               dataKey="Nouvelles affaires"
               stackId="ca"
-              fill="var(--xos-accent)"
+              fill="var(--xos-chart-current)"
               radius={[0, 0, 0, 0]}
             />
             <Bar
               dataKey="Renouvellements"
               stackId="ca"
-              fill="#5b8def"
+              fill="var(--xos-chart-compare)"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>

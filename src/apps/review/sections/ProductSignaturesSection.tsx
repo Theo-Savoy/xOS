@@ -112,14 +112,14 @@ export function ProductSignaturesSection({
               yAxisId="ca"
               dataKey="caCompare"
               name={`CA ${compareLabel}`}
-              fill="#5b8def"
+              fill="var(--xos-chart-compare)"
               radius={[4, 4, 0, 0]}
             />
             <Bar
               yAxisId="ca"
               dataKey="caFy"
               name={`CA ${fyLabel}`}
-              fill="var(--xos-accent)"
+              fill="var(--xos-chart-current)"
               radius={[4, 4, 0, 0]}
             />
             <Line
@@ -127,7 +127,7 @@ export function ProductSignaturesSection({
               type="monotone"
               dataKey="signaturesCompare"
               name={`Signatures ${compareLabel}`}
-              stroke="var(--xos-accent-warning)"
+              stroke="var(--xos-chart-compare)"
               strokeWidth={2}
               strokeDasharray="4 3"
               dot={{ r: 3 }}
@@ -137,7 +137,7 @@ export function ProductSignaturesSection({
               type="monotone"
               dataKey="signaturesFy"
               name={`Signatures ${fyLabel}`}
-              stroke="var(--xos-accent-success)"
+              stroke="var(--xos-chart-current)"
               strokeWidth={2}
               dot={{ r: 3 }}
             />

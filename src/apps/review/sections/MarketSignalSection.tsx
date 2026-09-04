@@ -18,8 +18,8 @@ import { seriesLabel } from '../review.period';
 import type { MarketMixRow, MarketPayload } from '../review.types';
 
 const MIX_COLORS = {
-  marche: '#5b8def',
-  produit: 'var(--xos-accent)',
+  marche: 'var(--xos-chart-compare)',
+  produit: 'var(--xos-chart-current)',
   prix: '#f0a35e',
 };
 

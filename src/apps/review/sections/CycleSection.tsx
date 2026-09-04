@@ -124,14 +124,14 @@ export function CycleSection({
             <Line
               type="monotone"
               dataKey="Médiane"
-              stroke="var(--xos-accent)"
+              stroke="var(--xos-chart-current)"
               strokeWidth={2}
               dot
             />
             <Line
               type="monotone"
               dataKey="Moyenne"
-              stroke="#5b8def"
+              stroke="var(--xos-chart-compare)"
               strokeWidth={2}
               dot
             />
