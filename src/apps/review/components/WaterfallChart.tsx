@@ -112,7 +112,7 @@ export function WaterfallChart({
         <Bar
           dataKey="value"
           stackId="wf"
-          radius={[4, 4, 0, 0]}
+          radius={4}
           legendType="none"
         >
           {data.map((row) => (
