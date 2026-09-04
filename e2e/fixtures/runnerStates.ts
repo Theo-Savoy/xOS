@@ -53,7 +53,20 @@ const fixtureCss = `
     padding: clamp(1rem, 2.5vw, 1.5rem);
   }
   .runner-fixture-viewport .calls-view {
+    width: 100%;
     max-width: none;
+    min-width: 0;
+  }
+  .runner-fixture-viewport .calls-view > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .runner-fixture-viewport .calls-cockpit-list-wrap,
+  .runner-fixture-viewport .calls-cockpit-list-wrap--power,
+  .runner-fixture-viewport .calls-cockpit-list {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   .runner-fixture-viewport .xos-btn,
   .runner-fixture-viewport button {
@@ -105,6 +118,8 @@ const fixtureCss = `
     display: flex;
     justify-content: space-between;
     gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     flex-wrap: wrap;
     padding: 0.65rem 0;
@@ -116,6 +131,9 @@ const fixtureCss = `
   .runner-fixture-viewport .calls-power-strip__line:last-child {
     border-bottom: 0;
   }
+  .runner-fixture-viewport .calls-power-strip--launching::before {
+    inset: 0;
+  }
   .runner-fixture-viewport .calls-power-strip__line-phase {
     color: #ffe4a3;
   }
@@ -126,10 +144,29 @@ const fixtureCss = `
     padding: 0.35rem 0;
   }
   .runner-fixture-viewport .calls-fixture-conversation {
+    width: 100%;
     min-width: 0;
+    max-width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
     gap: 0.8rem;
+  }
+  .runner-fixture-viewport .calls-fixture-conversation > *,
+  .runner-fixture-viewport .calls-fixture-conversation .calls-contact-card-viewport,
+  .runner-fixture-viewport .calls-fixture-conversation .calls-contact-card,
+  .runner-fixture-viewport .calls-fixture-conversation .calls-log-form {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .runner-fixture-viewport .calls-fixture-conversation * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .runner-fixture-viewport .calls-fixture-conversation .calls-contact-card__who,
+  .runner-fixture-viewport .calls-fixture-conversation .calls-contact-card__who h3,
+  .runner-fixture-viewport .calls-fixture-conversation .calls-contact-card__role {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .runner-fixture-viewport .calls-fixture-conversation__meter {
     min-height: 11rem;
@@ -148,6 +185,18 @@ const fixtureCss = `
     min-width: 0;
   }
   @media (max-width: 719px) {
+    .runner-fixture-viewport .calls-power-kpis-condensed {
+      width: 100%;
+      min-width: 0;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+    .runner-fixture-viewport .calls-power-strip__bar,
+    .runner-fixture-viewport .calls-power-strip__bar > *,
+    .runner-fixture-viewport .calls-power-strip__controls {
+      min-width: 0;
+      max-width: 100%;
+    }
     .runner-fixture-viewport .calls-fixture-conversation {
       grid-template-columns: 1fr;
     }

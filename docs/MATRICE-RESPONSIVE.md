@@ -41,12 +41,22 @@ exercés. Les états `wave` et `conversation` ne lancent aucun appel réel et ne
 constituent pas une preuve du moteur `useDialerPool` ; ce moteur conserve ses
 propres tests unitaires.
 
+La fixture ajoute uniquement des règles CSS de test pour borner son DOM manuel
+(`box-sizing`, `min-width: 0`, enveloppes à `100%` et retour à la ligne des
+libellés étroits). Ces règles ne modifient pas les feuilles chaudes ; elles
+permettent au contrôle d’overflow de mesurer le shell de la fixture plutôt
+qu’une largeur implicite créée par un fragment HTML incomplet.
+
 ## Nommage et reproduction
 
 La spec [`runner-responsive.spec.ts`](../e2e/runner-responsive.spec.ts) fixe
 le viewport, émule `prefers-reduced-motion: reduce`, charge
 `runnerFixtureDocument(state)` et utilise `toHaveScreenshot`. Les fichiers
 générés sont dans `e2e/baselines/` avec les noms `runner-{state}-{width}x{height}.png`.
+Elle vérifie aussi que le shell ne déborde pas horizontalement, que seul le
+scroller de table peut conserver un overflow interne, que les CTA restent dans
+le viewport et que la conversation passe bien d’une à deux colonnes au seuil
+`719/720`. Un contrôle complémentaire rejoue les CTA principaux à `960×620`.
 
 Commandes :
 
@@ -55,8 +65,8 @@ npx playwright test e2e/runner-responsive.spec.ts --update-snapshots --workers=1
 npx playwright test e2e/runner-responsive.spec.ts e2e/runner-a11y.spec.ts --workers=1
 ```
 
-La seconde commande doit comparer les 42 PNG existants et exécuter les 6
-scénarios a11y. Une différence de capture doit être examinée avec le nom de
+La seconde commande doit comparer les 42 PNG existants, exécuter le contrôle
+CTA à `960×620` et les 6 scénarios a11y. Une différence de capture doit être examinée avec le nom de
 l’état, la largeur et la hauteur ; elle ne doit pas être masquée par une
 tolérance globale.
 

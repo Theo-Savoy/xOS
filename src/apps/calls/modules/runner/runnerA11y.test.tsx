@@ -86,20 +86,25 @@ function axeLikeViolations(root: HTMLElement): string[] {
 
   for (const element of focusables) {
     const tagName = element.tagName.toLowerCase();
-    const hasLabel =
-      Boolean(element.getAttribute('aria-label')) ||
-      Boolean(element.getAttribute('aria-labelledby')) ||
-      Boolean(element.getAttribute('title')) ||
-      Boolean(element.textContent?.trim()) ||
-      (element instanceof HTMLInputElement && Boolean(element.labels?.length)) ||
-      (element instanceof HTMLTextAreaElement &&
-        Boolean(element.labels?.length));
-    if (!hasLabel && tagName !== 'input') {
-      violations.push(`missing-accessible-name:${tagName}`);
-    }
-    if (!hasLabel && tagName === 'input') {
-      violations.push(`missing-accessible-name:${tagName}`);
-    }
+    const labelledBy = element
+      .getAttribute('aria-labelledby')
+      ?.split(/\s+/)
+      .map((id) =>
+        [...root.querySelectorAll<HTMLElement>('[id]')].find(
+          (candidate) => candidate.id === id,
+        )?.textContent?.trim(),
+      )
+      .filter(Boolean)
+      .join(' ');
+    const hasLabel = Boolean(
+      element.getAttribute('aria-label') ||
+        labelledBy ||
+        element.getAttribute('title') ||
+        element.textContent?.trim() ||
+        (element instanceof HTMLInputElement && element.labels?.length) ||
+        (element instanceof HTMLTextAreaElement && element.labels?.length),
+    );
+    if (!hasLabel) violations.push(`missing-accessible-name:${tagName}`);
   }
 
   for (const live of root.querySelectorAll<HTMLElement>('[aria-live]')) {
@@ -145,13 +150,19 @@ describe('RunnerView — filet axe-like sans dépendance runtime', () => {
     ).toContain('Commentaires');
   });
 
-  it('keeps status live regions scoped to status or alert semantics', () => {
+  it('keeps a concrete error live region scoped to status or alert semantics', () => {
     const { container } = render(
-      <RunnerView {...baseProps} currentContact={contact} />,
+      <RunnerView
+        {...baseProps}
+        currentContact={contact}
+        error="Salesforce a refusé l'enregistrement."
+      />,
     );
 
     const liveRegions = container.querySelectorAll('[aria-live]');
-    expect(liveRegions.length).toBeGreaterThanOrEqual(0);
+    expect(liveRegions.length).toBeGreaterThan(0);
+    expect(container.querySelector('[role="alert"][aria-live="assertive"]'))
+      .toBeTruthy();
     for (const region of liveRegions) {
       expect(['status', 'alert']).toContain(region.getAttribute('role'));
     }

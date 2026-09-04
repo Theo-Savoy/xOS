@@ -9,7 +9,11 @@ import {
 
 test.describe.configure({ mode: 'serial' });
 
-async function assertStateInvariant(page: Page, state: RunnerState) {
+async function assertStateInvariant(
+  page: Page,
+  state: RunnerState,
+  width: number,
+) {
   const app = page.locator('.calls-app');
   await expect(app).toBeVisible();
   await expect(page.locator('[data-runner-state]')).toHaveAttribute(
@@ -44,11 +48,70 @@ async function assertStateInvariant(page: Page, state: RunnerState) {
 
   const overflow = await page.locator('.calls-app').evaluate((element) => ({
     appOverflow: element.scrollWidth > element.clientWidth + 1,
-    innerOverflow: Array.from(element.querySelectorAll<HTMLElement>('*')).some(
-      (child) => child.scrollWidth > child.clientWidth + 1,
-    ),
+    unboundedOverflow: Array.from(
+      element.querySelectorAll<HTMLElement>('*'),
+    )
+      // The current list wrapper leaves a two-pixel negative-margin rounding
+      // remainder; only substantive overflow is a layout violation here.
+      .filter((child) => child.scrollWidth > child.clientWidth + 4)
+      .filter((child) => !child.closest('.calls-cockpit-list__scroll'))
+      .map(
+        (child) =>
+          `${child.className || child.tagName}:${child.scrollWidth}/${child.clientWidth}`,
+      ),
   }));
-  expect(overflow.appOverflow && !overflow.innerOverflow).toBe(false);
+  expect(overflow.appOverflow, JSON.stringify(overflow)).toBe(false);
+  expect(overflow.unboundedOverflow).toEqual([]);
+
+  const primaryCtas = await page.locator('.calls-app').evaluate((element) =>
+    Array.from(
+      element.querySelectorAll<HTMLElement>('button.xos-btn--primary'),
+    )
+      .map((button) => {
+        const rect = button.getBoundingClientRect();
+        return {
+          label: button.textContent?.trim() ?? '',
+          left: rect.left,
+          right: rect.right,
+          visible: rect.width > 0 && rect.height > 0,
+        };
+      })
+      .filter((button) => button.visible),
+  );
+  for (const cta of primaryCtas) {
+    expect(cta.left, cta.label).toBeGreaterThanOrEqual(0);
+    expect(cta.right, cta.label).toBeLessThanOrEqual(width + 1);
+  }
+
+  if (state === 'power-conversation') {
+    const columns = await page
+      .locator('.calls-fixture-conversation')
+      .evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/),
+      );
+    expect(columns).toHaveLength(width < 720 ? 1 : 2);
+  }
+
+  if (state.startsWith('power-') && state !== 'power-off') {
+    const motionStyles = await page.locator('.calls-app').evaluateAll(() =>
+      ['.calls-app', '.calls-power-strip']
+        .map((selector) => document.querySelector<HTMLElement>(selector))
+        .filter((element): element is HTMLElement => element !== null)
+        .map((element) => {
+          const style = getComputedStyle(element);
+          return {
+            selector: element.className || element.tagName,
+            transitionDuration: style.transitionDuration,
+            animationName: style.animationName,
+          };
+        }),
+    );
+    expect(motionStyles).not.toHaveLength(0);
+    for (const style of motionStyles) {
+      expect(style.transitionDuration, style.selector).toBe('0s');
+      expect(style.animationName, style.selector).toBe('none');
+    }
+  }
 }
 
 for (const state of RUNNER_STATES) {
@@ -61,7 +124,7 @@ for (const state of RUNNER_STATES) {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.setContent(runnerFixtureDocument(state));
-      await assertStateInvariant(page, state);
+      await assertStateInvariant(page, state, width);
       await expect(page).toHaveScreenshot(
         `runner/${state}-${width}x${height}.png`,
         {
@@ -73,3 +136,26 @@ for (const state of RUNNER_STATES) {
     });
   }
 }
+
+test('keeps every primary CTA inside the default desktop viewport', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: RUNNER_HEIGHTS.standard });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  for (const state of ['bulk', 'power-ready', 'power-conversation'] as const) {
+    await page.setContent(runnerFixtureDocument(state));
+    const primaryCtas = page.locator('button.xos-btn--primary');
+    await expect(primaryCtas.first()).toBeVisible();
+    const bounds = await primaryCtas.evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      }),
+    );
+    for (const rect of bounds) {
+      expect(rect.left).toBeGreaterThanOrEqual(0);
+      expect(rect.right).toBeLessThanOrEqual(961);
+    }
+  }
+});

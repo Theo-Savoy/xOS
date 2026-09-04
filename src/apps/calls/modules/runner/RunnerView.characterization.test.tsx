@@ -210,7 +210,7 @@ describe('RunnerView — caractérisation de navigation et de saisie', () => {
       expect.objectContaining({ recallAt: expect.any(String) }),
     );
     expect(onLogAndNext.mock.calls[0]?.[1]).toMatchObject({
-      recallAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      recallAt: addDaysIso(0),
     });
   });
 
@@ -260,6 +260,59 @@ describe('RunnerView — caractérisation de navigation et de saisie', () => {
     await user.click(screen.getByRole('button', { name: 'Contact 2' }));
     expect(screen.queryByText(/1 contact sélectionné/)).toBeNull();
     expect(screen.getByRole('heading', { name: 'Contact 2' })).toBeTruthy();
+  });
+
+  it.fails(
+    'does not let navigation shortcuts leave a dirty bulk form',
+    async () => {
+      const user = userEvent.setup();
+      renderRunner({
+        contacts: [contactOne, contactTwo],
+        currentContact: contactOne,
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Liste' }));
+      await user.click(screen.getByLabelText('Sélectionner Contact 1'));
+      await user.click(
+        screen.getByText('Options (rappel, NPA, commentaires)'),
+      );
+      const bulkComments = screen.getByRole('textbox', {
+        name: 'Commentaires (optionnel)',
+      });
+      await user.type(bulkComments, 'Note à conserver');
+
+      fireEvent.keyDown(document, { key: 'l', code: 'KeyL' });
+      fireEvent.keyDown(document, { key: 'f', code: 'KeyF' });
+
+      expect(screen.getByText(/1 contact sélectionné/)).toBeTruthy();
+      expect(screen.queryByRole('region', { name: 'Fiche' })).toBeNull();
+    },
+  );
+
+  it('preserves dirty bulk comments when switching focus and returning to bulk', async () => {
+    const user = userEvent.setup();
+    renderRunner({
+      contacts: [contactOne, contactTwo],
+      currentContact: contactOne,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    await user.click(screen.getByLabelText('Sélectionner Contact 1'));
+    await user.click(screen.getByText('Options (rappel, NPA, commentaires)'));
+    const bulkComments = screen.getByRole('textbox', {
+      name: 'Commentaires (optionnel)',
+    });
+    await user.type(bulkComments, 'Note à conserver');
+
+    await user.click(screen.getByRole('button', { name: 'Contact 2' }));
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    await user.click(screen.getByText('Options (rappel, NPA, commentaires)'));
+
+    expect(
+      (screen.getByRole('textbox', {
+        name: 'Commentaires (optionnel)',
+      }) as HTMLTextAreaElement).value,
+    ).toBe('Note à conserver');
   });
 
   it('ignores navigation and result shortcuts while typing in the comment field', async () => {

@@ -214,6 +214,28 @@ describe('CallManagerApp — caractérisation du runner legacy', () => {
     expect(actionBodies(router.requests, 'claim_contact')).toHaveLength(1);
   });
 
+  it.fails(
+    'does not keep the Runner keyboard listener mounted under pre-session aria-hidden',
+    async () => {
+      const session = makeSession({ engaged_at: null });
+      const contacts = [makeContact(1)];
+      installRunnerApi({ session, contacts });
+      const addEventListener = vi.spyOn(document, 'addEventListener');
+
+      render(<CallManagerApp params={{ session_id: '1' }} />);
+      await screen.findByRole('dialog', { name: session.name });
+
+      const underlay = document.querySelector<HTMLElement>(
+        '.calls-pre-session__underlay',
+      );
+      expect(underlay?.getAttribute('aria-hidden')).toBe('true');
+      expect(underlay?.querySelector('.calls-view--runner')).toBeTruthy();
+      expect(
+        addEventListener.mock.calls.filter(([type]) => type === 'keydown'),
+      ).toHaveLength(0);
+    },
+  );
+
   it('keeps a contact claimed by another user out of the actionable focus', async () => {
     const session = makeSession();
     const shared = makeContact(9, {

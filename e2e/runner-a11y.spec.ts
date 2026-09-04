@@ -18,14 +18,22 @@ async function collectA11ySmokeViolations(page: Page) {
       if (element.closest('[aria-hidden="true"]')) {
         violations.push(`focusable-under-aria-hidden:${element.tagName}`);
       }
+      const labelledBy = element
+        .getAttribute('aria-labelledby')
+        ?.split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent?.trim())
+        .filter(Boolean)
+        .join(' ');
+      const associatedLabel = (element as HTMLInputElement).labels?.[0]
+        ?.textContent?.trim();
       const name = [
         element.getAttribute('aria-label'),
+        labelledBy,
         element.getAttribute('title'),
         element.textContent?.trim(),
-        (element as HTMLInputElement).placeholder,
-        (element as HTMLInputElement).labels?.[0]?.textContent?.trim(),
+        associatedLabel,
       ].find(Boolean);
-      if (!name && element.tagName !== 'INPUT') {
+      if (!name) {
         violations.push(`missing-name:${element.tagName}`);
       }
     }
@@ -63,16 +71,20 @@ for (const state of RUNNER_STATES) {
       ).toBe(true);
       expect(await collectA11ySmokeViolations(page)).toEqual([]);
 
-      const overflow = await page.locator('.calls-app').evaluate((element) => {
-        const innerOverflow = Array.from(element.querySelectorAll<HTMLElement>('*')).some(
-          (child) => child.scrollWidth > child.clientWidth + 1,
-        );
-        return {
-          appOverflow: element.scrollWidth > element.clientWidth + 1,
-          innerOverflow,
-        };
-      });
-      expect(overflow.appOverflow && !overflow.innerOverflow).toBe(false);
+      const overflow = await page.locator('.calls-app').evaluate((element) => ({
+        appOverflow: element.scrollWidth > element.clientWidth + 1,
+        unboundedOverflow: Array.from(
+          element.querySelectorAll<HTMLElement>('*'),
+        )
+          .filter((child) => child.scrollWidth > child.clientWidth + 4)
+          .filter((child) => !child.closest('.calls-cockpit-list__scroll'))
+          .map(
+            (child) =>
+              `${child.className || child.tagName}:${child.scrollWidth}/${child.clientWidth}`,
+          ),
+      }));
+      expect(overflow.appOverflow, JSON.stringify(overflow)).toBe(false);
+      expect(overflow.unboundedOverflow).toEqual([]);
     }
 
     expect(pageErrors).toEqual([]);

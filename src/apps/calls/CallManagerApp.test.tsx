@@ -768,6 +768,7 @@ describe('CallManagerApp component', () => {
     }));
 
     let sessionRefetchCount = 0;
+    const resolveRemoveRequests: Array<() => void> = [];
     vi.mocked(global.fetch).mockImplementation(
       (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -803,9 +804,13 @@ describe('CallManagerApp component', () => {
         if (url === '/api/calls' && init?.method === 'POST') {
           const body = JSON.parse(String(init.body)) as { action?: string };
           if (body.action === 'remove_contact') {
-            return Promise.resolve(
-              new Response(JSON.stringify({ ok: true }), { status: 200 }),
-            );
+            return new Promise<Response>((resolve) => {
+              resolveRemoveRequests.push(() =>
+                resolve(
+                  new Response(JSON.stringify({ ok: true }), { status: 200 }),
+                ),
+              );
+            });
           }
         }
         return Promise.resolve(
@@ -835,6 +840,11 @@ describe('CallManagerApp component', () => {
     // Le remove local (filter du state) est immédiat : aucun refetch complet
     // tant que le debounce (500ms) n'a pas expiré.
     expect(sessionRefetchCount).toBe(refetchesAfterOpen);
+    expect(resolveRemoveRequests).toHaveLength(5);
+
+    // Les réponses arrivent ensemble : le test ne dépend pas du temps CPU
+    // consommé par les cinq interactions précédentes.
+    resolveRemoveRequests.forEach((resolve) => resolve());
 
     await waitFor(
       () => expect(sessionRefetchCount).toBe(refetchesAfterOpen + 1),

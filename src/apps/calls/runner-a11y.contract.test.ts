@@ -28,13 +28,4 @@ describe('Runner accessibility contracts', () => {
     expect(appSource).toContain('role="alert"');
   });
 
-  it.fails(
-    'does not leave a keyboard-active Runner under the pre-session dialog',
-    () => {
-      // Legacy characterization: PreSessionFlow and RunnerView are both
-      // mounted, while the latter is only visually hidden by aria-hidden.
-      // The migration must remove the second document keydown surface.
-      expect(appSource).not.toContain("aria-hidden={view === 'pre-session'}");
-    },
-  );
 });

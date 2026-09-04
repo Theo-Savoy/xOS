@@ -39,13 +39,13 @@
 
 - [x] **Step 2: Écrire les tests rouges des comportements attendus et défauts connus.**
 
-  Les tests couvriront notamment : queue FIFO après deux soumissions rapides, restauration du snapshot sur rejet `log_call`, claim unique avec succès puis claim concurrent `contact_claimed`, contexte courant + trois suivants préchargés, transaction `log_call` puis `log_event`, vagues de 4 avec échec partiel, presets rapides/date et NPA, contact partagé exclu du pool et affiché comme pris, raccourcis ignorés dans les champs et pendant le bulk, et garde `L` pendant conversation Power. Les trois défauts explicitement listés par le contrat (sortie directe pendant vague, `L` capturé avant la conversation et runner `aria-hidden` réactif sous pré-session) sont marqués `it.fails` dans les tests concernés, avec un commentaire expliquant la migration qui doit les faire passer.
+  Les tests couvriront notamment : queue FIFO après deux soumissions rapides, restauration du snapshot sur rejet `log_call`, claim unique avec succès puis claim concurrent `contact_claimed`, contexte courant + trois suivants préchargés, transaction `log_call` puis `log_event`, vagues de 4 avec échec partiel, presets rapides/date et NPA, contact partagé exclu du pool et affiché comme pris, raccourcis ignorés dans les champs et pendant le bulk, et garde `L` pendant conversation Power. Les trois défauts explicitement listés par le contrat (sortie directe pendant vague, `L` capturé avant la conversation et runner `aria-hidden` réactif sous pré-session), plus l’exclusion `F` du bulk, sont marqués `it.fails` dans les tests concernés, avec un commentaire expliquant la migration qui doit les faire passer.
 
 - [x] **Step 3: Exécuter uniquement les nouveaux tests pour confirmer les rouges légitimes.**
 
   Run: `npx vitest run --mode=test src/apps/calls/modules/runner/RunnerView.characterization.test.tsx src/apps/calls/CallManagerApp.characterization.test.tsx`
 
-  Expected: les assertions de comportement legacy passent ; seuls les deux gardes `RunnerView` (sortie pendant vague et `L` pendant conversation) sont des échecs attendus via `it.fails` dans ce sous-ensemble.
+  Expected: les assertions de comportement legacy passent ; les trois gardes `RunnerView` (sortie pendant vague, `L` pendant conversation et `F` dans bulk) et le garde pré-session `CallManagerApp` sont les seuls échecs attendus via `it.fails` dans ce sous-ensemble.
 
 - [x] **Step 4: Stabiliser les fixtures sans production code.**
 
@@ -145,7 +145,7 @@
 
 - [x] **Step 1: Rédiger CARACTERISATION.md.**
 
-  Documenter chaque invariant avec test(s), source observée, résultat, données de fixture, et limites. Indiquer explicitement les trois `it.fails` pré-migration et le fait que les handlers réseau restent inchangés.
+  Documenter chaque invariant avec test(s), source observée, résultat, données de fixture, et limites. Indiquer explicitement les quatre `it.fails` pré-migration et le fait que les handlers réseau restent inchangés.
 
 - [x] **Step 2: Rédiger MATRICE-RESPONSIVE.md.**
 
@@ -176,7 +176,7 @@
 
   Run: `npm run test`
 
-  Expected: code 0, zéro fichier/test en échec normal et trois `it.fails` attendus, explicitement documentés.
+  Expected: code 0, zéro fichier/test en échec normal et quatre `it.fails` attendus, explicitement documentés.
 
   Run: `npm run lint`
 

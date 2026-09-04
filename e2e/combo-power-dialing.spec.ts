@@ -73,7 +73,7 @@ async function openRunner(page: Page, callsToday = 12) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Ouvrir Combo' }).click();
   const combo = page.getByRole('dialog', { name: 'Combo' });
-  await combo.getByText('Prospection Île-de-France').first().click();
+  await combo.getByRole('button', { name: 'Ouvrir', exact: true }).click();
   return combo;
 }
 
@@ -81,7 +81,7 @@ test('l’encart power s’ouvre sur clic et décrit la file réelle de la séan
   const combo = await openRunner(page);
   await expect(combo.getByText(/contacts joignables/)).toHaveCount(0);
 
-  await combo.getByRole('button', { name: 'Power' }).click();
+  await combo.getByRole('switch', { name: 'Power' }).click();
 
   // 6 contacts, dont un sans numéro : 5 composables.
   await expect(combo.getByText('5 numéros prêts · 1 sans numéro valide')).toBeVisible();
@@ -90,13 +90,13 @@ test('l’encart power s’ouvre sur clic et décrit la file réelle de la séan
   await expect(combo.getByText('12/50')).toHaveCount(0);
 
   // Second clic : l'encart se referme, rien ne reste monté.
-  await combo.getByRole('button', { name: 'Power' }).click();
+  await combo.getByRole('switch', { name: 'Power' }).click();
   await expect(combo.getByText('5 numéros prêts · 1 sans numéro valide')).toHaveCount(0);
 });
 
 test('le numéro sortant se choisit dans la liste déroulante', async ({ page }) => {
   const combo = await openRunner(page);
-  await combo.getByRole('button', { name: 'Power' }).click();
+  await combo.getByRole('switch', { name: 'Power' }).click();
 
   const caller = combo.getByRole('button', { name: 'Numéro sortant' });
   await expect(caller).toContainText('Ligne Paris');
@@ -108,7 +108,7 @@ test('le numéro sortant se choisit dans la liste déroulante', async ({ page })
 
 test('la limite quotidienne atteinte bloque le lancement', async ({ page }) => {
   const combo = await openRunner(page, 50);
-  await combo.getByRole('button', { name: 'Power' }).click();
+  await combo.getByRole('switch', { name: 'Power' }).click();
 
   await expect(combo.getByText('50/50')).toBeVisible();
   const launch = combo.getByRole('button', { name: /Lancer 3 appels/ });
