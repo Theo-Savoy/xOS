@@ -200,22 +200,29 @@ describe('SessionWorkspaceV2 — L5C raccourcis V2', () => {
     );
   });
 
-  it('désactive les raccourcis dans les champs, EventPanel, modales et la surface bulk', () => {
+  it('désactive les raccourcis dans les champs, mais ⌘↵ soumet même depuis un champ (C1 Opus)', () => {
     const props = renderWorkspace();
     const comments = screen.getByRole('textbox', { name: 'Commentaires' });
 
+    // '2' seul dans un champ : aucune action rapide (C1 — raccourcis désactivés en saisie)
     fireEvent.keyDown(comments, { key: '2', code: 'Digit2' });
-    fireEvent.keyDown(comments, {
-      key: 'Enter',
-      code: 'Enter',
-      metaKey: true,
-    });
     expect(
       screen
         .getByRole('button', { name: 'Message répondeur' })
         .getAttribute('aria-pressed'),
     ).toBe('false');
     expect(props.onLogAndNext).not.toHaveBeenCalled();
+
+    // ⌘↵ depuis le champ : SOUMET (parité legacy RunnerView:1216 — C1 corrigé)
+    fireEvent.keyDown(comments, {
+      key: 'Enter',
+      code: 'Enter',
+      metaKey: true,
+    });
+    expect(props.onLogAndNext).toHaveBeenCalled();
+
+    // Repartir d'un compteur propre pour tester les blocs suivants
+    vi.mocked(props.onLogAndNext).mockClear();
 
     fireEvent.click(
       screen.getByRole('button', { name: 'RDV planifié' }),

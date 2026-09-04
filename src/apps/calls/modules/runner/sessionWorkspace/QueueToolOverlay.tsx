@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Checkbox,
@@ -290,6 +290,46 @@ export function QueueToolOverlay({
     resetBulkForm();
   };
 
+  // C3 Opus : comportement du kit Modal (Échap + focus trap + restauration du focus)
+  // appliqué à la surface outil, sans casser le layout custom.
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const previous = document.activeElement as HTMLElement | null;
+    const focusables = panel?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    );
+    focusables?.[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !panel) return;
+      const items = [...panel.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previous?.focus();
+    };
+  }, [open, onClose]);
+
   if (!open || isPowerConversation) return null;
 
   return (
@@ -299,6 +339,7 @@ export function QueueToolOverlay({
       data-testid="queue-tool-overlay"
     >
       <section
+        ref={panelRef}
         className="calls-workspace__queue-tool"
         role="dialog"
         aria-modal="true"

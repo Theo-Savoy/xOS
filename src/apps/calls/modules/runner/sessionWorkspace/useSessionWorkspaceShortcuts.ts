@@ -63,22 +63,29 @@ export function useSessionWorkspaceShortcuts({
         !event.shiftKey &&
         event.key.toLowerCase() === 'f';
       if (bulkOpen && !isOpenContactShortcut) return;
-      if (isTypingTarget(event.target)) return;
+
+      // Les surfaces bloquantes (EventPanel, modales) capturent tout, y compris ⌘↵ :
+      // le RDV a son propre submit. (C1 Opus : ⌘↵ doit marcher dans les CHAMPS simples,
+      // mais pas dans un modal.)
       if (
         isBlockedSurface(event.target) ||
         hasBlockingModal(queueOpen && isOpenContactShortcut)
       )
         return;
 
-      if (
+      // ⌘↵ doit fonctionner MÊME dans un champ de saisie simple (parité legacy RunnerView:1216)
+      const isSubmitShortcut =
         modified &&
         event.key === 'Enter' &&
         !event.altKey &&
-        !event.shiftKey
-      ) {
+        !event.shiftKey;
+      if (isSubmitShortcut) {
         if (onSubmit()) event.preventDefault();
         return;
       }
+
+      if (isTypingTarget(event.target)) return;
+
       if (modified || event.altKey || event.shiftKey) return;
 
       const key = event.key.toLowerCase();

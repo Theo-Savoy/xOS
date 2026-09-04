@@ -190,7 +190,8 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       // I5 lock focus : pendant awaitingEvent, la file est inerte jusqu'à finalisation
       if (awaitingEvent) return;
       if (isQueueToolOpen) {
-        if (queueToolState.isDirty) {
+        // C2 Opus : protéger AUSSI la sélection bulk (pas seulement le formulaire dirty)
+        if (queueToolState.isDirty || queueToolState.hasSelection) {
           setPendingQueueFocusId(id);
           setQueueToolConfirmOpen(true);
           return;
@@ -207,11 +208,12 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
       isQueueToolOpen,
       onFocusContact,
       queueToolState.isDirty,
+      queueToolState.hasSelection,
     ],
   );
 
   const closeQueueTool = useCallback(() => {
-    if (queueToolState.isDirty) {
+    if (queueToolState.isDirty || queueToolState.hasSelection) {
       setPendingQueueFocusId(null);
       setQueueToolConfirmOpen(true);
       return;
@@ -219,7 +221,7 @@ export function SessionWorkspaceV2(props: SessionWorkspaceProps) {
     setIsQueueToolOpen(false);
     setQueueToolState({ hasSelection: false, isDirty: false });
     setIsQueueSheetOpen(false);
-  }, [queueToolState.isDirty]);
+  }, [queueToolState.isDirty, queueToolState.hasSelection]);
 
   const openQueueTool = useCallback(() => {
     if (isPowerConversation) return;
