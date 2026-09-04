@@ -105,6 +105,7 @@ export function SummaryPage({
       <ProductTrendSection
         data={product.data}
         loading={product.loading}
+        scope="total"
       />
       {narrativeAvailable && hasNarrative ? (
         <PatternsSection data={synthesis.data} loading={synthesis.loading} />
