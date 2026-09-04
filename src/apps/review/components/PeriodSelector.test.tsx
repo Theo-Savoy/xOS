@@ -41,14 +41,12 @@ describe('PeriodSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
 
     expect(
-      screen
-        .getByRole('button', { name: 'Semestre' })
-        .getAttribute('aria-pressed'),
+      screen.getByRole('button', { name: 'Semestre' }).getAttribute('aria-pressed'),
     ).toBe('true');
     expect(
       screen.getByRole('button', { name: 'S1' }).getAttribute('aria-pressed'),
     ).toBe('true');
-    expect(screen.getByText('FY26')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exercice' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'S2' }));
     expect(
@@ -80,10 +78,12 @@ describe('PeriodSelector', () => {
   it('propose FY22 à FY26 dans le sélecteur d’exercice', () => {
     render(<Harness />);
 
-    const group = screen.getByRole('group', { name: 'Exercice' });
-    const buttons = Array.from(group.querySelectorAll('button'));
+    fireEvent.click(screen.getByRole('button', { name: 'Exercice' }));
 
-    expect(buttons.map((btn) => btn.textContent)).toEqual([
+    const menu = screen.getByRole('listbox', { name: 'Exercice' });
+    const options = Array.from(menu.querySelectorAll('button'));
+
+    expect(options.map((btn) => btn.textContent)).toEqual([
       'FY22',
       'FY23',
       'FY24',
@@ -94,10 +94,12 @@ describe('PeriodSelector', () => {
   it('propose les exercices strictement antérieurs (min FY22) dans Comparer avec', () => {
     render(<Harness />);
 
-    const group = screen.getByRole('group', { name: 'Comparer avec' });
-    const buttons = Array.from(group.querySelectorAll('button'));
+    fireEvent.click(screen.getByRole('button', { name: /Comparer avec/ }));
 
-    expect(buttons.map((btn) => btn.textContent)).toEqual([
+    const menu = screen.getByRole('listbox', { name: 'Comparer avec' });
+    const options = Array.from(menu.querySelectorAll('button'));
+
+    expect(options.map((btn) => btn.textContent)).toEqual([
       'FY22',
       'FY23',
       'FY24',

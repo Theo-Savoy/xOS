@@ -3,6 +3,7 @@ import {
   Button,
   EmptyState,
   GlassCard,
+  Select,
   Skeleton,
 } from '../../../components/ui';
 import { InfoHint } from '../components/InfoHint';
@@ -94,30 +95,26 @@ export function SharedSection({
       
       {isSharing ? (
         <form className="review-share-banner" onSubmit={handleSubmitShare}>
-          <div className="review-share-banner-fields">
-            <select
-              className="xos-input"
-              value={selectedRecipient}
-              onChange={(e) => setSelectedRecipient(e.target.value)}
-              required
-            >
-              <option value="" disabled>
-                Sélectionner un destinataire...
-              </option>
-              {shareableTeam.map((member) => (
-                <option key={member.user_id} value={member.user_id}>
-                  {member.label}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              className="xos-input"
-              placeholder="Note optionnelle"
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-            />
-          </div>
+          <Select
+            aria-label="Destinataire"
+            className="review-share-select"
+            value={selectedRecipient}
+            onChange={setSelectedRecipient}
+            options={[
+              { value: '', label: 'Sélectionner un destinataire…' },
+              ...shareableTeam.map((member) => ({
+                value: member.user_id,
+                label: member.label,
+              })),
+            ]}
+          />
+          <input
+            type="text"
+            className="review-share-note"
+            placeholder="Note optionnelle"
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+          />
           <div className="review-share-banner-actions">
             <Button
               type="button"
@@ -131,7 +128,7 @@ export function SharedSection({
             >
               Annuler
             </Button>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" disabled={!selectedRecipient}>
               Envoyer
             </Button>
           </div>
