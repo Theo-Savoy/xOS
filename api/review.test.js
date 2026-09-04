@@ -223,7 +223,6 @@ describe('GET /api/review — resources business', () => {
     expect(body.error).toBe('annual_only_resource');
   });
 });
-
 describe('POST /api/review?resource=shared', () => {
   let mockInsert;
   let mockSelect;
