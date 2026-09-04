@@ -940,18 +940,6 @@ export function ReportSessionView({
                 onDeletePreset={(id) => handleDeletePreset?.(id)}
                 team={team}
               />
-              {reportRun && (
-                <div className="calls-report-source" role="status">
-                  <Tag variant="accent">
-                    Source : {reportRun.report_name || selectedReport?.name}
-                  </Tag>
-                  <span>
-                    {reportRun.contact_ids.length} contact
-                    {reportRun.contact_ids.length > 1 ? 's' : ''} exposé
-                    {reportRun.contact_ids.length > 1 ? 's' : ''} par le rapport
-                  </span>
-                </div>
-              )}
               <div className="calls-wizard-nav">
                 <Button variant="secondary" onClick={() => setStep(0)}>
                   ← Précédent : Rapport
@@ -1097,6 +1085,9 @@ export function ReportSessionView({
             query={reportRun?.report_name || selectedReport?.name || ''}
             queryLabel="Rapport"
             ctaNoun="Rapport"
+            exposedContactsCount={reportRun?.contact_ids.length ?? null}
+            exposedAccountsCount={reportRun?.account_ids.length ?? null}
+            planVisible={step >= 3}
             activeFiltersCount={activeFilters.total}
             secteursCount={activeFilters.secteurs}
             effectifsCount={activeFilters.effectifs}

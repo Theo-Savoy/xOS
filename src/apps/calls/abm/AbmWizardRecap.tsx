@@ -36,6 +36,11 @@ export type AbmWizardRecapProps = {
   queryLabel?: string;
   /** Libellé personnalisé du CTA de progression. */
   nextCtaLabel?: string;
+  /** Mode Rapport : contacts/comptes exposés par la source (dans Cible). */
+  exposedContactsCount?: number | null;
+  exposedAccountsCount?: number | null;
+  /** N'afficher la Planification que si l'étape Planifier est atteinte. */
+  planVisible?: boolean;
 };
 
 function EditStepIcon(): ReactNode {
@@ -87,6 +92,9 @@ export function AbmWizardRecap({
   ctaNoun = 'ABM',
   queryLabel = 'Recherche',
   nextCtaLabel,
+  exposedContactsCount = null,
+  exposedAccountsCount = null,
+  planVisible = true,
 }: AbmWizardRecapProps) {
   const computedNextCtaLabel =
     step === 0
@@ -146,6 +154,22 @@ export function AbmWizardRecap({
               </span>
             </div>
           ) : null}
+          {exposedContactsCount !== null && exposedContactsCount !== undefined && (
+            <div className="calls-wizard-recap__item">
+              <span className="calls-wizard-recap__item-label">Contacts exposés</span>
+              <span className="calls-wizard-recap__item-value xos-numeric">
+                {exposedContactsCount}
+              </span>
+            </div>
+          )}
+          {exposedAccountsCount !== null && exposedAccountsCount !== undefined && (
+            <div className="calls-wizard-recap__item">
+              <span className="calls-wizard-recap__item-label">Comptes exposés</span>
+              <span className="calls-wizard-recap__item-value xos-numeric">
+                {exposedAccountsCount}
+              </span>
+            </div>
+          )}
           <div className="calls-wizard-recap__item">
             <span className="calls-wizard-recap__item-label">Filtres actifs</span>
             <span className="calls-wizard-recap__item-value xos-numeric">
@@ -227,12 +251,13 @@ export function AbmWizardRecap({
         </div>
       </section>
 
-      {/* Section 3 : Planification */}
-      <section className="calls-wizard-recap__section" aria-label="Planification">
-        <div className="calls-wizard-recap__section-header">
-          <span className="calls-wizard-recap__section-title">Planification</span>
-        </div>
-        <div className="calls-wizard-recap__breakdown">
+      {/* Section 3 : Planification (visible à partir de l'étape Planifier) */}
+      {planVisible && (
+        <section className="calls-wizard-recap__section" aria-label="Planification">
+          <div className="calls-wizard-recap__section-header">
+            <span className="calls-wizard-recap__section-title">Planification</span>
+          </div>
+          <div className="calls-wizard-recap__breakdown">
           <div className="calls-wizard-recap__item">
             <span className="calls-wizard-recap__item-label">Aperçu</span>
             <span className="calls-wizard-recap__item-value xos-numeric">
@@ -278,6 +303,7 @@ export function AbmWizardRecap({
           )}
         </div>
       </section>
+      )}
 
       {/* CTA principal unique sous les stats */}
       <div className="calls-wizard-recap__cta">

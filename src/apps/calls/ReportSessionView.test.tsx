@@ -279,7 +279,7 @@ describe('ReportSessionView', () => {
     );
     const filterPane = document.querySelector('[data-step="filtrer"]');
     expect(filterPane).toBeTruthy();
-    expect(filterPane?.querySelector('.calls-report-source')).toBeTruthy();
+    expect(filterPane?.querySelector('.calls-report-source')).toBeNull();
     expect(
       filterPane?.querySelector('.calls-report-preview-summary'),
     ).toBeNull();
