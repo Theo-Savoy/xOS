@@ -132,8 +132,18 @@ beforeEach(() => {
   invalidateComboHubCache();
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
+    vi.fn((url: string, init?: RequestInit) => {
       if (url === '/api/calls?resource=hub') return hubResponse();
+      if (url === '/api/calls' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === 'list_rdvs') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ rdvs: [], pending_count: 0 }), {
+              status: 200,
+            }),
+          );
+        }
+      }
       if (url === '/api/calls') {
         return Promise.resolve(
           new Response(JSON.stringify(mockSessions), { status: 200 }),
@@ -207,7 +217,9 @@ describe('CallManagerApp component', () => {
     render(<CallManagerApp />);
 
     await waitFor(() => {
-      expect(screen.getByText('Prospection Lyon')).toBeTruthy();
+      expect(
+        screen.getByRole('heading', { name: 'Prospection Lyon' }),
+      ).toBeTruthy();
     });
     expect(screen.getByText('Nouvelle séance')).toBeTruthy();
   });
@@ -1065,6 +1077,70 @@ describe('CallManagerApp component', () => {
     onParamsChange.mockClear();
     await user.click(screen.getByText('Liste classique'));
     expect(onParamsChange).toHaveBeenCalledWith({ view: 'new' });
+  });
+
+  it('restores the calendar view from persisted params', async () => {
+    const onParamsChange = vi.fn();
+    render(
+      <CallManagerApp
+        params={{ view: 'calendar' }}
+        onParamsChange={onParamsChange}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Calendrier' }),
+    ).toBeTruthy();
+    expect(onParamsChange).toHaveBeenCalledWith({ view: 'calendar' });
+  });
+
+  it('navigates to the calendar from the app navigation', async () => {
+    const user = userEvent.setup();
+    const onParamsChange = vi.fn();
+    render(<CallManagerApp onParamsChange={onParamsChange} />);
+    await screen.findByText('Nouvelle séance');
+
+    const nav = screen.getByRole('navigation', { name: 'Navigation Combo' });
+    await user.click(within(nav).getByRole('button', { name: 'Calendrier' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Calendrier' }),
+    ).toBeTruthy();
+    expect(
+      within(nav)
+        .getByRole('button', { name: 'Calendrier' })
+        .getAttribute('aria-current'),
+    ).toBe('page');
+    expect(onParamsChange).toHaveBeenCalledWith({ view: 'calendar' });
+  });
+
+  it('keeps the rdv-suivi view when navigating from pilotage through params', async () => {
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [params, setParams] = useState<
+        Record<string, string> | undefined
+      >();
+      return <CallManagerApp params={params} onParamsChange={setParams} />;
+    }
+
+    render(<Harness />);
+    await screen.findByText('Nouvelle séance');
+    const nav = screen.getByRole('navigation', { name: 'Navigation Combo' });
+
+    await user.click(within(nav).getByRole('button', { name: 'Pilotage' }));
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getByRole('button', { name: 'Pilotage' })
+          .getAttribute('aria-current'),
+      ).toBe('page'),
+    );
+
+    await user.click(within(nav).getByRole('button', { name: 'Suivi RDV' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Suivi RDV' }),
+    ).toBeTruthy();
   });
 
   it('navigates from session-type-select to ABM and returns back to session-type-select', async () => {

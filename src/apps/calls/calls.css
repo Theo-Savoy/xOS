@@ -24,18 +24,7 @@
   padding: clamp(1rem, 2.5vw, 1.5rem);
   color: var(--xos-text);
   color-scheme: dark;
-  background:
-    radial-gradient(
-      circle at 10% 0%,
-      color-mix(in srgb, var(--xos-accent) 14%, transparent),
-      transparent 40%
-    ),
-    radial-gradient(
-      circle at 90% 100%,
-      rgba(56, 189, 248, 0.06),
-      transparent 36%
-    ),
-    rgba(4, 8, 28, 0.72);
+  background: var(--xos-bg);
   /* Pas d'overflow-y ici : .calls-app a min-height:100% et grandit avec le
      contenu, il ne scrolle jamais. Tout overflow != visible crée un scroll
      container pour position:sticky — la card de création de liste restait
@@ -6917,5 +6906,468 @@ a.calls-contact-card__peer:hover {
   .calls-preview__limits,
   .calls-plan-card__split-fields {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Combo home redesign — surfaces brutes, action-first hierarchy
+   ========================================================================== */
+
+.calls-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 1.25rem;
+  margin: 0 0 0.25rem;
+  padding: 0 0 0.7rem;
+  border-bottom: 1px solid var(--xos-border);
+}
+
+.calls-nav__group {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.calls-nav__group + .calls-nav__group {
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--xos-border);
+}
+
+.calls-nav__group-label {
+  color: var(--xos-text-muted);
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.calls-nav__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.calls-nav__item {
+  position: relative;
+  gap: 0.4rem;
+  min-height: 2.15rem;
+  padding-inline: 0.65rem;
+  color: var(--xos-text-muted);
+}
+
+.calls-nav__item:hover {
+  color: var(--xos-text);
+}
+
+.calls-nav__item--active {
+  color: var(--xos-text);
+  background: color-mix(in srgb, var(--xos-accent) 14%, transparent);
+}
+
+.calls-nav__item--active::after {
+  position: absolute;
+  right: 0.55rem;
+  bottom: -0.7rem;
+  left: 0.55rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--xos-accent);
+  content: '';
+}
+
+.calls-nav__item svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.calls-nav__badge {
+  display: inline-grid;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--xos-accent);
+  color: #fff;
+  font-family: var(--xos-font-numeric);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.calls-home-section,
+.calls-hero,
+.calls-week-kpis,
+.calls-calendar {
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-lg, 16px);
+  background: var(--xos-window-content-bg);
+}
+
+.calls-home-section,
+.calls-week-kpis {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.calls-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.calls-section-heading h3 {
+  margin: 0.25rem 0 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.calls-eyebrow {
+  color: var(--xos-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.calls-section-heading__count {
+  color: var(--xos-text-muted);
+  font-size: 0.8rem;
+}
+
+.calls-hero {
+  min-height: 12.5rem;
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+}
+
+.calls-hero__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1.25rem;
+  min-height: 9rem;
+}
+
+.calls-hero__copy {
+  min-width: 0;
+}
+
+.calls-hero__context {
+  margin: 0.55rem 0 0;
+  color: var(--xos-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.calls-hero h3 {
+  max-width: 42rem;
+  margin: 0.3rem 0 0;
+  font-size: clamp(1.65rem, 4vw, 2.55rem);
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.calls-hero__meta {
+  margin: 0.7rem 0 0;
+  color: var(--xos-text-muted);
+  font-size: 0.9rem;
+}
+
+.calls-hero__action {
+  display: flex;
+  align-items: end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.calls-hero .xos-empty-state {
+  min-height: 9rem;
+  padding: 0;
+}
+
+.calls-hero .xos-empty-state__art {
+  display: none;
+}
+
+.calls-hero .xos-empty-state h3 {
+  max-width: none;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.calls-hero--skeleton,
+.calls-home-section--skeleton,
+.calls-week-kpis--skeleton {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.calls-home-skeleton {
+  display: grid;
+  gap: 1rem;
+}
+
+.calls-week-kpis__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.calls-kpi {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.8rem 0.85rem;
+  border-left: 2px solid color-mix(in srgb, var(--xos-accent) 62%, transparent);
+}
+
+.calls-kpi__label {
+  color: var(--xos-text-muted);
+  font-size: 0.78rem;
+}
+
+.calls-kpi strong {
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  letter-spacing: -0.03em;
+}
+
+.calls-kpi__secondary {
+  color: var(--xos-text-muted);
+  font-size: 0.73rem;
+}
+
+.calls-session-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+  gap: 0.7rem;
+}
+
+.calls-session-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md, 8px);
+  background: var(--xos-bg);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.calls-hub .calls-session-card {
+  box-shadow: inset 2px 0 0 var(--xos-accent);
+}
+
+.calls-session-card:hover {
+  border-color: color-mix(in srgb, var(--xos-accent) 42%, var(--xos-border));
+  background: color-mix(in srgb, var(--xos-accent) 5%, var(--xos-bg));
+  transform: translateY(-1px);
+}
+
+.calls-session-card:focus-visible {
+  outline: 2px solid var(--xos-accent);
+  outline-offset: 2px;
+}
+
+.calls-session-card__body {
+  min-width: 0;
+  gap: 0.7rem;
+  padding: 1rem;
+}
+
+.calls-session-card__top {
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.calls-session-card__title {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.calls-session-card__title > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calls-session-card__date {
+  font-size: 0.78rem;
+}
+
+.calls-session-card__tags {
+  max-width: 55%;
+}
+
+.calls-session-card__menu {
+  position: relative;
+  align-self: start;
+  padding: 0.65rem 0.65rem 0 0;
+}
+
+.calls-session-card__menu > .xos-btn--icon {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calls-session-card__menu > .xos-btn--icon:hover {
+  border-color: var(--xos-border);
+  background: color-mix(in srgb, var(--xos-accent) 12%, transparent);
+}
+
+.calls-session-card__menu-popover {
+  position: absolute;
+  z-index: 4;
+  top: 2.9rem;
+  right: 0.55rem;
+  display: grid;
+  min-width: 9.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--xos-border);
+  border-radius: var(--xos-radius-md, 8px);
+  background: var(--xos-window-content-bg);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+}
+
+.calls-session-card__menu-popover .xos-btn {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+}
+
+.calls-calendar-view {
+  gap: 1rem;
+}
+
+.calls-calendar {
+  box-shadow: none;
+}
+
+.calls-calendar--loading {
+  padding: 1rem;
+}
+
+.calls-calendar__skeleton {
+  width: 100%;
+}
+
+.calls-calendar__cell {
+  background: var(--xos-bg);
+}
+
+.calls-hub-transition {
+  min-width: 0;
+  animation: calls-hub-crossfade 150ms ease-out both;
+}
+
+@keyframes calls-hub-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@container calls-app (max-width: 719px) {
+  .calls-nav {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .calls-nav__group,
+  .calls-nav__group + .calls-nav__group {
+    display: grid;
+    gap: 0.35rem;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .calls-nav__items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calls-nav__item {
+    justify-content: flex-start;
+  }
+
+  .calls-nav__item--active::after {
+    right: 0.65rem;
+    bottom: 0.25rem;
+    left: 0.65rem;
+  }
+
+  .calls-hero__content {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .calls-hero__action {
+    justify-content: space-between;
+  }
+
+  .calls-week-kpis__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calls-kpi {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-left: 0;
+    border-top: 1px solid var(--xos-border);
+  }
+
+  .calls-kpi__label,
+  .calls-kpi__secondary {
+    grid-column: 1;
+  }
+
+  .calls-kpi strong {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .calls-session-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .calls-session-card__top {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .calls-session-card__tags {
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calls-hub-transition {
+    animation: none;
+  }
+
+  .calls-session-card {
+    transition: none;
+  }
+
+  .calls-session-card:hover {
+    transform: none;
   }
 }

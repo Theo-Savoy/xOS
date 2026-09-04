@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { ComponentProps } from 'react';
 import {
   cleanup,
   fireEvent,
@@ -35,6 +36,7 @@ import { SessionsView } from './modules/sessions/SessionsView';
 import { PicklistMultiSelect } from './filterControls';
 import type { SessionContact, SessionDetail } from './types';
 import { emptyFilterTree, normalizeFilterTree } from '../../crm';
+import { todayParisIso } from './formControls.helpers';
 
 afterEach(() => {
   cleanup();
@@ -1352,74 +1354,139 @@ describe('RecapView', () => {
   });
 });
 
-describe('SessionsView hub filters', () => {
-  it('filters hub sessions between upcoming and done', async () => {
-    const user = userEvent.setup();
-    const sessions = [
-      {
-        id: 1,
-        name: 'À faire demain',
-        status: 'active' as const,
-        created_at: '2026-07-10T10:00:00Z',
-        scheduled_for: '2026-07-12',
-        session_type: 'prospection' as const,
-        total: 10,
-        called: 2,
-        skipped: 0,
-        pending: 8,
-      },
-      {
-        id: 2,
-        name: 'Déjà faite',
-        status: 'completed' as const,
-        created_at: '2026-07-01T10:00:00Z',
-        scheduled_for: '2026-07-01',
-        session_type: 'relance' as const,
-        total: 5,
-        called: 5,
-        skipped: 0,
-        pending: 0,
-      },
-    ];
+describe('SessionsView home', () => {
+  const relativeDay = (offset: number) => {
+    const date = new Date(`${todayParisIso()}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return date.toISOString().slice(0, 10);
+  };
 
+  const renderSessions = (
+    props: Partial<ComponentProps<typeof SessionsView>> = {},
+  ) =>
     render(
       <SessionsView
-        sessions={sessions}
+        sessions={[]}
         stats={null}
-        recallCount={0}
-        recallsLoading={false}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
         onNewSession={vi.fn()}
         onOpenSession={vi.fn()}
-        onOpenRecalls={vi.fn()}
         onUpdateSession={vi.fn()}
         onDeleteSession={vi.fn()}
+        {...props}
       />,
     );
 
-    expect(screen.getByText('À faire demain')).toBeTruthy();
-    expect(screen.queryByText('Déjà faite')).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: /Réalisées/i }));
-    expect(screen.getByText('Déjà faite')).toBeTruthy();
-    expect(screen.queryByText('À faire demain')).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: /^Toutes$/i }));
-    expect(screen.getByText('À faire demain')).toBeTruthy();
-    expect(screen.getByText('Déjà faite')).toBeTruthy();
-  });
-
-  it('lists future active sessions under Planifiées with a visible badge', async () => {
-    const user = userEvent.setup();
+  it('sélectionne la séance active du jour qui a encore des contacts', async () => {
+    const onOpenSession = vi.fn();
+    const today = relativeDay(0);
     const sessions = [
       {
         id: 1,
-        name: 'À lancer maintenant',
+        name: 'Séance déjà vidée',
         status: 'active' as const,
-        created_at: '2026-07-18T10:00:00Z',
-        scheduled_for: '2026-07-18',
+        created_at: `${today}T08:00:00Z`,
+        scheduled_for: today,
+        session_type: 'prospection' as const,
+        total: 10,
+        called: 10,
+        skipped: 0,
+        pending: 0,
+      },
+      {
+        id: 2,
+        name: 'Séance active du jour',
+        status: 'active' as const,
+        created_at: `${today}T09:00:00Z`,
+        scheduled_for: today,
+        session_type: 'relance' as const,
+        total: 10,
+        called: 3,
+        skipped: 0,
+        pending: 7,
+      },
+      {
+        id: 3,
+        name: 'Séance en retard',
+        status: 'active' as const,
+        created_at: `${relativeDay(-1)}T09:00:00Z`,
+        scheduled_for: relativeDay(-1),
+        session_type: 'suivi_clients' as const,
+        total: 8,
+        called: 1,
+        skipped: 0,
+        pending: 7,
+      },
+    ];
+
+    renderSessions({ sessions, onOpenSession });
+
+    const hero = screen.getByRole('region', { name: 'Maintenant' });
+    expect(within(hero).getByText("À appeler aujourd'hui")).toBeTruthy();
+    expect(
+      within(hero).getByRole('heading', { name: 'Séance active du jour' }),
+    ).toBeTruthy();
+    expect(within(hero).queryByText('Séance en retard')).toBeNull();
+
+    await userEvent
+      .setup()
+      .click(within(hero).getByRole('button', { name: 'Ouvrir' }));
+    expect(onOpenSession).toHaveBeenCalledWith(2);
+  });
+
+  it('affiche le CTA de création quand aucune séance n’existe', async () => {
+    const onNewSession = vi.fn();
+    renderSessions({ onNewSession });
+
+    expect(screen.getByText('Créez une séance pour appeler.')).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Nouvelle séance' }));
+    expect(onNewSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche uniquement les KPIs de la semaine retenus par la nouvelle IA', () => {
+    renderSessions({
+      stats: {
+        calls_today: 4,
+        calls_week: 20,
+        sessions_active: 2,
+        sessions_completed: 3,
+        week: {
+          calls: 20,
+          decroche: 10,
+          argumente: 7,
+          rdv: 2,
+          npa: 1,
+          rate_decroche: 50,
+          rate_argumente: 35,
+          rate_rdv_per_decroche: 20,
+          rate_rdv_per_argumente: 28.6,
+        },
+      },
+    });
+
+    const kpis = screen.getByRole('region', { name: 'Cette semaine' });
+    expect(within(kpis).getByText('Appels')).toBeTruthy();
+    expect(within(kpis).getByText('Décrochés')).toBeTruthy();
+    expect(within(kpis).getByText('RDV')).toBeTruthy();
+    expect(within(kpis).getByText('50 % des appels')).toBeTruthy();
+    expect(within(kpis).getByText('20 % des décrochés')).toBeTruthy();
+    expect(within(kpis).queryByText('Taux argumenté')).toBeNull();
+    expect(within(kpis).queryByText('NPA')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Période KPIs' })).toBeNull();
+  });
+
+  it('trie les actives par date puis les terminées par date décroissante', () => {
+    const sessions = [
+      {
+        id: 1,
+        name: 'Active plus tard',
+        status: 'active' as const,
+        created_at: `${relativeDay(2)}T10:00:00Z`,
+        scheduled_for: relativeDay(2),
         session_type: 'prospection' as const,
         total: 10,
         called: 0,
@@ -1428,45 +1495,97 @@ describe('SessionsView hub filters', () => {
       },
       {
         id: 2,
-        name: 'Comptes stratégiques septembre',
+        name: 'Active maintenant',
         status: 'active' as const,
-        created_at: '2026-07-18T10:00:00Z',
-        scheduled_for: '2099-09-15',
+        created_at: `${relativeDay(0)}T10:00:00Z`,
+        scheduled_for: relativeDay(0),
         session_type: 'prospection' as const,
-        total: 20,
-        called: 0,
+        total: 10,
+        called: 2,
         skipped: 0,
-        pending: 20,
+        pending: 8,
+      },
+      {
+        id: 3,
+        name: 'Terminée récente',
+        status: 'completed' as const,
+        created_at: `${relativeDay(-1)}T10:00:00Z`,
+        scheduled_for: relativeDay(-1),
+        session_type: 'relance' as const,
+        total: 5,
+        called: 5,
+        skipped: 0,
+        pending: 0,
+      },
+      {
+        id: 4,
+        name: 'Terminée ancienne',
+        status: 'completed' as const,
+        created_at: `${relativeDay(-3)}T10:00:00Z`,
+        scheduled_for: relativeDay(-3),
+        session_type: 'relance' as const,
+        total: 5,
+        called: 5,
+        skipped: 0,
+        pending: 0,
       },
     ];
 
-    render(
-      <SessionsView
-        sessions={sessions}
-        stats={null}
-        recallCount={0}
-        recallsLoading={false}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-        onNewSession={vi.fn()}
-        onOpenSession={vi.fn()}
-        onOpenRecalls={vi.fn()}
-        onUpdateSession={vi.fn()}
-        onDeleteSession={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText('À lancer maintenant')).toBeTruthy();
-    expect(screen.queryByText('Comptes stratégiques septembre')).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: /Planifiées/i }));
-    expect(screen.getByText('Comptes stratégiques septembre')).toBeTruthy();
-    expect(screen.queryByText('À lancer maintenant')).toBeNull();
-    expect(screen.getByText('Planifiée')).toBeTruthy();
+    const { container } = renderSessions({ sessions });
+    const list = container.querySelector('.calls-session-list');
+    expect(list).toBeTruthy();
+    expect(
+      [...(list?.querySelectorAll('li') ?? [])].map((item) =>
+        item.textContent?.replace(/\s+/g, ' ').trim(),
+      ),
+    ).toEqual([
+      expect.stringContaining('Active maintenant'),
+      expect.stringContaining('Active plus tard'),
+      expect.stringContaining('Terminée récente'),
+      expect.stringContaining('Terminée ancienne'),
+    ]);
   });
 
-  it('confirms session deletion in a custom modal', async () => {
+  it('déplace les actions de séance dans le menu de la carte', async () => {
+    const user = userEvent.setup();
+    const onShareSession = vi.fn();
+    const sessions = [
+      {
+        id: 1,
+        name: 'Secteur public',
+        status: 'active' as const,
+        created_at: `${relativeDay(0)}T10:00:00Z`,
+        scheduled_for: relativeDay(0),
+        session_type: 'prospection' as const,
+        total: 10,
+        called: 2,
+        skipped: 0,
+        pending: 8,
+        is_owner: true,
+      },
+    ];
+
+    renderSessions({ sessions, onShareSession });
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    await user.click(
+      screen.getByRole('button', { name: 'Actions pour Secteur public' }),
+    );
+    const menu = screen.getByRole('menu');
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Partager' }),
+    ).toBeTruthy();
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Modifier' }),
+    ).toBeTruthy();
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Supprimer' }),
+    ).toBeTruthy();
+    await user.click(within(menu).getByRole('menuitem', { name: 'Partager' }));
+    expect(onShareSession).toHaveBeenCalledWith(1);
+  });
+
+  it('confirme la suppression de session dans une modale non-glass', async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const onDeleteSession = vi.fn().mockResolvedValue(undefined);
@@ -1489,21 +1608,21 @@ describe('SessionsView hub filters', () => {
       <SessionsView
         sessions={sessions}
         stats={null}
-        recallCount={0}
-        recallsLoading={false}
         loading={false}
         error={null}
         onRefresh={vi.fn()}
         onNewSession={vi.fn()}
         onOpenSession={vi.fn()}
-        onOpenRecalls={vi.fn()}
         onUpdateSession={vi.fn()}
         onDeleteSession={onDeleteSession}
       />,
     );
 
     confirmSpy.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Actions pour Secteur public' }),
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Supprimer' }));
     expect(confirmSpy).not.toHaveBeenCalled();
     const dialog = screen.getByRole('dialog', { name: 'Supprimer la séance' });
     expect(within(dialog).getByText(/Secteur public/i)).toBeTruthy();
@@ -1515,30 +1634,6 @@ describe('SessionsView hub filters', () => {
     ).toBeNull();
 
     confirmSpy.mockRestore();
-  });
-
-  it('opens the recalls queue from the hub', async () => {
-    const user = userEvent.setup();
-    const onOpenRecalls = vi.fn();
-    render(
-      <SessionsView
-        sessions={[]}
-        stats={null}
-        recallCount={1}
-        recallsLoading={false}
-        loading={false}
-        error={null}
-        onRefresh={vi.fn()}
-        onNewSession={vi.fn()}
-        onOpenSession={vi.fn()}
-        onOpenRecalls={onOpenRecalls}
-        onUpdateSession={vi.fn()}
-        onDeleteSession={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: /Rappels/i }));
-    expect(onOpenRecalls).toHaveBeenCalled();
   });
 });
 
@@ -1669,14 +1764,14 @@ describe('call targeting copy and controls', () => {
     expect(screen.getByRole('button', { name: 'Paul Rathouin' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jérôme Bosio' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Yanis Agharbi' })).toBeNull();
-        expect(screen.queryByRole('button', { name: 'Théo Savoy' })).toBeNull();
-        // Le champ zombie "Compte principal" a été retiré (le mode ABM le couvre).
-        expect(screen.queryByText(/Compte principal \(ID CRM/)).toBeNull();
-        // Les plafonds vivent à l'étape Composer, plus dans les filtres (étape Cibler).
-        expect(screen.queryByLabelText('Contacts max')).toBeNull();
-        expect(
-          screen.queryByLabelText('Maximum de contacts par entreprise'),
-        ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Théo Savoy' })).toBeNull();
+    // Le champ zombie "Compte principal" a été retiré (le mode ABM le couvre).
+    expect(screen.queryByText(/Compte principal \(ID CRM/)).toBeNull();
+    // Les plafonds vivent à l'étape Composer, plus dans les filtres (étape Cibler).
+    expect(screen.queryByLabelText('Contacts max')).toBeNull();
+    expect(
+      screen.queryByLabelText('Maximum de contacts par entreprise'),
+    ).toBeNull();
     expect(
       screen
         .getByRole('button', { name: 'Avertir' })
@@ -1783,12 +1878,12 @@ describe('call targeting copy and controls', () => {
     );
 
     expect(
-      screen.queryByRole('button', { name: 'Supprimer le preset Partagé par un collègue' }),
+      screen.queryByRole('button', {
+        name: 'Supprimer le preset Partagé par un collègue',
+      }),
     ).toBeNull();
 
-    await user.click(
-      screen.getByRole('button', { name: /Partagé à moi/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /Partagé à moi/ }));
     expect(
       screen.getByRole('button', { name: 'Supprimer le preset Partagé à moi' }),
     ).toBeTruthy();
