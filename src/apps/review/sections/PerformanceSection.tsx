@@ -2,12 +2,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   XAxis,
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { StatCard } from '../components/StatCard';
@@ -123,7 +123,6 @@ export function PerformanceSection({
             <ReviewChartTooltip
               content={<ChartTooltip valueFormatter={fmtEur} />}
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Bar
               dataKey="Nouvelles affaires"
               stackId="ca"
@@ -138,6 +137,12 @@ export function PerformanceSection({
             />
           </BarChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Nouvelles affaires', color: 'var(--xos-chart-current)' },
+            { label: 'Renouvellements', color: 'var(--xos-chart-compare)' },
+          ]}
+        />
         <p className="review-section-note">
           Rien n'est causal : les deux composantes reculent, sans dire pourquoi.
           {data.truncated

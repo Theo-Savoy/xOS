@@ -1,6 +1,5 @@
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -8,6 +7,7 @@ import {
   YAxis,
 } from 'recharts';
 import { EmptyState, GlassCard, Skeleton } from '../../../components/ui';
+import { ChartLegend } from '../components/ChartLegend';
 import { ChartTooltip, ReviewChartTooltip } from '../components/ChartTooltip';
 import { ScopeTag } from '../components/ScopeTag';
 import { fmtEur } from '../review.helpers';
@@ -100,7 +100,6 @@ export function RenewTrendSection({
                 />
               }
             />
-            <Legend wrapperStyle={{ color: 'var(--xos-text)' }} />
             <Line
               yAxisId="montant"
               type="monotone"
@@ -122,6 +121,12 @@ export function RenewTrendSection({
             />
           </LineChart>
         </ResponsiveContainer>
+        <ChartLegend
+          items={[
+            { label: 'Renouvellements', color: 'var(--xos-chart-compare)' },
+            { label: 'Part du CA total', color: 'var(--xos-chart-current)', dashed: true },
+          ]}
+        />
         <p className="review-section-note">
           CA resigné sur les clients existants (axe gauche) et sa part dans le
           CA total de l&apos;exercice (axe droit).
