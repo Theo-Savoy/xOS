@@ -1375,8 +1375,9 @@ export function RunnerView({
 
   return (
     <div
-      className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
+      role="region"
       aria-label={isRecallQueue ? 'Rappels' : undefined}
+      className={`calls-view calls-view--runner${isRecallQueue ? ' calls-view--recalls' : ''}${mode === 'detail' ? ' calls-view--detail' : ''}${isPowerActive ? ' calls-view--power' : ''}${isPowerConversationActive ? ' calls-view--power-conversation' : ''}`}
     >
       {toast?.kind === 'plain' && (
         <div className="calls-runner-toast" role="status">
@@ -1822,7 +1823,7 @@ export function RunnerView({
       {mode === 'list' ? (
         isPowerConversationActive ? null : isPowerActive ? (
           <div className="calls-cockpit-list-wrap calls-cockpit-list-wrap--power">
-            <section className="calls-section calls-cockpit-list calls-cockpit-list--power">
+            <section className="calls-cockpit-list calls-cockpit-list--power">
               <div className="calls-cockpit-list__toolbar calls-cockpit-list__toolbar--power">
                 <span className="calls-power-queue-summary__text">
                   File d&apos;appel ·{' '}
@@ -2266,7 +2267,9 @@ export function RunnerView({
               </div>
             )}
 
-            <section className="calls-section calls-cockpit-list">
+            <section
+              className={`calls-cockpit-list${isRecallQueue ? ' calls-section' : ''}`}
+            >
               <div className="calls-cockpit-list__toolbar">
                 <h3>
                   {isRecallQueue ? 'Contacts à rappeler' : 'Liste de la séance'}

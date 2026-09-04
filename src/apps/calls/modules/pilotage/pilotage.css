@@ -126,10 +126,6 @@
   min-width: 0;
   display: grid;
   gap: 0.55rem;
-  padding: 0.85rem 1rem 0.95rem;
-  border: 1px solid var(--xos-border);
-  border-radius: var(--xos-radius-lg, 16px);
-  background: var(--xos-window-content-bg);
 }
 
 .pilotage-compact-card.pilotage-sessions-compact {

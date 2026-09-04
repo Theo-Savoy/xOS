@@ -610,6 +610,8 @@ export function PilotageView({
 
   const sessions = data?.sessions ?? EMPTY_SESSIONS;
   const byDay = data?.by_day ?? EMPTY_DAYS;
+  /** Premier chargement : structure affichée, données en skeleton, zéro EmptyState. */
+  const coldLoading = loading && !data && !error;
 
   /**
    * Les KPIs d'une séance sont relatifs à la période active : en vue « jour »,
@@ -727,7 +729,7 @@ export function PilotageView({
 
   if (!token) {
     return (
-      <div className="calls-view pilotage-app" aria-label="Pilotage">
+      <div role="region" aria-label="Pilotage" className="calls-view pilotage-app">
         <div className="calls-error" role="alert">
           <p>Session requise.</p>
         </div>
@@ -772,7 +774,7 @@ export function PilotageView({
   };
 
   return (
-    <div className="calls-view pilotage-app" aria-label="Pilotage">
+    <div role="region" aria-label="Pilotage" className="calls-view pilotage-app">
       <header className="calls-view__header pilotage-header">
         <div className="calls-view__actions pilotage-header__actions">
           <div
@@ -925,6 +927,11 @@ export function PilotageView({
           onSelectDay={selectHeatmapDay}
           onPrefetchDay={prefetchDay}
         />
+        {heatmapDays.length === 0 && coldLoading && (
+          <section className="calls-section" aria-hidden="true">
+            <Skeleton height="8rem" />
+          </section>
+        )}
 
         {detailMode === 'sessions' && (
           <section
@@ -970,7 +977,7 @@ export function PilotageView({
               </div>
             </div>
 
-            {visibleSessions.length === 0 ? (
+            {visibleSessions.length === 0 && !coldLoading ? (
               <EmptyState
                 title="Aucune séance"
                 description={
@@ -979,6 +986,12 @@ export function PilotageView({
                     : 'Aucune séance sur la période.'
                 }
               />
+            ) : visibleSessions.length === 0 ? (
+              <div className="calls-recalls-skeleton" aria-hidden="true">
+                <Skeleton height="3.2rem" />
+                <Skeleton height="3.2rem" />
+                <Skeleton height="3.2rem" />
+              </div>
             ) : (
               <ul className="pilotage-session-list pilotage-sessions-compact__list">
                 {visibleSessions.map((session) => {
@@ -1052,11 +1065,17 @@ export function PilotageView({
             )}
           </div>
 
-          {byDay.length === 0 ? (
+          {byDay.length === 0 && !coldLoading ? (
             <EmptyState
               title="Aucune activité"
               description="Aucune activité sur la période."
             />
+          ) : byDay.length === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <ul className="pilotage-day-list">
               {byDay.map((day) => {
@@ -1155,11 +1174,17 @@ export function PilotageView({
           Répartition par commercial — cliquez pour le détail.
         </p>
 
-        {filtered.callers.length === 0 ? (
+        {filtered.callers.length === 0 && !coldLoading ? (
           <EmptyState
             title="Aucune activité"
             description="Aucune activité sur la période."
           />
+        ) : filtered.callers.length === 0 ? (
+          <div className="calls-recalls-skeleton" aria-hidden="true">
+            <Skeleton height="3.2rem" />
+            <Skeleton height="3.2rem" />
+            <Skeleton height="3.2rem" />
+          </div>
         ) : (
           <div className="pilotage-caller-grid">
             {filtered.callers.map((caller) => (
@@ -1224,11 +1249,17 @@ export function PilotageView({
           <p className="pilotage-panel__hint">
             Chez qui le RDV est au calendrier.
           </p>
-          {(data?.by_rdv_owner.length ?? 0) === 0 ? (
+          {(data?.by_rdv_owner.length ?? 0) === 0 && !coldLoading ? (
             <EmptyState
               title="Aucun RDV"
               description="Aucun RDV sur la période."
             />
+          ) : (data?.by_rdv_owner.length ?? 0) === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <table className="pilotage-table">
               <thead>
@@ -1276,11 +1307,17 @@ export function PilotageView({
               </Button>
             )}
           </div>
-          {rdvAttributions.length === 0 ? (
+          {rdvAttributions.length === 0 && !coldLoading ? (
             <EmptyState
               title="Aucun RDV"
               description="Aucun RDV sur la période."
             />
+          ) : rdvAttributions.length === 0 ? (
+            <div className="calls-recalls-skeleton" aria-hidden="true">
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+              <Skeleton height="3.2rem" />
+            </div>
           ) : (
             <table className="pilotage-table">
               <thead>

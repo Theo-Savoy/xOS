@@ -98,7 +98,7 @@ export function CalendarView({
   };
 
   return (
-    <div className="calls-view calls-calendar-view" aria-busy={loading} aria-label="Calendrier">
+    <div role="region" aria-label="Calendrier" className="calls-view calls-calendar-view" aria-busy={loading}>
       <header className="calls-view__header">
         <div className="calls-view__actions">
           <Button onClick={onNewSession}>Nouvelle séance</Button>

@@ -173,10 +173,12 @@ export function RdvStatusPanel({
       </div>
 
       {error && (
-        <EmptyState
-          title="Erreur"
-          description="Impossible de charger les statuts RDV."
-        />
+        <div role="alert">
+          <EmptyState
+            title="Erreur"
+            description="Impossible de charger les statuts RDV."
+          />
+        </div>
       )}
 
       {!error && !loading && total === 0 && (

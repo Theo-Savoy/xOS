@@ -273,7 +273,7 @@ export function RdvSuiviView({ teamSfUserIds }: RdvSuiviViewProps) {
 
   const hasData = rdvs.length > 0;
   return (
-    <div className="calls-view rdv-suivi" aria-label="Suivi des rendez-vous">
+    <div role="region" aria-label="Suivi des rendez-vous" className="calls-view rdv-suivi">
       <header className="calls-view__header">
         <div className="calls-view__actions">
           <div
