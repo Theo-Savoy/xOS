@@ -11,6 +11,7 @@ import {
   type MaxPerCompany,
 } from '../../crm';
 import { AccountSearchView } from './AccountSearchView';
+import { ReportSessionView } from './ReportSessionView';
 import {
   completeSession,
   createFollowUpSession,
@@ -107,6 +108,7 @@ type View =
   | 'session-type-select'
   | 'new'
   | 'account-search'
+  | 'report'
   | 'pre-session'
   | 'runner'
   | 'recap'
@@ -125,6 +127,8 @@ function viewFromParams(view?: string, sessionId?: string): View {
       return 'session-type-select';
     case 'new':
       return 'new';
+    case 'report':
+      return 'report';
     case 'abm':
       return 'account-search';
     case 'recalls':
@@ -152,6 +156,8 @@ function navigationParamsForView(
       return { view: 'session-type-select' };
     case 'new':
       return { view: 'new' };
+    case 'report':
+      return { view: 'report' };
     case 'account-search':
       return { view: 'abm' };
     case 'recalls':
@@ -2032,6 +2038,7 @@ export default function CallManagerApp({
               void loadPresets();
             }}
             onSelectAbm={() => setView('account-search')}
+            onSelectReport={() => setView('report')}
             onSelectCsv={() => {}}
             onSelectSurgical={() => {}}
           />
@@ -2087,6 +2094,23 @@ export default function CallManagerApp({
             onCreateAudience={(payload) => void handleCreateAudience(payload)}
             creating={audienceCreating}
             createError={audienceError}
+          />
+        )}
+
+        {view === 'report' && (
+          <ReportSessionView
+            token={token}
+            team={team}
+            currentUserId={session.user.id}
+            onBack={() => setView('session-type-select')}
+            onCreateAudience={(payload) => void handleCreateAudience(payload)}
+            creating={audienceCreating}
+            createError={audienceError}
+            presets={presets}
+            savingPreset={savingPreset}
+            onLoadPreset={handleLoadPreset}
+            onSavePreset={(name, shared) => void handleSavePreset(name, shared)}
+            onDeletePreset={(id) => void handleDeletePreset(id)}
           />
         )}
 

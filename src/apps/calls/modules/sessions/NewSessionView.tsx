@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Checkbox, GlassCard, Select, Tag } from '../../../../components/ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Checkbox, GlassCard, Tag } from '../../../../components/ui';
 import {
-  CONTACT_LIMIT_OPTIONS,
-  CONTACT_LIST_UNLIMITED,
-  MAX_PER_COMPANY_OPTIONS,
   type CallTargetPreset,
   type ContactLimit,
   type DedupEntry,
@@ -23,6 +20,7 @@ import { canSelectContact, selectIdsWithCompanyCap } from '../../selection';
 import { packAccountsIntoSessions } from '../../audienceBinPacking';
 import type { AudienceSessionGroup } from '../../api';
 import type { ContactPreview, SessionType, TeamMember } from '../../types';
+import { ContactPreviewCard } from './ContactPreviewCard';
 import { WizardStepper, type WizardStep } from './WizardStepper';
 import { WizardRecap } from './WizardRecap';
 
@@ -72,32 +70,6 @@ type NewSessionViewProps = {
   }) => void;
   initialStep?: WizardStep;
 };
-
-function Cell({
-  children,
-  title,
-  className,
-}: {
-  children: ReactNode;
-  title?: string | null;
-  className?: string;
-}) {
-  const tip = title ?? (typeof children === 'string' ? children : undefined);
-  return (
-    <span
-      className={['calls-preview__cell', className].filter(Boolean).join(' ')}
-      title={tip || undefined}
-    >
-      {children}
-    </span>
-  );
-}
-
-function limitLabel(limit: ContactLimit): string {
-  return limit === CONTACT_LIST_UNLIMITED
-    ? 'Pas de limite (max 2000)'
-    : String(limit);
-}
 
 const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
   0: 'Définissez votre cible',
@@ -558,185 +530,21 @@ export function NewSessionView({
               )}
 
               {preview.length > 0 && (
-                <GlassCard className="calls-preview">
-                  <div className="calls-preview__header">
-                    <div className="calls-preview__heading">
-                      <h3>
-                        Aperçu — {preview.length} contact
-                        {preview.length > 1 ? 's' : ''} trouvé
-                        {preview.length > 1 ? 's' : ''}
-                      </h3>
-                      <Tag>
-                        {selectedContacts.length} sélectionné
-                        {selectedContacts.length > 1 ? 's' : ''} / {preview.length}
-                      </Tag>
-                      {previewLoading && (
-                        <Tag role="status" aria-live="polite">
-                          Mise à jour…
-                        </Tag>
-                      )}
-                    </div>
-                    <div className="calls-preview__actions">
-                      <Button variant="secondary" onClick={selectAll}>
-                        Tout sélectionner
-                      </Button>
-                      <Button variant="secondary" onClick={deselectAll}>
-                        Tout désélectionner
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="calls-preview__limits">
-                    <Select
-                      label="Contacts max"
-                      options={CONTACT_LIMIT_OPTIONS.map((limit) => ({
-                        value: String(limit),
-                        label: limitLabel(limit),
-                      }))}
-                      value={String(contactLimit)}
-                      onChange={(val) =>
-                        onContactLimitChange(Number(val) as ContactLimit)
-                      }
-                      aria-label="Contacts max"
-                    />
-                    <Select
-                      label="Max / entreprise"
-                      options={[
-                        { value: '', label: 'Pas de limite' },
-                        ...MAX_PER_COMPANY_OPTIONS.map((limit) => ({
-                          value: String(limit),
-                          label: `${limit} par entreprise`,
-                        })),
-                      ]}
-                      value={maxPerCompany ? String(maxPerCompany) : ''}
-                      onChange={(val) =>
-                        onMaxPerCompanyChange(
-                          val ? (Number(val) as MaxPerCompany) : null,
-                        )
-                      }
-                      aria-label="Maximum de contacts par entreprise"
-                    />
-                  </div>
-                  {capHint && (
-                    <p
-                      className="calls-preview__cap-hint"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {capHint}
-                    </p>
-                  )}
-                  <div className="calls-preview__table-wrap">
-                    <ul className="calls-preview__list">
-                      <li
-                        className="calls-preview__list-header"
-                        aria-hidden="true"
-                      >
-                        <span className="calls-preview__select" />
-                        <span>Contact</span>
-                        <span>Poste</span>
-                        <span>Entreprise</span>
-                        <span>Email</span>
-                        <span>Tél.</span>
-                        <span>LinkedIn</span>
-                        <span>Statut</span>
-                      </li>
-                      {preview.map((contact) => {
-                        const dup = inSessionOf.get(contact.sf_contact_id);
-                        const checked = selectedIds.has(contact.sf_contact_id);
-                        const blocked =
-                          !checked &&
-                          !canSelectContact(
-                            preview,
-                            selectedIds,
-                            contact.sf_contact_id,
-                            maxPerCompany,
-                          );
-                        const phone =
-                          contact.phone ?? contact.mobile_phone ?? null;
-                        return (
-                          <li
-                            key={contact.sf_contact_id}
-                            className={
-                              !checked
-                                ? 'calls-preview__row--excluded'
-                                : undefined
-                            }
-                          >
-                            <span className="calls-preview__select">
-                              <Checkbox
-                                checked={checked}
-                                disabled={blocked}
-                                onChange={() =>
-                                  toggleContact(contact.sf_contact_id)
-                                }
-                                aria-label={`Sélectionner ${contact.contact_name}`}
-                              />
-                            </span>
-                            <Cell
-                              className="calls-preview__name"
-                              title={contact.contact_name}
-                            >
-                              <strong>{contact.contact_name}</strong>
-                            </Cell>
-                            <Cell
-                              className="calls-preview__cell--wrap"
-                              title={contact.title}
-                            >
-                              {contact.title ?? '—'}
-                            </Cell>
-                            <Cell
-                              className="calls-preview__cell--wrap"
-                              title={contact.account_name}
-                            >
-                              {contact.account_name ?? '—'}
-                            </Cell>
-                            <Cell
-                              className="calls-preview__cell--wrap"
-                              title={contact.email}
-                            >
-                              {contact.email ? (
-                                <a
-                                  href={`mailto:${contact.email}`}
-                                  className="calls-preview__email"
-                                >
-                                  {contact.email}
-                                </a>
-                              ) : (
-                                '—'
-                              )}
-                            </Cell>
-                            <Cell className="xos-numeric" title={phone}>
-                              {phone ?? '—'}
-                            </Cell>
-                            {contact.linkedin_url ? (
-                              <a
-                                href={contact.linkedin_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="calls-preview__linkedin"
-                              >
-                                LinkedIn
-                              </a>
-                            ) : (
-                              <Cell>—</Cell>
-                            )}
-                            {dup ? (
-                              <Tag
-                                variant="alert"
-                                className="calls-preview__dup"
-                                title={`Déjà en séance — ${dup}`}
-                              >
-                                Déjà en séance — {dup}
-                              </Tag>
-                            ) : (
-                              <Cell>—</Cell>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </GlassCard>
+                <ContactPreviewCard
+                  preview={preview}
+                  selectedIds={selectedIds}
+                  selectedCount={selectedContacts.length}
+                  maxPerCompany={maxPerCompany}
+                  contactLimit={contactLimit}
+                  capHint={capHint}
+                  inSessionOf={inSessionOf}
+                  previewLoading={previewLoading}
+                  onToggle={toggleContact}
+                  onSelectAll={selectAll}
+                  onDeselectAll={deselectAll}
+                  onContactLimitChange={onContactLimitChange}
+                  onMaxPerCompanyChange={onMaxPerCompanyChange}
+                />
               )}
 
               {previewLoading && preview.length === 0 && (

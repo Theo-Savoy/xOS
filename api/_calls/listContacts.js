@@ -16,11 +16,117 @@ import {
 import { buildPreviewContactList } from './selection.js';
 import { findActiveSessionConflicts } from './activeSessionConflicts.js';
 import { getProfile } from './profileCache.js';
+import { SF_ID } from './http.js';
 
 const MAX_PER_COMPANY_OPTIONS = [1, 2, 3, 5];
+// Plafond d'ids par requête SOQL : garde l'URI sous la limite Salesforce
+// (16 384 o) même avec des filtres longs (presets, propriétaires, secteurs).
+const TARGET_ID_CHUNK_SIZE = 300;
+const TARGET_QUERY_CONCURRENCY = 4;
+// Budget conservateur pour le WHERE Hors ids cibles (~1 900 o couvrent tous
+// les presets + propriétaires + secteurs), ~28 o par id encodé.
+const URI_BUDGET = 14_000;
+const ID_ENCODED_SIZE = 28;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringIds(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === 'string' && item)
+    : [];
+}
+
+function chunks(values, chunkSize) {
+  if (values.length <= chunkSize) return [values];
+  const result = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    result.push(values.slice(index, index + chunkSize));
+  }
+  return result;
+}
+
+/**
+ * Découpe les ids cibles (contacts d'abord, comptes seulement quand aucun
+ * contact) en chunks qui restent sous le budget URI. Quand les contacts sont
+ * ciblés, les comptes sont RETIRÉS de la requête (les ids contact sont plus
+ * sélectifs) pour éviter le produit cartésien contact×compte (jusqu'à 64 SOQL).
+ */
+function targetFilterChunks(filters) {
+  const contactIds = stringIds(filters.contact?.contacts_cibles);
+  const accountIds = stringIds(filters.entreprise?.comptes_cibles);
+
+  if (contactIds.length > 0) {
+    const chunkSize = Math.max(
+      1,
+      Math.min(TARGET_ID_CHUNK_SIZE, Math.floor((URI_BUDGET - 4_000) / ID_ENCODED_SIZE)),
+    );
+    return chunks(contactIds, chunkSize).map((contactChunk) => ({
+      ...filters,
+      contact: { ...filters.contact, contacts_cibles: contactChunk },
+      entreprise: { ...filters.entreprise, comptes_cibles: undefined },
+    }));
+  }
+
+  const chunkSize = Math.max(
+    1,
+    Math.min(TARGET_ID_CHUNK_SIZE, Math.floor((URI_BUDGET - 4_000) / ID_ENCODED_SIZE)),
+  );
+  return chunks(accountIds, chunkSize).map((accountChunk) => ({
+    ...filters,
+    entreprise: { ...filters.entreprise, comptes_cibles: accountChunk },
+  }));
+}
+
+async function searchTargetContacts(token, filters, sfUserId, includeTasks) {
+  const filterChunks = targetFilterChunks(filters);
+  const searches = [];
+  let nextChunk = 0;
+  let failed = false;
+  const worker = async () => {
+    while (nextChunk < filterChunks.length && !failed) {
+      const chunkIndex = nextChunk;
+      nextChunk += 1;
+      const chunkFilters = filterChunks[chunkIndex];
+      const search = await searchContacts(
+        token,
+        buildTargetQuery(chunkFilters, mapping, sfUserId, { includeTasks }),
+      );
+      if (search.error) {
+        failed = true;
+        searches[chunkIndex] = search;
+        return;
+      }
+      searches[chunkIndex] = search;
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(TARGET_QUERY_CONCURRENCY, filterChunks.length) },
+      worker,
+    ),
+  );
+  const firstError = searches.find((search) => search?.error);
+  if (firstError) return firstError;
+  const recordsById = new Map();
+  let truncated = false;
+
+  for (const search of searches) {
+    if (search.error) return search;
+    truncated ||= search.truncated === true;
+    for (const record of search.records || []) {
+      const id = record?.[mapping.objects.contact.fields.id];
+      if (typeof id !== 'string' || !id) continue;
+      if (!recordsById.has(id)) recordsById.set(id, record);
+    }
+  }
+
+  const records = [...recordsById.values()];
+  return {
+    records: records.slice(0, SOQL_FETCH_CAP),
+    truncated: truncated || records.length > SOQL_FETCH_CAP,
+  };
 }
 
 export function parseListContactsBody(body) {
@@ -50,6 +156,29 @@ export function parseListContactsBody(body) {
       !MAX_PER_COMPANY_OPTIONS.includes(body.max_per_company))
   ) {
     return { error: 'invalid_max_per_company' };
+  }
+  // Frontière de confiance : les listes d'ids cibles (rapport Salesforce) sont
+  // plafonnées et validées au format SF 15/18, sinon un body malveillant peut
+  // déclencher des centaines de requêtes SOQL ou une URI hors limite.
+  const contactsCibles = body.filters.contact?.contacts_cibles;
+  if (
+    contactsCibles !== undefined &&
+    (!Array.isArray(contactsCibles) ||
+      contactsCibles.length > SOQL_FETCH_CAP ||
+      !contactsCibles.every(
+        (id) => typeof id === 'string' && SF_ID.test(id),
+      ))
+  ) {
+    return { error: 'invalid_contacts_cibles' };
+  }
+  const comptesCibles = body.filters.entreprise?.comptes_cibles;
+  if (
+    comptesCibles !== undefined &&
+    (!Array.isArray(comptesCibles) ||
+      comptesCibles.length > SOQL_FETCH_CAP ||
+      !comptesCibles.every((id) => typeof id === 'string' && SF_ID.test(id)))
+  ) {
+    return { error: 'invalid_comptes_cibles' };
   }
   return {
     filters: { ...body.filters, limit: body.limit ?? body.filters.limit },
@@ -127,11 +256,13 @@ export async function listContacts(client, userId, body) {
     : parsed.filters;
   const includeTasks = !countOnly || hasRelanceQueryFilters(parsed.filters);
 
-  const soql = buildTargetQuery(queryFilters, mapping, profile.sfUserId, {
-    includeTasks,
-  });
   const [search, opportunitySetsResult] = await Promise.all([
-    searchContacts(tokenResult.accessToken, soql),
+    searchTargetContacts(
+      tokenResult.accessToken,
+      queryFilters,
+      profile.sfUserId,
+      includeTasks,
+    ),
     opportunityFilters
       ? fetchOpportunityAccountIdSets(
           tokenResult.accessToken,
@@ -178,9 +309,7 @@ export async function listContacts(client, userId, body) {
   const contacts =
     maxPerCompany !== null
       ? buildPreviewContactList(normalized, requestedLimit, maxPerCompany)
-      : hasRelanceQueryFilters(parsed.filters)
-        ? normalized.slice(0, requestedLimit)
-        : normalized;
+      : normalized.slice(0, requestedLimit);
   // Exclusion stricte : les contacts déjà dans une séance active sont défiltrés
   // du résultat, sans opt-in. `dedup` reste renvoyé pour rétro-compat.
   const dedup = await findActiveSessionConflicts(

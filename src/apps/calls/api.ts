@@ -149,6 +149,46 @@ export type ContactCountResult = {
   capped: boolean;
 };
 
+export type SalesforceReport = {
+  id: string;
+  name: string;
+  folder_name: string | null;
+  last_run_date: string | null;
+};
+
+export type SalesforceReportRun = {
+  report_id: string;
+  report_name: string | null;
+  contact_ids: string[];
+  account_ids: string[];
+  row_count: number;
+  duplicate_contact_count: number;
+  duplicate_account_count: number;
+  unusable_count: number;
+  truncated: boolean;
+};
+
+export async function fetchReports(
+  token: string,
+  q = '',
+): Promise<{ reports: SalesforceReport[] }> {
+  return apiFetch(token, '/api/calls', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'list_reports', q }),
+  });
+}
+
+export async function fetchRunReport(
+  token: string,
+  reportId: string,
+): Promise<{ run: SalesforceReportRun }> {
+  const run = await apiFetch<SalesforceReportRun>(token, '/api/calls', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'run_report', reportId }),
+  });
+  return { run };
+}
+
 export async function fetchContactList(
   token: string,
   filters: FilterTree,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchTeam, logCall } from './api';
+import { fetchReports, fetchRunReport, fetchTeam, logCall } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -74,5 +74,48 @@ describe('fetchTeam', () => {
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),
       }),
     );
+  });
+});
+
+describe('Salesforce reports API', () => {
+  it('lists Salesforce reports with the search query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ reports: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchReports('token', 'Opps')).resolves.toEqual({
+      reports: [],
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      action: 'list_reports',
+      q: 'Opps',
+    });
+  });
+
+  it('runs a Salesforce report and exposes its run payload', async () => {
+    const run = {
+      report_id: '00OSb00000C6fZRMAZ',
+      contact_ids: [],
+      account_ids: ['001000000000001'],
+      row_count: 1,
+      duplicate_count: 0,
+      unusable_count: 0,
+      truncated: false,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => run,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      fetchRunReport('token', '00OSb00000C6fZRMAZ'),
+    ).resolves.toEqual({ run });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      action: 'run_report',
+      reportId: '00OSb00000C6fZRMAZ',
+    });
   });
 });

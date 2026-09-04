@@ -117,6 +117,35 @@ const SF_RECORDS = [
   },
 ];
 
+function makeTargetContact(id, index) {
+  const accountId = `001${String(index).padStart(12, '0')}`;
+  return {
+    Id: id,
+    Name: `Target contact ${index}`,
+    MobilePhone: '+33600000000',
+    NPA__c: false,
+    Inactif__c: false,
+    AccountId: accountId,
+    Account: { Id: accountId, Name: `Target account ${index}` },
+    Tasks: { totalSize: 0, records: [] },
+  };
+}
+
+function stubEmptyActiveSessions() {
+  mockFrom.mockImplementation((table) => {
+    if (table === 'call_sessions') {
+      return {
+        select: () => ({
+          eq: () => ({
+            or: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+      };
+    }
+    return { select: mockSelect };
+  });
+}
+
 describe('adapter exports', () => {
   it('fonctionPresets mirror front FONCTION_PRESETS ids and labels', () => {
     const backend = mapping.objects.contact.fonctionPresets;
@@ -151,6 +180,29 @@ describe('adapter exports', () => {
     expect(soql).toContain(`${mapping.objects.contact.fields.linkedin}`);
     expect(soql).not.toMatch(/NOT IN \(SELECT .* FROM Task/);
     expect(soql).toContain('LIMIT 200');
+  });
+
+  it('buildTargetQuery adds Contact Id filter for contacts_cibles', () => {
+    const soql = buildTargetQuery(
+      {
+        ...baseFilters,
+        contact: {
+          ...baseFilters.contact,
+          contacts_cibles: ['003000000000001', '003000000000002'],
+        },
+      },
+      mapping,
+      null,
+    );
+
+    expect(soql).toContain(
+      `${mapping.objects.contact.fields.id} IN ('003000000000001', '003000000000002')`,
+    );
+  });
+
+  it('buildTargetQuery does not add a contact Id filter without contacts_cibles', () => {
+    const soql = buildTargetQuery(baseFilters, mapping, null);
+    expect(soql).not.toContain(`${mapping.objects.contact.fields.id} IN (`);
   });
 
   it('buildTargetQuery adds Account tier filter', () => {
@@ -747,6 +799,317 @@ describe('POST /api/calls action=list_contacts', () => {
     expect(body.dedup).toEqual([]);
     expect(body.truncated).toBe(false);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses one SOQL query for 300 contacts_cibles', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const queryUrls = [];
+    const contactsCibles = Array.from(
+      { length: 300 },
+      (_, index) => `003${String(index).padStart(12, '0')}`,
+    );
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      queryUrls.push(url);
+      return new Response(
+        JSON.stringify({ records: [makeTargetContact(contactsCibles[0], 0)] }),
+        { status: 200 },
+      );
+    });
+    stubEmptyActiveSessions();
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: {},
+          contact: { a_telephone: true, contacts_cibles: contactsCibles },
+          relance: {},
+        },
+        limit: SOQL_FETCH_CAP,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(queryUrls).toHaveLength(1);
+    const query = new URL(queryUrls[0]).searchParams.get('q');
+    expect(query.match(/\bId IN \(([^)]*)\)/)[1].split(', ')).toHaveLength(
+      300,
+    );
+  });
+
+  it('chunks 1200 contacts_cibles and merges unique results', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const queryUrls = [];
+    const contactsCibles = Array.from(
+      { length: 1200 },
+      (_, index) => `003${String(index).padStart(12, '0')}`,
+    );
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      queryUrls.push(url);
+      const chunkIndex = queryUrls.length - 1;
+      const records =
+        chunkIndex === 0
+          ? [makeTargetContact(contactsCibles[0], 0)]
+          : chunkIndex === 1
+            ? [
+                makeTargetContact(contactsCibles[0], 0),
+                makeTargetContact(contactsCibles[1], 1),
+              ]
+            : [makeTargetContact(contactsCibles[2], 2)];
+      return new Response(JSON.stringify({ records }), { status: 200 });
+    });
+    stubEmptyActiveSessions();
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: {},
+          contact: { a_telephone: true, contacts_cibles: contactsCibles },
+          relance: {},
+        },
+        limit: SOQL_FETCH_CAP,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(queryUrls).toHaveLength(4);
+    const chunkSizes = queryUrls.map((url) => {
+      const query = new URL(url).searchParams.get('q');
+      return query.match(/\bId IN \(([^)]*)\)/)[1].split(', ').length;
+    });
+    expect(chunkSizes).toEqual([300, 300, 300, 300]);
+    const body = await res.json();
+    expect(body.contacts.map((contact) => contact.sf_contact_id)).toEqual([
+      contactsCibles[0],
+      contactsCibles[1],
+      contactsCibles[2],
+    ]);
+  });
+
+  it('applies the requested limit after merging contacts_cibles chunks', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const contactsCibles = Array.from(
+      { length: 1200 },
+      (_, index) => `003${String(index).padStart(12, '0')}`,
+    );
+    let queryIndex = 0;
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      const start = queryIndex * 2;
+      queryIndex += 1;
+      return new Response(
+        JSON.stringify({
+          records: [
+            makeTargetContact(contactsCibles[start], start),
+            makeTargetContact(contactsCibles[start + 1], start + 1),
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    stubEmptyActiveSessions();
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: {},
+          contact: { a_telephone: true, contacts_cibles: contactsCibles },
+          relance: {},
+        },
+        limit: 2,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts).toHaveLength(2);
+  });
+
+  it('keeps target-id query URLs below the Salesforce limit with presets', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const queryUrls = [];
+    const contactsCibles = Array.from(
+      { length: 500 },
+      (_, index) => `003${String(index).padStart(12, '0')}`,
+    );
+    const comptesCibles = Array.from(
+      { length: 500 },
+      (_, index) => `001${String(index).padStart(12, '0')}`,
+    );
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      queryUrls.push(url);
+      return new Response(JSON.stringify({ records: [] }), { status: 200 });
+    });
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: { comptes_cibles: comptesCibles },
+          contact: {
+            contacts_cibles: contactsCibles,
+            fonctions: ['direction', 'rh', 'achats', 'finance', 'formation'],
+          },
+          relance: {},
+        },
+        limit: SOQL_FETCH_CAP,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(queryUrls.length).toBeGreaterThan(1);
+    expect(queryUrls.every((url) => url.length < 16_384)).toBe(true);
+    // Quand des contacts sont ciblés, les comptes sont retirés de la SOQL
+    // (les ids contact sont plus sélectifs — P1-2 Opus).
+    for (const url of queryUrls) {
+      const query = new URL(url).searchParams.get('q');
+      expect(query).toContain('Id IN (');
+      expect(query).not.toContain('AccountId IN (');
+    }
+  });
+
+  it('chunks comptes_cibles above 300 ids', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const queryUrls = [];
+    const comptesCibles = Array.from(
+      { length: 1200 },
+      (_, index) => `001${String(index).padStart(12, '0')}`,
+    );
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      queryUrls.push(url);
+      return new Response(JSON.stringify({ records: [] }), { status: 200 });
+    });
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: { comptes_cibles: comptesCibles },
+          contact: {},
+          relance: {},
+        },
+        limit: SOQL_FETCH_CAP,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(queryUrls).toHaveLength(4);
+    const chunkSizes = queryUrls.map((url) => {
+      const query = new URL(url).searchParams.get('q');
+      return query.match(/AccountId IN \(([^)]*)\)/)[1].split(', ').length;
+    });
+    expect(chunkSizes).toEqual([300, 300, 300, 300]);
+  });
+
+  it('respects limit with opportunity filters on a wide fetch', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const records = Array.from({ length: 10 }, (_, index) => ({
+      Id: `003${String(index).padStart(15, '0')}`,
+      Name: `Contact ${index}`,
+      MobilePhone: '+336****0000',
+      Title: 'Chargé de formation',
+      AccountId: `001${String(index).padStart(15, '0')}`,
+      Account: {
+        Id: `001${String(index).padStart(15, '0')}`,
+        Name: `Compte ${index}`,
+      },
+      Tasks: { totalSize: 0, records: [] },
+    }));
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      if (url.includes('/query?')) {
+        return new Response(JSON.stringify({ records }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    stubEmptyActiveSessions();
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: { ...baseFilters.entreprise, opp_ouverte: true },
+          contact: {},
+          relance: {},
+        },
+        limit: 5,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.contacts).toHaveLength(5);
+  });
+
+  it('bounds concurrent SOQL requests for a large target-id product', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const contactsCibles = Array.from(
+      { length: 1001 },
+      (_, index) => `003${String(index).padStart(12, '0')}`,
+    );
+    const comptesCibles = Array.from(
+      { length: 1001 },
+      (_, index) => `001${String(index).padStart(12, '0')}`,
+    );
+    let activeQueries = 0;
+    let maxActiveQueries = 0;
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/services/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'sf-token' }), {
+          status: 200,
+        });
+      }
+      activeQueries += 1;
+      maxActiveQueries = Math.max(maxActiveQueries, activeQueries);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      activeQueries -= 1;
+      return new Response(JSON.stringify({ records: [] }), { status: 200 });
+    });
+
+    const res = await POST(
+      makeReq({
+        filters: {
+          entreprise: { comptes_cibles: comptesCibles },
+          contact: { contacts_cibles: contactsCibles },
+          relance: {},
+        },
+        limit: SOQL_FETCH_CAP,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(maxActiveQueries).toBeLessThanOrEqual(4);
   });
 
   it('returns truncated=true when the Salesforce fetch hits the SOQL cap', async () => {

@@ -7,12 +7,13 @@ import { SessionTypeSelect } from './SessionTypeSelect';
 afterEach(cleanup);
 
 describe('SessionTypeSelect', () => {
-  it('renders all 4 session type cards and the header', () => {
+  it('renders all 5 session type cards and the header', () => {
     render(
       <SessionTypeSelect
         onBack={vi.fn()}
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
+        onSelectReport={vi.fn()}
         onSelectCsv={vi.fn()}
         onSelectSurgical={vi.fn()}
       />,
@@ -43,7 +44,15 @@ describe('SessionTypeSelect', () => {
     ).toBeTruthy();
     expect(screen.getByText('🎯')).toBeTruthy();
 
-    // Card 3 — Import CSV (désactivée avec badge Bientôt)
+    // Card 3 — Rapport Salesforce
+    expect(screen.getByText('Rapport Salesforce')).toBeTruthy();
+    expect(
+      screen.getByText('Créer des séances depuis un rapport Salesforce'),
+    ).toBeTruthy();
+    expect(screen.getByText('📊')).toBeTruthy();
+    expect(screen.getByText('Nouveau')).toBeTruthy();
+
+    // Card 4 — Import CSV (désactivée avec badge Bientôt)
     expect(screen.getByText('Import CSV')).toBeTruthy();
     expect(
       screen.getByText('Importer une liste de contacts depuis un fichier CSV'),
@@ -51,7 +60,7 @@ describe('SessionTypeSelect', () => {
     expect(screen.getByText('📄')).toBeTruthy();
     expect(screen.getAllByText('Bientôt')).toHaveLength(2);
 
-    // Card 4 — Séance chirurgicale (désactivée avec badge Bientôt)
+    // Card 5 — Séance chirurgicale (désactivée avec badge Bientôt)
     expect(screen.getByText('Séance chirurgicale')).toBeTruthy();
     expect(
       screen.getByText(
@@ -70,6 +79,7 @@ describe('SessionTypeSelect', () => {
         onBack={vi.fn()}
         onSelectClassic={onSelectClassic}
         onSelectAbm={vi.fn()}
+        onSelectReport={vi.fn()}
         onSelectCsv={vi.fn()}
         onSelectSurgical={vi.fn()}
       />,
@@ -102,6 +112,7 @@ describe('SessionTypeSelect', () => {
         onBack={vi.fn()}
         onSelectClassic={vi.fn()}
         onSelectAbm={onSelectAbm}
+        onSelectReport={vi.fn()}
         onSelectCsv={vi.fn()}
         onSelectSurgical={vi.fn()}
       />,
@@ -125,6 +136,39 @@ describe('SessionTypeSelect', () => {
     expect(onSelectAbm).toHaveBeenCalledTimes(3);
   });
 
+  it('calls onSelectReport when clicking the Salesforce report card or pressing Enter/Space', async () => {
+    const user = userEvent.setup();
+    const onSelectReport = vi.fn();
+
+    render(
+      <SessionTypeSelect
+        onBack={vi.fn()}
+        onSelectClassic={vi.fn()}
+        onSelectAbm={vi.fn()}
+        onSelectReport={onSelectReport}
+        onSelectCsv={vi.fn()}
+        onSelectSurgical={vi.fn()}
+      />,
+    );
+
+    const reportCard = screen.getByRole('button', {
+      name: /Rapport Salesforce/i,
+    });
+
+    // Clic souris
+    await user.click(reportCard);
+    expect(onSelectReport).toHaveBeenCalledTimes(1);
+
+    // Clavier Enter
+    reportCard.focus();
+    await user.keyboard('{Enter}');
+    expect(onSelectReport).toHaveBeenCalledTimes(2);
+
+    // Clavier Space
+    await user.keyboard(' ');
+    expect(onSelectReport).toHaveBeenCalledTimes(3);
+  });
+
   it('does not call onSelectCsv when clicking the disabled CSV card', async () => {
     const user = userEvent.setup();
     const onSelectCsv = vi.fn();
@@ -134,6 +178,7 @@ describe('SessionTypeSelect', () => {
         onBack={vi.fn()}
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
+        onSelectReport={vi.fn()}
         onSelectCsv={onSelectCsv}
         onSelectSurgical={vi.fn()}
       />,
@@ -158,6 +203,7 @@ describe('SessionTypeSelect', () => {
         onBack={onBack}
         onSelectClassic={vi.fn()}
         onSelectAbm={vi.fn()}
+        onSelectReport={vi.fn()}
         onSelectCsv={vi.fn()}
         onSelectSurgical={vi.fn()}
       />,

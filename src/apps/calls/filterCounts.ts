@@ -21,6 +21,7 @@ export function countContactFilters(contact: FilterTree['contact']): number {
   // Defaults (téléphone + exclure NPA) don't count as "active" filters.
   if (!contact.a_telephone) count += 1;
   if (contact.fonctions.length) count += 1;
+  if (contact.contacts_cibles?.length) count += 1;
   if (!contact.exclure_npa) count += 1;
   return count;
 }

@@ -5,6 +5,7 @@ export type SessionTypeSelectProps = {
   onBack: () => void;
   onSelectClassic: () => void;
   onSelectAbm: () => void;
+  onSelectReport: () => void;
   onSelectCsv: () => void;
   onSelectSurgical: () => void;
 };
@@ -13,6 +14,7 @@ export function SessionTypeSelect({
   onBack,
   onSelectClassic,
   onSelectAbm,
+  onSelectReport,
 }: SessionTypeSelectProps) {
   const handleKeyDown = (
     e: KeyboardEvent<HTMLDivElement>,
@@ -83,8 +85,32 @@ export function SessionTypeSelect({
             </p>
           </div>
         </GlassCard>
+        {/* Card 3 — "Rapport Salesforce" */}
+        <GlassCard
+          className="calls-session-type-card"
+          role="button"
+          tabIndex={0}
+          onClick={onSelectReport}
+          onKeyDown={(e) => handleKeyDown(e, onSelectReport)}
+          aria-label="Rapport Salesforce — Créer des séances depuis un rapport Salesforce"
+        >
+          <div className="calls-session-type-card__header">
+            <div className="calls-session-type-card__icon" aria-hidden="true">
+              📊
+            </div>
+            <Tag variant="accent">Nouveau</Tag>
+          </div>
+          <div className="calls-session-type-card__content">
+            <h3 className="calls-session-type-card__title">
+              Rapport Salesforce
+            </h3>
+            <p className="calls-session-type-card__desc">
+              Créer des séances depuis un rapport Salesforce
+            </p>
+          </div>
+        </GlassCard>
 
-        {/* Card 3 — "Import CSV" (bento, span 1) */}
+        {/* Card 4 — "Import CSV" (bento, span 1) */}
         <GlassCard
           className="calls-session-type-card calls-session-type-card--disabled"
           role="button"
@@ -106,9 +132,9 @@ export function SessionTypeSelect({
           </div>
         </GlassCard>
 
-        {/* Card 4 — "Séance chirurgicale" (bento, span 2) */}
+        {/* Card 5 — "Séance chirurgicale" (bento, span 1) */}
         <GlassCard
-          className="calls-session-type-card calls-session-type-card--disabled calls-session-type-card--wide"
+          className="calls-session-type-card calls-session-type-card--disabled"
           role="button"
           aria-disabled="true"
           tabIndex={-1}

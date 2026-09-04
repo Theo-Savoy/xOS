@@ -30,6 +30,10 @@ export type AbmWizardRecapProps = {
   onNext: () => void;
   onStepClick?: (step: WizardStep) => void;
   className?: string;
+  /** Nom du mode affiché dans le CTA final (défaut : ABM). */
+  ctaNoun?: string;
+  /** Libellé de la ligne de requête/source (défaut : Recherche). */
+  queryLabel?: string;
 };
 
 function EditStepIcon(): ReactNode {
@@ -78,6 +82,8 @@ export function AbmWizardRecap({
   onNext,
   onStepClick,
   className = '',
+  ctaNoun = 'ABM',
+  queryLabel = 'Recherche',
 }: AbmWizardRecapProps) {
   const nextCtaLabel =
     step === 0
@@ -89,8 +95,8 @@ export function AbmWizardRecap({
         : creating
           ? 'Création en cours…'
           : sessionsCount > 0
-            ? `Créer ${sessionsCount} séance${sessionsCount > 1 ? 's' : ''} ABM`
-            : 'Créer séance ABM';
+            ? `Créer ${sessionsCount} séance${sessionsCount > 1 ? 's' : ''} ${ctaNoun}`
+            : `Créer séance ${ctaNoun}`;
 
   const nextDisabled =
     step === 0
@@ -128,7 +134,7 @@ export function AbmWizardRecap({
         <div className="calls-wizard-recap__breakdown">
           {query.trim() ? (
             <div className="calls-wizard-recap__item">
-              <span className="calls-wizard-recap__item-label">Recherche</span>
+              <span className="calls-wizard-recap__item-label">{queryLabel}</span>
               <span
                 className="calls-wizard-recap__item-value calls-wizard-recap__item-value--truncate"
                 title={query}
